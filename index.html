@@ -4949,7 +4949,6 @@ async function bakeMp4() {
 async function exportPngSeq() {
   const A = anim();
   if (!A.tracks.length) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
-  animStop();
   const [W, H] = RES[S.res].size;
   const n = Math.round(A.dur * A.fps);
   const tag = S.res === '2158x1214' ? 'touch' : 'normal';
@@ -4962,13 +4961,25 @@ async function exportPngSeq() {
       message: '저장할 폴더 이름을 정하세요.\n다음에 위치를 고르면 그 폴더가 만들어지고, 프레임이 전부 그 안에 모입니다.',
       value: defName, ok: '위치 고르기' });
     if (nm == null) return;   // 취소
-    folderName = (nm.replace(/[\\/:*?"<>|]/g, '_').trim()) || defName;
-    try {
-      const parent = await window.showDirectoryPicker({ mode: 'readwrite' });
-      dir = await parent.getDirectoryHandle(folderName, { create: true });
-    } catch (e) { if (e.name === 'AbortError') return; dir = null; /* 그 외 실패 → 다운로드 폴백 */ }
+    // 폴더 이름 정화 — 금지문자·제어문자·끝의 점/공백 제거, '.'/'..'·윈도우 예약어 방지
+    folderName = nm.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/[.\s]+$/, '').trim();
+    if (folderName === '.' || folderName === '..') folderName = '';
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(folderName)) folderName = '_' + folderName;
+    folderName = folderName || defName;
+    let parent = null;
+    try { parent = await window.showDirectoryPicker({ mode: 'readwrite' }); }
+    catch (e) { if (e.name === 'AbortError') return; parent = null; /* 피커 자체 미동작 → 아래서 다운로드 폴백 */ }
+    if (parent) {
+      try { dir = await parent.getDirectoryHandle(folderName, { create: true }); }
+      catch (e) {
+        // 위치는 골랐는데 폴더를 못 만들면, 낱장 다운로드로 쏟지 않고 알리고 멈춘다.
+        status(`그 위치에 "${folderName}" 폴더를 못 만들었습니다 (${e.message || e}) — 다른 위치·이름으로 다시 해보세요`, true);
+        return;
+      }
+    }
   }
 
+  animStop();
   const btn = $('#tlExportPng');
   btn.disabled = true;
   const c = document.createElement('canvas');
@@ -4983,7 +4994,9 @@ async function exportPngSeq() {
       const fname = `${folderName}_${String(i).padStart(4, '0')}.png`;
       if (dir) {
         const fh = await dir.getFileHandle(fname, { create: true });
-        const w = await fh.createWritable(); await w.write(blob); await w.close();
+        const w = await fh.createWritable();
+        try { await w.write(blob); await w.close(); }
+        catch (err) { try { await w.abort(); } catch (_) { /* 무시 */ } throw err; }
       } else {
         download(blob, fname);
         await new Promise((r) => setTimeout(r, 40));   // 다운로드 폴백만 브라우저가 소화할 틈이 필요
