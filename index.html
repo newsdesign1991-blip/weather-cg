@@ -4255,15 +4255,7 @@ function applyBulletin(txt) {
   S.labels = S.labels.filter((b) => !b.bul);
   let madeLabels = 0;
   if ($('#bulLabels').checked) {
-    // 라벨 값(labelTxt)별로 그 값에 해당하는 지역 이름들을 모아 둔다 → 라벨 윗줄(지역명)에 넣는다.
-    // (자동으로 넣고, 개별 조절·삭제는 '수치 라벨' 탭에서 한다.)
-    const regionByLabel = new Map();
-    for (const g of groups) {
-      if (!g.labelTxt || !g.regionText) continue;
-      const arr = regionByLabel.get(g.labelTxt) || [];
-      if (!arr.includes(g.regionText)) arr.push(g.regionText);
-      regionByLabel.set(g.labelTxt, arr);
-    }
+    // 숫자 라벨만 만든다. 윗줄(지역명)은 자동으로 안 넣는다 — 필요하면 '수치 라벨' 탭에서 직접 추가.
     for (const rg of ranges) {
       const col = (colOf[rg.labelTxt] || '').toUpperCase();
       let wx = 0, wy = 0, area = 0;
@@ -4272,10 +4264,7 @@ function applyBulletin(txt) {
         for (const { el: e } of arr) { const r = zoneRectRoot(e); const a = Math.max((r.x1 - r.x0) * (r.y1 - r.y0), 1); wx += ((r.x0 + r.x1) / 2) * a; wy += ((r.y0 + r.y1) / 2) * a; area += a; }
       }
       if (!area) continue;
-      // 지역이 너무 많으면(전국·광범위) 윗줄이 길어져 지저분해지니 넣지 않는다.
-      const regs = regionByLabel.get(rg.labelTxt) || [];
-      const title = (regs.length && regs.length <= 3 && regs.join('·').length <= 16) ? regs.join('·') : '';
-      S.labels.push(newLabel({ txt: rg.labelTxt, title, x: Math.round(wx / area), y: Math.round(wy / area), fill: colOf[rg.labelTxt], bul: 1 }));
+      S.labels.push(newLabel({ txt: rg.labelTxt, x: Math.round(wx / area), y: Math.round(wy / area), fill: colOf[rg.labelTxt], bul: 1 }));
       madeLabels++;
     }
   }
