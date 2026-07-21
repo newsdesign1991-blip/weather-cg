@@ -5201,8 +5201,9 @@ async function saveProject(saveAs) {
 // 지금까지 저장한 모든 화면 기본배치를 default-presets.js 파일로 구워 낸다.
 // 그 파일을 WeatherCG 폴더에 두면 새로 받은 사람도(localStorage 비어 있을 때) 이 배치로 열린다.
 async function bakeDefaults() {
-  let presets = {};
-  try { presets = JSON.parse(localStorage.getItem('wcg_presets') || '{}'); } catch (e) { /* 무시 */ }
+  // '지금 유효한' 배치 전체(배포 기본배치 + 내가 저장한 화면)를 굽는다.
+  // localStorage만 raw로 읽으면 내가 이번에 저장한 화면만 담겨, 나머지 배치가 통째로 사라진다.
+  const presets = loadPresets();
   const keys = Object.keys(presets);
   if (!keys.length) { status('저장된 배치가 없습니다 — 각 화면에서 "현재 배치를 이 화면 기본값으로"를 먼저 누르세요', true); return; }
   const js = '// 모두의 기본 배치 (fresh install 때 이 배치로 열린다). 앱의 굽기 버튼으로 다시 만들 수 있다.\nwindow.WCG_DEFAULTS = ' + JSON.stringify(presets) + ';\n';
