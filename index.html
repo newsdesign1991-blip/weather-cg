@@ -816,6 +816,9 @@
     border-radius: var(--rb); padding: 9px 11px; font-weight: 600; letter-spacing: -.01em; cursor: pointer;
   }
   a.linkBtn:hover { background: var(--btn-hover); }
+  /* 강조 링크버튼 (눌러야 열린다는 걸 알리게 파란색으로) — button.pri 는 button 전용이라 a 에는 따로 준다 */
+  a.linkBtn.pri { background: var(--accent-grad, var(--primary)); border-color: var(--primary); color: var(--on-primary); font-weight: 700; box-shadow: 0 4px 12px -4px rgba(49,130,246,.5); }
+  a.linkBtn.pri:hover { filter: brightness(1.05); background: var(--accent-grad, var(--primary)); }
   #bulHelpBtn { flex: 1; }
   /* 통보문으로 칠한 색 목록 (색 상자 눌러 한 번에 다른 색으로) */
   .bulList { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
@@ -998,10 +1001,9 @@
         <!-- 통보문으로 색칠 (강수량 문자) — 맨 위로 -->
         <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 강수량 문자 붙여넣기</span></div>
         <div class="bulBox">
-          <p class="hint" style="margin-top:0">기상청 <b>통보문</b>의 강수량 부분을 그대로 붙여넣으면 <b>지금 보는 지도</b>에 자동으로 칠하고 숫자 라벨을 만듭니다. 시도군 지도에선 그 도의 시군을 전부 칠해 미세 조정할 수 있습니다.
-예) <code>- (충청권) 대전.세종.충남, 충북: 20~60mm</code></p>
+          <p class="hint" style="margin-top:0">기상청 <b>통보문</b>의 강수량 부분을 그대로 붙여넣으면 <b>지금 보는 지도</b>에 자동으로 칠하고 숫자 라벨을 만듭니다. 시도군 지도에선 그 도의 시군을 전부 칠해 미세 조정할 수 있습니다.</p>
           <div class="btns" style="margin:0 0 8px">
-            <a class="btn linkBtn" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지에서 통보문을 복사하세요">기상청 단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
+            <a class="btn linkBtn pri" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지에서 통보문을 복사하세요">기상청 단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
             <button type="button" id="bulHelpBtn" title="통보문에서 복사할 부분을 그림으로 보기">복사할 부분 보기</button>
           </div>
           <textarea id="bulPaste" rows="5" placeholder="- (수도권, 16일) 경기남서부: 5mm 안팎&#10;- (충청권) 대전.세종.충남, 충북: 20~60mm&#10;- (전라권) 전북, 광주.전남: 30~80mm&#10;..."></textarea>
