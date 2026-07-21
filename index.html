@@ -3887,11 +3887,14 @@ function buildWrnList() {
     d.className = 'item';
     // 발표시각이 구역마다 다르면 범위로 보여준다 ("7/12 16:00~7/15 10:00")
     const fc = a.fc0 === a.fc1 ? tmShort(a.fc0) : tmShort(a.fc0) + '~' + tmShort(a.fc1);
+    // 이름(폭염경보 등)을 윗줄에 온전히, 발표시각은 아랫줄에 — 한 줄에 다 넣으면 이름이 1글자로 잘린다.
     d.innerHTML = `<button class="eye${on ? '' : ' off'}"></button>` +
       `<div class="dot" style="background:${wrnColorOf(a.wrn, a.lvl) || '#666'}"></div>` +
-      `<div class="nm" style="flex:1;min-width:0"></div>` +
-      `<span class="fc" style="color:var(--on-surface-var);font-size:10px;white-space:nowrap"></span>` +
-      `<span style="color:var(--on-surface-var)">${a.n}구역</span>`;
+      `<div style="flex:1;min-width:0">` +
+        `<div class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>` +
+        `<div class="fc" style="color:var(--on-surface-var);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>` +
+      `</div>` +
+      `<span style="color:var(--on-surface-var);white-space:nowrap;font-size:11px">${a.n}구역</span>`;
     d.querySelector('.nm').textContent = a.wrn + ' ' + a.lvl;
     d.querySelector('.fc').textContent = fc;
     d.title = (fc ? `발표 ${fc}` : '') + (isPre(a.lvl) ? '\n예비특보 — 아직 발효된 게 아닙니다' : '');
