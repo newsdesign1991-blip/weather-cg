@@ -672,7 +672,10 @@
     font-weight: 800; box-shadow: 0 2px 8px rgba(49, 130, 246, .35);
   }
   #tlAuto:hover { filter: brightness(1.05); background: var(--accent-grad, var(--primary)); }
-  .tlTime { color: var(--on-surface-var); font-variant-numeric: tabular-nums; }
+  .tlTime { color: var(--on-surface-var); font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 7px; }
+  /* 추출(MP4/PNG) 진행 바 — #tlInfo 안에 얇은 바로 보여준다 */
+  .tlProg { display: inline-block; width: 150px; height: 10px; border-radius: 999px; background: var(--surface-hi); border: 1px solid var(--outline-var); overflow: hidden; vertical-align: middle; flex: none; }
+  .tlProgFill { display: block; height: 100%; width: 0; background: var(--accent-grad, var(--primary)); transition: width .12s linear; }
   .tlNum { display: flex; align-items: center; gap: 4px; color: var(--on-surface-var); }
   .tlNum input { width: 54px; flex: none; padding: 4px 6px; }
   .tlClose { margin-left: auto; background: none; border: none; color: var(--on-surface-var); }
@@ -4736,6 +4739,13 @@ function flash(m) {
   n.classList.remove('show'); void n.offsetWidth; n.classList.add('show');   // 애니메이션 재시작
 }
 
+// 추출(MP4/PNG 시퀀스) 진행 바 — #tlInfo 안에 얇은 바 + 텍스트로 보여준다.
+function exportProgress(done, total, label) {
+  const el = $('#tlInfo'); if (!el) return;
+  const pct = total ? Math.max(0, Math.min(100, Math.round(done / total * 100))) : 0;
+  el.innerHTML = `<span class="tlProg"><span class="tlProgFill" style="width:${pct}%"></span></span>${label} ${done}/${total} · ${pct}%`;
+}
+
 // 토스 카드 스타일 확인 모달. confirm()의 예쁜 버전. Promise<boolean> 반환.
 // opts: { title, message, ok, cancel, danger }. 실수로 누르면 곤란한 버튼에 쓴다.
 // DOM은 한 번만 만들어 두고 열고 닫기만 한다(재생성 X — 핸들러 유지).
@@ -4876,7 +4886,7 @@ async function bakeMp4() {
       const frame = new VideoFrame(c, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       encoder.encode(frame, { keyFrame: i % (Math.round(fps) * 2) === 0 });
       frame.close();
-      $('#tlInfo').textContent = `MP4 만드는 중… ${i + 1}/${n}`;
+      exportProgress(i + 1, n, 'MP4 만드는 중');
       while (encoder.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 4));
     }
     await encoder.flush();
@@ -4919,7 +4929,7 @@ async function exportPngSeq() {
       cx.drawImage(img, 0, 0, W, H);
       const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
       download(blob, `cg_${W}x${H}_${String(i).padStart(4, '0')}.png`);
-      $('#tlInfo').textContent = `PNG ${i}/${n}`;
+      exportProgress(i, n, 'PNG 만드는 중');
       await new Promise((r) => setTimeout(r, 40));   // 브라우저가 다운로드를 소화할 틈
     }
     $('#tlInfo').textContent = `${n + 1}장 저장됨 (${A.fps}fps로 합치세요)`;
