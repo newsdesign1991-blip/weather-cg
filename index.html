@@ -6394,15 +6394,16 @@ function setDockSide(side) {
   saveLayout();   // 사용자 조작일 때만 저장
 }
 
-// 툴바 좌우 위치. null 이면 기본 = '사이드바에 붙는 쪽'(왼쪽 도킹→왼쪽, 오른쪽 도킹→오른쪽).
+// 툴바 좌우 위치. null 이면 기본 = 스테이지(캔버스) 가운데. 내가 끌어 옮기면 그 자리를 기억한다.
 // 스테이지 안에서 절대배치라 스테이지 폭 기준으로 잡는다.
-let toolbarX = null;   // 처음 켰을 때 기본: 사이드바 쪽에 붙임
+let toolbarX = null;   // 처음 켰을 때 기본: 가운데 (사이드바 크기가 바뀌어도 다시 가운데로)
 function applyToolbarPos() {
   const tb = $('#topbar'), st = $('#stage');
   if (!tb || !st) return;
   const max = Math.max(16, st.clientWidth - tb.offsetWidth - 16);
-  // 기본(null): 사이드바가 왼쪽이면 상단바도 왼쪽(16)에 붙이고, 오른쪽이면 오른쪽(max)에 붙인다.
-  const x = toolbarX == null ? (dockSide === 'left' ? 16 : max) : clamp(toolbarX, 16, max);
+  // 기본(null): 스테이지 가운데. 내가 안 건드리면 좌우로 치우치지 않고 항상 가운데에 온다.
+  const center = clamp(Math.round((st.clientWidth - tb.offsetWidth) / 2), 16, max);
+  const x = toolbarX == null ? center : clamp(toolbarX, 16, max);
   tb.style.left = Math.round(x) + 'px';
 }
 const secNode = (s) => document.querySelector(`.sec[data-sec="${s}"]`);
