@@ -4614,16 +4614,24 @@ const presetLabel = (key) => {
 function savePreset() {
   const p = {};
   for (const k of PRESET_KEYS) p[k] = JSON.parse(JSON.stringify(S[k]));
-  const all = loadPresets();
-  all[presetKey()] = p;
-  localStorage.setItem('wcg_presets', JSON.stringify(all));
+  // 내가 저장한 것만 localStorage에 둔다(배포 기본배치는 복사하지 않는다).
+  // → 안 건드린 화면은 계속 배포 기본배치를 따르고, 새 기본배치를 올리면 그 화면엔 바로 반영된다.
+  const mine = userPresets();
+  mine[presetKey()] = p;
+  localStorage.setItem('wcg_presets', JSON.stringify(mine));
   showPresetInfo();
   status(`${presetLabel(presetKey())} 배치로 저장됨`);
 }
+// 이 브라우저에 '내가 직접 저장'한 배치만 (없으면 {}).
+function userPresets() {
+  try { const raw = localStorage.getItem('wcg_presets'); if (raw) return JSON.parse(raw) || {}; } catch (e) { /* 무시 */ }
+  return {};
+}
+// 지금 유효한 배치 = '모두의 기본 배치'(default-presets.js = WCG_DEFAULTS)를 바탕으로,
+// 내가 저장한 화면만 덮어쓴 것. 새로 저장한 배치가 없는 화면은 '항상' 배포 기본배치가 기본이 된다.
 function loadPresets() {
-  try { const raw = localStorage.getItem('wcg_presets'); if (raw && raw !== '{}') return JSON.parse(raw); } catch (e) { /* 무시 */ }
-  // 내 저장분이 없으면 '모두의 기본 배치'(default-presets.js)로 — fresh install이 이 배치로 열린다.
-  return (window.WCG_DEFAULTS && typeof window.WCG_DEFAULTS === 'object') ? window.WCG_DEFAULTS : {};
+  const base = (window.WCG_DEFAULTS && typeof window.WCG_DEFAULTS === 'object') ? window.WCG_DEFAULTS : {};
+  return { ...base, ...userPresets() };
 }
 
 // ===================== 작업 내용 자동 저장 =====================
