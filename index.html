@@ -374,10 +374,13 @@
      알아서 캔버스 쪽 모서리에 붙는다 (fixed로 잡아두면 사이드바 위로 올라탄다) */
   .topbar {
     position: absolute; top: 12px; left: 16px; display: flex; gap: 8px; align-items: center;
+    flex-wrap: wrap; row-gap: 6px;   /* 자리가 부족하면 버튼을 잘라 접지 말고 아래 줄로 흘린다 */
     background: color-mix(in srgb, var(--surface-c) 92%, transparent); border: 1px solid var(--outline-var);
     border-radius: 12px; padding: 7px 10px 7px 6px; backdrop-filter: blur(6px); z-index: 10;
     box-shadow: 0 2px 10px var(--shade); max-width: calc(100% - 32px);
   }
+  /* 상단바 버튼 글자는 절대 줄바꿈하지 않는다 — 사이드바를 키워 좁아져도 '영상으로 추/출'처럼 안 쪼개지게 */
+  .topbar button { white-space: nowrap; flex: none; }
   .topbar .sep { width: 1px; height: 18px; background: var(--outline-var); }
   /* 툴바를 좌우로 끌어 옮기는 손잡이 */
   .tbGrip {
@@ -978,7 +981,7 @@
           </div>
           <textarea id="bulPaste" rows="5" placeholder="- (수도권, 16일) 경기남서부: 5mm 안팎&#10;- (충청권) 대전.세종.충남, 충북: 20~60mm&#10;- (전라권) 전북, 광주.전남: 30~80mm&#10;..."></textarea>
           <div class="btns" style="margin:6px 0; flex-direction:column; align-items:stretch; gap:5px">
-            <label class="chk"><input type="checkbox" id="bulLabels" checked>숫자 라벨도 만들기</label>
+            <label class="chk"><input type="checkbox" id="bulLabels" checked>숫자 라벨도 만들기 <span style="opacity:.6">(윗줄 지역명은 수치 라벨 탭에서 조절)</span></label>
             <label class="chk"><input type="checkbox" id="bulSoft">부드러운 경계 (아사모사) — 색을 경계에서 흐릿하게 섞기</label>
           </div>
           <div class="btns" style="margin-bottom:2px"><button class="pri" id="bulApply">통보문으로 색칠</button></div>
@@ -1174,6 +1177,9 @@
         <div id="labelEdit" style="display:none;margin-top:10px">
           <div class="row wide"><label>내용</label><input type="text" id="lTxt"></div>
           <div class="btns" style="margin-bottom:7px"><button data-ins="⬆">⬆ 넣기</button><button data-ins="⬇">⬇ 넣기</button><button data-ins="~">~ 넣기</button></div>
+          <div class="row wide"><label>윗줄(지역)</label><input type="text" id="lTitle" placeholder="예: 경기북부·경북북부 (비우면 숫자만)"></div>
+          <div class="row wide"><label>윗줄 크기</label><input type="range" id="lTitleR" min="20" max="90" step="1"><span class="v" id="lTitleRV">75</span>%</div>
+          <div class="row"><label>구분선</label><label class="chk" style="flex:1"><input type="checkbox" id="lDivider" checked>윗줄과 숫자 사이 선</label></div>
           <div class="row wide"><label>칠 색</label><input type="color" id="lFill"><input type="text" id="lFillHex"></div>
           <div class="row wide"><label>글자색</label><input type="color" id="lTxtCol"><input type="text" id="lTxtColHex"></div>
           <div class="row wide"><label>테두리</label><input type="color" id="lStroke"><input type="number" id="lStrokeW" step="0.5" style="flex:0 0 60px"></div>
@@ -1488,8 +1494,8 @@
     <p class="hint" style="margin-top:0"><b>기상청 API 허브</b>에서 로그인하고 인증키를 발급받으면 특보·예보를 가져올 수 있습니다.
 API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 신청 안 한 것은 안 나옵니다.</p>
     <div class="btns" style="margin-bottom:8px"><button class="pri" id="apiSite">apihub.kma.go.kr 열기</button></div>
-    <div class="row wide"><label>인증키</label><input type="password" id="apiKey" placeholder="발급받은 인증키를 붙여넣기"></div>
-    <p class="hint" id="apiInfo">인증키는 이 브라우저에만 저장되고 파일에는 안 들어갑니다.</p>
+    <div class="row wide"><label>인증키</label><input type="password" id="apiKey" placeholder="기본 키가 들어 있어요 — 개인 키가 있으면 붙여넣기"></div>
+    <p class="hint" id="apiInfo"><b>기본 인증키가 내장</b>되어 있어 바로 쓸 수 있습니다. 직접 발급받은 키를 넣으면 그 키를 씁니다(개인 키 권장 — 할당량을 나눠 쓰지 않아요). 키는 이 브라우저에만 저장되고 파일엔 안 들어갑니다.</p>
   </div>
 </div>
 
@@ -1602,6 +1608,7 @@ const DEFAULTS = () => ({
   txtShadow: 1,  // 제목 텍스트 그림자 — 지도와 같은 그림자
   mtns: [],      // 산 표시
   softFill: 0,   // 아사모사(부드러운 경계) — 통보문 색칠을 경계에서 부드럽게 섞을지
+  softZonesByStyle: {}, // 지도 종류별 '부드럽게' 대상 구역 id들(내륙·해안·산지처럼 애매한 표현만). 확실한 지명은 또렷하게 둔다.
   // 영상용. tracks = [{id, kind:'fill'|'label'|'text'|'mtn', key, start, len}]
   // fps 기본 30 — 어차피 PNG 시퀀스로 편집 툴에 넘겨 쓰므로 딱 떨어지는 30이 편하다.
   // reveal: 색칠이 나타나는 방식 — 'dissolve'(번짐) / 'blinds'(블라인드, AE 효과)
@@ -2205,12 +2212,34 @@ function renderFills() {
       e.setAttribute('stroke-width', S.strokeW / (sc || 1));
     }
   }
-  // 아사모사(부드러운 경계): 본토 칠 그룹에만 블러+육지클립. 경계선(#zoneLineMain 등)은 형제라 안 흐려진다.
+  // 아사모사(부드러운 경계): '내륙·해안·산지'처럼 애매하게 표현된 구역만 블러로 번지게 하고,
+  // '경북·전북' 같은 확실한 지명은 또렷하게 둔다. 애매한 구역만 블러 그룹(#gMainSoft)에 복제해 겹친다.
+  // 경계선(#zoneLineMain 등)은 #gMain의 형제라 안 흐려진다.
   const gm = $('#gMain');
   if (gm) {
-    const clipD = ($('#landClipMainP')?.getAttribute('d') || '');   // 클립 경로가 비면 클립을 걸지 않는다(지도 통째로 사라짐 방지)
-    if (S.softFill) { gm.setAttribute('filter', 'url(#softFillF)'); if (clipD.length > 4) gm.setAttribute('clip-path', 'url(#landClipMain)'); else gm.removeAttribute('clip-path'); }
-    else { gm.removeAttribute('filter'); gm.removeAttribute('clip-path'); }
+    const clipD = ($('#landClipMainP')?.getAttribute('d') || '');   // 클립 경로가 비면 클립을 안 건다(지도 통째로 사라짐 방지)
+    let soft = $('#gMainSoft');
+    const sz = (S.softZonesByStyle && S.softZonesByStyle[S.style]) || [];   // 지도 종류별 애매 구역
+    const softIds = (S.softFill && Array.isArray(sz)) ? sz.filter((id) => F[id]) : [];
+    if (S.softFill && softIds.length) {
+      // 선별 블러 — 본토(#gMain)는 또렷하게 두고, 애매한 구역만 블러 오버레이로.
+      // 확실한 지명(전북·경북 등)은 절대 흐려지지 않는다.
+      gm.removeAttribute('filter'); gm.removeAttribute('clip-path');
+      if (!soft) { soft = el('g', { id: 'gMainSoft' }); }
+      if (soft.parentNode !== gm) gm.appendChild(soft);   // 항상 #gMain 안에 = 본토 변환 그대로 상속
+      soft.setAttribute('filter', 'url(#softFillF)');
+      soft.setAttribute('pointer-events', 'none');
+      if (clipD.length > 4) soft.setAttribute('clip-path', 'url(#landClipMain)'); else soft.removeAttribute('clip-path');
+      soft.textContent = '';
+      for (const id of softIds) {
+        const arr = zoneEls.get(id); if (!arr) continue;
+        for (const { el: e, inset } of arr) { if (inset) continue; soft.appendChild(el('path', { 'data-id': id, d: e.getAttribute('d') || '', fill: F[id], stroke: 'none' })); }
+      }
+    } else {
+      // 부드러운 경계 꺼짐, 또는 애매한 구역이 하나도 없으면 → 전부 또렷(블러 없음)
+      if (soft) soft.remove();
+      gm.removeAttribute('filter'); gm.removeAttribute('clip-path');
+    }
   }
   renderZoneLines();
   renderSidoLines();
@@ -2360,7 +2389,7 @@ function renderTexts() {
 // 라벨 하나. 직접 추가하는 것과 색 따라 자동 생성하는 것이 같은 기본값을 쓰도록 여기 모아둔다.
 // 굵기 500(Medium) — 800은 방송 화면에서 너무 두껍다.
 const newLabel = (o) => Object.assign({
-  id: 'x' + seq++, txt: '입력', x: 780, y: 600,
+  id: 'x' + seq++, txt: '입력', title: '', titleRatio: 0.75, divider: 1, x: 780, y: 600,
   fill: activeColor, txtCol: '#FFFFFF', stroke: '#FFFFFF', strokeW: 1.5,
   size: 40, w: 500, track: -1, padX: 20, padY: 12, radius: 0,
 }, o);
@@ -2376,19 +2405,45 @@ function renderLabels() {
   for (const b of S.labels) {
     if (b.off) continue; // 눈 꺼짐 — 화면에도 추출에도 안 나온다
     const size = Math.max(1, b.size * k), padX = b.padX * k, padY = b.padY * k;
+    const weight = b.w == null ? 500 : b.w;
+    const track = (b.track == null ? -1 : b.track) * k;
     const g = el('g', { class: 'drag', 'data-kind': 'label', 'data-id': b.id, transform: `translate(${b.x} ${b.y})` });
     const r = el('rect', { fill: b.fill, stroke: b.stroke, 'stroke-width': b.strokeW * k, rx: b.radius * k, ry: b.radius * k });
-    const t = el('text', {
-      fill: b.txtCol, 'font-family': '"Wanted Sans Variable"', 'font-size': size,
-      'font-weight': b.w == null ? 500 : b.w, 'text-anchor': 'middle',
-      'letter-spacing': (b.track == null ? -1 : b.track) * k, y: 0,
-      'dominant-baseline': 'central', 'xml:space': 'preserve',
-    });
-    t.textContent = b.txt;
-    g.append(r, t);
-    L.append(g);
-    const bb = t.getBBox();
-    const w = bb.width + padX * 2, h = size + padY * 2;
+    g.append(r);
+    // 텍스트 한 줄 만들기 헬퍼 (세로 중심 = yc)
+    const mkText = (txt, fs, fw, yc) => {
+      const t = el('text', {
+        fill: b.txtCol, 'font-family': '"Wanted Sans Variable"', 'font-size': fs,
+        'font-weight': fw, 'text-anchor': 'middle', 'letter-spacing': track, y: yc,
+        'dominant-baseline': 'central', 'xml:space': 'preserve',
+      });
+      t.textContent = txt;
+      g.append(t);
+      return t;
+    };
+    const title = (b.title || '').trim();
+    let cw, ch;
+    if (title) {
+      // 2단 라벨: 윗줄(지역명, 작게) + 아랫줄(숫자, 크게) + 그 사이 구분선. 예시 "경기북부·경북북부 / 120↑"
+      const tSize = Math.max(1, size * (b.titleRatio == null ? 0.75 : b.titleRatio));
+      const showDiv = (b.divider == null ? 1 : b.divider);
+      const gap = size * (showDiv ? 0.28 : 0.1);   // 구분선이 있으면 위아래로 여백을 준다
+      const H = tSize + gap + size;
+      const tTit = mkText(title, tSize, Math.max(400, weight - 100), -(H / 2) + tSize / 2);
+      const tNum = mkText(b.txt, size, weight, (H / 2) - size / 2);
+      L.append(g);
+      cw = Math.max(tTit.getBBox().width, tNum.getBBox().width); ch = H;
+      if (showDiv) {
+        const dy = (tSize - size) / 2;   // 윗줄·숫자 사이 간격의 한가운데
+        g.append(el('line', { x1: -cw / 2, x2: cw / 2, y1: dy, y2: dy,
+          stroke: b.txtCol, 'stroke-width': Math.max(1.2, size * 0.035), 'stroke-opacity': 0.85, 'stroke-linecap': 'round' }));
+      }
+    } else {
+      const t = mkText(b.txt, size, weight, 0);
+      L.append(g);
+      cw = t.getBBox().width; ch = size;
+    }
+    const w = cw + padX * 2, h = ch + padY * 2;
     r.setAttribute('x', -w / 2); r.setAttribute('y', -h / 2);
     r.setAttribute('width', w); r.setAttribute('height', h);
   }
@@ -2786,7 +2841,7 @@ function buildLabelList() {
     d.className = 'item' + (isSel('label', b.id) ? ' on' : '');
     d.innerHTML = `<button class="eye${b.off ? ' off' : ''}" title="켜기/끄기"></button>` +
       `<div class="dot" style="background:${b.fill}"></div><div class="nm"></div><span class="x">✕</span>`;
-    d.querySelector('.nm').textContent = b.txt;
+    d.querySelector('.nm').textContent = (b.title ? b.title.trim() + ' · ' : '') + b.txt;
     d.querySelector('.nm').style.opacity = b.off ? '.45' : '';
     d.onclick = (e) => {
       if (e.target.classList.contains('eye')) {
@@ -2922,6 +2977,9 @@ function refreshPanel() {
   $('#labelEdit').style.display = b ? '' : 'none';
   if (b) {
     $('#lTxt').value = b.txt; $('#lFill').value = b.fill; $('#lFillHex').value = b.fill;
+    $('#lTitle').value = b.title || '';
+    { const rr = b.titleRatio == null ? 75 : Math.round(b.titleRatio * 100); $('#lTitleR').value = rr; $('#lTitleRV').textContent = rr; }
+    $('#lDivider').checked = (b.divider == null ? true : !!b.divider);
     $('#lTxtCol').value = b.txtCol; $('#lTxtColHex').value = b.txtCol;
     $('#lStroke').value = b.stroke; $('#lStrokeW').value = b.strokeW;
     $('#lSize').value = b.size; $('#lPadX').value = b.padX; $('#lPadY').value = b.padY;
@@ -3628,6 +3686,9 @@ const isPre = (lvl) => /예비/.test(lvl);
 // 인증키와 주소는 작업 내용이 아니라 '이 컴퓨터 설정'이라 localStorage에만 둔다
 // (작업 파일에 넣으면 남에게 파일을 주는 순간 인증키까지 같이 넘어간다).
 const WRN_KEY_STORE = 'wcg_apikey';
+// 기본 내장 인증키 — API를 모르는 사람도 바로 쓸 수 있게 발급받은 키를 넣어 둔다.
+// 직접 발급받은 키를 API 설정에 넣으면 그게 우선한다(개인 키가 있으면 할당량을 안 나눠 쓴다).
+const DEFAULT_API_KEY = 'NLhz0yHAS2y4c9MhwJtsfA';
 const API_SITE = 'https://apihub.kma.go.kr/';
 const API_BASE = 'https://apihub.kma.go.kr/api/typ01/url/';
 const API_URLS = {
@@ -3639,7 +3700,7 @@ const API_URLS = {
   fctMedTa:   API_BASE + 'fct_afs_wc.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctReg:  API_BASE + 'fct_shrt_reg.php?tmfc=0&authKey={KEY}',
 };
-const apiKey = () => (localStorage.getItem(WRN_KEY_STORE) || '').trim();
+const apiKey = () => ((localStorage.getItem(WRN_KEY_STORE) || '').trim() || DEFAULT_API_KEY);
 
 const apiPop = (on) => {
   $('#apiPop').classList.toggle('on', on);
@@ -4065,7 +4126,11 @@ function applyBulletin(txt) {
   // 존 채우기 + 그룹별로 칠한 존 기록(라벨 중심 계산용)
   const F = {};
   const groupZones = groups.map(() => []);
-  const put = (id, col, gi) => { F[id] = col; groupZones[gi].push(id); };
+  // '부드러운 경계' 대상 구역 모으기 — 내륙·해안·산지처럼 경계가 애매한 표현만. soft=true일 때만 담고,
+  // 나중에 다른(확실한) 스펙이 덧칠하면 빼서, 마지막에 칠한 성격을 따르게 한다.
+  const softZones = new Set();
+  const isVague = (raw) => /내륙|해안|산지/.test(raw || '');
+  const put = (id, col, gi, soft) => { F[id] = col; groupZones[gi].push(id); if (soft) softZones.add(id); else softZones.delete(id); };
   const sidoOf = (id) => (st === 'sido' ? id : id.split('/')[0]);
   const zonesByProv = {};
   for (const id of zoneEls.keys()) (zonesByProv[sidoOf(id)] ||= []).push(id);
@@ -4084,7 +4149,7 @@ function applyBulletin(txt) {
       const names = coastNamesOf(prov, s.raw);
       if (!names) continue;
       let painted = false;
-      for (const id of all) if (!coastDone.has(id) && names.includes(id.split('/')[1])) { put(id, s.col, s.gi); coastDone.add(id); painted = true; }
+      for (const id of all) if (!coastDone.has(id) && names.includes(id.split('/')[1])) { put(id, s.col, s.gi, true); coastDone.add(id); painted = true; }   // 해안 = 애매 → 부드럽게
       if (painted) usedBase.add(s);                       // 실제로 칠했을 때만 소비 (시도 지도에서 빈칸 방지)
     }
     const ids = all.filter((id) => !coastDone.has(id));
@@ -4094,32 +4159,32 @@ function applyBulletin(txt) {
       const hasFull = rest.some((s) => !s.dir);   // 방향 없는 스펙 = 도 전체 담당
       if (st === 'sido' || !dirSpecs.length) {
         const s = rest[rest.length - 1];   // 방향 구분 없음 -> 도(나머지) 한 색
-        for (const id of ids) put(id, s.col, s.gi);
+        for (const id of ids) put(id, s.col, s.gi, isVague(s.raw));
       } else {
         // 방향 스펙 1개뿐 + 도 전체 스펙 없음 = '부분 예보'(예: 경남서부내륙) → 방향 맞는 존만 칠하고 나머지는 비운다.
         const partial = dirSpecs.length === 1 && !hasFull;
         const thresh = partial ? ((dirSpecs[0].raw || '').includes('내륙') ? 0.58 : 0.5) : null;
-        for (const [s, zids] of bulAssignDir(ids, rest, thresh)) for (const id of zids) put(id, s.col, s.gi);
+        for (const [s, zids] of bulAssignDir(ids, rest, thresh)) for (const id of zids) put(id, s.col, s.gi, isVague(s.raw));
       }
     }
 
     // ── 2) '많은 곳' 오버레이 (기본 위에 덧칠) ──
     for (const s of overlaySpecs) {
       const names = coastNamesOf(prov, s.raw);
-      if (names) { for (const id of all) if (names.includes(id.split('/')[1])) put(id, s.col, s.gi); }   // 해안 국지
-      else if (!s.raw) { for (const id of all) put(id, s.col, s.gi); }                                   // 도 이름 그대로(예: 인천) → 도 전체
+      if (names) { for (const id of all) if (names.includes(id.split('/')[1])) put(id, s.col, s.gi, true); }   // 해안 국지 = 애매 → 부드럽게
+      else if (!s.raw) { for (const id of all) put(id, s.col, s.gi, false); }                                  // 도 이름 그대로(예: 인천) → 도 전체(확실 → 또렷)
       else if (s.dir && st !== 'sido') {                                                                 // 방향 국지 → 그 방향 존만
         let pool = all;
         if ((s.raw || '').includes('내륙')) { const cz = provCoastSet(prov); pool = all.filter((id) => !cz.has(id.split('/')[1])); }   // 내륙 = 해안 제외
         const thr = (s.raw || '').includes('내륙') ? 0.5 : 0.42;
-        for (const [sp, zids] of bulAssignDir(pool, [s], thr)) for (const id of zids) put(id, sp.col, sp.gi);
+        for (const [sp, zids] of bulAssignDir(pool, [s], thr)) for (const id of zids) put(id, sp.col, sp.gi, isVague(sp.raw));
       }
       // 그 외(도를 못 쪼개는 '산지' 등)는 자리를 못 정하니 덧칠 안 함 → 기본색 유지 (도 전체가 진한색으로 덮이는 것 방지)
     }
   }
   // 섬(서해5도->옹진, 울릉도.독도->울릉군). 도 뒤에 처리해 더 구체적인 섬 색이 이긴다.
   for (const isp of islandSpecs) {
-    for (const id of zoneEls.keys()) if (st !== 'sido' && (id.split('/')[1] || '').startsWith(isp.island)) put(id, isp.col, isp.gi);
+    for (const id of zoneEls.keys()) if (st !== 'sido' && (id.split('/')[1] || '').startsWith(isp.island)) put(id, isp.col, isp.gi, false);
   }
 
   if (!Object.keys(F).length) {
@@ -4128,6 +4193,7 @@ function applyBulletin(txt) {
   }
   S.fillsByStyle[st] = F;
   S.softFill = $('#bulSoft')?.checked ? 1 : 0;   // '부드러운 경계' 체크를 색칠에 반영
+  (S.softZonesByStyle ||= {})[st] = [...softZones];   // 이번 통보문에서 '애매한' 구역만 저장(지도 종류별, 선별 블러용)
   renderFills();
 
   // '산지'(예: 강원내륙.산지) → 태백산맥 산 표시 자동 추가(앱의 '강원' 프리셋). 색은 그 지역 강수 색.
@@ -4150,6 +4216,15 @@ function applyBulletin(txt) {
   S.labels = S.labels.filter((b) => !b.bul);
   let madeLabels = 0;
   if ($('#bulLabels').checked) {
+    // 라벨 값(labelTxt)별로 그 값에 해당하는 지역 이름들을 모아 둔다 → 라벨 윗줄(지역명)에 넣는다.
+    // (자동으로 넣고, 개별 조절·삭제는 '수치 라벨' 탭에서 한다.)
+    const regionByLabel = new Map();
+    for (const g of groups) {
+      if (!g.labelTxt || !g.regionText) continue;
+      const arr = regionByLabel.get(g.labelTxt) || [];
+      if (!arr.includes(g.regionText)) arr.push(g.regionText);
+      regionByLabel.set(g.labelTxt, arr);
+    }
     for (const rg of ranges) {
       const col = (colOf[rg.labelTxt] || '').toUpperCase();
       let wx = 0, wy = 0, area = 0;
@@ -4158,7 +4233,10 @@ function applyBulletin(txt) {
         for (const { el: e } of arr) { const r = zoneRectRoot(e); const a = Math.max((r.x1 - r.x0) * (r.y1 - r.y0), 1); wx += ((r.x0 + r.x1) / 2) * a; wy += ((r.y0 + r.y1) / 2) * a; area += a; }
       }
       if (!area) continue;
-      S.labels.push(newLabel({ txt: rg.labelTxt, x: Math.round(wx / area), y: Math.round(wy / area), fill: colOf[rg.labelTxt], bul: 1 }));
+      // 지역이 너무 많으면(전국·광범위) 윗줄이 길어져 지저분해지니 넣지 않는다.
+      const regs = regionByLabel.get(rg.labelTxt) || [];
+      const title = (regs.length && regs.length <= 3 && regs.join('·').length <= 16) ? regs.join('·') : '';
+      S.labels.push(newLabel({ txt: rg.labelTxt, title, x: Math.round(wx / area), y: Math.round(wy / area), fill: colOf[rg.labelTxt], bul: 1 }));
       madeLabels++;
     }
   }
@@ -4488,7 +4566,9 @@ function buildWrnCols() {
 // (수치 라벨·산은 '내용'이라 여기 안 넣어서 출력화면 바꿔도 안 사라진다.)
 const PRESET_KEYS = ['map', 'insets', 'texts', 'labScale', 'cgLight', 'bg',
   'base', 'stroke', 'strokeW', 'sggOn', 'sggOp', 'realCol', 'realW', 'realOn', 'realOp',
-  'sidoCol', 'sidoW', 'sidoOn', 'sidoOp', 'nbrCol', 'nbrOp', 'shadow', 'showBg', 'showNW', 'showJP'];
+  'sidoCol', 'sidoW', 'sidoOn', 'sidoOp', 'nbrCol', 'nbrOp', 'nbrGrow', 'shadow', 'showBg', 'showNW', 'showJP',
+  // 바다(해상) 색·경계선도 화면별 룩에 포함 — '특보+해상' 화면의 바다 색/경계를 따로 기억한다.
+  'seaCol', 'seaW', 'seaBase', 'seaBaseOp', 'seaFade'];
 
 // 배치는 [출력 화면] × [배치 그룹] × [밝은/어두운]으로 따로 기억한다.
 // '특보 + 해상'은 바다까지 담느라 지도를 줄여야 해서 배치가 완전히 다르다.
@@ -4892,6 +4972,7 @@ async function exportBlobs(key) {
   if (key === 'map') return [{ name: '지도', blob: await svgBlob((c) => {
     keepLayers(c, ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn']);
     c.querySelector('#bgImg')?.remove();   // 배경 이미지만 빼고 실루엣(bgMapT)은 남긴다 -> 투명 + 북한
+    c.querySelector('#gMainSoft')?.remove();   // 부드러운 경계 오버레이(칠한 색)는 '베이스만'엔 없어야 한다
     // '지도 베이스만' — 칠한 색·산색을 전부 베이스색으로 되돌린다 (경계선·실루엣은 그대로).
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => z.setAttribute('fill', S.base));
     c.querySelectorAll('#L_mtn path').forEach((p) => p.setAttribute('fill', S.base));
@@ -4899,6 +4980,7 @@ async function exportBlobs(key) {
   }) }];
   if (key === 'sidoline') return [{ name: '시도선', blob: await svgBlob((c) => {
     keepLayers(c, ['L_map']);
+    c.querySelector('#gMainSoft')?.remove();   // 부드러운 경계 오버레이도 제거 — 시도선만 남긴다
     // 시도 경계선(sidoMain)만 남긴다 — 존 색·시군 경계선·실루엣은 전부 없앤다.
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
     c.querySelector('#zoneLineMain')?.remove();
@@ -5212,7 +5294,7 @@ function wire() {
     e.preventDefault();
   });
   applyToolbarPos();
-  window.addEventListener('resize', () => { applyToolbarPos(); positionPanelResize(); });
+  window.addEventListener('resize', () => { applyToolbarPos(); positionPanelResize(); positionApiGear(); });
 
   // 사이드바 가로 크기 조절 (통째로 확대)
   $('#panelResize').addEventListener('pointerdown', (e) => {
@@ -5379,7 +5461,7 @@ function wire() {
 
   // 인증키는 이 브라우저에만 둔다 — 프로젝트 JSON이나 배포 파일에 섞여 나가면 안 된다.
   // 넣는 곳은 API 설정 한 군데뿐이고, 특보·예보 항목은 없으면 그리로 보내기만 한다.
-  $('#apiKey').value = apiKey();
+  $('#apiKey').value = (localStorage.getItem(WRN_KEY_STORE) || '').trim();   // 비어 있으면 내장 기본키를 쓴다
   $('#apiKey').oninput = (e) => { localStorage.setItem(WRN_KEY_STORE, e.target.value.trim()); syncKeyWarn(); };
   syncKeyWarn();
 
@@ -5552,6 +5634,9 @@ function wire() {
   lw('#lTxt', 'txt'); lw('#lSize', 'size', Number); lw('#lPadX', 'padX', Number);
   lw('#lPadY', 'padY', Number); lw('#lRadius', 'radius', Number); lw('#lStrokeW', 'strokeW', Number);
   lw('#lX', 'x', Number); lw('#lY', 'y', Number); lw('#lTrack', 'track', Number);
+  lw('#lTitle', 'title');
+  $('#lTitleR').oninput = (e) => { const b = curL(); if (!b) return; pushUndo('ltitleR'); b.titleRatio = (+e.target.value) / 100; $('#lTitleRV').textContent = e.target.value; renderLabels(); renderSel(); };
+  $('#lDivider').onchange = (e) => { const b = curL(); if (!b) return; pushUndo(); b.divider = e.target.checked ? 1 : 0; renderLabels(); renderSel(); };
   $('#lWeight').onchange = (e) => { const b = curL(); if (!b) return; pushUndo(); b.w = +e.target.value; renderLabels(); renderSel(); };
 
   $('#labScale').oninput = (e) => {
@@ -5936,6 +6021,19 @@ function renderAnimFrame(t) {
     }
   }
 
+  // 부드러운 경계 오버레이(#gMainSoft)도 애니메이션에 맞춰 같이 드러나게 —
+  // 각 복제본을 원본 존의 '지금 프레임' 칠/클립에 그대로 맞춘다 (안 그러면 애매 구역만 처음부터 꽉 차 보인다).
+  {
+    const soft = $('#gMainSoft');
+    if (soft) for (const p of soft.children) {
+      const arr = zoneEls.get(p.dataset.id); const z = arr && arr[0] && arr[0].el;
+      if (!z) continue;
+      p.setAttribute('fill', z.getAttribute('fill'));
+      const cp = z.getAttribute('clip-path');
+      if (cp) p.setAttribute('clip-path', cp); else p.removeAttribute('clip-path');
+    }
+  }
+
   const progOf = (kind, id) => {
     const tr = A.tracks.find((x) => x.kind === kind && x.key === id);
     return tr ? trackProg(tr, t) : 1;   // 트랙이 없으면 계속 보이는 것으로
@@ -6157,7 +6255,7 @@ const DRAG_SLOP = 5;    // 이만큼 움직여야 '끌기'. 안 그러면 접기
 // wins = [{ id, x, y, w, h, secs:[...], active }]
 let wins = [];
 let winSeq = 1;
-let dockSide = 'right';   // 사이드바가 어느 끝에 붙어 있나 (처음 켰을 때 기본: 오른쪽)
+let dockSide = 'left';   // 사이드바가 어느 끝에 붙어 있나 (처음 켰을 때 기본: 왼쪽)
 
 // DOM만 반영 (저장 안 함). 초기화·불러오기 때는 이걸 써야 한다 —
 // setDockSide가 loadLayout보다 먼저 저장을 부르면 저장된 배치를 덮어써 버린다.
@@ -6170,12 +6268,24 @@ function applyDockSide() {
 
 // 사이드바 크기 = zoom 배율(panelZoom). 폭이 커지면 글자·컨트롤이 다 같이 커진다.
 const PANEL_BASE = 288;
-let panelZoom = 1;
+let panelZoom = 1.3;   // 처음 켰을 때 기본을 조금 넓게 (288 -> 약 374px)
 function applyPanelSize() {
   const p = $('#panel');
   if (!p) return;
   p.style.setProperty('--pz', panelZoom);
   positionPanelResize();
+  // 사이드바 폭이 바뀌면 스테이지 폭도 바뀌므로 상단바가 좁아진 캔버스에 맞춰 '옆으로' 따라오게 한다.
+  if (typeof applyToolbarPos === 'function') applyToolbarPos();
+  positionApiGear();   // API 설정 버튼도 사이드바를 안 겹치게 스테이지 쪽 모서리로
+}
+// API 설정 플로팅 버튼을 '스테이지 쪽' 하단 모서리에 둔다 — 사이드바(새로 시작 버튼)와 안 겹치게.
+function positionApiGear() {
+  const g = $('#apiGear'), pop = $('#apiPop'), panel = $('#panel');
+  if (!g) return;
+  const pw = panel ? Math.round(panel.getBoundingClientRect().width) : 0;
+  const right = (dockSide === 'right') ? (pw + 16) : 16;   // 오른쪽 도킹이면 사이드바 폭만큼 왼쪽으로
+  g.style.right = right + 'px';
+  if (pop) pop.style.right = right + 'px';
 }
 function positionPanelResize() {
   const h = $('#panelResize'), p = $('#panel');
@@ -6190,13 +6300,15 @@ function setDockSide(side) {
   saveLayout();   // 사용자 조작일 때만 저장
 }
 
-// 툴바 좌우 위치. null 이면 기본(오른쪽). 스테이지 안에서 절대배치라 스테이지 폭 기준으로 잡는다.
-let toolbarX = null;   // 처음 켰을 때 기본: 오른쪽
+// 툴바 좌우 위치. null 이면 기본 = '사이드바에 붙는 쪽'(왼쪽 도킹→왼쪽, 오른쪽 도킹→오른쪽).
+// 스테이지 안에서 절대배치라 스테이지 폭 기준으로 잡는다.
+let toolbarX = null;   // 처음 켰을 때 기본: 사이드바 쪽에 붙임
 function applyToolbarPos() {
   const tb = $('#topbar'), st = $('#stage');
   if (!tb || !st) return;
   const max = Math.max(16, st.clientWidth - tb.offsetWidth - 16);
-  const x = toolbarX == null ? max : clamp(toolbarX, 16, max);
+  // 기본(null): 사이드바가 왼쪽이면 상단바도 왼쪽(16)에 붙이고, 오른쪽이면 오른쪽(max)에 붙인다.
+  const x = toolbarX == null ? (dockSide === 'left' ? 16 : max) : clamp(toolbarX, 16, max);
   tb.style.left = Math.round(x) + 'px';
 }
 const secNode = (s) => document.querySelector(`.sec[data-sec="${s}"]`);
@@ -6663,6 +6775,8 @@ function tourStepList() {
     { title: '밝기 전환 (다크 · 라이트)', body: '사이드바를 어둡게/밝게 바꿉니다. 편한 쪽으로 쓰면 되고, 작업물(방송에 나가는 지도)에는 영향이 없습니다.',
       target: () => $('#theme'), setup: () => tourMenuClose(), delay: 260 },
     { title: '왼쪽 사이드바 — 지도 조정', body: '이 카드들로 지도의 색 · 글자 · 경계선 · 산 표시 같은 세부를 조정합니다. 카드를 누르면 펼쳐져 세부 설정이 나와요.',
+      target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
+    { title: '카드 떼어내기 (포토샵처럼)', body: '자주 쓰는 카드는 <b>제목을 잡고 사이드바 밖으로 끌어내면</b> 별도 창으로 떠서 원하는 자리에 놓고 쓸 수 있어요. 다시 다 모으려면 상단바의 <b>기본 배치</b>를 누르면 됩니다. 사이드바 위치는 <b>사이드바 ←/→</b>로 좌우를 바꿔요.',
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
     { title: '기상특보 자동 색칠', body: '특보 통보문을 붙여넣으면 지역별로 색을 자동으로 칠해 줍니다. (이렇게 카드를 누르면 펼쳐져요)',
       target: () => secNode('wrn'), setup: () => { tourMenuClose(); tourExpand('wrn', true); }, delay: 540 },
