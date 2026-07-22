@@ -1726,9 +1726,9 @@ const DEFAULTS = () => ({
   legend: { on: 0, auto: 1, horiz: 0, x: 150, y: 560, box: 34, radius: 6, rowGap: 16, size: 34, weight: 600, txtCol: '#FFFFFF', gap: 18,
     items: [{ col: '#FA2E1E', txt: '폭염특보' }, { col: '#FFC400', txt: '폭염주의보' }] },
   // 영상용. tracks = [{id, kind:'fill'|'label'|'text'|'mtn', key, start, len}]
-  // fps 기본 30 — 어차피 PNG 시퀀스로 편집 툴에 넘겨 쓰므로 딱 떨어지는 30이 편하다.
+  // fps 기본 29.97 — 방송 표준(NTSC)에 맞춘다.
   // reveal: 색칠이 나타나는 방식 — 'dissolve'(번짐) / 'blinds'(블라인드, AE 효과)
-  anim: { dur: 6, fps: 30, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] },
+  anim: { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] },
 });
 
 let S = DEFAULTS();
@@ -4508,7 +4508,7 @@ function parseBulletin(txt) {
       // (안 벗기면 '대구'가 '(22일)대구'로 붙어 도 인식 실패 → 대구를 못 찾는다.)
       const regionStr = part.slice(0, c).trim().replace(/^\([^)]*\)\s*/, '');
       // '많은 곳 (지역) N(mm) 이상' = 국지적으로 더 많은 곳 → 본 구간과 '따로' 더 진하게 칠한다.
-      const many = valStr.match(/많은\s*곳\s*([가-힣.·,\s]+?)\s*(\d+(?:\.\d+)?)\s*(?:mm|㎜|밀리|미리)?\s*이상/);
+      const many = valStr.match(/많은\s*곳\s*([가-힣A-Za-z0-9.·,\s]+?)\s*(\d+(?:\.\d+)?)\s*(?:mm|㎜|밀리|미리)?\s*이상/);
       if (many) valStr = valStr.replace(/\(?\s*많은\s*곳[\s\S]*?이상\s*\)?/, ' ');   // 본 구간 값에서 그 문구 제거(150 안 섞이게)
       const nums = (valStr.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter((n) => n >= 0);
       const tokens = bulTokens(regionStr);
@@ -6697,7 +6697,7 @@ function refreshToolGroup() {
 // ===================== 영상 (타임라인) =====================
 // 원칙: 애니메이션은 '지금 만들어 둔 CG'를 시간에 따라 드러내는 것일 뿐,
 // 작업 내용(칠한 색·라벨 위치)을 바꾸지 않는다. 재생을 멈추면 renderAll()로 원상복구한다.
-const anim = () => (S.anim ||= { dur: 6, fps: 30, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] });
+const anim = () => (S.anim ||= { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] });
 let animT = null;      // 재생/미리보기 중인 시각(초). null 이면 평소 상태.
 let animRAF = 0;
 let animPlaying = false;
@@ -6753,7 +6753,7 @@ const ANIM_START = 1.0;      // 시작 전 홀드(기본)
 const ANIM_VF_ENTER_LEN = 1.2;   // 노말 VF 전체가 오른쪽→왼쪽 슬라이드+페이드인 되는 시간(더 천천히 부드럽게)
 const VF_ENTER_FRAMES = 10;      // VF 진입이 시작된 뒤 색칠이 시작되기까지의 프레임 수
 // 터치는 0초부터. 노말 VF는 1초 홀드 뒤 진입 시작 → 그 10프레임 뒤 색칠. 노말 CG·날씨 팀은 1초 홀드.
-const animStart = () => (S.res === '2158x1214' ? 0 : S.res === '1920x1080-vf' ? ANIM_START + VF_ENTER_FRAMES / (anim().fps || 30) : ANIM_START);
+const animStart = () => (S.res === '2158x1214' ? 0 : S.res === '1920x1080-vf' ? ANIM_START + VF_ENTER_FRAMES / (anim().fps || 29.97) : ANIM_START);
 const ANIM_FILL_LEN = 0.8;
 const ANIM_LABEL_LEN = 1.0;  // 라벨 올라오는 시간
 const ANIM_MTN_LEN = 0.6;
@@ -6771,7 +6771,7 @@ function autoTracks() {
   const push = (kind, key, start, len) => tracks.push({ id: 'k' + seq++, kind, key, start: +start.toFixed(2), len });
 
   // 각 색은 앞 색보다 5프레임 뒤에 시작 (5 / fps 초)
-  const step = 5 / (A.fps || 30);
+  const step = 5 / (A.fps || 29.97);
   const start0 = animStart();   // 터치 스크린이면 0, 아니면 1초 홀드
   const startOf = {};
   cols.forEach((c, i) => { const st = start0 + i * step; startOf[c] = st; push('fill', c, st, ANIM_FILL_LEN); });
@@ -7056,17 +7056,18 @@ function tlNote() {
     bake.disabled = false;
     bake.title = '타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다';
   }
+  const png = $('#tlExportPng');   // VF에선 이 버튼만 남으므로 양쪽 다 둥글게(반쪽 알약 방지)
+  if (png) png.style.borderRadius = vf ? '11px' : '';
   const el = $('#tlNote');
   if (!el) return;
   const vt = videoType();
   const touch = S.res === '2158x1214';
   if (touch) {
     el.innerHTML = `<b>터치 스크린</b> · ${vt ? vt.label : '영상'} ${A.fps}fps 로 <b>영상 추출</b>을 누르면 바로 나옵니다.`;
-  } else if (vf) {
-    el.innerHTML = `<b>노말 VF</b> · 투명(알파) 최종본은 <b>PNG 시퀀스</b>로 뽑아 AE에서 <b>QuickTime Animation RGB+Alpha</b>로 렌더하세요. (MOV 추출은 미리보기용 — 알파 없음)`;
+    el.style.display = '';
   } else {
-    el.innerHTML = `<b>노말 CG</b> · 방송용 <b>MXF / XDCAM HD</b>는 브라우저로 못 만듭니다. ` +
-      `<b>PNG 시퀀스</b>로 뽑아 프리미어·AE에서 ${A.fps}fps XDCAM HD 50 NTSC로 렌더하세요. (영상 추출은 미리보기용 ${vt ? vt.label : '영상'})`;
+    el.innerHTML = '';
+    el.style.display = 'none';
   }
 }
 
