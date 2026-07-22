@@ -2503,7 +2503,9 @@ function renderVfBar() {
   if (layer) layer.style.display = show ? '' : 'none';
   if (show && layer) {
     const img = $('#vfBarImg'); if (img) img.setAttribute('href', IMG[bgKey()] || IMG.bgVfDark || '');
-    const rc = $('#vfBarRect'); if (rc) { rc.setAttribute('x', b.x); rc.setAttribute('y', b.y); rc.setAttribute('width', Math.max(1, b.w)); rc.setAttribute('height', Math.max(1, b.h)); }
+    const av = vfAutoLegend();   // 특보 3+면 바를 아래로 확장해 가로 범례가 들어갈 띠를 만든다
+    const barH = av ? b.h + av.extraH : b.h;
+    const rc = $('#vfBarRect'); if (rc) { rc.setAttribute('x', b.x); rc.setAttribute('y', b.y); rc.setAttribute('width', Math.max(1, b.w)); rc.setAttribute('height', Math.max(1, barH)); }
     // 그림자 + 배경 패널로 클립(그림자가 패널 밖으로 안 나가게). 패널 사각형은 vfClip 공유.
     computeVfPanelRect((r) => { if (r) { const pc = $('#vfClipRect'); if (pc) { pc.setAttribute('x', r.x); pc.setAttribute('y', r.y); pc.setAttribute('width', r.w); pc.setAttribute('height', r.h); } } });
     const fe = $('#vfBarShadowFe');
@@ -2516,6 +2518,7 @@ function renderVfBar() {
   if (hit) { hit.style.display = handles ? '' : 'none'; if (handles) { hit.setAttribute('x', b.x); hit.setAttribute('y', b.y); hit.setAttribute('width', Math.max(1, b.w)); hit.setAttribute('height', Math.max(1, b.h)); } }
   const grip = $('#vfBarGrip');
   if (grip) { grip.style.display = handles ? '' : 'none'; if (handles) grip.setAttribute('transform', `translate(${b.x + b.w} ${b.y + b.h})`); }
+  renderLegend();   // 바 높이·상태가 바뀌면 범례도 함께 재배치(자동일 때 바 확장/축소에 맞춤). renderLegend는 renderVfBar를 안 부름(무한루프 방지).
 }
 // 범례 통째로 이동 — dragLoop(svg 좌표 델타) 사용
 function startLegendMove(e) { const g = (S.legend ||= {}); const ox = g.x, oy = g.y; pushUndo(); dragLoop(e, (dx, dy) => { g.x = Math.round(ox + dx); g.y = Math.round(oy + dy); renderLegend(); }); }
@@ -2634,6 +2637,20 @@ function wrnLegendItems() {
     .map((a) => ({ col: wrnColorOf(a.wrn, a.lvl) || '#666', txt: (a.wrn + ' ' + a.lvl).trim() }));
 }
 
+// 노말 VF 완전자동: 제목 바가 켜져 있고 특보가 3개 이상이면 → 바를 아래로 확장하고 범례를 그 띠에 가로로 자동 배치.
+// (2개까지는 사용자가 잡은 세로 배치 그대로.) 반환 null = 자동 적용 안 함.
+function vfAutoLegend() {
+  const g = S.legend;
+  if (S.res !== '1920x1080-vf' || !g || !g.on) return null;
+  if ((g.auto == null ? 1 : g.auto) === 0) return null;   // 자동 채움 모드일 때만
+  const b = S.vfBar; if (!b || !b.on) return null;         // 제목 바가 있어야 그 아래로 확장
+  const items = wrnLegendItems();
+  if (items.length < 3) return null;                       // 3개 이상일 때만
+  const rowH = Math.max(g.box, g.size * 1.1);
+  const pad = Math.max(8, Math.round(g.size * 0.35));
+  return { items, rowH, pad, extraH: rowH + pad * 2, b };
+}
+
 // 기상특보 범례 — 제목 밑에 '색상 상자 + 이름' 줄들. 전체를 한 그룹으로 끌어 옮긴다.
 function renderLegend() {
   const L = $('#L_legend'); if (!L) return;
@@ -2648,7 +2665,8 @@ function renderLegend() {
   if (!items.length) return;
   const box = g.box, size = g.size, rowGap = g.rowGap == null ? 16 : g.rowGap, gap = g.gap == null ? 18 : g.gap;
   const rowH = Math.max(box, size * 1.1);
-  const horiz = !!g.horiz;   // 가로 배치(항목이 좌→우로) — 3개 이상일 때 제목 바 아래 좁은 띠에 넣기 좋다
+  const av = vfAutoLegend();   // VF 특보 3+ 자동 배치
+  const horiz = av ? true : !!g.horiz;   // 자동일 땐 강제 가로. 아니면 사용자 설정.
   const grp = el('g', { class: 'drag', 'data-kind': 'legend', 'data-id': 'legend', transform: `translate(${g.x} ${g.y})` });
   L.append(grp);   // 먼저 붙여야 가로 배치에서 글자 폭(getComputedTextLength)을 잴 수 있다
   let cursor = 0;
@@ -2667,6 +2685,17 @@ function renderLegend() {
       cursor = ox + box + gap + tw + Math.max(18, rowGap);   // 항목 사이 간격 = '줄 간격' 슬라이더로 조절
     }
   });
+  if (av) {
+    // 자동 배치: 확장된 제목 바 아래 띠에 가로로. 폭이 넘치면 자동 축소해 바 안에 맞춘다. 핸들은 숨김(자동 관리).
+    const bb = grp.getBBox();
+    const availW = Math.max(20, av.b.w - av.pad * 2);
+    const k = bb.width > availW ? availW / bb.width : 1;
+    const gx = av.b.x + av.pad;
+    const gy = av.b.y + av.b.h + (av.extraH - av.rowH * k) / 2;   // 확장된 띠 안에서 세로 가운데
+    grp.setAttribute('transform', `translate(${gx} ${gy}) scale(${k})`);
+    if (grip) grip.style.display = 'none';
+    return;
+  }
   // 크기 핸들 — 범례 우하단 모서리에 (끌면 상자·글자·간격이 함께 커지고 작아진다)
   if (grip) {
     const b = grp.getBBox();
@@ -4164,7 +4193,7 @@ function paintWrn() {
   S.fillsByStyle.warn = F;
   S.fillsByStyle.warnsea = { ...F };
   S.seaFills = SF;
-  renderFills(); renderSea(); renderLegend();   // 범례 자동 모드면 특보 목록 반영
+  renderFills(); renderSea(); renderVfBar();   // renderVfBar가 범례까지 재배치 (특보 수 → 제목 바 높이 + 범례)
 
   const n = Object.keys(F).length + Object.keys(SF).length;
   const hidden = Object.values(best).length;
@@ -6358,11 +6387,11 @@ function wire() {
     renderMtns(); renderSel();
   };
   // 기상특보 범례
-  $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; if (e.target.checked) ensureLegendInVfPanel(); renderLegend(); };
-  $('#lgAuto').onchange = (e) => { pushUndo(); (S.legend ||= {}).auto = e.target.checked ? 1 : 0; syncLegendMode(); renderLegend(); };
-  $('#lgHoriz').onchange = (e) => { pushUndo(); (S.legend ||= {}).horiz = e.target.checked ? 1 : 0; renderLegend(); };
+  $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; if (e.target.checked) ensureLegendInVfPanel(); renderVfBar(); };
+  $('#lgAuto').onchange = (e) => { pushUndo(); (S.legend ||= {}).auto = e.target.checked ? 1 : 0; syncLegendMode(); renderVfBar(); };
+  $('#lgHoriz').onchange = (e) => { pushUndo(); (S.legend ||= {}).horiz = e.target.checked ? 1 : 0; renderVfBar(); };
   $('#lgAdd').onclick = () => { pushUndo(); const g = (S.legend ||= { items: [] }); (g.items ||= []).push({ col: activeColor, txt: '' }); g.on = 1; $('#lgOn').checked = true; renderLegend(); buildLgList(); };
-  const lgw = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('lg' + key); (S.legend ||= {})[key] = +e.target.value; if (vid) $(vid).textContent = e.target.value; renderLegend(); }; };
+  const lgw = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('lg' + key); (S.legend ||= {})[key] = +e.target.value; if (vid) $(vid).textContent = e.target.value; renderVfBar(); }; };
   lgw('#lgSize', 'size', '#lgSizeV'); lgw('#lgBox', 'box', '#lgBoxV'); lgw('#lgRadius', 'radius', '#lgRadiusV'); lgw('#lgRowGap', 'rowGap', '#lgRowGapV'); lgw('#lgGap', 'gap', '#lgGapV'); lgw('#lgWeight', 'weight', '#lgWeightV');
   $('#lgTxtCol').oninput = (e) => { pushUndo('lgtc'); (S.legend ||= {}).txtCol = e.target.value.toUpperCase(); $('#lgTxtColHex').value = S.legend.txtCol; renderLegend(); };
   $('#lgTxtColHex').onchange = (e) => { const v = hex(e.target.value.trim()); if (v) { pushUndo(); (S.legend ||= {}).txtCol = v; $('#lgTxtCol').value = v; renderLegend(); } };
