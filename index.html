@@ -4631,6 +4631,9 @@ function applyBulletin(txt) {
     const jsonDone = new Set(), jsonZones = new Set();
     if (st === 'sgg') {
       for (const s of specs) {
+        // 방향 없는 순수 도이름(예: '인천','대전')은 정밀표(인천→['인천'])에 걸리면 안 된다.
+        // 걸리면 인천 본토만 칠하고 강화·옹진을 빼먹은 채 '처리 완료'가 돼 도 전체 폴백까지 막힌다 → 도 전체로 맡긴다.
+        if (!(s.raw || '').trim()) continue;
         const names = termSiguns(prov + (s.raw || ''));
         if (!names || !names.length) continue;
         const nameSet = new Set(names);
