@@ -5564,22 +5564,36 @@ function wnsHelperOffNotice() {
     ov = document.createElement('div');
     ov.id = 'wnsOffOverlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(6,10,20,.72);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)';
+    const PATH = 'R:\\[F]_Util\\WNS\\자동시작';
     ov.innerHTML =
-      '<div style="max-width:520px;width:100%;background:var(--surface,#fff);border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55);font-family:\'Wanted Sans Variable\',sans-serif">'
-      + '<div style="background:#FA2E1E;color:#fff;padding:18px 24px;font-size:19px;font-weight:800">MXF·MOV 렌더 준비가 필요해요</div>'
-      + '<div style="padding:22px 24px;color:var(--on-surface,#111);font-size:15px;line-height:1.65">'
-      +   '<b>WNS 렌더 헬퍼</b>가 켜져 있어야 MXF·알파MOV로 렌더할 수 있습니다.<br><br>'
-      +   '<b>이렇게 하세요 (최초 1회):</b>'
-      +   '<div style="margin-top:8px;padding:12px 16px;background:var(--surface-hi,#f2f4f8);border-radius:12px;font-size:14px;line-height:1.6">'
-      +     'R:\\[F]_Util\\WNS\\ 의<br><b style="font-size:15px">“WNS_START (창없이).vbs”</b> 를 더블클릭</div>'
-      +   '<div style="margin-top:14px;color:var(--on-surface-var,#667);font-size:13px">켜둔 뒤 다시 이 버튼을 누르면 됩니다.<br>로그인 자동시작으로 등록하면 이후엔 안 켜도 됩니다.</div>'
+      '<div style="max-width:560px;width:100%;background:var(--surface,#fff);border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55);font-family:\'Wanted Sans Variable\',sans-serif">'
+      + '<div style="background:#FA2E1E;color:#fff;padding:18px 24px;font-size:19px;font-weight:800">렌더 준비 — 딱 한 번만 하면 끝나요</div>'
+      + '<div style="padding:22px 24px;color:var(--on-surface,#111);font-size:15px;line-height:1.7">'
+      +   'MXF·MOV로 뽑으려면 <b>렌더 도우미</b>를 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>'
+      +   '<div style="display:flex;gap:10px;margin-bottom:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">1</span><div>아래 <b>[폴더 경로 복사]</b> 버튼을 누르세요.</div></div>'
+      +   '<div style="display:flex;gap:10px;margin-bottom:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">2</span><div>키보드 <b>⊞Win + E</b> 로 <b>내 컴퓨터(파일 탐색기)</b>를 열고, 맨 위 <b>주소칸을 클릭</b>한 뒤 <b>Ctrl+V</b> 붙여넣고 <b>Enter</b>.</div></div>'
+      +   '<div style="display:flex;gap:10px;margin-bottom:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">3</span><div>열린 폴더에서 <b>“① 자동시작 켜기 (한번만)”</b> 을 <b>더블클릭</b>. (검은 창이 잠깐 떴다 사라짐)</div></div>'
+      +   '<div style="display:flex;gap:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">4</span><div>이 창을 닫고 <b>다시 MXF/MOV 버튼</b>을 누르면 렌더됩니다.</div></div>'
+      +   '<div style="margin-top:16px;padding:11px 14px;background:var(--surface-hi,#f2f4f8);border-radius:10px;font-size:13px;color:var(--on-surface-var,#556);word-break:break-all">' + PATH + '</div>'
+      +   '<div style="margin-top:10px;color:var(--on-surface-var,#778);font-size:12.5px">한 번 하면 다음부턴 PC를 켤 때 자동으로 준비됩니다 — 다시 안 해도 돼요.</div>'
       + '</div>'
-      + '<div style="padding:2px 24px 22px;text-align:right"><button id="wnsOffOk" style="background:#FA2E1E;color:#fff;border:none;border-radius:11px;padding:12px 26px;font-size:15px;font-weight:800;cursor:pointer">확인</button></div>'
+      + '<div style="padding:2px 24px 22px;display:flex;gap:10px;justify-content:flex-end">'
+      +   '<button id="wnsCopyPath" style="background:#2563EB;color:#fff;border:none;border-radius:11px;padding:12px 20px;font-size:15px;font-weight:800;cursor:pointer">📋 폴더 경로 복사</button>'
+      +   '<button id="wnsOffOk" style="background:var(--surface-hi,#e9edf3);color:var(--on-surface,#111);border:none;border-radius:11px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer">닫기</button>'
+      + '</div>'
       + '</div>';
     document.body.appendChild(ov);
     const close = () => { ov.style.display = 'none'; };
     ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
     ov.querySelector('#wnsOffOk').onclick = close;
+    const cp = ov.querySelector('#wnsCopyPath');
+    cp.onclick = async () => {
+      try { await navigator.clipboard.writeText(PATH); }
+      catch (e) { const t = document.createElement('textarea'); t.value = PATH; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (_) {} t.remove(); }
+      cp.textContent = '✓ 복사됨! 탐색기 주소칸에 붙여넣기(Ctrl+V)';
+      cp.style.background = '#16A34A';
+      setTimeout(() => { cp.textContent = '📋 폴더 경로 복사'; cp.style.background = '#2563EB'; }, 2600);
+    };
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ov.style.display !== 'none') close(); });
   }
   ov.style.display = 'flex';
