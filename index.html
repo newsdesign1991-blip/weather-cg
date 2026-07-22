@@ -1414,10 +1414,9 @@
          <button class="tintBtn" id="tlBake" title="타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다">MP4로 추출</button>
          <button class="tintBtn" id="tlExportPng" title="프레임을 PNG 여러 장으로 — 편집 툴(프리미어/AE)에서 방송용 코덱으로 렌더">PNG 시퀀스로 추출</button>
        </div>
-       <div class="exportGroup" id="wnsGroup" title="WNS 렌더 헬퍼로 방송용 MXF / 투명(알파) MOV 를 바로 만듭니다 (R:\[F]_Util\WNS 의 WNS_START 실행 필요)">
-         <label class="tlNum" style="gap:5px">저장폴더 <input type="text" id="wnsOut" value="R:\Upload" spellcheck="false" style="width:110px"></label>
-         <button class="tintBtn" id="wnsMxf" title="WNS 헬퍼로 방송용 MXF (XDCAM HD422)">MXF로 추출</button>
-         <button class="tintBtn" id="wnsMov" title="WNS 헬퍼로 투명(알파) MOV (QuickTime Animation) — 노말 VF용">알파MOV로 추출</button>
+       <div class="exportGroup" id="wnsGroup" style="display:none" title="WNS 렌더 헬퍼로 방송용 MXF / 투명(알파) MOV 를 만듭니다. 버튼을 누르면 저장 위치를 고릅니다. (노말 VF 전용, 로컬에서만)">
+         <button class="tintBtn" id="wnsMxf" title="방송용 MXF (XDCAM HD422) — 저장 위치 선택">MXF로 추출</button>
+         <button class="tintBtn" id="wnsMov" title="투명(알파) MOV (QuickTime Animation) — 저장 위치 선택">알파MOV로 추출</button>
        </div>
        <span class="tlTime" id="tlInfo"></span>
        <button class="tlClose" id="tlClose" title="닫기">✕</button>
@@ -3394,6 +3393,7 @@ function syncEyes() {
 function syncPanelFromState() {
   markResBtns();
   updateAutoPaintSecs();
+  if (typeof updateWnsButtons === 'function') updateWnsButtons();   // MXF/MOV 버튼: 노말 VF + 로컬만
   { // 노말 VF 제목 바 — VF 화면에서만 UI 표시 + 값 동기화
     const ui = $('#vfBarUI'); const b = (S.vfBar ||= { on: 0, x: 1140, y: 150, w: 640, h: 110 });
     if (ui) ui.style.display = (S.res === '1920x1080-vf') ? '' : 'none';
@@ -5543,48 +5543,100 @@ async function exportPngSeq() {
 // R:\[F]_Util\WNS 의 WNS_START 로 켜둔 로컬 헬퍼(localhost:3720)에 프레임을 보내 ffmpeg 로 인코딩한다.
 // 파이썬/설치 없이(헬퍼는 컴파일 exe), 저장 위치는 '저장폴더' 칸으로 지정. 헬퍼가 그 PC 기준으로 파일을 만든다.
 const WNS_HELPER = 'http://127.0.0.1:3720';
+// 로컬(개발/각 PC)에서만 켠다 — 깃헙 배포본에선 렌더 버튼을 숨긴다(아직 미완성). 노말 VF 화면에서만 보인다.
+function wnsIsLocal() {
+  const h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:';
+}
+function updateWnsButtons() {
+  const g = $('#wnsGroup'); if (!g) return;
+  const local = wnsIsLocal();
+  const showMxf = local && S.res === '1920x1080';       // 노말 CG → MXF (방송 송출용)
+  const showMov = local && S.res === '1920x1080-vf';    // 노말 VF → 알파 MOV (오버레이용)
+  if ($('#wnsMxf')) $('#wnsMxf').style.display = showMxf ? '' : 'none';
+  if ($('#wnsMov')) $('#wnsMov').style.display = showMov ? '' : 'none';
+  g.style.display = (showMxf || showMov) ? '' : 'none';
+}
+// 헬퍼가 꺼져 있을 때 크게 보여주는 안내 팝업 (어두운 오버레이 + 토스 카드)
+function wnsHelperOffNotice() {
+  let ov = document.getElementById('wnsOffOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'wnsOffOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(6,10,20,.72);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)';
+    ov.innerHTML =
+      '<div style="max-width:520px;width:100%;background:var(--surface,#fff);border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55);font-family:\'Wanted Sans Variable\',sans-serif">'
+      + '<div style="background:#FA2E1E;color:#fff;padding:18px 24px;font-size:19px;font-weight:800">MXF·MOV 렌더 준비가 필요해요</div>'
+      + '<div style="padding:22px 24px;color:var(--on-surface,#111);font-size:15px;line-height:1.65">'
+      +   '<b>WNS 렌더 헬퍼</b>가 켜져 있어야 MXF·알파MOV로 렌더할 수 있습니다.<br><br>'
+      +   '<b>이렇게 하세요 (최초 1회):</b>'
+      +   '<div style="margin-top:8px;padding:12px 16px;background:var(--surface-hi,#f2f4f8);border-radius:12px;font-size:14px;line-height:1.6">'
+      +     'R:\\[F]_Util\\WNS\\ 의<br><b style="font-size:15px">“WNS_START (창없이).vbs”</b> 를 더블클릭</div>'
+      +   '<div style="margin-top:14px;color:var(--on-surface-var,#667);font-size:13px">켜둔 뒤 다시 이 버튼을 누르면 됩니다.<br>로그인 자동시작으로 등록하면 이후엔 안 켜도 됩니다.</div>'
+      + '</div>'
+      + '<div style="padding:2px 24px 22px;text-align:right"><button id="wnsOffOk" style="background:#FA2E1E;color:#fff;border:none;border-radius:11px;padding:12px 26px;font-size:15px;font-weight:800;cursor:pointer">확인</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    const close = () => { ov.style.display = 'none'; };
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    ov.querySelector('#wnsOffOk').onclick = close;
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ov.style.display !== 'none') close(); });
+  }
+  ov.style.display = 'flex';
+}
 async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
+  if (!wnsIsLocal()) return;   // 깃헙 배포본에선 막음
   const A = anim();
   if (!A.tracks.length) { status('트랙이 없습니다 — “지금 화면으로 자동 구성”을 먼저 누르세요', true); return; }
-  // 헬퍼 살아있는지 확인
+  // 헬퍼 살아있는지 확인 — 꺼져 있으면 큰 팝업 안내
   let up = false;
   try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
-  if (!up) {
-    const msg = 'WNS 렌더 헬퍼가 꺼져 있습니다 — R:\\[F]_Util\\WNS\\ 의 “WNS_START (창없이).vbs” 를 먼저 실행하세요';
-    status(msg, true); if ($('#tlInfo')) $('#tlInfo').textContent = '헬퍼 꺼짐 — WNS_START 실행 필요'; return;
-  }
-  const outDir = ($('#wnsOut') && $('#wnsOut').value.trim()) || 'R:\\Upload';
+  if (!up) { wnsHelperOffNotice(); return; }
+  const alpha = (mode === 'mov');
+  const label = alpha ? '알파 MOV' : 'MXF';
+  const ext = alpha ? 'mov' : 'mxf';
   const [W, H] = RES[S.res].size;
-  const n = Math.round(A.dur * A.fps);
-  const alpha = (mode === 'mov');                    // 알파 MOV = 투명 프레임
+  const A2 = anim();
   const tag = S.res === '2158x1214' ? 'touch' : S.res === '1920x1080-vf' ? 'vf' : 'normal';
-  const filename = `cg_${tag}_${W}x${H}_${A.fps}fps`;
+  const suggested = `cg_${tag}_${W}x${H}_${A2.fps}fps.${ext}`;
+  // 저장 위치 선택 창 (지원 시). 미지원(file:// 일부)이면 다운로드 폴더로 폴백.
+  let handle = null;
+  if (window.showSaveFilePicker) {
+    try { handle = await window.showSaveFilePicker({ suggestedName: suggested, types: [{ description: label, accept: { 'application/octet-stream': ['.' + ext] } }] }); }
+    catch (e) { if (e.name === 'AbortError') return; handle = null; }
+  }
+  const n = Math.round(A2.dur * A2.fps);
   const sid = 'wns' + Date.now();
-  const mv = (mode === 'mov') ? $('#wnsMov') : $('#wnsMxf');
-  const label = (mode === 'mov') ? '알파 MOV' : 'MXF';
+  const mv = alpha ? $('#wnsMov') : $('#wnsMxf');
   animStop();
   if (mv) mv.disabled = true;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha });
+  // MXF(불투명)는 JPEG 프레임으로 — 굽기·전송이 훨씬 빠름(mpeg2라 화질 영향 미미). 알파 MOV는 투명 유지 위해 PNG.
+  const fmt = alpha ? 'image/png' : 'image/jpeg';
+  const fext = alpha ? 'png' : 'jpg';
   try {
     for (let i = 0; i <= n; i++) {
-      renderAnimFrame(i / A.fps);
+      renderAnimFrame(i / A2.fps);
       const img = await svgToImage(W, H);
       if (alpha) cx.clearRect(0, 0, W, H);
       cx.drawImage(img, 0, 0, W, H);
-      const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
-      const resp = await fetch(WNS_HELPER + '/api/frame?sid=' + sid + '&index=' + i, { method: 'POST', body: blob });
+      const blob = await new Promise((r) => c.toBlob(r, fmt, alpha ? undefined : 0.92));
+      const resp = await fetch(WNS_HELPER + '/api/frame?sid=' + sid + '&index=' + i + '&ext=' + fext, { method: 'POST', body: blob });
       if (!resp.ok) throw new Error('프레임 전송 실패(' + i + ')');
       exportProgress(i, n, label + ' 프레임 전송 중');
     }
     exportProgress(n, n, label + ' 인코딩 중 (헬퍼)');
     const fr = await fetch(WNS_HELPER + '/api/finalize', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sid, mode, filename, outDir, tail: 0 }),
+      body: JSON.stringify({ sid, mode, tail: 0 }),
     });
-    const res = await fr.json();
-    if (res && res.ok) { $('#tlInfo').textContent = `${label} 저장됨: ${res.path}`; status(`${label} 저장됨 → ${res.path}`); }
-    else { status(`${label} 실패: ` + ((res && res.error) || fr.status), true); $('#tlInfo').textContent = `${label} 실패`; }
+    if (!fr.ok) { let er = {}; try { er = await fr.json(); } catch (_) {} throw new Error(er.error || ('헬퍼 오류 ' + fr.status)); }
+    const buf = await fr.arrayBuffer();   // 인코딩된 파일 바이트
+    let where;
+    if (handle) { const w = await handle.createWritable(); await w.write(buf); await w.close(); where = handle.name; }
+    else { download(new Blob([buf], { type: 'application/octet-stream' }), suggested); where = suggested + ' (다운로드 폴더)'; }
+    $('#tlInfo').textContent = `${label} 저장됨: ${where}`; status(`${label} 저장 완료 → ${where}`);
   } catch (e) {
     status(`${label} 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${label} 실패`;
   } finally {
@@ -6096,10 +6148,7 @@ function wire() {
   $('#tlExportPng').onclick = exportPngSeq;
   if ($('#wnsMxf')) $('#wnsMxf').onclick = () => wnsRender('mxf');
   if ($('#wnsMov')) $('#wnsMov').onclick = () => wnsRender('mov');
-  if ($('#wnsOut')) {   // 저장폴더는 '이 컴퓨터' 설정 — localStorage에 기억
-    const sv = localStorage.getItem('wcg_wnsout'); if (sv) $('#wnsOut').value = sv;
-    $('#wnsOut').onchange = (e) => { try { localStorage.setItem('wcg_wnsout', e.target.value.trim()); } catch (_) {} };
-  }
+  updateWnsButtons();   // 노말 VF + 로컬일 때만 버튼 노출
   $('#tlDur').onchange = (e) => { pushUndo(); anim().dur = Math.max(0.5, +e.target.value || 6); buildTimeline(); };
   $('#tlFps').onchange = (e) => { pushUndo(); anim().fps = parseFloat(e.target.value) || 29.97; tlNote(); };
   const syncBlindOpts = () => { $('#blindOpts').style.display = (anim().reveal === 'blinds') ? 'inline-flex' : 'none'; };
