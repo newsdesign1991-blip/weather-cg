@@ -5549,7 +5549,10 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   // 헬퍼 살아있는지 확인
   let up = false;
   try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
-  if (!up) { status('WNS 렌더 헬퍼가 꺼져 있습니다 — R:\\[F]_Util\\WNS\\ 의 “WNS_START (창없이).vbs” 를 먼저 실행하세요', true); return; }
+  if (!up) {
+    const msg = 'WNS 렌더 헬퍼가 꺼져 있습니다 — R:\\[F]_Util\\WNS\\ 의 “WNS_START (창없이).vbs” 를 먼저 실행하세요';
+    status(msg, true); if ($('#tlInfo')) $('#tlInfo').textContent = '헬퍼 꺼짐 — WNS_START 실행 필요'; return;
+  }
   const outDir = ($('#wnsOut') && $('#wnsOut').value.trim()) || 'R:\\Upload';
   const [W, H] = RES[S.res].size;
   const n = Math.round(A.dur * A.fps);
