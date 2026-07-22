@@ -2152,8 +2152,8 @@ function updateAutoPaintSecs() {
 // VF 화면 기본 크기: 라벨 92% · 산 70%. 내가 직접 저장한 배치가 없을 때만 강제한다
 // (통보문·특보로 새로 생성하거나 지도 종류를 바꿔도 이 크기로 나오게 — 배포 프리셋의 옛 값이 덮지 않도록).
 function applyVfDefaults() {
-  if (S.res !== '1920x1080-vf' || userPresets()[presetKey()]) return false;
-  S.labScale = 92; S.mtnScale = 70;
+  if (S.res !== '1920x1080-vf') return false;
+  S.labScale = 92; S.mtnScale = 70;   // 노말 VF는 항상 라벨 92%·산 70% (저장된 옛 값 128 등이 있어도 강제)
   return true;
 }
 function setStyle(name) {
@@ -5203,6 +5203,7 @@ function applyPreset() {
   const _def = DEFAULTS();
   S.txtShadow = (p.txtShadow !== undefined) ? p.txtShadow : _def.txtShadow;
   S.labShadow = (p.labShadow !== undefined) ? p.labShadow : _def.labShadow;
+  applyVfDefaults();   // VF면 라벨 92%·산 70% 강제(프리셋에 옛 128이 있어도)
   sel = []; bgUseFile = 0;
   markCgMode(); buildBgBtns(); syncPanelFromState(); renderAll();
   showPresetInfo();
@@ -5249,10 +5250,10 @@ function buildResBtns() {
       const applied = applyPreset();
       // 노말 VF 기본값: 내가 직접 저장한 VF 배치가 아직 없으면 라벨 92%·산 70%로 시작(사용자 요청 기본값).
       // (배포 기본배치가 있어도, 내가 저장 전까진 이 값으로 시작 → 저장하면 그 값이 유지된다.)
-      if (k === '1920x1080-vf' && !userPresets()[presetKey()]) {
-        S.labScale = 92; S.mtnScale = 70;
+      if (k === '1920x1080-vf') {
+        S.labScale = 92; S.mtnScale = 70;   // VF는 항상 라벨 92%·산 70%
         if (!applied && !S.cgLight) { S.bg = 'bgVfDark'; S.showBg = 1; }
-        renderAll();   // 기본값 반영해 다시 그린다
+        renderAll();
       }
       buildBgBtns(); syncPanelFromState();   // 화면마다 배경 목록이 달라(VF 배경은 VF에서만) 다시 그리고 패널 동기화
       renderBg(); markResBtns();
@@ -7832,6 +7833,7 @@ sessionStorage.setItem('wcg_open', '1');
 const work = freshOpen ? null : loadWork();
 if (work) {
   S = work;
+  applyVfDefaults();   // 이어서 열 때 VF면 라벨 92%·산 70% 강제
   buildZones(); markStyleBtns(); markResBtns();
   syncPanelFromState(); renderAll();
   showPresetInfo();
