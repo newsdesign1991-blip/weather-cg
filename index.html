@@ -2518,6 +2518,18 @@ function renderVfBar() {
 }
 // 범례 통째로 이동 — dragLoop(svg 좌표 델타) 사용
 function startLegendMove(e) { const g = (S.legend ||= {}); const ox = g.x, oy = g.y; pushUndo(); dragLoop(e, (dx, dy) => { g.x = Math.round(ox + dx); g.y = Math.round(oy + dy); renderLegend(); }); }
+// 노말 VF에선 범례가 래퍼(패널) 클립 안에 있어야 보인다. 패널 밖에 있으면 패널 안으로 옮겨 준다.
+// (VF 특보 지도에서 범례를 켜도 화면 왼쪽 기본위치라 잘려 안 보이던 문제 — 켤 때 패널 안으로.)
+function ensureLegendInVfPanel() {
+  if (S.res !== '1920x1080-vf') return;
+  const place = (r) => {
+    if (!r) return;
+    const g = S.legend; if (!g) return;
+    const inside = g.x >= r.x && g.x <= r.x + r.w - 40 && g.y >= r.y && g.y <= r.y + r.h - 40;
+    if (!inside) { g.x = Math.round(r.x + r.w * 0.10); g.y = Math.round(r.y + r.h * 0.5); renderLegend(); syncPanelFromState(); }
+  };
+  if (_vfPanelRect) place(_vfPanelRect); else computeVfPanelRect(place);
+}
 // 범례 크기 조절 — 우하단 핸들을 끌면 상자·글자·간격이 함께 커지고 작아진다
 function startLegendResize(e) {
   const g = (S.legend ||= {});
@@ -5204,6 +5216,7 @@ function buildResBtns() {
       }
       buildBgBtns(); syncPanelFromState();   // 화면마다 배경 목록이 달라(VF 배경은 VF에서만) 다시 그리고 패널 동기화
       renderBg(); markResBtns();
+      if (k === '1920x1080-vf' && S.legend && S.legend.on) ensureLegendInVfPanel();   // VF 범례가 패널 밖이면 안으로
       if (typeof tlNote === 'function') tlNote();   // 해상도마다 렌더 안내가 다르다
       status(v.label);
     };
@@ -6336,7 +6349,7 @@ function wire() {
     renderMtns(); renderSel();
   };
   // 기상특보 범례
-  $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; renderLegend(); };
+  $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; if (e.target.checked) ensureLegendInVfPanel(); renderLegend(); };
   $('#lgAuto').onchange = (e) => { pushUndo(); (S.legend ||= {}).auto = e.target.checked ? 1 : 0; syncLegendMode(); renderLegend(); };
   $('#lgAdd').onclick = () => { pushUndo(); const g = (S.legend ||= { items: [] }); (g.items ||= []).push({ col: activeColor, txt: '' }); g.on = 1; $('#lgOn').checked = true; renderLegend(); buildLgList(); };
   const lgw = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('lg' + key); (S.legend ||= {})[key] = +e.target.value; if (vid) $(vid).textContent = e.target.value; renderLegend(); }; };
