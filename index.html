@@ -278,6 +278,8 @@
   }
   button.pri:hover { filter: brightness(1.05); }
   button:disabled { opacity: .4; cursor: default; }
+  /* 잘 안 쓰는 출력화면 버튼(날씨 팀) — 골라지지 않았을 때 흐리게(눈에 덜 띄게) */
+  #resBtns button.resDim:not(.pri) { opacity: .4; color: var(--on-surface-var); }
   .btns { display: flex; gap: 7px; flex-wrap: wrap; }
   .btns > button { flex: 1; }
   .hint { color: var(--on-surface-var); line-height: 1.6; margin: 6px 0 0; white-space: pre-line; }
@@ -1174,6 +1176,15 @@
         <div class="list" id="textList"></div>
         <div class="row"><label>그림자</label><label class="chk" style="flex:1"><input type="checkbox" id="txtShadow">지도와 같은 그림자</label></div>
         <div class="btns"><button id="addText">+ 텍스트 추가</button></div>
+        <div id="vfBarUI" style="display:none;margin-top:12px;border-top:1px solid var(--outline-var);padding-top:10px">
+          <label class="chk"><input type="checkbox" id="vfBarOn">제목 바 (VF 배경 크롭)</label>
+          <p class="hint" style="margin:4px 0 7px">이동 모드에서 <b>끌어 옮기고</b> 오른쪽아래 <b>파란 핸들로 크기</b> 조절. 아래 숫자로도 됩니다. 제목 글자는 위 <b>텍스트 추가</b>로 얹으세요.</p>
+          <div class="row wide"><label>X / Y</label><input type="number" id="vfBarX" step="1"><input type="number" id="vfBarY" step="1"></div>
+          <div class="row wide"><label>폭 / 높이</label><input type="number" id="vfBarW" step="1"><input type="number" id="vfBarH" step="1"></div>
+          <div class="row wide"><label>그림자 농도</label><input type="range" id="vfBarShOp" min="0" max="100" step="1"><span class="v" id="vfBarShOpV"></span></div>
+          <div class="row wide"><label>그림자 번짐</label><input type="range" id="vfBarShBlur" min="0" max="30" step="1"><span class="v" id="vfBarShBlurV"></span></div>
+          <div class="row wide"><label>그림자 거리</label><input type="range" id="vfBarShDy" min="0" max="30" step="1"><span class="v" id="vfBarShDyV"></span></div>
+        </div>
         <div id="textEdit" style="display:none;margin-top:10px">
           <div class="row wide"><label>내용</label><input type="text" id="tTxt"></div>
           <div class="row wide"><label>크기</label><input type="number" id="tSize" step="1"></div>
@@ -1232,6 +1243,27 @@
       </div>
     </div>
 
+    <div class="sec special" data-sec="legend">
+      <h3>특보 범례</h3>
+      <div class="body">
+        <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgOn">제목 밑에 범례 표시</label>
+        <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동 (눈 켠 것만, 색 자동)</label>
+        <div id="lgManual">
+          <div class="list" id="lgList"></div>
+          <div class="btns" style="margin:6px 0"><button id="lgAdd">+ 항목 추가</button></div>
+        </div>
+        <p class="hint" id="lgAutoHint" style="margin:2px 0 8px;display:none">기상특보 목록에서 <b>눈을 켠</b> 특보가 색·이름 그대로 자동 표시됩니다. 눈을 끄면 빠집니다.</p>
+        <div class="row wide"><label>글자색</label><input type="color" id="lgTxtCol"><input type="text" id="lgTxtColHex"></div>
+        <div class="row wide"><label>글자 크기</label><input type="range" id="lgSize" min="16" max="80" step="1"><span class="v" id="lgSizeV">34</span></div>
+        <div class="row wide"><label>글자 두께</label><input type="range" id="lgWeight" min="100" max="900" step="100"><span class="v" id="lgWeightV">600</span></div>
+        <div class="row wide"><label>상자 크기</label><input type="range" id="lgBox" min="12" max="80" step="1"><span class="v" id="lgBoxV">34</span></div>
+        <div class="row wide"><label>상자 둥글기</label><input type="range" id="lgRadius" min="0" max="30" step="1"><span class="v" id="lgRadiusV">6</span></div>
+        <div class="row wide"><label>줄 간격</label><input type="range" id="lgRowGap" min="0" max="50" step="1"><span class="v" id="lgRowGapV">16</span></div>
+        <div class="row wide"><label>상자·글자 간격</label><input type="range" id="lgGap" min="0" max="50" step="1"><span class="v" id="lgGapV">18</span></div>
+        <p class="hint" style="margin-top:4px">특보용 지도(특보구역·특보+해상)에서만 나옵니다. 화면에서 범례를 <b>끌어서</b> 위치를 옮기세요.</p>
+      </div>
+    </div>
+
     <div class="sec" data-sec="mtn">
       <h3>산 표시</h3>
       <div class="body">
@@ -1239,7 +1271,12 @@
         <div class="subhead" style="margin-top:0">빠른 배치 <span>· 지도에 고정, 옮기면 따라감</span></div>
         <div class="btns" id="mtnPresets" style="margin-bottom:6px"></div>
         <div class="btns"><button id="addMtn">+ 직접 추가 (화면 가운데)</button></div>
-        <p class="hint">더블클릭하면 산 이름을 넣을 수 있습니다. 이동 모드에서 끌어서 옮기고, 파란 핸들로 크기를 맞춥니다.</p>
+        <div class="row wide" style="margin-top:9px">
+          <label>전체 크기</label>
+          <input type="range" id="mtnScale" min="30" max="200" step="1">
+          <span class="v" id="mtnScaleV">100</span>%
+        </div>
+        <p class="hint">더블클릭하면 산 이름을 넣을 수 있습니다. 이동 모드에서 끌어서 옮기고, 파란 핸들로 크기를 맞춥니다. 전체 크기는 모든 산이 <b>제자리에서</b> 같이 커지고 작아집니다.</p>
         <div id="mtnEdit" style="display:none;margin-top:10px">
           <div class="row wide"><label>이름</label><input type="text" id="mTxt" placeholder="(없으면 산만)"></div>
           <div class="row wide"><label>색</label><input type="color" id="mCol"><input type="text" id="mColHex"></div>
@@ -1463,8 +1500,20 @@
         </filter>
         <!-- 블러가 바다로 번지지 않게 육지 실루엣으로 자른다. d는 buildZones에서 채운다(#zoneLineMain 재사용 금지 — 추출 때 지워짐). -->
         <clipPath id="landClipMain" clipPathUnits="userSpaceOnUse"><path id="landClipMainP"/></clipPath>
+        <!-- 노말 VF — 지도·실루엣을 배경 패널 사각형 안으로만 자른다(패널 불투명영역의 사각 범위). -->
+        <clipPath id="vfClip" clipPathUnits="userSpaceOnUse"><rect id="vfClipRect" x="0" y="0" width="0" height="0"/></clipPath>
+        <!-- 노말 VF 제목 바 — 배경을 이 사각형만큼 잘라 위에 올린다 -->
+        <clipPath id="vfBarClip" clipPathUnits="userSpaceOnUse"><rect id="vfBarRect" x="0" y="0" width="0" height="0"/></clipPath>
+        <!-- 제목 바 그림자 (아래로 살짝 — 지도 위에 떠 있는 느낌). 농도·번짐·거리는 renderVfBar가 조절. -->
+        <filter id="vfBarShadow" x="-30%" y="-15%" width="160%" height="240%" color-interpolation-filters="sRGB"><feDropShadow id="vfBarShadowFe" dx="0" dy="7" stdDeviation="7" flood-color="#000814" flood-opacity="0.42"/></filter>
       </defs>
 
+      <!-- 노말 VF 미리보기용 가상 영상 배경 (VF 화면 작업 중에만 보임, 추출엔 안 나감). 기본은 숨김. -->
+      <g id="L_vfPreview" style="display:none"><image id="vfPreviewImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/></g>
+
+      <!-- 노말 VF에서 이 래퍼 하나에 슬라이드(transform)+페이드(opacity)+크롭(clip)을 걸어 전체를 한 덩어리로 다룬다.
+           (레이어별로 각각 걸면 겹쳐서 잔상이 생기고, 라벨·제목이 패널 밖으로 샌다.) 다른 화면에선 아무 속성도 없어 무영향. -->
+      <g id="L_vfWrap">
       <g id="L_bg">
         <image id="bgImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>
         <g id="bgMapT"><path id="nbrNW"/><path id="nbrJP"/></g>
@@ -1491,16 +1540,23 @@
       <g id="L_boxes"/>
       <!-- 산 표시. 지도 위에 얹히는 것이라 '지도만' 추출에도 같이 나간다. -->
       <g id="L_mtn"/>
-      <!-- 도서 박스 크기 핸들 + 지도 전체 크기 핸들. 이동 모드에서만 보이고 추출 시 제거된다. -->
+      <!-- 노말 VF 제목 바 — 배경 크롭 조각(지도 위). 추출에도 나간다. -->
+      <g id="L_vfBar"><image id="vfBarImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice" clip-path="url(#vfBarClip)"/></g>
+      <g id="L_labels"/>
+      <g id="L_title"/>
+      <g id="L_legend"/>
+      </g><!-- /L_vfWrap -->
+      <!-- 도서 박스 크기 핸들 + 지도 전체 크기 핸들. 이동 모드에서만 보이고 추출 시 제거된다. (래퍼 밖 = 크롭/슬라이드 영향 안 받음) -->
       <g id="L_grips">
         <g id="mapGrip" class="insetGrip" data-mapgrip="1">
           <circle r="13"/>
           <path class="gripArrow" d="M-5 5 L5 -5 M5 -5 L5 0 M5 -5 L0 -5"/>
           <title>끌어서 지도 전체 크기 조절</title>
         </g>
+        <!-- 노말 VF 제목 바 — 이동/크기 핸들 (이동 모드에서만 보임, 추출 제외) -->
+        <rect id="vfBarHit" fill="transparent" style="display:none;cursor:move"/>
+        <g id="vfBarGrip" class="insetGrip" style="display:none"><circle r="13"/><path class="gripArrow" d="M-5 5 L5 -5 M5 -5 L5 0 M5 -5 L0 -5"/><title>끌어서 제목 바 크기 조절</title></g>
       </g>
-      <g id="L_labels"/>
-      <g id="L_title"/>
       <g id="L_guide"><image id="guideImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/></g>
       <g id="L_guides"/>
       <g id="L_sel"/>
@@ -1652,11 +1708,16 @@ const DEFAULTS = () => ({
   ],
   labels: [],
   labScale: 100, // 수치 라벨 전체 크기 (%) — 각자 제자리에서 같이 커지고 작아진다
+  mtnScale: 100, // 산 표시 전체 크기 (%) — 각 산이 제자리에서 같이 커지고 작아진다
   labShadow: 1,  // 수치 라벨 그림자 — 지도와 같은 그림자(#shadowF)를 얹는다
   txtShadow: 1,  // 제목 텍스트 그림자 — 지도와 같은 그림자
   mtns: [],      // 산 표시
   softFill: 0,   // 아사모사(부드러운 경계) — 통보문 색칠을 경계에서 부드럽게 섞을지
   softZonesByStyle: {}, // 지도 종류별 '부드럽게' 대상 구역 id들(내륙·해안·산지처럼 애매한 표현만). 확실한 지명은 또렷하게 둔다.
+  vfBar: { on: 0, x: 1140, y: 150, w: 640, h: 110, shOp: 42, shBlur: 7, shDy: 7 }, // 노말 VF 제목 바(배경 크롭+그림자 농도/번짐/거리). 배치는 프리셋에 저장.
+  // 기상특보 범례 — 제목 밑에 '색상 상자 + 이름' 목록. 특보용 지도에서만 UI 노출, 배치는 프리셋에 저장.
+  legend: { on: 0, auto: 1, x: 150, y: 560, box: 34, radius: 6, rowGap: 16, size: 34, weight: 600, txtCol: '#FFFFFF', gap: 18,
+    items: [{ col: '#FA2E1E', txt: '폭염특보' }, { col: '#FFC400', txt: '폭염주의보' }] },
   // 영상용. tracks = [{id, kind:'fill'|'label'|'text'|'mtn', key, start, len}]
   // fps 기본 30 — 어차피 PNG 시퀀스로 편집 툴에 넘겨 쓰므로 딱 떨어지는 30이 편하다.
   // reveal: 색칠이 나타나는 방식 — 'dissolve'(번짐) / 'blinds'(블라인드, AE 효과)
@@ -2071,6 +2132,23 @@ function buildZones() {
   }
 }
 
+// 자동 색칠 사이드바 표시: 기상특보 색칠은 특보용 지도(특보구역·특보+해상)에서만,
+// 기상예보 색칠은 예보용 지도(시도군·시도)에서만 — 그 지도에서만 실제로 쓰므로 헷갈리지 않게 숨긴다.
+function updateAutoPaintSecs() {
+  const isWarn = S.style === 'warn' || S.style === 'warnsea';
+  const isFct = S.style === 'sgg' || S.style === 'sido';
+  const w = $('[data-sec="wrn"]'); if (w) w.style.display = isWarn ? '' : 'none';
+  const f = $('[data-sec="fct"]'); if (f) f.style.display = isFct ? '' : 'none';
+  const lg = $('[data-sec="legend"]'); if (lg) lg.style.display = isWarn ? '' : 'none';   // 범례는 특보용 지도에서만
+}
+
+// VF 화면 기본 크기: 라벨 92% · 산 70%. 내가 직접 저장한 배치가 없을 때만 강제한다
+// (통보문·특보로 새로 생성하거나 지도 종류를 바꿔도 이 크기로 나오게 — 배포 프리셋의 옛 값이 덮지 않도록).
+function applyVfDefaults() {
+  if (S.res !== '1920x1080-vf' || userPresets()[presetKey()]) return false;
+  S.labScale = 92; S.mtnScale = 70;
+  return true;
+}
 function setStyle(name) {
   if (!MAP.styles[name] || name === S.style) return;
   pushUndo();
@@ -2080,16 +2158,19 @@ function setStyle(name) {
   const before = presetKey();
   const after = presetKey(S.res, name);
   S.style = name;
+  updateAutoPaintSecs();
   buildZones();
   renderInsets(); // 지도 종류마다 박스를 쓰기도 안 쓰기도 한다
   renderFills();
   markStyleBtns(); syncEyes();
   if (before !== after && !applyPreset()) {
     // 새 그룹에 저장된 게 없으면 지금 배치를 그대로 이어 쓴다
+    applyVfDefaults();   // VF면 라벨·산 기본크기(92%·70%)
     renderAll();
     status(`${MAP.styles[name].label} — 이 배치는 아직 저장 안 됨`);
     return;
   }
+  if (applyVfDefaults()) { syncPanelFromState(); renderAll(); }   // 배치 적용 뒤에도 VF면 기본크기 강제(배포 프리셋의 옛 라벨/산 크기 덮어쓰기)
   renderSea();
   status(MAP.styles[name].label);
   // 읽어둔 예보가 있으면 새 지도 단위에 맞춰 다시 칠한다.
@@ -2130,6 +2211,9 @@ function buildBgBtns() {
   for (const [k, label] of Object.entries(BGS)) {
     // 어두운/밝은 둘 중 하나라도 구워져 있으면 타입 버튼을 만든다
     if (!IMG[k] && !IMG[BG_LIGHT[k]]) continue;
+    // VF 화면은 VF 배경만, 다른 화면은 VF 배경을 숨긴다
+    if (S.res === '1920x1080-vf') { if (k !== 'bgVfDark') continue; }
+    else if (k === 'bgVfDark') continue;
     add(k, label, () => { bgUseFile = 0; S.bg = k; });
   }
   if (bgOverride) add('_file', '교체한 것', () => { bgUseFile = 1; });
@@ -2361,8 +2445,8 @@ function renderSidoLines() {
 }
 
 // 배경은 '타입(기본/비)'만 고르고, 실제 이미지는 CG 모드(어두운/밝은)에 따라 자동으로 고른다.
-const BGS = { bg: '기본', bgRain: '비' };                       // 고르는 타입
-const BG_LIGHT = { bg: 'bgBright', bgRain: 'bgBrightRain' };    // 각 타입의 밝은 모드 이미지
+const BGS = { bg: '기본', bgRain: '비', bgVfDark: 'VF기본' };       // 고르는 타입 (bgVfDark = 노말 VF용 배경, CG모드 따라 어두움/밝음 자동)
+const BG_LIGHT = { bg: 'bgBright', bgRain: 'bgBrightRain', bgVfDark: 'bgVfBright' };   // 각 타입의 밝은 모드 이미지
 // 현재 S.bg를 유효한 타입으로 (옛 값 bgBright/bgBrightRain 은 타입으로 되돌린다)
 function bgTypeOf() {
   let t = S.bg;
@@ -2397,6 +2481,80 @@ function renderBg() {
   if (gsrc) g.setAttribute('href', gsrc);
   $('#L_guide').style.display = S.showGuide ? '' : 'none';
   g.setAttribute('opacity', S.guideOp / 100);
+  applyVfClip();
+  renderVfBar();
+}
+
+// 노말 VF 제목 바 — 배경(패널)을 사각형만큼 잘라 지도 위에 올린다. 이동 모드에선 이동/크기 핸들도.
+function renderVfBar() {
+  // VF 미리보기 배경(가상 영상) — VF 화면 작업 중에만 보이고 추출엔 안 나간다.
+  const prev = $('#L_vfPreview');
+  if (prev) {
+    const showPrev = S.res === '1920x1080-vf';
+    prev.style.display = showPrev ? '' : 'none';
+    if (showPrev) { const pi = $('#vfPreviewImg'); if (pi && !pi.getAttribute('href')) pi.setAttribute('href', IMG.bgVfPreview || ''); }
+  }
+  const b = (S.vfBar ||= { on: 0, x: 1140, y: 150, w: 640, h: 110 });
+  const show = S.res === '1920x1080-vf' && b.on;
+  const layer = $('#L_vfBar');
+  if (layer) layer.style.display = show ? '' : 'none';
+  if (show && layer) {
+    const img = $('#vfBarImg'); if (img) img.setAttribute('href', IMG[bgKey()] || IMG.bgVfDark || '');
+    const rc = $('#vfBarRect'); if (rc) { rc.setAttribute('x', b.x); rc.setAttribute('y', b.y); rc.setAttribute('width', Math.max(1, b.w)); rc.setAttribute('height', Math.max(1, b.h)); }
+    // 그림자 + 배경 패널로 클립(그림자가 패널 밖으로 안 나가게). 패널 사각형은 vfClip 공유.
+    computeVfPanelRect((r) => { if (r) { const pc = $('#vfClipRect'); if (pc) { pc.setAttribute('x', r.x); pc.setAttribute('y', r.y); pc.setAttribute('width', r.w); pc.setAttribute('height', r.h); } } });
+    const fe = $('#vfBarShadowFe');
+    if (fe) { fe.setAttribute('flood-opacity', (b.shOp == null ? 42 : b.shOp) / 100); fe.setAttribute('stdDeviation', b.shBlur == null ? 7 : b.shBlur); fe.setAttribute('dy', b.shDy == null ? 7 : b.shDy); }
+    layer.setAttribute('filter', (b.shOp === 0) ? 'none' : 'url(#vfBarShadow)');   // 농도 0이면 그림자 끔
+    layer.setAttribute('clip-path', 'url(#vfClip)');
+  } else if (layer) { layer.removeAttribute('filter'); layer.removeAttribute('clip-path'); }
+  const handles = show && mode === 'move';
+  const hit = $('#vfBarHit');
+  if (hit) { hit.style.display = handles ? '' : 'none'; if (handles) { hit.setAttribute('x', b.x); hit.setAttribute('y', b.y); hit.setAttribute('width', Math.max(1, b.w)); hit.setAttribute('height', Math.max(1, b.h)); } }
+  const grip = $('#vfBarGrip');
+  if (grip) { grip.style.display = handles ? '' : 'none'; if (handles) grip.setAttribute('transform', `translate(${b.x + b.w} ${b.y + b.h})`); }
+}
+// 범례 통째로 이동 — dragLoop(svg 좌표 델타) 사용
+function startLegendMove(e) { const g = (S.legend ||= {}); const ox = g.x, oy = g.y; pushUndo(); dragLoop(e, (dx, dy) => { g.x = Math.round(ox + dx); g.y = Math.round(oy + dy); renderLegend(); }); }
+// 제목 바 이동/크기 — dragLoop(svg 좌표 델타) 사용
+function startVfBarMove(e) { const b = S.vfBar, ox = b.x, oy = b.y; pushUndo(); dragLoop(e, (dx, dy) => { b.x = Math.round(ox + dx); b.y = Math.round(oy + dy); renderVfBar(); }); }
+function startVfBarResize(e) { const b = S.vfBar, ow = b.w, oh = b.h; pushUndo(); dragLoop(e, (dx, dy) => { b.w = Math.max(40, Math.round(ow + dx)); b.h = Math.max(24, Math.round(oh + dy)); renderVfBar(); }); }
+
+// 노말 VF: 배경 패널(불투명 사각 범위) 안으로만 전체를 자른다. 래퍼(L_vfWrap) 하나에 clip을 걸어
+// 지도·실루엣·박스·산·라벨·제목이 전부 패널 밖으로 안 새게 한다.
+let _vfPanelRect = null;                 // 패널 불투명 영역의 사각 범위(캔버스 좌표)
+function computeVfPanelRect(cb) {
+  if (_vfPanelRect) { cb(_vfPanelRect); return; }
+  const src = IMG.bgVfDark || IMG.bgVfBright;
+  if (!src) { cb(null); return; }
+  const im = new Image();
+  im.onload = () => {
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d'); cx.drawImage(im, 0, 0);
+    const d = cx.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] > 30) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    }
+    // 이미지 1920x1080이 캔버스에 1:1(slice)로 들어가므로 좌표 그대로 쓴다.
+    _vfPanelRect = (maxX >= minX) ? { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } : null;
+    cb(_vfPanelRect);
+  };
+  im.onerror = () => cb(null);
+  im.src = src;
+}
+function applyVfClip() {
+  const vf = S.res === '1920x1080-vf' && S.showBg;
+  const wrap = document.getElementById('L_vfWrap');
+  if (!wrap) return;
+  if (!vf) { wrap.removeAttribute('clip-path'); return; }
+  computeVfPanelRect((r) => {
+    if (!r) { wrap.removeAttribute('clip-path'); return; }
+    const rc = $('#vfClipRect');
+    if (rc) { rc.setAttribute('x', r.x); rc.setAttribute('y', r.y); rc.setAttribute('width', r.w); rc.setAttribute('height', r.h); }
+    wrap.setAttribute('clip-path', 'url(#vfClip)');
+  });
 }
 
 function renderShadow() {
@@ -2434,6 +2592,72 @@ function renderTexts() {
   }
 }
 
+// 켜둔(눈 켠) 특보들을 색·이름으로 정리해 범례 항목으로. (buildWrnList의 집계와 같은 규칙)
+function wrnLegendItems() {
+  if (typeof wrnRows === 'undefined' || !Array.isArray(wrnRows) || !wrnRows.length) return [];
+  const agg = {};
+  for (const r of wrnRows) { const k = r.wrn + ' ' + r.lvl; (agg[k] ||= { wrn: r.wrn, lvl: r.lvl }); }
+  return Object.values(agg)
+    .filter((a) => !S.wrnOff[wrnKeyOf(a)])                      // 눈 끈 것은 제외
+    .sort((a, b) => wrnRank(a) - wrnRank(b))                    // 목록과 같은 우선순위(위=우선)
+    .map((a) => ({ col: wrnColorOf(a.wrn, a.lvl) || '#666', txt: (a.wrn + ' ' + a.lvl).trim() }));
+}
+
+// 기상특보 범례 — 제목 밑에 '색상 상자 + 이름' 줄들. 전체를 한 그룹으로 끌어 옮긴다.
+function renderLegend() {
+  const L = $('#L_legend'); if (!L) return;
+  L.textContent = '';
+  const g = (S.legend ||= { on: 0, auto: 1, x: 150, y: 560, box: 34, radius: 6, rowGap: 16, size: 34, weight: 600, txtCol: '#FFFFFF', gap: 18, items: [] });
+  if (!g.on) return;
+  // 자동: 특보 목록에서 눈 켠 것만 색·이름으로 자동 표시. 수동: 내가 만든 항목.
+  const auto = g.auto == null ? 1 : g.auto;
+  const src = auto ? wrnLegendItems() : (g.items || []);
+  const items = src.filter((it) => it && (it.txt || it.col));
+  if (!items.length) return;
+  const box = g.box, size = g.size, rowGap = g.rowGap == null ? 16 : g.rowGap, gap = g.gap == null ? 18 : g.gap;
+  const rowH = Math.max(box, size * 1.1);
+  const grp = el('g', { class: 'drag', 'data-kind': 'legend', 'data-id': 'legend', transform: `translate(${g.x} ${g.y})` });
+  items.forEach((it, i) => {
+    const top = i * (rowH + rowGap);
+    grp.append(el('rect', { x: 0, y: top + (rowH - box) / 2, width: box, height: box, rx: g.radius || 0, ry: g.radius || 0, fill: it.col || '#FFFFFF' }));
+    const t = el('text', {
+      x: box + gap, y: top + rowH / 2, fill: g.txtCol || '#FFFFFF', 'font-family': '"Wanted Sans Variable"',
+      'font-size': size, 'font-weight': g.weight || 600, 'dominant-baseline': 'central', 'letter-spacing': -0.5, 'xml:space': 'preserve',
+    });
+    t.textContent = it.txt || '';
+    grp.append(t);
+  });
+  L.append(grp);
+}
+
+// 자동/수동 모드에 따라 범례 UI 전환 (자동이면 수동 목록 숨기고 안내 표시)
+function syncLegendMode() {
+  const auto = (S.legend && S.legend.auto == null) ? 1 : (S.legend && S.legend.auto);
+  const man = $('#lgManual'), hint = $('#lgAutoHint');
+  if (man) man.style.display = auto ? 'none' : '';
+  if (hint) hint.style.display = auto ? '' : 'none';
+}
+// 범례 항목 목록 UI (색상 + 이름 + 삭제)
+function buildLgList() {
+  const L = $('#lgList'); if (!L) return;
+  const g = (S.legend ||= { items: [] });
+  const items = (g.items ||= []);
+  L.innerHTML = '';
+  if (!items.length) { L.innerHTML = '<div class="empty">항목이 없습니다 — “+ 항목 추가”</div>'; return; }
+  items.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'row wide';
+    row.style.cssText = 'gap:6px;align-items:center;margin-bottom:4px';
+    row.innerHTML = `<input type="color" data-i="${i}" class="lgItemCol" value="${it.col || '#FFFFFF'}" style="flex:0 0 40px;padding:0">`
+      + `<input type="text" data-i="${i}" class="lgItemTxt" value="${(it.txt || '').replace(/"/g, '&quot;')}" placeholder="이름" style="flex:1">`
+      + `<button data-i="${i}" class="lgItemDel" title="삭제" style="flex:0 0 30px">✕</button>`;
+    L.append(row);
+  });
+  L.querySelectorAll('.lgItemCol').forEach((n) => { n.oninput = (e) => { pushUndo('lgcol'); items[+e.target.dataset.i].col = e.target.value.toUpperCase(); renderLegend(); }; });
+  L.querySelectorAll('.lgItemTxt').forEach((n) => { n.oninput = (e) => { pushUndo('lgtxt'); items[+e.target.dataset.i].txt = e.target.value; renderLegend(); }; });
+  L.querySelectorAll('.lgItemDel').forEach((n) => { n.onclick = (e) => { pushUndo(); items.splice(+e.target.dataset.i, 1); renderLegend(); buildLgList(); }; });
+}
+
 // 라벨 하나. 직접 추가하는 것과 색 따라 자동 생성하는 것이 같은 기본값을 쓰도록 여기 모아둔다.
 // 굵기 500(Medium) — 800은 방송 화면에서 너무 두껍다.
 const newLabel = (o) => Object.assign({
@@ -2445,6 +2669,7 @@ const newLabel = (o) => Object.assign({
 // 전체 크기 배율. 라벨은 x,y가 '중심'이라 크기만 키우면 제자리에서 커진다.
 // 배율은 그릴 때만 곱한다 — 개별 편집칸에는 원래 숫자가 그대로 보여야 헷갈리지 않는다.
 const labK = () => (S.labScale == null ? 100 : S.labScale) / 100;
+const mtnK = () => (S.mtnScale == null ? 100 : S.mtnScale) / 100;
 
 function renderLabels() {
   const L = $('#L_labels');
@@ -2692,24 +2917,27 @@ const newMtn = (o) => Object.assign({
 function renderMtns() {
   const L = $('#L_mtn');
   L.textContent = '';
+  const k = mtnK();
   for (const m of (S.mtns ||= [])) {
     if (m.off) continue;
     if (m.anchor) { const a = mtnAnchorXY(m); m.x = a.x; m.y = a.y; } // 앵커면 현재 지도 기준으로 위치 갱신 (지도 따라가기)
     const g = el('g', { class: 'drag', 'data-kind': 'mtn', 'data-id': m.id, transform: `translate(${m.x} ${m.y})` });
+    const size = m.size * k;   // 전체 산 크기(%) 반영 — 제자리에서 커지고 작아진다
     // 이동 모드에서 잡기 쉽게 삼각형 bbox 전체를 투명 히트 영역으로. (삼각형과 같은 크기라 getBBox는 안 커진다)
     // 칠하기 모드에선 pointer-events:none 이라 빈 구석은 아래 지도로 통과한다.
-    const hw = m.size / 2, hh = m.size * 0.78;
-    g.append(el('rect', { class: 'mtnHit', x: -hw, y: -hh, width: m.size, height: hh, fill: 'transparent' }));
-    const pa = { d: mtnPath(m.size), fill: m.col, 'fill-opacity': m.op / 100, 'fill-rule': 'nonzero' };
+    const hw = size / 2, hh = size * 0.78;
+    g.append(el('rect', { class: 'mtnHit', x: -hw, y: -hh, width: size, height: hh, fill: 'transparent' }));
+    const pa = { d: mtnPath(size), fill: m.col, 'fill-opacity': m.op / 100, 'fill-rule': 'nonzero' };
     // strokeW/stroke 가 없던 옛 산도 기본 테두리를 갖게 한다 (UI 기본값과 일치)
     const sw = m.strokeW == null ? 2 : m.strokeW, sc = m.stroke || '#FFFFFF';
     if (sw > 0) { pa.stroke = sc; pa['stroke-width'] = sw; pa['stroke-linejoin'] = 'round'; }
     g.append(el('path', pa));
     if (m.txt) {
+      const ts = m.txtSize * k;
       const t = el('text', {
-        fill: m.txtCol, 'font-family': '"Wanted Sans Variable"', 'font-size': m.txtSize,
+        fill: m.txtCol, 'font-family': '"Wanted Sans Variable"', 'font-size': ts,
         'font-weight': 500, 'text-anchor': 'middle', 'letter-spacing': -0.5,
-        y: m.txtSize + 2, 'xml:space': 'preserve',
+        y: ts + 2, 'xml:space': 'preserve',
       });
       t.textContent = m.txt;
       g.append(t);
@@ -2756,7 +2984,7 @@ function renderSel() {
 
 function renderAll() {
   renderBg(); renderShadow(); renderMapTransform(); renderInsets();
-  renderBrush(); renderTexts(); renderLabels(); renderMtns(); renderSel();
+  renderBrush(); renderTexts(); renderLegend(); renderLabels(); renderMtns(); renderSel();
 }
 
 // ===================== 패널 =====================
@@ -3037,6 +3265,21 @@ function refreshPanel() {
   }
   const ls = S.labScale == null ? 100 : S.labScale;
   $('#labScale').value = ls; $('#labScaleV').textContent = ls;
+  const ms = S.mtnScale == null ? 100 : S.mtnScale;
+  if ($('#mtnScale')) { $('#mtnScale').value = ms; $('#mtnScaleV').textContent = ms; }
+  { // 기상특보 범례
+    const g = (S.legend ||= { on: 0, box: 34, radius: 6, rowGap: 16, size: 34, txtCol: '#FFFFFF', gap: 18, items: [] });
+    if ($('#lgOn')) $('#lgOn').checked = !!g.on;
+    if ($('#lgAuto')) $('#lgAuto').checked = g.auto == null ? true : !!g.auto;
+    const sv = (id, v, vid) => { if ($(id)) { $(id).value = v; if (vid) $(vid).textContent = v; } };
+    sv('#lgSize', g.size == null ? 34 : g.size, '#lgSizeV'); sv('#lgBox', g.box == null ? 34 : g.box, '#lgBoxV');
+    sv('#lgRadius', g.radius == null ? 6 : g.radius, '#lgRadiusV'); sv('#lgRowGap', g.rowGap == null ? 16 : g.rowGap, '#lgRowGapV');
+    sv('#lgGap', g.gap == null ? 18 : g.gap, '#lgGapV');
+    sv('#lgWeight', g.weight == null ? 600 : g.weight, '#lgWeightV');
+    if ($('#lgTxtCol')) { $('#lgTxtCol').value = g.txtCol || '#FFFFFF'; $('#lgTxtColHex').value = g.txtCol || '#FFFFFF'; }
+    buildLgList();
+    syncLegendMode();
+  }
   $('#labShadow').checked = S.labShadow == null ? true : !!S.labShadow;
   $('#txtShadow').checked = S.txtShadow == null ? true : !!S.txtShadow;
 
@@ -3073,6 +3316,17 @@ function syncEyes() {
 
 function syncPanelFromState() {
   markResBtns();
+  updateAutoPaintSecs();
+  { // 노말 VF 제목 바 — VF 화면에서만 UI 표시 + 값 동기화
+    const ui = $('#vfBarUI'); const b = (S.vfBar ||= { on: 0, x: 1140, y: 150, w: 640, h: 110 });
+    if (ui) ui.style.display = (S.res === '1920x1080-vf') ? '' : 'none';
+    if ($('#vfBarOn')) $('#vfBarOn').checked = !!b.on;
+    if ($('#vfBarX')) { $('#vfBarX').value = Math.round(b.x); $('#vfBarY').value = Math.round(b.y); $('#vfBarW').value = Math.round(b.w); $('#vfBarH').value = Math.round(b.h); }
+    { const so = b.shOp == null ? 42 : b.shOp, sb = b.shBlur == null ? 7 : b.shBlur, sd = b.shDy == null ? 7 : b.shDy;
+      if ($('#vfBarShOp')) { $('#vfBarShOp').value = so; $('#vfBarShOpV').textContent = so; }
+      if ($('#vfBarShBlur')) { $('#vfBarShBlur').value = sb; $('#vfBarShBlurV').textContent = sb; }
+      if ($('#vfBarShDy')) { $('#vfBarShDy').value = sd; $('#vfBarShDyV').textContent = sd; } }
+  }
   $('#showBg').checked = !!S.showBg;
   $('#showGuide').checked = !!S.showGuide;
   $('#guideOp').value = S.guideOp; $('#guideOpV').textContent = S.guideOp;
@@ -3108,6 +3362,7 @@ function applyCgDefaults(light) {
     S.sidoCol = '#E2E2E2'; S.sidoOn = 1; S.sidoOp = 100;
     S.nbrCol = '#B7C0D9'; S.nbrOp = 31;
     S.shadow = { x: 3, y: 8, blur: 4, op: 20, col: '#000814' };
+    S.seaBase = '#AEBBD4'; S.seaCol = '#8695B5';   // 바다 색도 모드별로 (밝은)
     for (const t of S.texts) t.col = '#071251';
   } else {
     S.base = '#3C4875';
@@ -3116,6 +3371,7 @@ function applyCgDefaults(light) {
     S.sidoCol = '#EBEBEB'; S.sidoOn = 1; S.sidoOp = 100;
     S.nbrCol = '#1B2856'; S.nbrOp = 100;
     S.shadow = { x: 0, y: 8, blur: 10, op: 45, col: '#000814' };
+    S.seaBase = '#2A3A63'; S.seaCol = '#7E8AA8';   // 바다 색도 모드별로 (어두운)
     for (const t of S.texts) if ((t.col || '').toUpperCase() === '#071251') t.col = '#FFFFFF';
   }
 }
@@ -3213,7 +3469,7 @@ function inlineEdit(kind, id) {
   inp.style.cssText = `position:fixed; left:${r.left - 6}px; top:${r.top - 4}px;
     width:${Math.max(r.width + 40, 120)}px; height:${r.height + 8}px;
     font-family:'Wanted Sans Variable',sans-serif; font-size:${fs}px; font-weight:${it.w == null ? 500 : it.w};
-    color:#fff; background:rgba(12,18,34,.96); border:2px solid #3b82f6; border-radius:4px;
+    color:#fff !important; background:rgba(12,18,34,.96) !important; border:2px solid #3b82f6; border-radius:4px;
     padding:0 6px; z-index:9999; outline:none;`;
   document.body.append(inp);
   inp.focus(); inp.select();
@@ -3261,6 +3517,7 @@ svg.addEventListener('pointerdown', (e) => {
 
   const d = e.target.closest('.drag');
   if (d) {
+    if (d.dataset.kind === 'legend') { startLegendMove(e); revealSec('legend'); return; }   // 범례는 통째로 이동
     // 산은 칠하기 모드에선 팔레트 색으로 칠하고, 이동 모드에서만 움직인다.
     if (d.dataset.kind === 'mtn' && mode === 'paint') {
       const m = itemOf({ kind: 'mtn', id: d.dataset.id });
@@ -3277,6 +3534,8 @@ svg.addEventListener('pointerdown', (e) => {
   }
 
   if (mode === 'move') {
+    if (e.target.closest('#vfBarGrip')) { startVfBarResize(e); return; }   // 제목 바 크기
+    if (e.target.closest('#vfBarHit')) { startVfBarMove(e); return; }      // 제목 바 이동
     if (e.target.closest('[data-mapgrip]')) { revealSec('map'); startScaleMap(e); return; }
     const grip = e.target.closest('.insetGrip');
     if (grip && grip.dataset.inset) { startResizeInset(e, grip.dataset.inset); return; }
@@ -3689,6 +3948,7 @@ function setMode(m) {
   else if (secClosed('pal')) revealSec('pal');   // 브러쉬 모드 켜면 색 팔레트 펴 준다
   renderInsets();
   renderMapTransform();
+  renderVfBar();   // 이동 모드 전환에 맞춰 제목 바 핸들 표시/숨김
   status(m === 'move' ? '이동 모드 — 끌어서 이동, 파란 핸들로 크기 조절 (지도 전체 / 도서 박스)'
     : m === 'brush' ? '브러쉬 모드 — 한 영역을 끌어서 그 안에만 부드럽게 덧칠' : '칠하기 모드');
 }
@@ -3857,7 +4117,7 @@ function paintWrn() {
   S.fillsByStyle.warn = F;
   S.fillsByStyle.warnsea = { ...F };
   S.seaFills = SF;
-  renderFills(); renderSea();
+  renderFills(); renderSea(); renderLegend();   // 범례 자동 모드면 특보 목록 반영
 
   const n = Object.keys(F).length + Object.keys(SF).length;
   const hidden = Object.values(best).length;
@@ -3897,8 +4157,9 @@ function buildWrnList() {
     // 발표시각이 구역마다 다르면 범위로 보여준다 ("7/12 16:00~7/15 10:00")
     const fc = a.fc0 === a.fc1 ? tmShort(a.fc0) : tmShort(a.fc0) + '~' + tmShort(a.fc1);
     // 이름(폭염경보 등)을 윗줄에 온전히, 발표시각은 아랫줄에 — 한 줄에 다 넣으면 이름이 1글자로 잘린다.
+    const cIdx = /경보/.test(a.lvl) ? 1 : 0;   // 경보=진한색[1], 주의보/그 외=[0]
     d.innerHTML = `<button class="eye${on ? '' : ' off'}"></button>` +
-      `<div class="dot" style="background:${wrnColorOf(a.wrn, a.lvl) || '#666'}"></div>` +
+      `<input type="color" class="wrnCol" style="width:24px;height:20px;flex:none" title="이 특보 색 바꾸기 (같은 종류 구역 전부 바뀜)">` +
       `<div style="flex:1;min-width:0">` +
         `<div class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>` +
         `<div class="fc" style="color:var(--on-surface-var);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>` +
@@ -3908,10 +4169,17 @@ function buildWrnList() {
     d.querySelector('.fc').textContent = fc;
     d.title = (fc ? `발표 ${fc}` : '') + (isPre(a.lvl) ? '\n예비특보 — 아직 발효된 게 아닙니다' : '');
     d.querySelector('.nm').style.opacity = on ? '' : '.45';
+    const ci = d.querySelector('.wrnCol');
+    ci.value = wrnColorOf(a.wrn, a.lvl) || '#666666';
+    ci.oninput = (e) => {   // 들어온 특보 색을 골라 그 종류 구역을 한 번에 바꾼다 (통보문 색칠처럼)
+      pushUndo('wrncol' + key);
+      (S.wrnColors[a.wrn] ||= ['#C4C4C4', '#8C8C8C'])[cIdx] = e.target.value.toUpperCase();
+      paintWrn(); renderLegend();
+    };
     d.querySelector('.eye').onclick = () => {
       pushUndo();
       S.wrnOff[key] = on ? 1 : 0;
-      buildWrnList(); paintWrn();
+      buildWrnList(); paintWrn(); renderLegend();   // 범례 자동 모드면 눈 상태에 맞춰 갱신
     };
     w.append(d);
   }
@@ -4031,6 +4299,83 @@ const RAIN_SCALE = [
 ];
 function rainColor(mm) { let c = RAIN_SCALE[0][1]; for (const [t, h] of RAIN_SCALE) if (mm >= t) c = h; return c; }
 
+// ── 기상청 예보용어(장소표현) 매핑 — kma_place_terms.json 내장 ──
+// '중부내륙·북부내륙·산지·해안'처럼 방향만으론 애매한 표현을, 기상청이 정한 '정확한 시군 목록'으로 칠하기 위한 기준표.
+const KMA_TERMS = {
+  방위별_분류: {
+    수도권: {
+      서울: { 서북: ['은평구','종로구','마포구','서대문구','중구','용산구'], 서남: ['강서구','양천구','구로구','영등포구','동작구','관악구','금천구'], 동북: ['도봉구','노원구','강북구','성북구','동대문구','중랑구','성동구','광진구'], 동남: ['강동구','송파구','강남구','서초구'] },
+      인천: ['인천'], 경기북서부: ['고양','파주','양주','김포','의정부','인천(강화)'], 경기북동부: ['포천','동두천','가평','연천','남양주','구리'],
+      경기남서부: ['수원','성남','용인','부천','광명','안양','과천','시흥','군포','의왕','안산','오산','화성','평택','안성'], 경기남동부: ['하남','광주','이천','양평','여주'],
+      조합표현: { 경기북부: '경기북서부+경기북동부', 경기서부: '경기북서부+경기남서부', 경기동부: '경기북동부+경기남동부', 경기남부: '경기남서부+경기남동부' } },
+    강원도: { 강원영서북부: ['철원','화천','양구','인제'], 강원영서중부: ['춘천','홍천'], 강원영서남부: ['원주','횡성','영월','평창','정선'], 강원영동북부: ['고성','속초','양양'], 강원영동중부: ['강릉'], 강원영동남부: ['태백','동해','삼척'],
+      조합표현: { 강원영서: '강원영서북부+강원영서중부+강원영서남부', 강원영동: '강원영동북부+강원영동중부+강원영동남부', 강원북부: '강원영서북부+강원영동북부', 강원중부: '강원영서중부+강원영동중부', 강원남부: '강원영서남부+강원영동남부' } },
+    충청권: { 충북북부: ['충주','제천','음성','단양'], 충북중부: ['청주','증평','진천','괴산'], 충북남부: ['보은','옥천','영동'], 대전: ['대전'], 세종: ['세종'], 충남북부: ['천안','아산','예산','서산','당진','태안','홍성'], 충남남부: ['공주','논산','계룡','금산','부여','청양','보령','서천'],
+      조합표현: { 충청권북부: '충북북부+충남북부', 충청권남부: '충북남부+충남남부', 충남권남부: '대전+충남남부', 충남권북부: '세종+충남북부', 충북중북부: '충북중부+충북북부', 충북중남부: '충북중부+충북남부' } },
+    전라권: { 전북북서부: ['전주','익산','완주','군산','김제'], 전북북동부: ['무주','진안','장수'], 전북남서부: ['정읍','고창','부안'], 전북남동부: ['남원','임실','순창'], 광주: ['광주'], 전남북서부: ['장성','나주','함평','영광'], 전남북동부: ['담양','곡성','구례','순천','화순'], 전남남서부: ['목포','영암','무안','신안','해남','진도','흑산도'], 전남남동부: ['여수','광양','고흥','보성','장흥','강진','완도'],
+      조합표현: { 전라권서부: '전북북서부+전북남서부+전남북서부+전남남서부', 전라권동부: '전북북동부+전북남동부+전남북동부+전남남동부', 전남권북서부: '광주+전남북서부' } },
+    경상권: { 대구: ['대구'], 경북북부: ['상주','문경','예천','영주','영양','봉화','안동','의성','청송','영덕','울진'], 경북남부: ['영천','경산','청도','칠곡','김천','구미','군위','고령','성주','포항','경주'], 부산: ['부산'], 울산: ['울산'], 경남중부: ['밀양','의령','함안','창녕','창원'], 경남동부: ['양산','김해'], 경남서부: ['진주','하동','산청','함양','거창','합천','통영','사천','거제','고성','남해'],
+      조합표현: { 경남중서부: '경남중부+경남서부', 경남중동부: '경남중부+경남동부', 경북권남부: '대구+경북남부', 경남권동부: '부산+울산+경남동부' } },
+  },
+  지형특성별_분류: {
+    서해안: { 인천: ['인천'], '경기북부(서)해안': ['김포','인천(강화)'], '경기남부(서)해안': ['시흥','안산','화성','평택'], '충남북부(서)해안': ['서산','당진','홍성','태안'], '충남남부(서)해안': ['보령','서천'], '전북북부(서)해안': ['군산','김제'], '전북남부(서)해안': ['고창','부안'], 전남북부서해안: ['영광','함평'], 전남중부서해안: ['목포','영암','무안','신안'], 전남남부서해안: ['진도'] },
+    남해안: { 전남동부남해안: ['여수','광양','고흥','보성'], 전남서부남해안: ['장흥','강진','해남','완도'], 부산: ['부산'], 경남중부남해안: ['창원'], 경남서부남해안: ['통영','사천','거제','고성','남해'] },
+    동해안: { 울산: ['울산'], '경북북부(동)해안': ['영덕','울진'], '경북남부(동)해안': ['포항','경주'], '강원북부(동)해안': ['고성','속초','양양'], '강원중부(동)해안': ['강릉'], '강원남부(동)해안': ['동해','삼척'], 제주도해안: ['제주','서귀포'] },
+    중부내륙: { 서울: ['서울'], 경기북서내륙: ['고양','파주','양주','의정부'], 경기북동내륙: ['포천','동두천','가평','연천','남양주','구리'], 경기남서내륙: ['수원','성남','용인','부천','광명','안양','과천','군포','의왕','오산','안성'], 경기남동내륙: ['하남','광주','이천','양평','여주'], 강원북부내륙: ['철원','화천','양구','인제'], 강원중부내륙: ['춘천','홍천'], 강원남부내륙: ['원주','횡성','영월','평창','정선'], 충북내륙: { 시군: ['충주','제천','음성','단양','청주','증평','진천','괴산','보은','옥천','영동'] }, 대전: ['대전'], 세종: ['세종'], 충남북부내륙: ['천안','아산','예산'], 충남중부내륙: ['공주','계룡'], 충남남동내륙: ['논산','금산'], 충남남서내륙: ['부여','청양'],
+      조합표현: { 충남남부내륙: '충남남동내륙+충남남서내륙', 충청권내륙: '충북내륙+충남북부내륙+충남중부내륙+충남남동내륙+충남남서내륙' } },
+    남부내륙: { 전북중부내륙: ['전주','익산','완주','정읍'], 전북북동내륙: ['진안','무주','장수'], 전북남동내륙: ['남원','임실','순창'], 광주: ['광주'], 전남중부내륙: ['담양','장성','나주','화순'], 전남동부내륙: ['곡성','구례','순천'], 대구: ['대구'], 경북북서내륙: ['상주','문경','예천'], 경북북동내륙: ['봉화','영양','영주'], 경북중북부내륙: ['안동','의성','청송'], 경북남서내륙: ['김천','구미','칠곡','고령','성주'], 경북중남부내륙: ['영천','경산','청도','군위'], 경남동부내륙: ['김해','양산'], 경남중부내륙: ['밀양','의령','함안','창녕'], 경남남서내륙: ['진주','하동','산청'], 경남북서내륙: ['함양','거창','합천'],
+      조합표현: { 전북동부내륙: '전북북동내륙+전북남동내륙', 경북북부내륙: '경북북서내륙+경북북동내륙+경북중북부내륙', 경북남부내륙: '경북남서내륙+경북중남부내륙', 경북중부내륙: '경북중북부내륙+경북중남부내륙', 경북서부내륙: '경북북서내륙+경북남서내륙', 경남서부내륙: '경남남서내륙+경남북서내륙' } },
+    산지: { 강원북부산지: ['속초','인제','고성','양양','양구'], 강원중부산지: ['강릉','평창','홍천'], 강원남부산지: ['동해','삼척','정선'], 태백: ['태백'], 경북북동산지: ['영양','봉화','울진'], 제주도산지: ['제주','서귀포'],
+      조합표현: { 강원산지: '강원북부산지+강원중부산지+강원남부산지' } },
+    섬: ['인천','울릉','추자','신안','여수'],
+    지리산부근: ['남원','구례','하동','산청','함양'],
+  },
+};
+// 괄호·점 뒤 제거(공통). JSON 이름은 이미 접미사가 없으므로 접미사 제거를 하면 안 된다('양구'의 끝 '구'까지 벗겨지는 사고 방지).
+const _stripParen = (s) => String(s).replace(/\([^)]*\)/g, '').replace(/[.·].*$/, '').trim();
+const jsonBase = (s) => _stripParen(s);                                                          // 기준표(JSON) 시군명 — 접미사 유지
+const zoneBase = (s) => _stripParen(s).replace(/(특별자치시|특별자치도|광역시|특별시|시|군|구)$/, ''); // 존 시군명 — 접미사(시/군/구) 제거
+const termNorm = (s) => String(s).replace(/[\s()]/g, '');
+const TERM_PROV_PREFIX = ['강원','충북','충남','충청권','전북','전남','전라권','경북','경남','경상권','경기','수도권'];
+// 용어 -> [시군 기본명] 평탄화 지도. 조합표현은 재귀로 풀되, 짧은 이름은 도 접두를 붙여 찾아본다.
+let _termMap = null;
+function termMap() {
+  if (_termMap) return _termMap;
+  const map = {}, combos = {};
+  const walk = (obj) => {
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === '조합표현') { for (const [ck, cv] of Object.entries(v)) combos[termNorm(ck)] = cv; continue; }
+      if (k === '비고' || k === '시군') continue;
+      if (Array.isArray(v)) map[termNorm(k)] = v.map(jsonBase);
+      else if (v && typeof v === 'object') { if (Array.isArray(v.시군)) map[termNorm(k)] = v.시군.map(jsonBase); else walk(v); }
+    }
+  };
+  walk(KMA_TERMS.방위별_분류); walk(KMA_TERMS.지형특성별_분류);
+  const resolve = (name, seen) => {
+    name = termNorm(name);
+    if (map[name]) return map[name];
+    if (seen.has(name)) return null; seen.add(name);
+    const expr = combos[name]; if (!expr) return null;
+    const out = [];
+    for (let part of expr.split('+')) {
+      part = termNorm(part);
+      let r = map[part] || resolve(part, seen);
+      if (!r) for (const pre of TERM_PROV_PREFIX) { const key = pre + part; if (map[key] || combos[key]) { r = map[key] || resolve(key, seen); if (r) break; } }
+      if (r) out.push(...r);
+    }
+    return out.length ? out : null;
+  };
+  for (const c of Object.keys(combos)) { const r = resolve(c, new Set()); if (r && r.length && !map[c]) map[c] = [...new Set(r)]; }
+  _termMap = map;
+  return map;
+}
+// 통보문 지역 표현 -> 기상청 기준 시군 기본명 목록(없으면 null). 예: '충남남부내륙','강원북부산지','경기북부'.
+function termSiguns(regionStr) {
+  const m = termMap();
+  const key = termNorm(regionStr);
+  return m[key] || null;
+}
+
 // ── 통보문 지역 파싱 ──
 // 도 이름을 '먼저' 떼어 방향과 안 섞는다. (예전엔 '전북서부'가 정규식 '북서부'에 걸려 '전'으로 잘렸다.)
 const BUL_PROVS = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
@@ -4066,6 +4411,7 @@ function bulTokens(regionStr) {
     if (tk.island) { tokens.push(tk); continue; }
     if (tk.province) { cur = tk.province; tokens.push({ province: tk.province, dir: tk.dir }); }
     else if (cur) tokens.push({ province: cur, dir: tk.dir });
+    else tokens.push({ province: null, dir: tk.dir });   // 도 접두 없는 권역 표현(전라권서부 등) — applyBulletin에서 기준표로 해석
   }
   return tokens;
 }
@@ -4080,7 +4426,9 @@ function parseBulletin(txt) {
       const c = part.indexOf(':');
       if (c < 0) continue;
       let valStr = part.slice(c + 1);
-      const regionStr = part.slice(0, c).trim();
+      // 조각 앞머리의 (날짜/권역) 도 벗긴다. 예: "/ (22일) 대구.경북남부내륙" → "대구.경북남부내륙"
+      // (안 벗기면 '대구'가 '(22일)대구'로 붙어 도 인식 실패 → 대구를 못 찾는다.)
+      const regionStr = part.slice(0, c).trim().replace(/^\([^)]*\)\s*/, '');
       // '많은 곳 (지역) N(mm) 이상' = 국지적으로 더 많은 곳 → 본 구간과 '따로' 더 진하게 칠한다.
       const many = valStr.match(/많은\s*곳\s*([가-힣.·,\s]+?)\s*(\d+(?:\.\d+)?)\s*(?:mm|㎜|밀리|미리)?\s*이상/);
       if (many) valStr = valStr.replace(/\(?\s*많은\s*곳[\s\S]*?이상\s*\)?/, ' ');   // 본 구간 값에서 그 문구 제거(150 안 섞이게)
@@ -4164,12 +4512,19 @@ function applyBulletin(txt) {
   const sidoName = (p) => (st === 'sido' && p === '광주' ? '전남' : p);   // 시도 지도엔 광주 조각 없음(전남 통합)
   const provSpecs = {};   // 시도 -> [{dir, col, gi}]
   const islandSpecs = []; // {island, col, gi}
+  const regionSpecs = []; // 권역(도 접두 없는) 기준표 매핑 — {names:Set, col, gi, raw}
   const unknown = [];
   groups.forEach((g, gi) => {
     const col = colOf[g.labelTxt];
     for (const tk of g.tokens) {
       if (tk.island) { islandSpecs.push({ island: tk.island, col, gi }); continue; }
-      if (!tk.province) { if (tk.dir) unknown.push(tk.dir); continue; }
+      if (!tk.province) {
+        // 도 접두가 없어도 '전라권서부·충청권북부'처럼 기준표에 있으면 권역 단위로 칠한다 (시도·군 지도에서만)
+        const nm = st === 'sgg' ? termSiguns(tk.dir) : null;
+        if (nm && nm.length) regionSpecs.push({ names: new Set(nm), col, gi, raw: tk.dir });
+        else if (tk.dir) unknown.push(tk.dir);
+        continue;
+      }
       (provSpecs[sidoName(tk.province)] ||= []).push({ dir: bulDir(tk.dir), raw: tk.dir, col, gi, many: !!g.many });
     }
   });
@@ -4189,10 +4544,27 @@ function applyBulletin(txt) {
   const coastNamesOf = (prov, raw) => { const m = (raw || '').match(/([동서남])해안/); return (m && st !== 'sido') ? COAST_ZONES[`${prov}|${m[1]}해안`] : null; };
   const provCoastSet = (prov) => new Set(Object.keys(COAST_ZONES).filter((k) => k.startsWith(prov + '|')).flatMap((k) => COAST_ZONES[k]));
   for (const [prov, specs] of Object.entries(provSpecs)) {
-    const all = zonesByProv[prov] || [];
-    if (!all.length) continue;
-    const baseSpecs = specs.filter((s) => !s.many);      // 기본 예보
-    const overlaySpecs = specs.filter((s) => s.many);    // '많은 곳 … 이상' — 기본 위에 덧칠(우선순위 높음)
+    const provAll = zonesByProv[prov] || [];
+    if (!provAll.length) continue;
+
+    // ── 0) 기상청 기준표(JSON)로 '정확히' 매핑되는 표현 먼저 칠한다 (시도·군 지도에서만).
+    //    예: 충남남부내륙 → 논산·금산·부여·청양, 강원북부산지 → 속초·인제·고성·양양·양구.
+    //    좌표 추측(방향 배정)보다 우선. 매핑된 스펙·칠한 존은 아래 방향 배정에서 제외(폴백이 덮어쓰지 않게).
+    const jsonDone = new Set(), jsonZones = new Set();
+    if (st === 'sgg') {
+      for (const s of specs) {
+        const names = termSiguns(prov + (s.raw || ''));
+        if (!names || !names.length) continue;
+        const nameSet = new Set(names);
+        let painted = false;
+        for (const id of provAll) if (nameSet.has(zoneBase(id.split('/')[1] || ''))) { put(id, s.col, s.gi, false); jsonZones.add(id); painted = true; }
+        if (painted) jsonDone.add(s);
+      }
+    }
+    const all = provAll.filter((id) => !jsonZones.has(id));   // JSON으로 확정된 존은 방향 배정에서 뺀다
+    if (!all.length && !specs.some((s) => !jsonDone.has(s))) continue;   // 남은 게 없으면 다음 도로
+    const baseSpecs = specs.filter((s) => !s.many && !jsonDone.has(s));      // 기본 예보(JSON으로 처리 안 된 것)
+    const overlaySpecs = specs.filter((s) => s.many && !jsonDone.has(s));    // '많은 곳 … 이상' — 기본 위에 덧칠(우선순위 높음)
 
     // ── 1) 기본 예보 ──
     const coastDone = new Set(), usedBase = new Set();
@@ -4232,6 +4604,14 @@ function applyBulletin(txt) {
       }
       // 그 외(도를 못 쪼개는 '산지' 등)는 자리를 못 정하니 덧칠 안 함 → 기본색 유지 (도 전체가 진한색으로 덮이는 것 방지)
     }
+  }
+  // 권역(도 접두 없는) 표현 — 기준표대로 해당 권역의 시군을 정확히 칠한다. (전라권서부·충청권북부 등)
+  // '고성·광주'처럼 도가 겹치는 이름 오염을 막으려 권역에 속한 도로만 범위를 좁힌다.
+  const REGION_PROVS = { 수도권: ['서울', '인천', '경기'], 충청권: ['대전', '세종', '충북', '충남'], 전라권: ['광주', '전북', '전남'], 경상권: ['대구', '부산', '울산', '경북', '경남'] };
+  for (const rs of regionSpecs) {
+    const pre = Object.keys(REGION_PROVS).find((p) => (rs.raw || '').startsWith(p));
+    const provs = pre ? REGION_PROVS[pre] : Object.keys(zonesByProv);
+    for (const p of provs) for (const id of (zonesByProv[p] || [])) if (rs.names.has(zoneBase(id.split('/')[1] || ''))) put(id, rs.col, rs.gi, false);
   }
   // 섬(서해5도->옹진, 울릉도.독도->울릉군). 도 뒤에 처리해 더 구체적인 섬 색이 이긴다.
   for (const isp of islandSpecs) {
@@ -4604,11 +4984,13 @@ function buildWrnCols() {
 // 지도 위치·도서 박스·제목 텍스트(폰트)에 더해, CG 모드(밝은/어두운)와 그에 딸린 색 세트까지 담는다.
 // 그래서 [출력화면 × 지도종류 × 밝은/어두운]마다 완전한 룩(색·폰트·배치)을 따로 기억한다.
 // (수치 라벨·산은 '내용'이라 여기 안 넣어서 출력화면 바꿔도 안 사라진다.)
-const PRESET_KEYS = ['map', 'insets', 'texts', 'labScale', 'cgLight', 'bg',
+const PRESET_KEYS = ['map', 'insets', 'texts', 'labScale', 'mtnScale', 'cgLight', 'bg',
   'base', 'stroke', 'strokeW', 'sggOn', 'sggOp', 'realCol', 'realW', 'realOn', 'realOp',
   'sidoCol', 'sidoW', 'sidoOn', 'sidoOp', 'nbrCol', 'nbrOp', 'nbrGrow', 'shadow', 'showBg', 'showNW', 'showJP',
+  'txtShadow', 'labShadow',   // 제목·라벨 그림자 켬/끔도 화면(모드)별로 기억 (밝은 모드에서 뺀 게 유지되도록)
   // 바다(해상) 색·경계선도 화면별 룩에 포함 — '특보+해상' 화면의 바다 색/경계를 따로 기억한다.
-  'seaCol', 'seaW', 'seaBase', 'seaBaseOp', 'seaFade'];
+  'seaCol', 'seaW', 'seaBase', 'seaBaseOp', 'seaFade',
+  'vfBar', 'legend'];   // 노말 VF 제목 바 배치 · 기상특보 범례
 
 // 배치는 [출력 화면] × [배치 그룹] × [밝은/어두운]으로 따로 기억한다.
 // '특보 + 해상'은 바다까지 담느라 지도를 줄여야 해서 배치가 완전히 다르다.
@@ -4623,16 +5005,48 @@ const presetLabel = (key) => {
   return rl + '·' + gl + '·' + (mode === 'L' ? '밝은' : '어두운');
 };
 
+// 제목 텍스트: src의 위치·크기·내용만 가져오고, 색(col)·굵기(w)는 dst 것을 유지한다(모드별 색/굵기 보존).
+function mergeTextPos(dstArr, srcArr) {
+  if (!Array.isArray(srcArr)) return dstArr;
+  return srcArr.map((s) => {
+    const c = JSON.parse(JSON.stringify(s));
+    const d = (dstArr || []).find((x) => x.id === s.id);
+    if (d) { if (d.col != null) c.col = d.col; if (d.w != null) c.w = d.w; }
+    return c;
+  });
+}
+// VF 제목 바: 위치·크기·on은 src(옮겨오는 쪽)에서, 그림자(농도/번짐/거리)는 dst(그 모드) 것을 유지.
+function mergeVfBar(dst, src) {
+  if (!src) return dst;
+  const c = JSON.parse(JSON.stringify(src));
+  if (dst) { for (const k of ['shOp', 'shBlur', 'shDy']) if (dst[k] != null) c[k] = dst[k]; }
+  return c;
+}
 function savePreset() {
   const p = {};
   for (const k of PRESET_KEYS) p[k] = JSON.parse(JSON.stringify(S[k]));
   // 내가 저장한 것만 localStorage에 둔다(배포 기본배치는 복사하지 않는다).
-  // → 안 건드린 화면은 계속 배포 기본배치를 따르고, 새 기본배치를 올리면 그 화면엔 바로 반영된다.
   const mine = userPresets();
-  mine[presetKey()] = p;
+  const key = presetKey();
+  mine[key] = p;
+  // 같은 화면·지도의 '다른 CG 모드'에도 위치는 똑같이 맞춘다(색은 그대로 둠 — 밝은 모드는 어두운 글씨).
+  const base = key.split('|').slice(0, 2).join('|');
+  const other = key.endsWith('|L') ? base + '|D' : key.endsWith('|D') ? base + '|L' : null;
+  if (other) {
+    const all = loadPresets();
+    // 다른 모드 배치가 '이미 있을 때만' 위치를 맞춘다(그 모드의 색·굵기는 유지). 없으면 새로 만들지 않는다(색 옮겨붙음 방지 — 폴백이 위치만 따라오게 함).
+    if (mine[other] || all[other]) {
+      const target = mine[other] ? mine[other] : JSON.parse(JSON.stringify(all[other]));
+      for (const k of ['map', 'insets', 'labScale', 'mtnScale', 'legend']) if (p[k] !== undefined) target[k] = JSON.parse(JSON.stringify(p[k]));
+      if (p.vfBar !== undefined) target.vfBar = mergeVfBar(target.vfBar, p.vfBar);   // 위치는 공유, 그림자는 그 모드 것 유지
+      // 제목 텍스트: 위치·크기·내용만 맞추고 글자색(col)·굵기(w)는 그 모드 것을 유지한다.
+      target.texts = mergeTextPos(target.texts, p.texts);
+      mine[other] = target;
+    }
+  }
   localStorage.setItem('wcg_presets', JSON.stringify(mine));
   showPresetInfo();
-  status(`${presetLabel(presetKey())} 배치로 저장됨`);
+  status(`${presetLabel(key)} 배치로 저장됨 (위치는 밝은·어두운 공유)`);
 }
 // 이 브라우저에 '내가 직접 저장'한 배치만 (없으면 {}).
 function userPresets() {
@@ -4673,13 +5087,36 @@ function loadWork() {
 // 지금 [화면 × 배치 그룹]에 저장된 배치를 불러온다
 function applyPreset() {
   const key = presetKey();
-  const p = loadPresets()[key];
+  const all = loadPresets();
+  let p = all[key];
+  const full = !!p;
+  if (!p) {
+    // 이 모드 배치가 없으면(예: 밝은 모드 배치 미저장) 같은 화면·지도의 다른 배치에서
+    // '위치'(지도·도서박스·제목·라벨배율·VF바)만 가져와 지도가 그 화면에 맞게 따라오게 한다.
+    const base = key.split('|').slice(0, 2).join('|');   // res|group
+    const altKey = Object.keys(all).find((k) => k !== key && (k === base || k.startsWith(base + '|')));
+    if (altKey) p = all[altKey];
+  }
   if (!p) { showPresetInfo(); return false; }
-  for (const k of PRESET_KEYS) if (p[k] !== undefined) S[k] = JSON.parse(JSON.stringify(p[k]));   // 0·false 값도 복원
+  if (full) {
+    for (const k of PRESET_KEYS) if (p[k] !== undefined) S[k] = JSON.parse(JSON.stringify(p[k]));   // 0·false 값도 복원
+  } else {
+    // 폴백: 위치만 가져오고 색은 지금 모드 것 유지. 텍스트도 위치만 병합(색·굵기 유지).
+    for (const k of ['map', 'insets', 'labScale', 'mtnScale']) if (p[k] !== undefined) S[k] = JSON.parse(JSON.stringify(p[k]));
+    if (p.vfBar !== undefined) S.vfBar = mergeVfBar(S.vfBar, p.vfBar);   // 위치만 따라오고 그림자는 지금 모드 것 유지
+    if (p.texts) S.texts = mergeTextPos(S.texts, p.texts);
+  }
+  // 특보 범례: 이 그룹 배치가 범례를 갖고 있으면 그대로, 없으면(옛/배포 프리셋) 기본값으로 리셋한다.
+  // 안 그러면 특보구역↔특보+해상처럼 그룹을 옮길 때 이전 그룹의 범례 위치가 그대로 남는다.
+  S.legend = (p.legend !== undefined) ? JSON.parse(JSON.stringify(p.legend)) : JSON.parse(JSON.stringify(DEFAULTS().legend));
+  // 제목·라벨 그림자 켬/끔: 프리셋에 있으면 그대로, 없으면(옛/배포 프리셋) 기본값으로. 안 그러면 이전 화면 값이 그대로 남아 껐던 게 되살아난다.
+  const _def = DEFAULTS();
+  S.txtShadow = (p.txtShadow !== undefined) ? p.txtShadow : _def.txtShadow;
+  S.labShadow = (p.labShadow !== undefined) ? p.labShadow : _def.labShadow;
   sel = []; bgUseFile = 0;
   markCgMode(); buildBgBtns(); syncPanelFromState(); renderAll();
   showPresetInfo();
-  status(`${presetLabel(key)} 배치 적용됨`);
+  status(full ? `${presetLabel(key)} 배치 적용됨` : `${presetLabel(key)} — 위치만 다른 배치에서 가져옴`);
   return true;
 }
 function showPresetInfo() {
@@ -4695,8 +5132,11 @@ function showPresetInfo() {
 const RES = {
   '2158x1214': { size: [2158, 1214], label: '터치 스크린' },
   '1920x1080': { size: [1920, 1080], label: '노말 CG' },
-  // 날씨 팀 전용 — 크기는 노말 CG와 같은 1920x1080이지만 배치는 따로 기억한다 (프리셋 키가 res별이라 자동 분리).
-  '1920x1080-team': { size: [1920, 1080], label: '날씨 팀' },
+  // 노말 VF — 영상 위에 얹는 오버레이(오른쪽 귀퉁이, 작게). 캔버스는 1920x1080로 같고 배치만 따로 기억한다.
+  // 최종은 알파 채널로 뽑아 편집 툴(AE)에서 영상에 합친다. (3번째 자리)
+  '1920x1080-vf': { size: [1920, 1080], label: '노말 VF' },
+  // 날씨 팀 전용 — 크기는 노말 CG와 같은 1920x1080이지만 배치는 따로 기억한다. 잘 안 쓰는 옵션이라 흐리게(dim), 맨 오른쪽.
+  '1920x1080-team': { size: [1920, 1080], label: '날씨 팀', dim: 1 },
 };
 
 function buildResBtns() {
@@ -4709,12 +5149,22 @@ function buildResBtns() {
     // 라벨은 공백에서만 줄바꿈(단어 안 쪼갬: '터치 스크린'->'터치/스크린'), 크기 숫자는 한 줄로.
     b.innerHTML = `${v.label}<br><span style="opacity:.88;font-size:10px;white-space:nowrap">${v.size[0]} × ${v.size[1]}</span>`;
     b.dataset.res = k;
+    if (v.dim) b.classList.add('resDim');   // 잘 안 쓰는 옵션(날씨 팀) — 흐리게
     b.style.cssText = 'flex:1;line-height:1.3;text-align:center;word-break:keep-all;padding-left:6px;padding-right:6px';
     b.onclick = () => {
       if (S.res === k) return;
+      if (animT != null) { animStop(); animOff(); }   // 애니 프리뷰 중이었으면 종료 — VF 진입 슬라이드/페이드 잔재 제거
       pushUndo();
       S.res = k;
-      applyPreset();
+      const applied = applyPreset();
+      // 노말 VF 기본값: 내가 직접 저장한 VF 배치가 아직 없으면 라벨 92%·산 70%로 시작(사용자 요청 기본값).
+      // (배포 기본배치가 있어도, 내가 저장 전까진 이 값으로 시작 → 저장하면 그 값이 유지된다.)
+      if (k === '1920x1080-vf' && !userPresets()[presetKey()]) {
+        S.labScale = 92; S.mtnScale = 70;
+        if (!applied && !S.cgLight) { S.bg = 'bgVfDark'; S.showBg = 1; }
+        renderAll();   // 기본값 반영해 다시 그린다
+      }
+      buildBgBtns(); syncPanelFromState();   // 화면마다 배경 목록이 달라(VF 배경은 VF에서만) 다시 그리고 패널 동기화
       renderBg(); markResBtns();
       if (typeof tlNote === 'function') tlNote();   // 해상도마다 렌더 안내가 다르다
       status(v.label);
@@ -4818,7 +5268,7 @@ async function svgToImage(W, H) {
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', W);
   clone.setAttribute('height', H);
-  for (const s of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide']) clone.querySelector(s)?.remove();
+  for (const s of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(s)?.remove();
   clone.querySelector('#fontStyle').textContent = window.WANTED_FONT_CSS;
   const xml = new XMLSerializer().serializeToString(clone);
   const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
@@ -4878,6 +5328,7 @@ function buildMp4(W, H, timescale, frameDur, samples, avcc) {
 }
 
 async function bakeMp4() {
+  if (S.res === '1920x1080-vf') { status('노말 VF의 MOV(알파) 추출은 아직 준비 중입니다 — "PNG 시퀀스로 추출"을 쓰세요', true); return; }
   const A = anim();
   if (!A.tracks.length) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   if (typeof VideoEncoder === 'undefined') { status('이 브라우저는 WebCodecs 인코딩을 지원 안 합니다 — 크롬 최신판을 쓰세요', true); return; }
@@ -4887,13 +5338,15 @@ async function bakeMp4() {
   const df = Math.abs(fps - Math.round(fps)) > 0.001;           // 29.97 같은 드롭프레임
   const timescale = Math.round(fps) * 1000, frameDur = df ? 1001 : 1000;
   const codec = (W * H > 1920 * 1080) ? 'avc1.640033' : 'avc1.640028';   // 큰 해상도는 High@5.1
-  const tag = S.res === '2158x1214' ? 'touch' : 'normal';
-  const fileName = `cg_${tag}_${W}x${H}_${fps}fps.mp4`;
+  const vf = S.res === '1920x1080-vf';                 // VF는 .mov로 뽑는다(컨테이너만 QuickTime, 코덱은 동일 H.264)
+  const ext = vf ? 'mov' : 'mp4', mime = vf ? 'video/quicktime' : 'video/mp4', vlabel = vf ? 'MOV' : 'MP4';
+  const tag = S.res === '2158x1214' ? 'touch' : vf ? 'vf' : 'normal';
+  const fileName = `cg_${tag}_${W}x${H}_${fps}fps.${ext}`;
   // 저장 위치를 '렌더 전에' 먼저 묻는다 — 취소하면 렌더도 안 한다 (오래 걸리는 인코딩을 헛돌리지 않게).
   let mp4Handle = null;
   if (window.showSaveFilePicker) {
     try {
-      mp4Handle = await window.showSaveFilePicker({ suggestedName: fileName, types: [{ description: 'MP4 영상', accept: { 'video/mp4': ['.mp4'] } }] });
+      mp4Handle = await window.showSaveFilePicker({ suggestedName: fileName, types: [{ description: `${vlabel} 영상`, accept: { [mime]: ['.' + ext] } }] });
     } catch (e) { if (e.name === 'AbortError') return; /* 피커 미지원(file:// 등) → 렌더 후 다운로드 폴백 */ }
   }
   const btn = $('#tlBake'); if (btn) btn.disabled = true;
@@ -4934,10 +5387,10 @@ async function bakeMp4() {
     if (mp4Handle) { const w = await mp4Handle.createWritable(); await w.write(blob); await w.close(); name = mp4Handle.name; }
     else { download(blob, fileName); name = fileName + ' (다운로드 폴더)'; }
     const secs = (n * frameDur / timescale).toFixed(2), real = ((performance.now() - t0) / 1000).toFixed(1);
-    $('#tlInfo').textContent = `MP4 저장됨: ${name} · ${n}프레임 = ${secs}초 (굽는데 ${real}초)`;
-    status(`MP4 저장 완료 · ${name} · 정확히 ${secs}초`);
+    $('#tlInfo').textContent = `${vlabel} 저장됨: ${name} · ${n}프레임 = ${secs}초 (굽는데 ${real}초)`;
+    status(`${vlabel} 저장 완료 · ${name} · 정확히 ${secs}초`);
   } catch (e) {
-    status('MP4 저장 실패: ' + (e.message || e), true); $('#tlInfo').textContent = 'MP4 저장 실패';
+    status(`${vlabel} 저장 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${vlabel} 저장 실패`;
   } finally {
     if (btn) btn.disabled = false;
     animOff();
@@ -4951,32 +5404,17 @@ async function exportPngSeq() {
   if (!A.tracks.length) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   const [W, H] = RES[S.res].size;
   const n = Math.round(A.dur * A.fps);
-  const tag = S.res === '2158x1214' ? 'touch' : 'normal';
+  const vf = S.res === '1920x1080-vf';   // VF는 투명(알파) PNG로 뽑아 AE에서 QuickTime Animation(RGB+Alpha)로 렌더
+  const tag = S.res === '2158x1214' ? 'touch' : vf ? 'vf_alpha' : 'normal';
   const defName = `cg_${tag}_${W}x${H}_${A.fps}fps`;
 
-  // 낱장 다운로드 대신: 폴더 이름을 정하고 → 위치를 고르면 그 폴더를 만들어 프레임을 모아 담는다.
-  let dir = null, folderName = defName;
-  if (window.showDirectoryPicker) {
-    const nm = await tossPrompt({ title: 'PNG 시퀀스로 저장',
-      message: '저장할 폴더 이름을 정하세요.\n다음에 위치를 고르면 그 폴더가 만들어지고, 프레임이 전부 그 안에 모입니다.',
-      value: defName, ok: '위치 고르기' });
-    if (nm == null) return;   // 취소
-    // 폴더 이름 정화 — 금지문자·제어문자·끝의 점/공백 제거, '.'/'..'·윈도우 예약어 방지
-    folderName = nm.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/[.\s]+$/, '').trim();
-    if (folderName === '.' || folderName === '..') folderName = '';
-    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(folderName)) folderName = '_' + folderName;
-    folderName = folderName || defName;
-    let parent = null;
-    try { parent = await window.showDirectoryPicker({ mode: 'readwrite' }); }
-    catch (e) { if (e.name === 'AbortError') return; parent = null; /* 피커 자체 미동작 → 아래서 다운로드 폴백 */ }
-    if (parent) {
-      try { dir = await parent.getDirectoryHandle(folderName, { create: true }); }
-      catch (e) {
-        // 위치는 골랐는데 폴더를 못 만들면, 낱장 다운로드로 쏟지 않고 알리고 멈춘다.
-        status(`그 위치에 "${folderName}" 폴더를 못 만들었습니다 (${e.message || e}) — 다른 위치·이름으로 다시 해보세요`, true);
-        return;
-      }
-    }
+  // 저장 위치·이름을 '렌더 전에' 먼저 고른다(버튼 클릭 직후라 파일 저장 대화상자가 정상적으로 뜬다).
+  // 폴더 선택기(directory picker)는 다운로드·바탕화면 같은 시스템 폴더를 막지만, '파일 저장'은 허용된다.
+  // → 프레임을 ZIP 한 개로 묶어 원하는 위치(다운로드·바탕화면 포함)에 저장한다.
+  let handle = null;
+  if (window.showSaveFilePicker) {
+    try { handle = await window.showSaveFilePicker({ suggestedName: `${defName}.zip`, types: [{ description: 'PNG 시퀀스(zip)', accept: { 'application/zip': ['.zip'] } }] }); }
+    catch (e) { if (e.name === 'AbortError') return; handle = null; /* file:// 등 미지원 → 아래 다운로드 폴백 */ }
   }
 
   animStop();
@@ -4984,27 +5422,23 @@ async function exportPngSeq() {
   btn.disabled = true;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
-  const cx = c.getContext('2d', { alpha: false });
+  const cx = c.getContext('2d', { alpha: vf });   // VF만 투명 배경
+  const zipFrames = [];
   try {
     for (let i = 0; i <= n; i++) {
       renderAnimFrame(i / A.fps);
       const img = await svgToImage(W, H);
+      if (vf) cx.clearRect(0, 0, W, H);           // 매 프레임 투명으로 비워 잔상 방지
       cx.drawImage(img, 0, 0, W, H);
       const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
-      const fname = `${folderName}_${String(i).padStart(4, '0')}.png`;
-      if (dir) {
-        const fh = await dir.getFileHandle(fname, { create: true });
-        const w = await fh.createWritable();
-        try { await w.write(blob); await w.close(); }
-        catch (err) { try { await w.abort(); } catch (_) { /* 무시 */ } throw err; }
-      } else {
-        download(blob, fname);
-        await new Promise((r) => setTimeout(r, 40));   // 다운로드 폴백만 브라우저가 소화할 틈이 필요
-      }
-      exportProgress(i, n, 'PNG 만드는 중');
+      zipFrames.push({ name: `${defName}_${String(i).padStart(4, '0')}.png`, data: await blobBytes(blob) });
+      exportProgress(i, n, 'PNG 프레임 만드는 중');
     }
-    const where = dir ? `"${folderName}" 폴더` : '다운로드 폴더';
-    $('#tlInfo').textContent = `${n + 1}장 저장됨 → ${where} (${A.fps}fps로 합치세요)`;
+    const zip = zipStore(zipFrames);
+    let where;
+    if (handle) { const w = await handle.createWritable(); await w.write(zip); await w.close(); where = handle.name; }
+    else { download(zip, `${defName}.zip`); where = `${defName}.zip (다운로드 폴더)`; }
+    $('#tlInfo').textContent = `${n + 1}장을 ${where} 에 저장 — 압축 풀어 ${A.fps}fps로 합치세요`;
     status(`PNG ${n + 1}장 저장 완료 → ${where}`);
   } catch (e) {
     status('PNG 저장 실패: ' + (e.message || e), true); $('#tlInfo').textContent = 'PNG 저장 실패';
@@ -5014,14 +5448,14 @@ async function exportPngSeq() {
   }
 }
 
-const ALL_LAYERS = ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn', 'L_labels', 'L_title'];
+const ALL_LAYERS = ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn', 'L_vfBar', 'L_labels', 'L_title', 'L_legend'];
 
 // SVG 한 장을 PNG blob으로. mutate(clone)로 레이어/요소를 손봐서 원하는 그림만 남긴다.
 async function svgBlob(mutate) {
   const [W, H] = RES[S.res].size;
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', W); clone.setAttribute('height', H);
-  for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide']) clone.querySelector(id)?.remove();
+  for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(id)?.remove();
   clone.querySelector('#fontStyle').textContent = window.WANTED_FONT_CSS;
   mutate(clone);
   const xml = new XMLSerializer().serializeToString(clone);
@@ -5045,7 +5479,7 @@ async function previewPng(maxW) {
   const k = Math.min(1, maxW / W), w = Math.round(W * k), h = Math.round(H * k);
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', w); clone.setAttribute('height', h);
-  for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide']) clone.querySelector(id)?.remove();
+  for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(id)?.remove();
   clone.querySelector('#fontStyle').textContent = window.WANTED_FONT_CSS;
   const xml = new XMLSerializer().serializeToString(clone);
   const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
@@ -5194,25 +5628,20 @@ async function doExport() {
     for (const k of keys) for (const f of await exportBlobs(k)) files.push({ name: `${f.name}.png`, blob: f.blob });
     if (!files.length) { status('뽑을 게 없습니다 (라벨이 없을 수 있음)', true); return; }
 
-    let dir = null;
-    if (window.showDirectoryPicker) {
-      try { dir = await window.showDirectoryPicker({ mode: 'readwrite' }); }
-      catch (e) { if (e.name === 'AbortError') { status('저장을 취소했습니다'); return; } dir = null; }   // 취소면 중단, file:// 등 미지원이면 개별 다운로드로
-    }
-    if (dir) {
-      const folder = await dir.getDirectoryHandle('weathercg_export', { create: true });
-      for (const f of files) {
-        const fh = await folder.getFileHandle(f.name, { create: true });
-        const w = await fh.createWritable();
-        await w.write(f.blob); await w.close();
-      }
-      $('#exInfo').textContent = `weathercg_export 폴더에 ${files.length}장 저장됨`;
-      status(`${files.length}장 저장됨 · weathercg_export 폴더`);
+    // 폴더 선택기(directory picker)는 file://·다운로드·바탕화면 같은 '시스템 폴더'를 막는다.
+    // → 파일 저장 대화상자(showSaveFilePicker)로 '이름 + 위치'를 고르게 한다(파일 저장은 다운로드 폴더도 허용).
+    //   미지원(file:// 일부)이면 그 이름 그대로 다운로드 폴더로 받는다. 여러 장이면 ZIP 한 개로 묶는다.
+    if (files.length === 1) {
+      const nm = await saveBlobAs(files[0].blob, files[0].name, { description: '이미지(PNG)', accept: { 'image/png': ['.png'] } });
+      if (nm == null) { status('저장을 취소했습니다'); return; }
+      $('#exInfo').textContent = `${nm} 저장됨`; status('저장됨: ' + nm);
     } else {
-      // 폴더 선택 미지원 — 한 장씩 내려받는다
-      for (const f of files) { download(f.blob, f.name); await new Promise((r) => setTimeout(r, 60)); }
-      $('#exInfo').textContent = `${files.length}장 내려받음 (이 브라우저는 폴더 저장을 지원 안 해 개별 다운로드)`;
-      status(`${files.length}장 내려받음`);
+      const zf = [];
+      for (const f of files) zf.push({ name: f.name, data: await blobBytes(f.blob) });
+      const nm = await saveBlobAs(zipStore(zf), 'weathercg_export.zip', { description: '이미지 묶음(zip)', accept: { 'application/zip': ['.zip'] } });
+      if (nm == null) { status('저장을 취소했습니다'); return; }
+      $('#exInfo').textContent = `${files.length}장을 ${nm} 로 저장 (압축 풀어서 사용)`;
+      status(`${files.length}장 저장됨 · ${nm}`);
     }
   } catch (err) {
     status('추출 실패: ' + err.message, true);
@@ -5244,6 +5673,34 @@ function download(blob, filename) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+
+// 여러 파일을 압축 없이(store) ZIP 한 개로 묶는다 — 폴더 선택 없이 다운로드 폴더로 바로 받게. file://에서도 됨.
+function zipStore(files) {   // files: [{name, data: Uint8Array}]
+  const enc = new TextEncoder();
+  const parts = [];
+  let offset = 0;
+  const central = [];
+  const u16 = (n) => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, n & 0xffff, true); return b; };
+  const u32 = (n) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n >>> 0, true); return b; };
+  const push = (a) => { parts.push(a); offset += a.length; };
+  for (const f of files) {
+    const name = enc.encode(f.name), data = f.data, crc = _crc32(data), localOff = offset;
+    push(u32(0x04034b50)); push(u16(20)); push(u16(0)); push(u16(0)); push(u16(0)); push(u16(0)); // ver, flag, method(store), time, date
+    push(u32(crc)); push(u32(data.length)); push(u32(data.length)); push(u16(name.length)); push(u16(0));
+    push(name); push(data);
+    central.push({ name, crc, size: data.length, localOff });
+  }
+  const cdStart = offset;
+  for (const c of central) {
+    push(u32(0x02014b50)); push(u16(20)); push(u16(20)); push(u16(0)); push(u16(0)); push(u16(0)); push(u16(0)); // sig, made, need, flag, method, time, date
+    push(u32(c.crc)); push(u32(c.size)); push(u32(c.size)); push(u16(c.name.length)); push(u16(0)); push(u16(0)); // sizes, name/extra/comment len
+    push(u16(0)); push(u16(0)); push(u32(0)); push(u32(c.localOff)); push(c.name); // disk, int/ext attr, local offset
+  }
+  push(u32(0x06054b50)); push(u16(0)); push(u16(0)); push(u16(central.length)); push(u16(central.length));
+  push(u32(offset - cdStart)); push(u32(cdStart)); push(u16(0));
+  return new Blob(parts, { type: 'application/zip' });
+}
+const blobBytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
 
 // 저장 위치·이름을 고르고 blob을 쓴다. 미지원 브라우저는 다운로드 폴더로. 취소하면 null.
 async function saveBlobAs(blob, suggestedName, type) {
@@ -5582,6 +6039,12 @@ function wire() {
     status('모두의 기본 배치로 되돌렸습니다');
   };
   $('#bakeDefaults').onclick = bakeDefaults;
+  // 노말 VF 제목 바 컨트롤
+  $('#vfBarOn').onchange = (e) => { pushUndo(); (S.vfBar ||= {x:1140,y:150,w:640,h:110}).on = e.target.checked ? 1 : 0; renderVfBar(); };
+  const vfw = (id, key) => { $(id).oninput = (e) => { pushUndo('vfbar'); (S.vfBar ||= {on:1,x:1140,y:150,w:640,h:110})[key] = Math.round(+e.target.value) || 0; renderVfBar(); }; };
+  vfw('#vfBarX', 'x'); vfw('#vfBarY', 'y'); vfw('#vfBarW', 'w'); vfw('#vfBarH', 'h');
+  const vfsh = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('vfbarsh'); (S.vfBar ||= {})[key] = +e.target.value; $(vid).textContent = e.target.value; renderVfBar(); }; };
+  vfsh('#vfBarShOp', 'shOp', '#vfBarShOpV'); vfsh('#vfBarShBlur', 'shBlur', '#vfBarShBlurV'); vfsh('#vfBarShDy', 'shDy', '#vfBarShDyV');
   $('#nbrOp').oninput = (e) => { pushUndo('nbrOp'); S.nbrOp = +e.target.value; $('#nbrOpV').textContent = S.nbrOp; renderBg(); };
   $('#nbrGrow').oninput = (e) => { pushUndo('nbrGrow'); S.nbrGrow = +e.target.value; $('#nbrGrowV').textContent = S.nbrGrow; renderBg(); };
   for (const b of document.querySelectorAll('#cgMode button')) b.onclick = () => setCgMode(b.dataset.cg === 'light');
@@ -5825,6 +6288,20 @@ function wire() {
     $('#labScaleV').textContent = S.labScale;
     renderLabels(); renderSel();
   };
+  $('#mtnScale').oninput = (e) => {
+    pushUndo('mtnScale');
+    S.mtnScale = +e.target.value;
+    $('#mtnScaleV').textContent = S.mtnScale;
+    renderMtns(); renderSel();
+  };
+  // 기상특보 범례
+  $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; renderLegend(); };
+  $('#lgAuto').onchange = (e) => { pushUndo(); (S.legend ||= {}).auto = e.target.checked ? 1 : 0; syncLegendMode(); renderLegend(); };
+  $('#lgAdd').onclick = () => { pushUndo(); const g = (S.legend ||= { items: [] }); (g.items ||= []).push({ col: activeColor, txt: '' }); g.on = 1; $('#lgOn').checked = true; renderLegend(); buildLgList(); };
+  const lgw = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('lg' + key); (S.legend ||= {})[key] = +e.target.value; if (vid) $(vid).textContent = e.target.value; renderLegend(); }; };
+  lgw('#lgSize', 'size', '#lgSizeV'); lgw('#lgBox', 'box', '#lgBoxV'); lgw('#lgRadius', 'radius', '#lgRadiusV'); lgw('#lgRowGap', 'rowGap', '#lgRowGapV'); lgw('#lgGap', 'gap', '#lgGapV'); lgw('#lgWeight', 'weight', '#lgWeightV');
+  $('#lgTxtCol').oninput = (e) => { pushUndo('lgtc'); (S.legend ||= {}).txtCol = e.target.value.toUpperCase(); $('#lgTxtColHex').value = S.legend.txtCol; renderLegend(); };
+  $('#lgTxtColHex').onchange = (e) => { const v = hex(e.target.value.trim()); if (v) { pushUndo(); (S.legend ||= {}).txtCol = v; $('#lgTxtCol').value = v; renderLegend(); } };
   $('#labShadow').onchange = (e) => { pushUndo(); S.labShadow = e.target.checked ? 1 : 0; renderShadow(); };
   $('#txtShadow').onchange = (e) => { pushUndo(); S.txtShadow = e.target.checked ? 1 : 0; renderShadow(); };
   $('#autoLabel').onclick = autoLabels;
@@ -5906,7 +6383,7 @@ const SEC_GRP = {
   res: ['map', '지도'], map: ['map', '지도'],
   pal: ['paint', '칠하기'],
   text: ['text', '글자'], label: ['text', '글자'], mtn: ['text', '글자'],
-  sea: ['special', '특수'], wrn: ['special', '특수'], fct: ['special', '특수'],
+  sea: ['special', '특수'], wrn: ['special', '특수'], fct: ['special', '특수'], legend: ['special', '특수'],
   proj: ['proj', '파일'],
 };
 // 항목 제목의 아이콘. 채워진(filled) 모양으로 통일한다 — 24x24 기준 path.
@@ -5923,6 +6400,7 @@ const SEC_ICON = {
   map: 'M12 2l3.5 3.5h-2.3v5.3h5.3V8.5L22 12l-3.5 3.5v-2.3h-5.3v5.3h2.3L12 22l-3.5-3.5h2.3v-5.3H5.5v2.3L2 12l3.5-3.5v2.3h5.3V5.5H8.5z', // 이동
   label: 'M2 5h12.6l5.4 7-5.4 7H2zm14.8 5.6a1.4 1.4 0 100 2.8 1.4 1.4 0 000-2.8z', // 라벨
   mtn: 'M12 4l9.5 16.5H2.5z',                                               // 산 (실제 산 표시와 같은 삼각형)
+  legend: 'M3 4h5v5H3zm7 1h11v3H10zM3 15h5v5H3zm7 1h11v3H10z',              // 범례 (색상 상자 + 이름 두 줄)
   out: 'M12 2v10.2l3.4-3.4 1.8 1.8L12 15.8 6.8 10.6l1.8-1.8L12 12.2V2zM3 17h18v5H3z', // 내려받기
   proj: 'M3 4h6l2 2h10v13H3zm2 5v8h14V9z',                                  // 폴더
   anim: 'M4 4h16v3H4zm0 5h16v11H4zm3 2v7l6-3.5z',                           // 타임라인/재생
@@ -5954,7 +6432,7 @@ for (const [sec, [grp, tag]] of Object.entries(SEC_GRP)) {
 // 도서 박스는 뺐다 — 이동 모드에서 끌고 핸들로 크기 조절하면 되니 중복이다.
 // '지도 위치·경계선·그림자'(map)는 사이드바 가장 아래로.
 // 설정 4개(out0=출력화면, style=지도종류, out=추출, proj=프로젝트)는 상단 메뉴바로 빠져서 여기 없다.
-const SEC_ORDER = ['res', 'text', 'wrn', 'fct', 'pal', 'sea', 'label', 'mtn', 'map'];
+const SEC_ORDER = ['res', 'text', 'legend', 'wrn', 'fct', 'pal', 'sea', 'label', 'mtn', 'map'];
 // 항상 펴져 있는 설정 항목. 나머지는 '이 지도 편집' 묶음 — 기본 접힘, 눌러야 펴진다.
 const ALWAYS_OPEN = new Set(['out0', 'style', 'out', 'proj']);
 (() => {
@@ -6025,6 +6503,8 @@ function cubicBezier(x1, y1, x2, y2) {
 // 앱 공통 이징 — 첨부 커브(빠른 가속 → 이른 피크 → 긴 정착). 모든 애니메이션(색칠·라벨·블라인드·카드)이 이걸 쓴다.
 const EASE_BEZIER = [0.34, 0, 0.15, 1];
 const easeOut = cubicBezier(...EASE_BEZIER);
+// 노말 VF 진입 전용 — 부드러운 가속·감속(ease-in-out)으로 천천히 미끄러져 들어온다.
+const easeVf = cubicBezier(0.4, 0, 0.2, 1);
 // 뽕 튀어나오는 느낌 — 1을 살짝 넘었다 돌아온다
 const easePop = (p) => {
   const c = 1.70158 + 1;
@@ -6051,8 +6531,10 @@ function trackInfo(tr) {
 //  - 색칠과 수치 라벨은 '동시에' 시작한다. 라벨은 1초 동안 밑에서 올라오며 나타난다.
 //  - 제목 텍스트는 애니메이션 안 한다 (계속 떠 있음) — 트랙을 안 만든다.
 const ANIM_START = 1.0;      // 시작 전 홀드(기본)
-// 터치 스크린용은 0초부터 시작해도 된다(홀드 없음). 노말 CG·날씨 팀은 1초 홀드 유지.
-const animStart = () => (S.res === '2158x1214' ? 0 : ANIM_START);
+const ANIM_VF_ENTER_LEN = 1.2;   // 노말 VF 전체가 오른쪽→왼쪽 슬라이드+페이드인 되는 시간(더 천천히 부드럽게)
+const VF_ENTER_FRAMES = 10;      // VF 진입이 시작된 뒤 색칠이 시작되기까지의 프레임 수
+// 터치는 0초부터. 노말 VF는 1초 홀드 뒤 진입 시작 → 그 10프레임 뒤 색칠. 노말 CG·날씨 팀은 1초 홀드.
+const animStart = () => (S.res === '2158x1214' ? 0 : S.res === '1920x1080-vf' ? ANIM_START + VF_ENTER_FRAMES / (anim().fps || 30) : ANIM_START);
 const ANIM_FILL_LEN = 0.8;
 const ANIM_LABEL_LEN = 1.0;  // 라벨 올라오는 시간
 const ANIM_MTN_LEN = 0.6;
@@ -6260,12 +6742,33 @@ function renderAnimFrame(t) {
     } else path.setAttribute('fill', mixHex(S.base, it.col, easeOut(clamp01(progOf('mtn', g.dataset.id)))));
   }
   // 제목 텍스트는 애니메이션 안 함 — renderTexts()가 그린 그대로 둔다
+
+  // 노말 VF — 패널 전체가 오른쪽에서 왼쪽으로 슬라이드하며 opacity 0→1 (수치라벨과 같은 easeOut). 색칠은 10프레임 뒤부터(animStart).
+  applyVfEnter(t);
+}
+
+// 노말 VF 진입: 래퍼(L_vfWrap) 하나에 슬라이드(transform)+페이드(opacity)를 건다.
+// 단일 그룹이라 레이어끼리 겹쳐 비치는 잔상이 없고, 클립(vfClip)도 이 래퍼에 걸려 있어 패널 모양으로 같이 움직인다.
+function vfEnterDist() { const r = _vfPanelRect; return r ? Math.round(r.w * 0.5) : 320; }   // 패널 폭 절반쯤 오른쪽에서
+function applyVfEnter(t) {
+  const wrap = document.getElementById('L_vfWrap');
+  if (!wrap) return;
+  if (S.res !== '1920x1080-vf') { wrap.removeAttribute('transform'); wrap.removeAttribute('opacity'); return; }
+  const e = easeVf(clamp01((t - ANIM_START) / ANIM_VF_ENTER_LEN));   // 1초 홀드 뒤 시작, 부드럽게
+  const dx = (1 - e) * vfEnterDist();
+  wrap.setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
+  wrap.setAttribute('opacity', e.toFixed(3));
+}
+function clearVfEnter() {
+  const wrap = document.getElementById('L_vfWrap');
+  if (wrap) { wrap.removeAttribute('transform'); wrap.removeAttribute('opacity'); }
 }
 
 // 애니메이션 상태를 걷어내고 평소 화면으로
 function animOff() {
   animT = null;
   teardownBlind();   // 블라인드 복제·클립을 먼저 걷어낸다
+  clearVfEnter();    // VF 진입 슬라이드/페이드 잔재 제거
   renderAll();
 }
 
@@ -6326,12 +6829,21 @@ function videoType() {
 // 해상도마다 렌더 방법이 다르다. 노말 CG의 방송용 MXF는 브라우저로 못 만든다.
 function tlNote() {
   const A = anim();
+  const vf = S.res === '1920x1080-vf';
+  const bake = $('#tlBake');   // VF에선 MOV 추출을 아직 막는다(준비 중) — PNG 시퀀스만 쓰게
+  if (bake) {
+    bake.textContent = vf ? 'MOV 추출 (준비중)' : 'MP4로 추출';
+    bake.disabled = !!vf;
+    bake.title = vf ? '노말 VF의 MOV(알파) 추출은 아직 준비 중입니다 — 아래 "PNG 시퀀스로 추출"을 쓰세요(AE에서 QuickTime Animation RGB+Alpha로 렌더).' : '타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다';
+  }
   const el = $('#tlNote');
   if (!el) return;
   const vt = videoType();
   const touch = S.res === '2158x1214';
   if (touch) {
     el.innerHTML = `<b>터치 스크린</b> · ${vt ? vt.label : '영상'} ${A.fps}fps 로 <b>영상 추출</b>을 누르면 바로 나옵니다.`;
+  } else if (vf) {
+    el.innerHTML = `<b>노말 VF</b> · 투명(알파) 최종본은 <b>PNG 시퀀스</b>로 뽑아 AE에서 <b>QuickTime Animation RGB+Alpha</b>로 렌더하세요. (MOV 추출은 미리보기용 — 알파 없음)`;
   } else {
     el.innerHTML = `<b>노말 CG</b> · 방송용 <b>MXF / XDCAM HD</b>는 브라우저로 못 만듭니다. ` +
       `<b>PNG 시퀀스</b>로 뽑아 프리미어·AE에서 ${A.fps}fps XDCAM HD 50 NTSC로 렌더하세요. (영상 추출은 미리보기용 ${vt ? vt.label : '영상'})`;
@@ -6843,13 +7355,13 @@ function loadLayout() {
   const inWin = new Set(wins.flatMap((w) => w.secs));
   const panel = $('#panel');
   for (const s of L.docked) {
-    if (!known.has(s) || inWin.has(s)) continue;
+    if (!known.has(s) || inWin.has(s) || s === 'legend') continue;   // 범례는 저장된 위치 무시하고 항상 정해진 자리(제목텍스트 밑)로
     const n = secNode(s);
     if (n) panel.append(n);
   }
-  // 저장 당시엔 없던 새 항목은 원래 순서 자리에 꽂는다
+  // 저장 당시엔 없던 새 항목 + 범례는 SEC_ORDER 상의 원래 자리에 꽂는다
   for (const s of SEC_ORDER) {
-    if (inWin.has(s) || L.docked.includes(s)) continue;
+    if (inWin.has(s) || (L.docked.includes(s) && s !== 'legend')) continue;
     dockSec(s);
   }
   renderWins();
