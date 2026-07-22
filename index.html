@@ -5037,8 +5037,13 @@ function savePreset() {
     // 다른 모드 배치가 '이미 있을 때만' 위치를 맞춘다(그 모드의 색·굵기는 유지). 없으면 새로 만들지 않는다(색 옮겨붙음 방지 — 폴백이 위치만 따라오게 함).
     if (mine[other] || all[other]) {
       const target = mine[other] ? mine[other] : JSON.parse(JSON.stringify(all[other]));
-      for (const k of ['map', 'insets', 'labScale', 'mtnScale', 'legend']) if (p[k] !== undefined) target[k] = JSON.parse(JSON.stringify(p[k]));
+      for (const k of ['map', 'insets', 'labScale', 'mtnScale']) if (p[k] !== undefined) target[k] = JSON.parse(JSON.stringify(p[k]));
       if (p.vfBar !== undefined) target.vfBar = mergeVfBar(target.vfBar, p.vfBar);   // 위치는 공유, 그림자는 그 모드 것 유지
+      if (p.legend !== undefined) {   // 범례: 위치·크기는 공유, 글자색(txtCol)은 그 모드 것 유지(어두운=흰, 밝은=남색)
+        const keepCol = target.legend && target.legend.txtCol;
+        target.legend = JSON.parse(JSON.stringify(p.legend));
+        if (keepCol) target.legend.txtCol = keepCol;
+      }
       // 제목 텍스트: 위치·크기·내용만 맞추고 글자색(col)·굵기(w)는 그 모드 것을 유지한다.
       target.texts = mergeTextPos(target.texts, p.texts);
       mine[other] = target;
@@ -5109,6 +5114,13 @@ function applyPreset() {
   // 특보 범례: 이 그룹 배치가 범례를 갖고 있으면 그대로, 없으면(옛/배포 프리셋) 기본값으로 리셋한다.
   // 안 그러면 특보구역↔특보+해상처럼 그룹을 옮길 때 이전 그룹의 범례 위치가 그대로 남는다.
   S.legend = (p.legend !== undefined) ? JSON.parse(JSON.stringify(p.legend)) : JSON.parse(JSON.stringify(DEFAULTS().legend));
+  // 범례 글자색은 제목 글씨처럼 모드에 맞춘다: 어두운 모드의 남색(#071251) 글씨는 흰색으로, 밝은 모드의 흰색은 남색으로.
+  // (커스텀 색은 안 건드림.) 밝은 모드에서 잡은 남색이 어두운 모드로 넘어와 안 보이는 문제 자동 보정.
+  if (S.legend) {
+    const _tc = (S.legend.txtCol || '').toUpperCase();
+    if (S.cgLight && _tc === '#FFFFFF') S.legend.txtCol = '#071251';
+    else if (!S.cgLight && _tc === '#071251') S.legend.txtCol = '#FFFFFF';
+  }
   // 제목·라벨 그림자 켬/끔: 프리셋에 있으면 그대로, 없으면(옛/배포 프리셋) 기본값으로. 안 그러면 이전 화면 값이 그대로 남아 껐던 게 되살아난다.
   const _def = DEFAULTS();
   S.txtShadow = (p.txtShadow !== undefined) ? p.txtShadow : _def.txtShadow;
