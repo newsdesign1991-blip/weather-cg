@@ -1776,14 +1776,25 @@ const hexA = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${
 const brushSpaceKeys = () => ['main', ...Object.keys(S.insets)];
 const brushGroup = (space) => (space === 'main' ? $('#gMain') : $('#insetT-' + space));
 const brushOutline = (space) => (space === 'main' ? $('#zoneLineMain') : svg.querySelector(`[data-zoneline="${space}"]`));
-// 그 공간의 브러쉬 이미지 (본토=L_brush 안, 인셋=경계선 바로 앞)
+// 그 공간의 '라이브' 브러쉬 이미지 — 드래그 중에만 쓰는 단일 이미지(모든 색 합성).
+// 손 떼면 renderBrush()가 색별 이미지로 다시 나눈다(타임라인에서 색별로 따로 등장하도록).
 function brushImgOf(space) {
-  let img = svg.querySelector(`image.brushLayer[data-space="${space}"]`);
+  let img = svg.querySelector(`image.brushLayer.brushLive[data-space="${space}"]`);
   if (!img) {
-    img = el('image', { class: 'brushLayer', 'data-space': space, preserveAspectRatio: 'none' });
+    img = el('image', { class: 'brushLayer brushLive', 'data-space': space, preserveAspectRatio: 'none' });
     if (space === 'main') $('#L_brush').append(img);
     else { const g = $('#insetT-' + space); if (!g) return null; g.insertBefore(img, g.querySelector('[data-zoneline]')); }
   }
+  return img;
+}
+// 색별 브러쉬 이미지 (data-col). 그리는 순서대로 위에 쌓이도록 매번 끝으로 다시 붙인다.
+function brushColImgOf(space, col) {
+  const key = (col || '').toUpperCase();
+  const sel = `image.brushLayer[data-space="${space}"][data-col="${key}"]`;
+  let img = svg.querySelector(sel);
+  if (!img) img = el('image', { class: 'brushLayer', 'data-space': space, 'data-col': key, preserveAspectRatio: 'none' });
+  if (space === 'main') $('#L_brush').append(img);
+  else { const g = $('#insetT-' + space); if (!g) return null; g.insertBefore(img, g.querySelector('[data-zoneline]')); }
   return img;
 }
 function ensureSpaceCanvas(space) {
@@ -1908,13 +1919,29 @@ function renderBrush() {
   const all = brushStrokes();
   for (const space of brushSpaceKeys()) {
     const strokes = all.filter((s) => (s.space || 'main') === space);
-    const existing = svg.querySelector(`image.brushLayer[data-space="${space}"]`);
-    if (!strokes.length) { if (existing) existing.style.display = 'none'; continue; }
-    const c = ensureSpaceCanvas(space);
-    if (!c) { if (existing) existing.style.display = 'none'; continue; }
-    paintSpaceCanvas(space, strokes);
-    const img = placeBrushImg(space, c);
-    if (img) img.setAttribute('href', c.canvas.toDataURL());
+    // 라이브 이미지는 드래그 끝났으니 숨긴다(색별 이미지로 대체).
+    const live = svg.querySelector(`image.brushLayer.brushLive[data-space="${space}"]`);
+    if (live) live.style.display = 'none';
+    // 그린 순서대로 색 목록(중복 제외, 지우개 빼고). 이 순서가 곧 쌓임 순서.
+    const cols = [];
+    for (const s of strokes) if (!s.erase && !cols.some((x) => sameHex(x, s.col))) cols.push(s.col);
+    const c = cols.length ? ensureSpaceCanvas(space) : null;
+    const present = new Set();
+    if (c) for (const col of cols) {
+      // 그 색 획 + (그 사이의) 지우개만 그린다 → 색마다 독립 이미지. 순서 보존해 지우개가 제대로 파낸다.
+      const filtered = strokes.filter((s) => s.erase || sameHex(s.col, col));
+      paintSpaceCanvas(space, filtered);
+      const img = brushColImgOf(space, col); if (!img) continue;
+      img.setAttribute('x', c.bbox.x); img.setAttribute('y', c.bbox.y);
+      img.setAttribute('width', c.bbox.w); img.setAttribute('height', c.bbox.h);
+      img.setAttribute('href', c.canvas.toDataURL());
+      img.style.display = ''; img.removeAttribute('opacity');
+      present.add((col || '').toUpperCase());
+    }
+    // 이제 없는 색의 옛 이미지는 제거
+    svg.querySelectorAll(`image.brushLayer[data-space="${space}"][data-col]`).forEach((im) => {
+      if (!present.has((im.getAttribute('data-col') || '').toUpperCase())) im.remove();
+    });
   }
 }
 // 화면좌표 -> 그 공간의 로컬좌표
@@ -1982,7 +2009,9 @@ function startBrush(e, keys, space, erase) {
   const r = Math.max(1, S.brush.size / brushLocalScale(space));   // 화면(캔버스) px -> 그 공간 로컬 단위
   const s = { space, keys: keys.slice(), col: activeColor, r, op: S.brush.op, soft: S.brush.soft, erase: !!erase, dabs: [] };
   brushStroke = s; brushLiveSpace = space; brushLiveCanvas = c.canvas;
-  placeBrushImg(space, c);
+  placeBrushImg(space, c);   // 라이브(단일) 이미지 표시
+  // 드래그 중엔 색별 이미지를 숨겨 겹쳐 보이지 않게 (라이브 이미지가 전체를 보여줌)
+  svg.querySelectorAll(`image.brushLayer[data-space="${space}"][data-col]`).forEach((im) => { im.style.display = 'none'; });
   const W = c.canvas.width, H = c.canvas.height, cx = c.canvas.getContext('2d');
   let base = null, live = null, glive = null, gmain = null;
   if (s.erase) {
@@ -2015,8 +2044,7 @@ function startBrush(e, keys, space, erase) {
     brushLiveRecomp = null;
     if (s.dabs.length) brushStrokes().push(s);
     brushStroke = null;
-    paintSpaceCanvas(space, brushStrokes().filter((x) => (x.space || 'main') === space));   // 최종 정식 합성
-    const img = brushImgOf(space); if (img) img.setAttribute('href', c.canvas.toDataURL());
+    renderBrush();   // 색별 이미지로 다시 나눠 그린다(라이브 이미지 숨김) — 타임라인에서 색별로 등장
     saveWork();
     status(s.erase ? '브러쉬 지움' : '브러쉬 덧칠', true);
   };
@@ -6768,6 +6796,7 @@ const trackProg = (tr, t) => clamp01((t - tr.start) / Math.max(tr.len, 0.001));
 // 트랙 이름·색 — 타임라인 왼쪽 목록과 클립에 쓴다
 function trackInfo(tr) {
   if (tr.kind === 'fill') return { name: tr.key, col: tr.key };
+  if (tr.kind === 'brush') return { name: '브러쉬', col: tr.key };
   if (tr.kind === 'label') { const b = S.labels.find((x) => x.id === tr.key); return { name: b ? (b.txt || '(빈 라벨)') : '(지운 라벨)', col: b ? b.fill : '#888' }; }
   if (tr.kind === 'text') { const x = S.texts.find((v) => v.id === tr.key); return { name: x ? (x.txt || '(빈 텍스트)') : '(지운 텍스트)', col: x ? x.col : '#888' }; }
   const m = (S.mtns || []).find((v) => v.id === tr.key);
@@ -6804,6 +6833,16 @@ function autoTracks() {
   const start0 = animStart();   // 터치 스크린이면 0, 아니면 1초 홀드
   const startOf = {};
   cols.forEach((c, i) => { const st = start0 + i * step; startOf[c] = st; push('fill', c, st, ANIM_FILL_LEN); });
+  // 브러쉬 덧칠도 색별 트랙으로 — 그 색 칠(fill)보다 조금 먼저 들어온다('브러쉬 먼저, 칠 다음').
+  // 그 색 칠이 없으면(브러쉬만) 밝은→어두운 순으로 이어서 배치.
+  const brushCols = [];
+  for (const s of brushStrokes()) if (!s.erase && !brushCols.some((x) => x.toUpperCase() === s.col.toUpperCase())) brushCols.push(s.col);
+  brushCols.sort((a, b) => lumOf(b) - lumOf(a));
+  brushCols.forEach((c, i) => {
+    const key = c.toUpperCase();
+    const bs = startOf[key] != null ? Math.max(start0, startOf[key] - ANIM_FILL_LEN) : (start0 + (cols.length + i) * step);
+    push('brush', key, bs, ANIM_FILL_LEN);
+  });
   // 라벨은 자기 지역 색과 같은 타이밍에 (그 색의 시작 시각). 색을 못 찾으면 첫 시작.
   const startForFill = (col) => (col && startOf[col.toUpperCase()] != null ? startOf[col.toUpperCase()] : start0);
   for (const b of S.labels) if (!b.off) push('label', b.id, startForFill(b.fill), ANIM_LABEL_LEN);
@@ -6960,14 +6999,21 @@ function renderAnimFrame(t) {
     g.setAttribute('opacity', clamp01(e).toFixed(3));
   }
 
-  // 브러쉬 덧칠 — 칠(색)보다 '먼저' 들어온다: 첫 칠이 드러나기 시작하는 시각(bs) 전에 페이드인 완료.
-  // 그 뒤 칠이 브러쉬(반투명) 아래에서 드러난다 → '브러쉬 먼저, 칠 다음'.
+  // 브러쉬 덧칠 — 색별 이미지가 각자 자기 브러쉬 트랙 진행도로 들어온다(색별로 따로 등장).
+  // 트랙이 없는 색(옛 데이터 등)은 예전처럼 '첫 칠 전 페이드인'으로 처리.
   {
     const bft = A.tracks.filter((x) => x.kind === 'fill');
-    let bgp = 1;
-    // 첫 칠 시작(bs) 전에 페이드인 완료. 단 터치처럼 bs=0이면 팝 안 나게 최소 페이드(ANIM_FILL_LEN)는 준다.
-    if (bft.length) { const bs = Math.min(...bft.map((x) => x.start)); bgp = easeOut(clamp01(t / Math.max(bs, ANIM_FILL_LEN))); }
-    for (const im of document.querySelectorAll('image.brushLayer')) im.setAttribute('opacity', bgp.toFixed(3));
+    const firstFill = bft.length ? Math.min(...bft.map((x) => x.start)) : ANIM_FILL_LEN;
+    const fallback = easeOut(clamp01(t / Math.max(firstFill, ANIM_FILL_LEN)));
+    for (const im of document.querySelectorAll('image.brushLayer[data-col]')) {
+      const col = (im.getAttribute('data-col') || '').toUpperCase();
+      const tr = A.tracks.find((x) => x.kind === 'brush' && (x.key || '').toUpperCase() === col);
+      const gp = tr ? easeOut(trackProg(tr, t)) : fallback;
+      im.style.display = '';
+      im.setAttribute('opacity', gp.toFixed(3));
+    }
+    // 라이브(단일) 이미지는 애니메이션 중엔 숨긴다
+    for (const im of document.querySelectorAll('image.brushLayer.brushLive')) im.style.display = 'none';
   }
 
   // 산 색칠 — 지도 칠과 똑같이. 번짐이면 베이스->산색으로 번지고, 블라인드면 그 산색의 슬랫으로 각자 드러난다.
