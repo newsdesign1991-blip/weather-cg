@@ -1247,7 +1247,8 @@
       <h3>특보 범례</h3>
       <div class="body">
         <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgOn">제목 밑에 범례 표시</label>
-        <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동 (눈 켠 것만, 색 자동)</label>
+        <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동 (눈 켠 것만, 색 자동)</label>
+        <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgHoriz">가로로 배치 (항목이 많을 때 — 제목 바 아래 띠)</label>
         <div id="lgManual">
           <div class="list" id="lgList"></div>
           <div class="btns" style="margin:6px 0"><button id="lgAdd">+ 항목 추가</button></div>
@@ -1718,7 +1719,7 @@ const DEFAULTS = () => ({
   softZonesByStyle: {}, // 지도 종류별 '부드럽게' 대상 구역 id들(내륙·해안·산지처럼 애매한 표현만). 확실한 지명은 또렷하게 둔다.
   vfBar: { on: 0, x: 1140, y: 150, w: 640, h: 110, shOp: 42, shBlur: 7, shDy: 7 }, // 노말 VF 제목 바(배경 크롭+그림자 농도/번짐/거리). 배치는 프리셋에 저장.
   // 기상특보 범례 — 제목 밑에 '색상 상자 + 이름' 목록. 특보용 지도에서만 UI 노출, 배치는 프리셋에 저장.
-  legend: { on: 0, auto: 1, x: 150, y: 560, box: 34, radius: 6, rowGap: 16, size: 34, weight: 600, txtCol: '#FFFFFF', gap: 18,
+  legend: { on: 0, auto: 1, horiz: 0, x: 150, y: 560, box: 34, radius: 6, rowGap: 16, size: 34, weight: 600, txtCol: '#FFFFFF', gap: 18,
     items: [{ col: '#FA2E1E', txt: '폭염특보' }, { col: '#FFC400', txt: '폭염주의보' }] },
   // 영상용. tracks = [{id, kind:'fill'|'label'|'text'|'mtn', key, start, len}]
   // fps 기본 30 — 어차피 PNG 시퀀스로 편집 툴에 넘겨 쓰므로 딱 떨어지는 30이 편하다.
@@ -2647,18 +2648,25 @@ function renderLegend() {
   if (!items.length) return;
   const box = g.box, size = g.size, rowGap = g.rowGap == null ? 16 : g.rowGap, gap = g.gap == null ? 18 : g.gap;
   const rowH = Math.max(box, size * 1.1);
+  const horiz = !!g.horiz;   // 가로 배치(항목이 좌→우로) — 3개 이상일 때 제목 바 아래 좁은 띠에 넣기 좋다
   const grp = el('g', { class: 'drag', 'data-kind': 'legend', 'data-id': 'legend', transform: `translate(${g.x} ${g.y})` });
+  L.append(grp);   // 먼저 붙여야 가로 배치에서 글자 폭(getComputedTextLength)을 잴 수 있다
+  let cursor = 0;
   items.forEach((it, i) => {
-    const top = i * (rowH + rowGap);
-    grp.append(el('rect', { x: 0, y: top + (rowH - box) / 2, width: box, height: box, rx: g.radius || 0, ry: g.radius || 0, fill: it.col || '#FFFFFF' }));
+    const ox = horiz ? cursor : 0;
+    const top = horiz ? 0 : i * (rowH + rowGap);
+    grp.append(el('rect', { x: ox, y: top + (rowH - box) / 2, width: box, height: box, rx: g.radius || 0, ry: g.radius || 0, fill: it.col || '#FFFFFF' }));
     const t = el('text', {
-      x: box + gap, y: top + rowH / 2, fill: g.txtCol || '#FFFFFF', 'font-family': '"Wanted Sans Variable"',
+      x: ox + box + gap, y: top + rowH / 2, fill: g.txtCol || '#FFFFFF', 'font-family': '"Wanted Sans Variable"',
       'font-size': size, 'font-weight': g.weight || 600, 'dominant-baseline': 'central', 'letter-spacing': -0.5, 'xml:space': 'preserve',
     });
     t.textContent = it.txt || '';
     grp.append(t);
+    if (horiz) {
+      let tw; try { tw = t.getComputedTextLength(); } catch (e) { tw = (it.txt || '').length * size * 0.95; }
+      cursor = ox + box + gap + tw + Math.max(18, rowGap);   // 항목 사이 간격 = '줄 간격' 슬라이더로 조절
+    }
   });
-  L.append(grp);
   // 크기 핸들 — 범례 우하단 모서리에 (끌면 상자·글자·간격이 함께 커지고 작아진다)
   if (grip) {
     const b = grp.getBBox();
@@ -3308,6 +3316,7 @@ function refreshPanel() {
     const g = (S.legend ||= { on: 0, box: 34, radius: 6, rowGap: 16, size: 34, txtCol: '#FFFFFF', gap: 18, items: [] });
     if ($('#lgOn')) $('#lgOn').checked = !!g.on;
     if ($('#lgAuto')) $('#lgAuto').checked = g.auto == null ? true : !!g.auto;
+    if ($('#lgHoriz')) $('#lgHoriz').checked = !!g.horiz;
     const sv = (id, v, vid) => { if ($(id)) { $(id).value = v; if (vid) $(vid).textContent = v; } };
     sv('#lgSize', g.size == null ? 34 : g.size, '#lgSizeV'); sv('#lgBox', g.box == null ? 34 : g.box, '#lgBoxV');
     sv('#lgRadius', g.radius == null ? 6 : g.radius, '#lgRadiusV'); sv('#lgRowGap', g.rowGap == null ? 16 : g.rowGap, '#lgRowGapV');
@@ -6351,6 +6360,7 @@ function wire() {
   // 기상특보 범례
   $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; if (e.target.checked) ensureLegendInVfPanel(); renderLegend(); };
   $('#lgAuto').onchange = (e) => { pushUndo(); (S.legend ||= {}).auto = e.target.checked ? 1 : 0; syncLegendMode(); renderLegend(); };
+  $('#lgHoriz').onchange = (e) => { pushUndo(); (S.legend ||= {}).horiz = e.target.checked ? 1 : 0; renderLegend(); };
   $('#lgAdd').onclick = () => { pushUndo(); const g = (S.legend ||= { items: [] }); (g.items ||= []).push({ col: activeColor, txt: '' }); g.on = 1; $('#lgOn').checked = true; renderLegend(); buildLgList(); };
   const lgw = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('lg' + key); (S.legend ||= {})[key] = +e.target.value; if (vid) $(vid).textContent = e.target.value; renderLegend(); }; };
   lgw('#lgSize', 'size', '#lgSizeV'); lgw('#lgBox', 'box', '#lgBoxV'); lgw('#lgRadius', 'radius', '#lgRadiusV'); lgw('#lgRowGap', 'rowGap', '#lgRowGapV'); lgw('#lgGap', 'gap', '#lgGapV'); lgw('#lgWeight', 'weight', '#lgWeightV');
