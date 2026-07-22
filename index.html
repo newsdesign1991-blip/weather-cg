@@ -5578,16 +5578,12 @@ async function exportPngSeq() {
 // R:\[F]_Util\WNS 의 WNS_START 로 켜둔 로컬 헬퍼(localhost:3720)에 프레임을 보내 ffmpeg 로 인코딩한다.
 // 파이썬/설치 없이(헬퍼는 컴파일 exe), 저장 위치는 '저장폴더' 칸으로 지정. 헬퍼가 그 PC 기준으로 파일을 만든다.
 const WNS_HELPER = 'http://127.0.0.1:3720';
-// 로컬(개발/각 PC)에서만 켠다 — 깃헙 배포본에선 렌더 버튼을 숨긴다(아직 미완성). 노말 VF 화면에서만 보인다.
-function wnsIsLocal() {
-  const h = location.hostname;
-  return h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:';
-}
+// 깃헙(https) 배포본에서도 로컬 헬퍼(127.0.0.1)는 호출 가능하다(브라우저가 localhost는 예외 허용).
+// 그래서 해상도만 맞으면 항상 버튼을 보인다. 헬퍼가 꺼져 있으면 누를 때 안내 팝업이 뜬다.
 function updateWnsButtons() {
   const g = $('#wnsGroup'); if (!g) return;
-  const local = wnsIsLocal();
-  const showMxf = local && S.res === '1920x1080';       // 노말 CG → MXF (방송 송출용)
-  const showMov = local && S.res === '1920x1080-vf';    // 노말 VF → 알파 MOV (오버레이용)
+  const showMxf = S.res === '1920x1080';       // 노말 CG → MXF (방송 송출용)
+  const showMov = S.res === '1920x1080-vf';    // 노말 VF → 알파 MOV (오버레이용)
   if ($('#wnsMxf')) $('#wnsMxf').style.display = showMxf ? '' : 'none';
   if ($('#wnsMov')) $('#wnsMov').style.display = showMov ? '' : 'none';
   g.style.display = (showMxf || showMov) ? '' : 'none';
@@ -5634,7 +5630,6 @@ function wnsHelperOffNotice() {
   ov.style.display = 'flex';
 }
 async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
-  if (!wnsIsLocal()) return;   // 깃헙 배포본에선 막음
   const A = anim();
   if (!A.tracks.length) { status('트랙이 없습니다 — “지금 화면으로 자동 구성”을 먼저 누르세요', true); return; }
   // 헬퍼 살아있는지 확인 — 꺼져 있으면 큰 팝업 안내
