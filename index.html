@@ -907,6 +907,24 @@
     84%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(.98); }
   }
+  /* 렌더/추출 완료 — 화면 정중앙에 파란 카드가 떴다가 사라진다 */
+  #doneMsg {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 100001; pointer-events: none; opacity: 0; white-space: nowrap;
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 34px; border-radius: 18px; font-size: 22px; font-weight: 800; letter-spacing: -.01em;
+    background: linear-gradient(135deg, #2f6bff, #1e50e6); color: #fff;
+    border: 1px solid rgba(255,255,255,.25); box-shadow: 0 22px 60px rgba(37,99,235,.5);
+  }
+  #doneMsg svg { flex: 0 0 auto; }
+  #doneMsg.show { animation: donePop 2.2s cubic-bezier(0.34, 0, 0.15, 1) forwards; }
+  @keyframes donePop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(.86); }
+    10%  { opacity: 1; transform: translate(-50%, -50%) scale(1.07); }
+    20%  { transform: translate(-50%, -50%) scale(1); }
+    80%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(.98); }
+  }
   /* 브러쉬 마스크로 선택된 영역 외곽선 (지도 배율과 무관하게 일정 굵기) */
   .zone.brushSel { stroke: #4a94ff !important; stroke-width: 2.4 !important; stroke-opacity: 1 !important; vector-effect: non-scaling-stroke; }
   /* 마우스 주변 브러쉬 크기 원. non-scaling-stroke 는 dash 길이를 어긋나게 해서(원이 안 닫힘) 쓰지 않는다. */
@@ -1589,6 +1607,7 @@
 <div class="dockline" id="dockline"></div>
 <div class="brushTag" id="brushTag"></div>
 <div id="flashMsg"></div>
+<div id="doneMsg"></div>
 
 <!-- API 설정. 한 번 넣으면 다시 볼 일이 없어서 사이드바를 차지하지 않게 밖으로 뺐다. -->
 <button id="apiGear" title="API 설정">
@@ -5346,6 +5365,13 @@ function flash(m) {
   n.textContent = m;
   n.classList.remove('show'); void n.offsetWidth; n.classList.add('show');   // 애니메이션 재시작
 }
+// 렌더/추출 완료 — 화면 정중앙에 파란 카드('완료' 등)가 떴다가 사라진다
+function flashDone(m) {
+  const n = $('#doneMsg');
+  n.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5l5 5L20 6.5"/></svg><span></span>';
+  n.querySelector('span').textContent = m || '완료';
+  n.classList.remove('show'); void n.offsetWidth; n.classList.add('show');   // 애니메이션 재시작
+}
 
 // 추출(MP4/PNG 시퀀스) 진행 바 — #tlInfo 안에 얇은 바 + 텍스트로 보여준다.
 function exportProgress(done, total, label) {
@@ -5543,6 +5569,7 @@ async function bakeMp4() {
     const secs = (n * frameDur / timescale).toFixed(2), real = ((performance.now() - t0) / 1000).toFixed(1);
     $('#tlInfo').textContent = `${vlabel} 저장됨: ${name} · ${n}프레임 = ${secs}초 (굽는데 ${real}초)`;
     status(`${vlabel} 저장 완료 · ${name} · 정확히 ${secs}초`);
+    flashDone('영상 저장 완료');
   } catch (e) {
     status(`${vlabel} 저장 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${vlabel} 저장 실패`;
   } finally {
@@ -5594,6 +5621,7 @@ async function exportPngSeq() {
     else { download(zip, `${defName}.zip`); where = `${defName}.zip (다운로드 폴더)`; }
     $('#tlInfo').textContent = `${n + 1}장을 ${where} 에 저장 — 압축 풀어 ${A.fps}fps로 합치세요`;
     status(`PNG ${n + 1}장 저장 완료 → ${where}`);
+    flashDone('PNG 시퀀스 저장 완료');
   } catch (e) {
     status('PNG 저장 실패: ' + (e.message || e), true); $('#tlInfo').textContent = 'PNG 저장 실패';
   } finally {
@@ -5709,6 +5737,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     if (handle) { const w = await handle.createWritable(); await w.write(buf); await w.close(); where = handle.name; }
     else { download(new Blob([buf], { type: 'application/octet-stream' }), suggested); where = suggested + ' (다운로드 폴더)'; }
     $('#tlInfo').textContent = `${label} 저장됨: ${where}`; status(`${label} 저장 완료 → ${where}`);
+    flashDone(`${label} 렌더 완료`);
   } catch (e) {
     status(`${label} 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${label} 실패`;
   } finally {
