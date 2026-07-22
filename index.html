@@ -7048,11 +7048,12 @@ function videoType() {
 function tlNote() {
   const A = anim();
   const vf = S.res === '1920x1080-vf';
-  const bake = $('#tlBake');   // VF에선 MOV 추출을 아직 막는다(준비 중) — PNG 시퀀스만 쓰게
+  const bake = $('#tlBake');   // VF에선 이 MP4 버튼을 숨긴다 — 대신 "알파MOV로 추출"(헬퍼) 버튼을 쓴다
   if (bake) {
-    bake.textContent = vf ? 'MOV 추출 (준비중)' : 'MP4로 추출';
-    bake.disabled = !!vf;
-    bake.title = vf ? '노말 VF의 MOV(알파) 추출은 아직 준비 중입니다 — 아래 "PNG 시퀀스로 추출"을 쓰세요(AE에서 QuickTime Animation RGB+Alpha로 렌더).' : '타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다';
+    bake.style.display = vf ? 'none' : '';
+    bake.textContent = 'MP4로 추출';
+    bake.disabled = false;
+    bake.title = '타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다';
   }
   const el = $('#tlNote');
   if (!el) return;
