@@ -5571,7 +5571,11 @@ function authoredNotices() { try { const a = JSON.parse(localStorage.getItem(NOT
 function allNotices() { const map = {}; for (const n of [...SEED_NOTICES, ...authoredNotices()]) if (n && n.id) map[n.id] = n; return Object.values(map).sort((a, b) => (a.id < b.id ? 1 : -1)); }  // 최신 먼저
 function unseenNotices() { const s = noticeSeenSet(); return allNotices().filter((n) => !s.has(n.id)); }
 function noticeMarkAllSeen() { localStorage.setItem(NOTICE_SEEN_KEY, JSON.stringify(allNotices().map((n) => n.id))); updateNoticeDot(); }
-function updateNoticeDot() { const b = $('#noticeBtn'); if (b) b.classList.toggle('hasNew', unseenNotices().length > 0); }
+// 공지 날짜("YYYY.MM.DD") 파싱
+function parseNoticeDate(s) { const m = /^(\d{4})\.(\d{1,2})\.(\d{1,2})/.exec(String(s || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+// 만든 지 7일 이내면 '최근' — 읽었어도 빨간 점 유지
+function noticeIsRecent(n) { const d = parseNoticeDate(n && n.date); return d ? (new Date().getTime() - d.getTime()) < 7 * 864e5 : false; }
+function updateNoticeDot() { const b = $('#noticeBtn'); if (b) b.classList.toggle('hasNew', unseenNotices().length > 0 || allNotices().some(noticeIsRecent)); }
 function noticeItemHTML(n) {
   const body = n.body || '';   // 저장 시 이미 정제됨(작성자=관리자만 7989로 작성)
   return `<div class="ntItem"><div class="d">${(n.date || '').replace(/</g, '&lt;')}</div><div class="t">${(n.title || '').replace(/</g, '&lt;')}</div><div class="b">${body}</div></div>`;
