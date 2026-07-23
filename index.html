@@ -6282,18 +6282,19 @@ async function sendToAE() {
     const cols = Object.keys(seen).sort((a, b) => lumOf(b) - lumOf(a));   // 밝은→어두운 (타임라인과 동일)
     const startOf = {}; cols.forEach((c, i) => startOf[c] = start0 + i * step);
     const startForFill = (col) => (col && startOf[col.toUpperCase()] != null ? startOf[col.toUpperCase()] : start0);
+    const AE_LEN = 1.0;   // AE 애니는 전부 1초로 (색별 시작만 다르고 길이는 동일)
     // bottom→top 순서로 레이어 구성. 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
     const uploads = [], specLayers = [];
     const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
     const addText = (name, t) => specLayers.push({ text: { content: aeArrow(t.txt || ''), x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0, weight: t.w || 400 }, name });
     addImg('배경·지도', await aeBaseBlob());
-    for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: ANIM_FILL_LEN });
+    for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: AE_LEN });
     addImg('경계선', await aeLinesBlob());   // 시도·시군 선 — 색칠 위, 정적(항상 보임)
     const mtns = (S.mtns || []).filter((m) => !m.off);
     if (mtns.length) {
       addImg('산(바탕)', await aeMtnBlob(true));   // 바탕색 산 — 항상 보임(정적). 색칠처럼 모양은 처음부터.
       const ms = Math.min.apply(null, mtns.map((m) => startForFill(m.col)));
-      addImg('산(색)', await aeMtnBlob(false), { start: ms, len: ANIM_FILL_LEN });   // 최종색 산 — 위에서 페이드인
+      addImg('산(색)', await aeMtnBlob(false), { start: ms, len: AE_LEN });   // 최종색 산 — 위에서 페이드인
     }
     // 라벨 = 프리컴프(배경 이미지 + 편집 텍스트). AE에서 라벨 하나가 한 컴프.
     const labData = aeLabelCompData();
@@ -6303,13 +6304,13 @@ async function sendToAE() {
       const fi = uploads.length; uploads.push(await aeLabelBgBlob(ld));
       specLayers.push({
         labelComp: { w: ld.w, h: ld.h, x: ld.cx, y: ld.cy, bg: 'f_' + String(fi).padStart(5, '0') + '.png', texts: ld.texts },
-        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: ANIM_LABEL_LEN, rise: 26 },   // rise=아래서 올라오기(타임라인 동일)
+        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: AE_LEN, rise: 26 },   // rise=아래서 올라오기(타임라인 동일)
       });
     }
     for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);   // 제목=편집형 텍스트, 맨 위·정적
     let end = start0;
     for (const l of specLayers) if (l.fade) end = Math.max(end, l.fade.start + l.fade.len);
-    if (S.res === '1920x1080-vf') end = Math.max(end, ANIM_START + ANIM_VF_ENTER_LEN);
+    if (S.res === '1920x1080-vf') end = Math.max(end, ANIM_START + AE_LEN);
     const dur = Math.max(6, Math.ceil((end + 0.6) * 2) / 2);
     const sid = 'ae' + Date.now();
     for (let i = 0; i < uploads.length; i++) {
@@ -6320,7 +6321,7 @@ async function sendToAE() {
     const sh = S.shadow || {};
     const spec = {
       sid, comp: { name: 'WeatherCG_' + dateTag(), w: W, h: H, fps, dur },
-      vfEnter: (S.res === '1920x1080-vf') ? { start: ANIM_START, len: ANIM_VF_ENTER_LEN, dx: vfEnterDist() } : null,
+      vfEnter: (S.res === '1920x1080-vf') ? { start: ANIM_START, len: AE_LEN, dx: vfEnterDist() } : null,
       shadow: { x: sh.x || 0, y: sh.y == null ? 8 : sh.y, blur: sh.blur == null ? 10 : sh.blur, op: sh.op == null ? 45 : sh.op, col: sh.col || '#000814' },
       layers: specLayers,
     };
