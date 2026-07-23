@@ -1371,6 +1371,7 @@
         <p class="hint" style="margin-top:0">뽑을 것을 <b>골라</b> 두고 <b>선택 항목 뽑기</b>를 누르면 저장 폴더를 물어보고 그 안에 이미지를 만듭니다.</p>
         <div class="exPick" id="exPick"></div>
         <div class="btns" style="margin-top:8px"><button id="exAll" title="아래 항목 전체를 한 번에 선택/해제">전체 선택</button><button class="pri" id="doExport">선택 항목 뽑기</button></div>
+        <div class="btns" style="margin-top:6px"><button id="exSetDir" style="flex:1" title="렌더·추출을 정해둔 폴더로 바로 저장(예: R:\Upload). 안 정하면 저장창이 뜹니다.">출력 폴더 지정</button></div>
         <p class="hint" id="exInfo">배경/지도/색칠/라벨을 따로 뽑으면 편집 툴에서 레이어로 합성할 수 있습니다.</p>
       </div>
     </div>
@@ -5449,22 +5450,30 @@ function wcgDB() {
 }
 async function idbGet(k) { try { const db = await wcgDB(); return await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } }
 async function idbSet(k, v) { try { const db = await wcgDB(); await new Promise((res) => { const q = db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); q.onsuccess = () => res(); q.onerror = () => res(); }); } catch (e) { /* 무시 */ } }
-// 저장 폴더 핸들 얻기 — 없거나 권한 없으면(prompt=true) 폴더 선택창을 띄운다.
-async function getOutDir(prompt) {
+// 이미 지정해 둔 저장 폴더 핸들만 가져온다(폴더 선택창은 안 띄운다). 권한 필요 시 1회 허용만.
+async function getOutDir() {
   try {
-    let h = await idbGet('outDir');
+    const h = await idbGet('outDir');
     if (h) {
       let p = await h.queryPermission({ mode: 'readwrite' });
       if (p !== 'granted') p = await h.requestPermission({ mode: 'readwrite' });
       if (p === 'granted') return h;
     }
-    if (prompt && window.showDirectoryPicker) {
-      h = await window.showDirectoryPicker({ id: 'cgOut', mode: 'readwrite' });
-      await idbSet('outDir', h);
-      return h;
-    }
-  } catch (e) { /* 취소·미지원 → null */ }
+  } catch (e) { /* 무시 → null */ }
   return null;
+}
+// '출력 폴더 지정' 버튼에서만 폴더 선택창을 띄운다(사용자가 명시적으로 누를 때).
+async function pickOutDir() {
+  try { if (!window.showDirectoryPicker) return null; const h = await window.showDirectoryPicker({ id: 'cgOut', mode: 'readwrite' }); await idbSet('outDir', h); return h; }
+  catch (e) { return null; }   // 취소·시스템폴더 차단 등
+}
+async function clearOutDir() { await idbSet('outDir', null); }
+// '출력 폴더' 버튼 라벨을 현재 상태로 갱신
+async function updateOutDirBtn() {
+  const b = $('#exSetDir'); if (!b) return;
+  let h = null; try { h = await idbGet('outDir'); } catch (e) { /* 무시 */ }
+  if (h) { b.textContent = '출력 폴더: ' + h.name + ' (해제)'; b.classList.add('on'); b.title = '클릭하면 해제 — 저장할 때 위치를 다시 고릅니다. 지금: ' + h.name; }
+  else { b.textContent = '출력 폴더 지정'; b.classList.remove('on'); b.title = '렌더·추출을 정해둔 폴더로 바로 저장(예: R:\\Upload). 안 정하면 저장창이 뜹니다.'; }
 }
 // 폴더 안에서 안 겹치는 이름 (0723.mov, 0723-2.mov …)
 async function uniqueName(dir, base, ext) {
@@ -5474,7 +5483,7 @@ async function uniqueName(dir, base, ext) {
 // 저장 대상 준비(렌더 전에 호출) — 1) 저장 폴더 바로쓰기, 2) 저장 대화상자, 3) 다운로드.
 // 반환 {name, write(bytes)} 또는 null(사용자 취소).
 async function prepareOutput(base, ext, mime, label) {
-  const dir = await getOutDir(true);
+  const dir = await getOutDir();   // 지정해 둔 폴더가 있을 때만(폴더 선택창은 안 띄움)
   if (dir) {
     const name = await uniqueName(dir, base, ext);
     return { name, write: async (bytes) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(bytes); await w.close(); } };
@@ -6889,6 +6898,13 @@ function wire() {
     exportPick = new Set(allOn ? [] : EXPORT_TARGETS.map((t) => t.key));
     buildExportPick();
     $('#exAll').textContent = EXPORT_TARGETS.every((t) => exportPick.has(t.key)) ? '전체 해제' : '전체 선택';
+  };
+  // 출력 폴더 지정/해제 — 지정하면 렌더·추출이 그 폴더로 바로 저장, 없으면 저장창.
+  updateOutDirBtn();
+  if ($('#exSetDir')) $('#exSetDir').onclick = async () => {
+    if (await idbGet('outDir')) { await clearOutDir(); status('출력 폴더 해제 — 이제 저장할 때 위치를 고릅니다'); }
+    else { const p = await pickOutDir(); if (!p) return; status('출력 폴더 지정: ' + p.name + ' — 이제 여기로 바로 저장됩니다'); }
+    updateOutDirBtn();
   };
 
   $('#newWork').onclick = () => {
