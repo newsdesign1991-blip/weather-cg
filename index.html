@@ -5858,26 +5858,61 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const fmt = alpha ? 'image/png' : 'image/jpeg';
   const fext = alpha ? 'png' : 'jpg';
   try {
-    for (let i = 0; i <= n; i++) {
+    // 한 프레임을 메인 스레드에서 직접 인코딩·전송(프레임0 = 헬퍼 세션 리셋용 + 워커 미지원 폴백).
+    // 알파는 프리멀티플라이드(AE 동일)로 굽는다 — Uint32로 반투명 픽셀만 곱해 빠르게.
+    const sendFrameMain = async (i) => {
       renderAnimFrame(i / A2.fps);
       const img = await svgToImage(W, H);
       if (alpha) cx.clearRect(0, 0, W, H);
       cx.drawImage(img, 0, 0, W, H);
-      // 알파 MOV는 '프리멀티플라이드'로 내보낸다 — AE의 QuickTime Animation 출력과 동일.
-      // (straight 상태로 두면 팟플레이어 등에서 투명 영역 RGB가 번쩍 보인다.)
       if (alpha) {
-        const id = cx.getImageData(0, 0, W, H), d = id.data;
-        for (let p = 0; p < d.length; p += 4) {
-          const a = d[p + 3];
-          if (a === 0) { d[p] = d[p + 1] = d[p + 2] = 0; }
-          else if (a < 255) { d[p] = Math.round(d[p] * a / 255); d[p + 1] = Math.round(d[p + 1] * a / 255); d[p + 2] = Math.round(d[p + 2] * a / 255); }
-        }
+        const id = cx.getImageData(0, 0, W, H), d = id.data, u32 = new Uint32Array(d.buffer);
+        for (let q = 0; q < u32.length; q++) { const v = u32[q], a = v >>> 24; if (a === 255) continue; if (a === 0) { u32[q] = 0; continue; } const p = q << 2; d[p] = (d[p] * a + 127) / 255 | 0; d[p + 1] = (d[p + 1] * a + 127) / 255 | 0; d[p + 2] = (d[p + 2] * a + 127) / 255 | 0; }
         cx.putImageData(id, 0, 0);
       }
       const blob = await new Promise((r) => c.toBlob(r, fmt, alpha ? undefined : 0.92));
       const resp = await fetch(WNS_HELPER + '/api/frame?sid=' + sid + '&index=' + i + '&ext=' + fext, { method: 'POST', body: blob });
       if (!resp.ok) throw new Error('프레임 전송 실패(' + i + ')');
-      exportProgress(i, n, label + ' 프레임 전송 중');
+    };
+
+    // 인코딩(PNG/JPEG)+전송이 프레임당 가장 느리다 → Web Worker 여러 개로 병렬 처리.
+    // 메인 스레드는 프레임을 그려 픽셀만 넘기고(전송 소유권 이전), 굽기·프리멀티플라이드·POST는 워커가.
+    const canPool = (typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && OffscreenCanvas.prototype.convertToBlob);
+    const POOL = canPool ? Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 1)) : 0;
+
+    await sendFrameMain(0);                     // 프레임0 먼저(세션 폴더 리셋 보장)
+    exportProgress(1, n + 1, label + ' 전송 중');
+
+    if (POOL && n >= 1) {
+      const wsrc = "self.onmessage=async(e)=>{const m=e.data;try{const data=new Uint8ClampedArray(m.buf);if(m.premul){const u=new Uint32Array(m.buf);for(let q=0;q<u.length;q++){const v=u[q],a=v>>>24;if(a===255)continue;if(a===0){u[q]=0;continue;}const p=q<<2;data[p]=(data[p]*a+127)/255|0;data[p+1]=(data[p+1]*a+127)/255|0;data[p+2]=(data[p+2]*a+127)/255|0;}}const oc=new OffscreenCanvas(m.W,m.H);const x=oc.getContext('2d');x.putImageData(new ImageData(data,m.W,m.H),0,0);const b=await oc.convertToBlob({type:m.mime,quality:m.quality});const r=await fetch(m.url,{method:'POST',body:b});self.postMessage({index:m.index,ok:r.ok});}catch(err){self.postMessage({index:m.index,ok:false,err:String(err&&err.message||err)});}};";
+      const wURL = URL.createObjectURL(new Blob([wsrc], { type: 'text/javascript' }));
+      const workers = Array.from({ length: POOL }, () => new Worker(wURL));
+      const free = workers.slice(), waiters = [];
+      let done = 1, perr = null;                // done=1: 프레임0 이미 완료
+      for (const w of workers) w.onmessage = (e) => {
+        if (!e.data.ok && !perr) perr = new Error('프레임 인코딩 실패(' + e.data.index + ')' + (e.data.err ? ': ' + e.data.err : ''));
+        done++; exportProgress(done, n + 1, label + ' 인코딩·전송(병렬 ' + POOL + ')');
+        const waiter = waiters.shift(); if (waiter) waiter(w); else free.push(w);
+      };
+      const acquire = () => (free.length ? Promise.resolve(free.pop()) : new Promise((res) => waiters.push(res)));
+      try {
+        const base = WNS_HELPER + '/api/frame?sid=' + sid + '&ext=' + fext + '&index=';
+        for (let i = 1; i <= n; i++) {
+          if (perr) throw perr;
+          renderAnimFrame(i / A2.fps);
+          const img = await svgToImage(W, H);
+          if (alpha) cx.clearRect(0, 0, W, H);
+          cx.drawImage(img, 0, 0, W, H);
+          const buf = cx.getImageData(0, 0, W, H).data.buffer;
+          const w = await acquire();
+          if (perr) throw perr;
+          w.postMessage({ index: i, W, H, buf, premul: alpha, url: base + i, mime: fmt, quality: alpha ? undefined : 0.92 }, [buf]);
+        }
+        while (done < n + 1 && !perr) await new Promise((r) => setTimeout(r, 15));   // 남은 인코딩 마무리
+        if (perr) throw perr;
+      } finally { workers.forEach((w) => w.terminate()); URL.revokeObjectURL(wURL); }
+    } else {
+      for (let i = 1; i <= n; i++) { await sendFrameMain(i); exportProgress(i + 1, n + 1, label + ' 전송 중'); }
     }
     exportProgress(n, n, label + ' 인코딩 중 (헬퍼)');
     const fr = await fetch(WNS_HELPER + '/api/finalize', {
