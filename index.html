@@ -6166,11 +6166,22 @@ async function aeBaseBlob() {
   return svgBlob((c) => {
     keepLayers(c, ALL_LAYERS);
     c.querySelector('#gMainSoft')?.remove();
-    c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => z.setAttribute('fill', S.base));
+    c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', S.base); z.setAttribute('stroke', 'none'); });
     c.querySelectorAll('#L_labels > g').forEach((g) => g.remove());
     c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());
     c.querySelector('#L_mtn')?.remove();     // 산은 색칠 위 별도 레이어로 (덮임 방지)
     c.querySelector('#L_title')?.remove();    // 제목은 AE 편집형 텍스트 레이어로
+    // 시도/시군 선은 색칠 위에 얹을 별도 레이어로 → base에선 뺀다(안 그러면 색칠이 선을 덮음)
+    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
+    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+  });
+}
+// 시도/시군 경계선만(투명) — 색칠 위에 얹어 항상 보이게(정적)
+async function aeLinesBlob() {
+  return svgBlob((c) => {
+    keepLayers(c, ['L_map']);
+    c.querySelector('#gMainSoft')?.remove();
+    c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
   });
 }
 // 산 표시만(투명) — 색칠 위에 올림. base=true면 바탕색(정적, 항상 보임), false면 최종색(페이드인).
@@ -6192,8 +6203,8 @@ async function aeFillBlob(col) {
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
       const fc = F[z.dataset.id];
-      if (fc && fc.toUpperCase() === U) { z.setAttribute('fill', fc); z.setAttribute('stroke', 'none'); }
-      else z.setAttribute('fill', 'none');
+      z.setAttribute('stroke', 'none');   // 색칠 레이어엔 테두리(시군선) 절대 없음 — 색만 페이드인
+      z.setAttribute('fill', (fc && fc.toUpperCase() === U) ? fc : 'none');
     });
     c.querySelectorAll('#seaT .sea').forEach((p) => {
       const sc = S.seaFills[p.dataset.id];
@@ -6223,6 +6234,7 @@ async function sendToAE() {
     const addText = (name, t) => specLayers.push({ text: { content: t.txt || '', x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0 }, name });
     addImg('배경·지도', await aeBaseBlob());
     for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: ANIM_FILL_LEN });
+    addImg('경계선', await aeLinesBlob());   // 시도·시군 선 — 색칠 위, 정적(항상 보임)
     const mtns = (S.mtns || []).filter((m) => !m.off);
     if (mtns.length) {
       addImg('산(바탕)', await aeMtnBlob(true));   // 바탕색 산 — 항상 보임(정적). 색칠처럼 모양은 처음부터.
