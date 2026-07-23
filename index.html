@@ -2136,6 +2136,15 @@ function projLL(lon, lat) {
   const my = Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
   return [(mx - cx0) * scale, -(my - cy0) * scale];
 }
+// 화면(캔버스) 좌표 -> 경위도 (projLL + 지도 변환의 역). 산을 손으로 옮긴 위치를 프리셋 앵커로 되돌릴 때.
+function xyToLonLat(x, y) {
+  const { cx0, cy0, scale } = MAP.proj;
+  const lx = (x - S.map.x) / S.map.s, ly = (y - S.map.y) / S.map.s;
+  const mx = lx / scale + cx0, my = cy0 - ly / scale;
+  const lon = (mx * 180) / Math.PI;
+  const lat = ((2 * Math.atan(Math.exp(my)) - Math.PI / 2) * 180) / Math.PI;
+  return { lon: +lon.toFixed(4), lat: +lat.toFixed(4) };
+}
 
 function insetBBox(key) {
   const zs = curZones().filter((z) => z.inset === key);
@@ -4831,10 +4840,14 @@ function applyBulletin(txt) {
   S.mtns = (S.mtns || []).filter((m) => !m.bul);
   const sanji = groups.find((g) => g.tokens.some((tk) => (tk.dir || '').includes('산지')));
   if (sanji) {
-    const preset = MTN_PRESETS.find((p) => p.label === '강원');
+    // 저장된 '강원 산지' 기본 배치(default-presets.js의 mtnGangwon)가 있으면 그걸, 없으면 코드 프리셋을 쓴다.
+    const ov = (window.WCG_DEFAULTS && window.WCG_DEFAULTS.mtnGangwon) || null;
+    const base = MTN_PRESETS.find((p) => p.label === '강원');
+    const anchors = (ov && Array.isArray(ov.anchors) && ov.anchors.length) ? ov.anchors : (base ? base.anchors : []);
+    const size = (ov && ov.size) || (base ? base.size : 90);
     const mcol = colOf[sanji.labelTxt] || '#FFFFFF';
-    if (preset) for (const anc of preset.anchors) {
-      const m = newMtn({ anchor: JSON.parse(JSON.stringify(anc)), size: preset.size, col: mcol, bul: 1 });
+    for (const anc of anchors) {
+      const m = newMtn({ anchor: JSON.parse(JSON.stringify(anc)), size, col: mcol, bul: 1 });
       const a = mtnAnchorXY(m); m.x = a.x; m.y = a.y;
       (S.mtns ||= []).push(m);
     }
@@ -6461,6 +6474,13 @@ async function bakeDefaults() {
   const presets = loadPresets();
   const keys = Object.keys(presets);
   if (!keys.length) { status('저장된 배치가 없습니다 — 각 화면에서 "현재 배치를 이 화면 기본값으로"를 먼저 누르세요', true); return; }
+  // 지금 화면에 '강원 산지'(통보문 bul 산)가 있으면 그 위치를 경위도로 저장 → 자동 산지 기본 위치가 된다.
+  const bulMtns = (S.mtns || []).filter((m) => m.bul && !m.off);
+  if (bulMtns.length) {
+    presets.mtnGangwon = { size: bulMtns[0].size, anchors: bulMtns.map((m) => (m.anchor && m.anchor.lon != null) ? { lon: m.anchor.lon, lat: m.anchor.lat } : xyToLonLat(m.x, m.y)) };
+  } else if (window.WCG_DEFAULTS && window.WCG_DEFAULTS.mtnGangwon) {
+    presets.mtnGangwon = window.WCG_DEFAULTS.mtnGangwon;   // 산지가 화면에 없으면 기존 값 유지
+  }
   const js = '// 모두의 기본 배치 (fresh install 때 이 배치로 열린다). 앱의 굽기 버튼으로 다시 만들 수 있다.\nwindow.WCG_DEFAULTS = ' + JSON.stringify(presets) + ';\n';
   const name = await saveBlobAs(new Blob([js], { type: 'application/javascript' }), 'default-presets.js', { description: '모두의 기본 배치', accept: { 'application/javascript': ['.js'] } });
   if (name) status(`기본값 구움: ${name} (${keys.length}개 배치) — WeatherCG 폴더의 default-presets.js 를 이 파일로 교체하세요`);
