@@ -928,6 +928,44 @@
   /* 브러쉬 마스크로 선택된 영역 외곽선 (지도 배율과 무관하게 일정 굵기) */
   /* 브러쉬 영역 선택 강조 — 시도를 '면'으로 파랗게 덮는다(내부 시군 경계는 강조 안 함). */
   .brushSelHi { fill: #4a94ff; fill-opacity: .30; stroke: none; pointer-events: none; }
+
+  /* ===== 토스 카드 모달 (공지·안내 공통) ===== */
+  .tossOv { position: fixed; inset: 0; z-index: 100002; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(6,10,20,.72); backdrop-filter: blur(3px); }
+  .tossCard { max-width: 520px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; background: var(--surface, #fff); border-radius: 20px; overflow: hidden; box-shadow: 0 28px 80px rgba(0,0,0,.55); font-family: 'Wanted Sans Variable', sans-serif; animation: tossIn .28s cubic-bezier(.2,.8,.2,1); }
+  .tossCard.wide { max-width: 640px; }
+  @keyframes tossIn { 0% { opacity: 0; transform: translateY(14px) scale(.97); } 100% { opacity: 1; transform: none; } }
+  .tossHead { display: flex; align-items: flex-start; gap: 12px; padding: 20px 22px; color: #fff; }
+  .tossHeadTxt { flex: 1; min-width: 0; }
+  .tossTitle { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+  .tossSub { font-size: 13px; opacity: .92; margin-top: 3px; font-weight: 600; }
+  .tossHeadAct { display: flex; gap: 6px; align-items: center; }
+  .tossHeadIcon, .tossX { flex: none; background: rgba(255,255,255,.18); border: none; color: #fff; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .tossHeadIcon { width: 32px; height: 32px; }
+  .tossX { width: 32px; height: 32px; font-size: 21px; line-height: 1; }
+  .tossHeadIcon:hover, .tossX:hover { background: rgba(255,255,255,.34); }
+  .tossBody { padding: 22px; overflow-y: auto; color: var(--on-surface, #111); font-size: 15px; line-height: 1.65; }
+  .tossBody p { margin: 0 0 10px; }
+  .tossBody ul { margin: 8px 0 0; padding-left: 20px; }
+  .tossBody li { margin-bottom: 8px; }
+  .tossFoot { padding: 14px 22px 20px; display: flex; gap: 10px; justify-content: flex-end; }
+  .tossBtn { border: none; border-radius: 12px; padding: 12px 22px; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .tossBtn.pri { background: #2563EB; color: #fff; }
+  .tossBtn.ghost { background: var(--surface-hi, #eef1f6); color: var(--on-surface, #111); font-weight: 700; }
+  .tossStep { display: flex; gap: 11px; margin-bottom: 11px; }
+  .tossStep .n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #FA2E1E; color: #fff; font-weight: 800; text-align: center; line-height: 24px; font-size: 13px; }
+  .tossPath { margin-top: 14px; padding: 11px 14px; background: var(--surface-hi, #f2f4f8); border-radius: 10px; font-size: 13px; color: var(--on-surface-var, #556); word-break: break-all; }
+  /* 공지 목록·작성 */
+  .ntList { display: flex; flex-direction: column; gap: 12px; }
+  .ntItem { border: 1px solid var(--outline-var, #e5e7eb); border-radius: 14px; padding: 14px 16px; background: var(--surface-hi, #f7f9fc); }
+  .ntItem .d { font-size: 12px; color: var(--on-surface-var, #6b7280); font-weight: 700; margin-bottom: 4px; }
+  .ntItem .t { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: var(--on-surface, #111); }
+  .ntItem .b { font-size: 14px; line-height: 1.6; color: var(--on-surface, #111); }
+  .ntEmpty { color: var(--on-surface-var, #6b7280); text-align: center; padding: 26px 0; }
+  .ntForm label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 5px; color: var(--on-surface, #111); }
+  .ntForm input, .ntForm textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--outline-var, #d1d5db); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: var(--surface, #fff); color: var(--on-surface, #111); margin-bottom: 12px; }
+  .ntForm textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+  #noticeBtn { position: relative; }
+  #noticeBtn.hasNew::after { content: ''; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #E5484D; border: 1.5px solid var(--surface-c, #fff); }
   /* 마우스 주변 브러쉬 크기 원. non-scaling-stroke 는 dash 길이를 어긋나게 해서(원이 안 닫힘) 쓰지 않는다. */
   #brushCursor { fill: none; stroke: #4a94ff; stroke-width: 2; stroke-opacity: .9; pointer-events: none; }
   /* 브러쉬 그림은 순수 시각 오버레이 — 지도 전체 bbox를 덮으므로 클릭을 가로채면 안 된다
@@ -1386,6 +1424,9 @@
      <div class="sep"></div>
      <button id="tourBtn" class="tourInfoBtn" title="둘러보기 — 각 기능 설명 다시 보기" aria-label="둘러보기">
        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="8.1" r="1.3" fill="currentColor"/><rect x="10.9" y="10.8" width="2.2" height="6.4" rx="1.1" fill="currentColor"/></svg>
+     </button>
+     <button id="noticeBtn" class="tourInfoBtn" title="공지사항 — 업데이트·안내 모아보기" aria-label="공지사항">
+       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 002.4-2.2H9.6A2.4 2.4 0 0012 22zm6.3-6.1V11a6.3 6.3 0 00-4.8-6.12V4.2a1.5 1.5 0 10-3 0v.68A6.3 6.3 0 005.7 11v4.8L4 17.6v.9h16v-.9l-1.7-1.7z"/></svg>
      </button>
    </div>
    <div class="menuDrop" id="menuDrop"></div>
@@ -5380,6 +5421,114 @@ function flashDone(m) {
   n.classList.remove('show'); void n.offsetWidth; n.classList.add('show');   // 애니메이션 재시작
 }
 
+// ===================== 토스 카드 모달 (공지·안내 공통) =====================
+// 스케줄앱 토스 모달처럼 상단 컬러헤더 + 하단 내용. 반환값으로 각 영역을 넘겨 추가 조작.
+const BLUE_GRAD = 'linear-gradient(135deg,#2f6bff,#1e50e6)';
+function closeTossModal() { const e = document.getElementById('tossOv'); if (e) e.remove(); }
+function tossModal(opt) {
+  opt = opt || {};
+  closeTossModal();
+  const ov = document.createElement('div');
+  ov.className = 'tossOv'; ov.id = 'tossOv';
+  ov.innerHTML =
+    `<div class="tossCard${opt.wide ? ' wide' : ''}" role="dialog" aria-modal="true">`
+    + `<div class="tossHead" style="background:${opt.accent || BLUE_GRAD}">`
+    +   `<div class="tossHeadTxt"><div class="tossTitle"></div>${opt.sub ? '<div class="tossSub"></div>' : ''}</div>`
+    +   `<div class="tossHeadAct"></div>`
+    +   `<button class="tossX" aria-label="닫기">&times;</button>`
+    + `</div>`
+    + `<div class="tossBody">${opt.bodyHTML || ''}</div>`
+    + (opt.footHTML ? `<div class="tossFoot">${opt.footHTML}</div>` : '')
+    + `</div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('.tossTitle').textContent = opt.title || '';   // 제목·부제는 textContent로(주입 안전)
+  if (opt.sub) ov.querySelector('.tossSub').textContent = opt.sub;
+  let closed = false;
+  const close = () => { if (closed) return; closed = true; ov.remove(); if (opt.onClose) opt.onClose(); };
+  ov.querySelector('.tossX').onclick = close;
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  const onKey = (e) => { if (e.key === 'Escape') { close(); window.removeEventListener('keydown', onKey); } };
+  window.addEventListener('keydown', onKey);
+  return { ov, close, card: ov.querySelector('.tossCard'), head: ov.querySelector('.tossHeadAct'), body: ov.querySelector('.tossBody'), foot: ov.querySelector('.tossFoot') };
+}
+
+// ===================== 공지사항 =====================
+const NOTICE_SEEN_KEY = 'wcg_notice_seen', NOTICE_AUTH_KEY = 'wcg_notices', NOTICE_PW = '7989';
+// 배포에 심는 기본 공지 — 모든 사용자에게 뜬다. (사용자가 쓴 공지는 그 브라우저 localStorage 에만 쌓인다)
+const SEED_NOTICES = [{
+  id: '2026-07-23-newfeatures', date: '2026.07.23', title: '새 기능 업데이트',
+  body:
+    '<p><b>노말 VF 출력</b>과 <b>방송용 렌더</b>가 새로 들어왔어요.</p>'
+    + '<ul>'
+    + '<li><b>VF 출력 기능 추가</b> — 상단 <b>‘출력 화면’</b>에서 <b>노말 VF</b>를 고르면 투명(알파) 오버레이용 화면으로 작업할 수 있습니다.</li>'
+    + '<li><b>MXF · MOV 렌더 추가</b> — <b>‘영상으로 추출’</b> 창에서 <b>노말 CG는 MXF</b>, <b>노말 VF는 알파 MOV</b> 버튼으로 방송용 파일을 바로 뽑습니다.</li>'
+    + '<li><b>쓰는 법</b> — <b>MXF / MOV 버튼을 누르면 안내창</b>이 뜹니다. 처음 한 번만 그 안내대로 <b>‘렌더 도우미’</b>를 켜 두면, 이후로는 버튼만 누르면 자동으로 됩니다.</li>'
+    + '</ul>'
+}];
+function noticeSeenSet() { try { return new Set(JSON.parse(localStorage.getItem(NOTICE_SEEN_KEY) || '[]')); } catch (e) { return new Set(); } }
+function authoredNotices() { try { const a = JSON.parse(localStorage.getItem(NOTICE_AUTH_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function allNotices() { const map = {}; for (const n of [...SEED_NOTICES, ...authoredNotices()]) if (n && n.id) map[n.id] = n; return Object.values(map).sort((a, b) => (a.id < b.id ? 1 : -1)); }  // 최신 먼저
+function unseenNotices() { const s = noticeSeenSet(); return allNotices().filter((n) => !s.has(n.id)); }
+function noticeMarkAllSeen() { localStorage.setItem(NOTICE_SEEN_KEY, JSON.stringify(allNotices().map((n) => n.id))); updateNoticeDot(); }
+function updateNoticeDot() { const b = $('#noticeBtn'); if (b) b.classList.toggle('hasNew', unseenNotices().length > 0); }
+function noticeItemHTML(n) {
+  const body = n.body || '';   // 저장 시 이미 정제됨(작성자=관리자만 7989로 작성)
+  return `<div class="ntItem"><div class="d">${(n.date || '').replace(/</g, '&lt;')}</div><div class="t">${(n.title || '').replace(/</g, '&lt;')}</div><div class="b">${body}</div></div>`;
+}
+// 공지 하나를 팝업으로 (부팅 자동 안내). 닫으면 전부 읽음 처리 → 다시 안 뜬다.
+function openNoticePopup(n) {
+  const m = tossModal({
+    title: n.title || '공지', sub: n.date || '', accent: BLUE_GRAD,
+    bodyHTML: n.body || '', footHTML: '<button class="tossBtn pri" data-ok>확인</button>',
+    onClose: noticeMarkAllSeen,
+  });
+  m.foot.querySelector('[data-ok]').onclick = m.close;
+}
+// 공지 히스토리 — 지금까지의 공지 모아보기 + 헤더의 작성 아이콘
+function openNoticeHistory() {
+  const list = allNotices();
+  const bodyHTML = list.length ? `<div class="ntList">${list.map(noticeItemHTML).join('')}</div>` : '<div class="ntEmpty">아직 공지가 없습니다.</div>';
+  const m = tossModal({ title: '공지사항', sub: '업데이트·안내 모아보기', accent: BLUE_GRAD, bodyHTML, wide: true });
+  const write = document.createElement('button');
+  write.className = 'tossHeadIcon'; write.title = '공지 작성 (비밀번호)'; write.setAttribute('aria-label', '공지 작성');
+  write.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M4 20h4L18 10l-4-4L4 16v4zM16.5 3.5l4 4L18.8 9.2l-4-4L16.5 3.5z"/></svg>';
+  write.onclick = openNoticeWrite;
+  m.head.appendChild(write);
+  noticeMarkAllSeen();   // 히스토리를 열면 전부 읽음
+}
+// 공지 작성 — 비번 7989 확인 후 제목·내용 입력. 저장하면 다음 실행 때 팝업으로 뜬다.
+function openNoticeWrite() {
+  const pw = prompt('공지 작성 비밀번호를 입력하세요');
+  if (pw == null) return;
+  if (pw !== NOTICE_PW) { flash('비밀번호가 틀립니다'); return; }
+  const m = tossModal({
+    title: '공지 작성', sub: '저장하면 다음 실행 때 자동으로 뜹니다', accent: 'linear-gradient(135deg,#16a34a,#12833b)',
+    bodyHTML: '<div class="ntForm"><label>제목</label><input id="ntTitle" placeholder="예: 새 기능 안내" maxlength="80"><label>내용</label><textarea id="ntBody" placeholder="줄바꿈은 그대로 반영됩니다. (원하면 <b> 같은 HTML 태그도 사용 가능)"></textarea></div>',
+    footHTML: '<button class="tossBtn ghost" data-cancel>취소</button><button class="tossBtn pri" data-save>저장</button>',
+  });
+  m.foot.querySelector('[data-cancel]').onclick = m.close;
+  m.foot.querySelector('[data-save]').onclick = () => {
+    const t = m.body.querySelector('#ntTitle').value.trim();
+    const raw = m.body.querySelector('#ntBody').value.trim();
+    if (!t && !raw) { flash('제목이나 내용을 입력하세요'); return; }
+    const d = new Date();
+    const p2 = (x) => String(x).padStart(2, '0');
+    const date = `${d.getFullYear()}.${p2(d.getMonth() + 1)}.${p2(d.getDate())}`;
+    const id = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
+    // 태그가 있으면 그대로, 없으면 escape + 줄바꿈 → <br>
+    const body = /<[a-z][\s\S]*>/i.test(raw) ? raw
+      : '<p>' + raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</p>';
+    const arr = authoredNotices(); arr.push({ id, date, title: t || '공지', body });
+    localStorage.setItem(NOTICE_AUTH_KEY, JSON.stringify(arr));
+    // 작성자는 방금 봤으니 이 공지는 '읽음'으로. 그래도 다른 브라우저(다음 사람)에겐 안 읽음이라 뜬다.
+    const seen = noticeSeenSet(); seen.add(id); localStorage.setItem(NOTICE_SEEN_KEY, JSON.stringify([...seen]));
+    updateNoticeDot();
+    flash('공지를 저장했어요'); openNoticeHistory();
+  };
+}
+// 부팅 시 안 읽은 공지가 있으면 가장 최신 것을 팝업
+function checkNoticeOnBoot() { const un = unseenNotices(); if (un.length) openNoticePopup(un[0]); }
+
 // 추출(MP4/PNG 시퀀스) 진행 바 — #tlInfo 안에 얇은 바 + 텍스트로 보여준다.
 function exportProgress(done, total, label) {
   const el = $('#tlInfo'); if (!el) return;
@@ -5651,46 +5800,32 @@ function updateWnsButtons() {
   if ($('#wnsMov')) $('#wnsMov').style.display = showMov ? '' : 'none';
   g.style.display = (showMxf || showMov) ? '' : 'none';
 }
-// 헬퍼가 꺼져 있을 때 크게 보여주는 안내 팝업 (어두운 오버레이 + 토스 카드)
+// 헬퍼가 꺼져 있을 때 크게 보여주는 안내 (토스 카드)
 function wnsHelperOffNotice() {
-  let ov = document.getElementById('wnsOffOverlay');
-  if (!ov) {
-    ov = document.createElement('div');
-    ov.id = 'wnsOffOverlay';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(6,10,20,.72);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)';
-    const PATH = 'R:\\[F]_Util\\WNS\\자동시작';
-    ov.innerHTML =
-      '<div style="max-width:560px;width:100%;background:var(--surface,#fff);border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55);font-family:\'Wanted Sans Variable\',sans-serif">'
-      + '<div style="background:#FA2E1E;color:#fff;padding:18px 24px;font-size:19px;font-weight:800">렌더 준비 — 딱 한 번만 하면 끝나요</div>'
-      + '<div style="padding:22px 24px;color:var(--on-surface,#111);font-size:15px;line-height:1.7">'
-      +   'MXF·MOV로 뽑으려면 <b>렌더 도우미</b>를 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>'
-      +   '<div style="display:flex;gap:10px;margin-bottom:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">1</span><div>아래 <b>[폴더 경로 복사]</b> 버튼을 누르세요.</div></div>'
-      +   '<div style="display:flex;gap:10px;margin-bottom:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">2</span><div>키보드 <b>⊞Win + E</b> 로 <b>내 컴퓨터(파일 탐색기)</b>를 열고, 맨 위 <b>주소칸을 클릭</b>한 뒤 <b>Ctrl+V</b> 붙여넣고 <b>Enter</b>.</div></div>'
-      +   '<div style="display:flex;gap:10px;margin-bottom:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">3</span><div>열린 폴더에서 <b>“① 자동시작 켜기 (한번만)”</b> 을 <b>더블클릭</b>. (검은 창이 잠깐 떴다 사라짐)</div></div>'
-      +   '<div style="display:flex;gap:10px"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:#FA2E1E;color:#fff;font-weight:800;text-align:center;line-height:24px">4</span><div>이 창을 닫고 <b>다시 MXF/MOV 버튼</b>을 누르면 렌더됩니다.</div></div>'
-      +   '<div style="margin-top:16px;padding:11px 14px;background:var(--surface-hi,#f2f4f8);border-radius:10px;font-size:13px;color:var(--on-surface-var,#556);word-break:break-all">' + PATH + '</div>'
-      +   '<div style="margin-top:10px;color:var(--on-surface-var,#778);font-size:12.5px">한 번 하면 다음부턴 PC를 켤 때 자동으로 준비됩니다 — 다시 안 해도 돼요.</div>'
-      + '</div>'
-      + '<div style="padding:2px 24px 22px;display:flex;gap:10px;justify-content:flex-end">'
-      +   '<button id="wnsCopyPath" style="background:#2563EB;color:#fff;border:none;border-radius:11px;padding:12px 20px;font-size:15px;font-weight:800;cursor:pointer">📋 폴더 경로 복사</button>'
-      +   '<button id="wnsOffOk" style="background:var(--surface-hi,#e9edf3);color:var(--on-surface,#111);border:none;border-radius:11px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer">닫기</button>'
-      + '</div>'
-      + '</div>';
-    document.body.appendChild(ov);
-    const close = () => { ov.style.display = 'none'; };
-    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
-    ov.querySelector('#wnsOffOk').onclick = close;
-    const cp = ov.querySelector('#wnsCopyPath');
-    cp.onclick = async () => {
-      try { await navigator.clipboard.writeText(PATH); }
-      catch (e) { const t = document.createElement('textarea'); t.value = PATH; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (_) {} t.remove(); }
-      cp.textContent = '✓ 복사됨! 탐색기 주소칸에 붙여넣기(Ctrl+V)';
-      cp.style.background = '#16A34A';
-      setTimeout(() => { cp.textContent = '📋 폴더 경로 복사'; cp.style.background = '#2563EB'; }, 2600);
-    };
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ov.style.display !== 'none') close(); });
-  }
-  ov.style.display = 'flex';
+  const PATH = 'R:\\[F]_Util\\WNS\\자동시작';
+  const step = (n, html) => `<div class="tossStep"><span class="n">${n}</span><div>${html}</div></div>`;
+  const bodyHTML =
+    'MXF·MOV로 뽑으려면 <b>렌더 도우미</b>를 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>'
+    + step(1, '아래 <b>[폴더 경로 복사]</b> 버튼을 누르세요.')
+    + step(2, '키보드 <b>⊞Win + E</b> 로 <b>내 컴퓨터(파일 탐색기)</b>를 열고, 맨 위 <b>주소칸을 클릭</b>한 뒤 <b>Ctrl+V</b> 붙여넣고 <b>Enter</b>.')
+    + step(3, '열린 폴더에서 <b>“① 자동시작 켜기 (한번만)”</b> 을 <b>더블클릭</b>. (검은 창이 잠깐 떴다 사라짐)')
+    + step(4, '이 창을 닫고 <b>다시 MXF/MOV 버튼</b>을 누르면 렌더됩니다.')
+    + `<div class="tossPath">${PATH}</div>`
+    + '<div style="margin-top:10px;color:var(--on-surface-var,#778);font-size:12.5px">한 번 하면 다음부턴 PC를 켤 때 자동으로 준비됩니다 — 다시 안 해도 돼요.</div>';
+  const m = tossModal({
+    title: '렌더 준비 — 딱 한 번만 하면 끝나요', sub: 'MXF · MOV 방송용 렌더',
+    accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)', bodyHTML,
+    footHTML: '<button class="tossBtn pri" data-copy>폴더 경로 복사</button><button class="tossBtn ghost" data-ok>닫기</button>',
+  });
+  m.foot.querySelector('[data-ok]').onclick = m.close;
+  const cp = m.foot.querySelector('[data-copy]');
+  cp.onclick = async () => {
+    try { await navigator.clipboard.writeText(PATH); }
+    catch (e) { const t = document.createElement('textarea'); t.value = PATH; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (_) {} t.remove(); }
+    cp.textContent = '✓ 복사됨! 탐색기 주소칸에 붙여넣기';
+    cp.style.background = '#16A34A';
+    setTimeout(() => { cp.textContent = '폴더 경로 복사'; cp.style.background = ''; }, 2600);
+  };
 }
 async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const A = anim();
@@ -7886,6 +8021,7 @@ function wireTour() {
   $('#tourPrev').onclick = () => tourGo(tourI - 1);
   $('#tourNext').onclick = tourNextOrEnd;
   $('#tourBtn').onclick = () => tourOpen(true);         // 상단바 i 버튼
+  if ($('#noticeBtn')) { $('#noticeBtn').onclick = openNoticeHistory; updateNoticeDot(); }   // 상단바 공지 버튼
   // 투어 UI 클릭이 메뉴 '바깥 클릭 닫기'를 건드리지 않게 + 어두운 영역 클릭 무효
   $('#tourWrap').addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target.closest('#tourBlock')) e.preventDefault(); });
   window.addEventListener('keydown', (e) => {
@@ -7958,7 +8094,10 @@ if (work) {
 wireTour();
 setupDropOpen();   // 파일을 창에 끌어다 놓으면 열기
 // 새 창으로 켰고 아직 '다시 보지 않기'를 안 눌렀으면 둘러보기를 자동으로 띄운다(새로고침엔 안 뜸)
-if (freshOpen && !localStorage.getItem(TOUR_KEY)) setTimeout(() => tourOpen(false), 650);
+const tourWillOpen = freshOpen && !localStorage.getItem(TOUR_KEY);
+if (tourWillOpen) setTimeout(() => tourOpen(false), 650);
+// 안 읽은 공지가 있으면 팝업(투어가 뜨는 첫 방문엔 겹치지 않게 건너뛴다 — 다음 실행 때 뜬다)
+else if (freshOpen) setTimeout(checkNoticeOnBoot, 700);
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
 setInterval(saveWork, 1500);
