@@ -5628,7 +5628,18 @@ function openNoticeWrite() {
   };
 }
 // 부팅 시 안 읽은 공지가 있으면 가장 최신 것을 팝업
-function checkNoticeOnBoot() { const un = unseenNotices(); if (un.length) openNoticePopup(un[0]); }
+function checkNoticeOnBoot() {
+  const un = unseenNotices();
+  if (!un.length) return;
+  if (un.length === 1) { openNoticePopup(un[0]); return; }
+  // 안 읽은 공지가 여러 개면 한 팝업에 전부 쌓아서 보여준다(닫으면 전부 읽음).
+  const m = tossModal({
+    title: '새 공지', sub: `안 읽은 공지 ${un.length}개`, accent: BLUE_GRAD, wide: true,
+    bodyHTML: `<div class="ntList">${un.map(noticeItemHTML).join('')}</div>`,
+    footHTML: '<button class="tossBtn pri" data-ok>확인</button>', onClose: noticeMarkAllSeen,
+  });
+  m.foot.querySelector('[data-ok]').onclick = m.close;
+}
 
 // 추출(MP4/PNG 시퀀스) 진행 바 — #tlInfo 안에 얇은 바 + 텍스트로 보여준다.
 function exportProgress(done, total, label) {
