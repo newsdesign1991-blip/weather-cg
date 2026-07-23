@@ -1302,7 +1302,7 @@
         <p class="hint" style="margin-top:4px">라벨 전부가 <b>제자리에서</b> 같이 커지고 작아집니다. 그림자는 <b>지도 위치·경계선·그림자</b>에서 조절합니다.</p>
         <div id="labelEdit" style="display:none;margin-top:10px">
           <div class="row wide"><label>내용</label><input type="text" id="lTxt"></div>
-          <div class="btns" style="margin-bottom:7px"><button data-ins="↑">↑ 넣기</button><button data-ins="↓">↓ 넣기</button><button data-ins="~">~ 넣기</button></div>
+          <div class="btns" style="margin-bottom:7px"><button data-ins="⬆">⬆ 넣기</button><button data-ins="⬇">⬇ 넣기</button><button data-ins="~">~ 넣기</button></div>
           <div class="row wide"><label>윗줄(지역)</label><input type="text" id="lTitle" placeholder="예: 경기북부·경북북부 (비우면 숫자만)"></div>
           <div class="row wide"><label>윗줄 크기</label><input type="range" id="lTitleR" min="20" max="90" step="1"><span class="v" id="lTitleRV">75</span>%</div>
           <div class="row"><label>구분선</label><label class="chk" style="flex:1"><input type="checkbox" id="lDivider" checked>윗줄과 숫자 사이 선</label></div>
@@ -4646,7 +4646,7 @@ function parseBulletin(txt) {
       if (many) {
         const mtok = bulTokens(many[1]);
         const mnum = Number(many[2]);
-        if (mtok.length && mnum >= 0) groups.push({ tokens: mtok, max: mnum + 0.5, labelTxt: `${many[2]}↑`, regionText: `${many[1].trim()} ${many[2]}↑`, many: true });
+        if (mtok.length && mnum >= 0) groups.push({ tokens: mtok, max: mnum + 0.5, labelTxt: `${many[2]}⬆`, regionText: `${many[1].trim()} ${many[2]}⬆`, many: true });
       }
     }
   }
@@ -6174,6 +6174,8 @@ async function exportBlobs(key) {
 
 // ===== After Effects 자동 임포트(로컬 헬퍼 경유) — 타임라인과 같은 애니메이션 =====
 function aeIsLocal() { const h = location.hostname; return h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:'; }
+// AE로 넘길 때만 이모지 화살표(⬆⬇)를 폰트 글리프(↑↓)로 — 웹은 ⬆ 그대로, AE는 Wanted 글리프로.
+const aeArrow = (s) => String(s == null ? '' : s).replace(/⬆/g, '↑').replace(/⬇/g, '↓');
 // 배경·지도 base — 칠·라벨·브러쉬 빼고 처음부터 보이는 정적 레이어(땅 색은 베이스로 비움)
 async function aeBaseBlob() {
   return svgBlob((c) => {
@@ -6253,9 +6255,9 @@ function aeLabelCompData() {
     for (const t of g.querySelectorAll('text')) {
       const size = +t.getAttribute('font-size') || 30;
       texts.push({
-        content: t.textContent, size,
+        content: aeArrow(t.textContent), size,                     // AE엔 폰트 화살표로
         weight: parseInt(t.getAttribute('font-weight') || '500', 10),
-        col: t.getAttribute('fill') || '#FFFFFF',
+        col: (b.txtCol || t.getAttribute('fill') || '#FFFFFF'),    // 라벨 글자색(항상 명시)
         track: +t.getAttribute('letter-spacing') || 0,
         cx: w / 2,                                                 // 가로 중앙(text-anchor middle)
         cy: h / 2 + (+t.getAttribute('y') || 0) + size * 0.34,     // 세로 중앙(central) → AE 베이스라인 보정
@@ -6283,7 +6285,7 @@ async function sendToAE() {
     // bottom→top 순서로 레이어 구성. 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
     const uploads = [], specLayers = [];
     const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
-    const addText = (name, t) => specLayers.push({ text: { content: t.txt || '', x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0, weight: t.w || 400 }, name });
+    const addText = (name, t) => specLayers.push({ text: { content: aeArrow(t.txt || ''), x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0, weight: t.w || 400 }, name });
     addImg('배경·지도', await aeBaseBlob());
     for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: ANIM_FILL_LEN });
     addImg('경계선', await aeLinesBlob());   // 시도·시군 선 — 색칠 위, 정적(항상 보임)
@@ -6301,7 +6303,7 @@ async function sendToAE() {
       const fi = uploads.length; uploads.push(await aeLabelBgBlob(ld));
       specLayers.push({
         labelComp: { w: ld.w, h: ld.h, x: ld.cx, y: ld.cy, bg: 'f_' + String(fi).padStart(5, '0') + '.png', texts: ld.texts },
-        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: ANIM_LABEL_LEN },
+        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: ANIM_LABEL_LEN, rise: 26 },   // rise=아래서 올라오기(타임라인 동일)
       });
     }
     for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);   // 제목=편집형 텍스트, 맨 위·정적
