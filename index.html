@@ -5436,6 +5436,58 @@ function flashDone(m) {
 // 오늘 날짜 태그 — 파일명 기본값(예: 0723). 월·일 2자리.
 function dateTag() { const d = new Date(), p = (x) => String(x).padStart(2, '0'); return p(d.getMonth() + 1) + p(d.getDate()); }
 
+// ── 렌더/추출 저장 폴더(예: R:\Upload) ──
+// 브라우저는 임의 절대경로를 코드로 못 박는다. 대신 폴더 핸들을 한 번 고르게 해 IndexedDB에 저장하고,
+// 이후엔 그 폴더로 대화상자 없이 바로 저장한다. (권한은 세션마다 브라우저가 한 번 확인)
+let _wcgDB;
+function wcgDB() {
+  return _wcgDB || (_wcgDB = new Promise((res, rej) => {
+    const r = indexedDB.open('wcg', 1);
+    r.onupgradeneeded = () => { try { r.result.createObjectStore('kv'); } catch (e) { /* 이미 있음 */ } };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+}
+async function idbGet(k) { try { const db = await wcgDB(); return await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } }
+async function idbSet(k, v) { try { const db = await wcgDB(); await new Promise((res) => { const q = db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); q.onsuccess = () => res(); q.onerror = () => res(); }); } catch (e) { /* 무시 */ } }
+// 저장 폴더 핸들 얻기 — 없거나 권한 없으면(prompt=true) 폴더 선택창을 띄운다.
+async function getOutDir(prompt) {
+  try {
+    let h = await idbGet('outDir');
+    if (h) {
+      let p = await h.queryPermission({ mode: 'readwrite' });
+      if (p !== 'granted') p = await h.requestPermission({ mode: 'readwrite' });
+      if (p === 'granted') return h;
+    }
+    if (prompt && window.showDirectoryPicker) {
+      h = await window.showDirectoryPicker({ id: 'cgOut', mode: 'readwrite' });
+      await idbSet('outDir', h);
+      return h;
+    }
+  } catch (e) { /* 취소·미지원 → null */ }
+  return null;
+}
+// 폴더 안에서 안 겹치는 이름 (0723.mov, 0723-2.mov …)
+async function uniqueName(dir, base, ext) {
+  let name = base + '.' + ext, i = 2;
+  for (; ;) { try { await dir.getFileHandle(name); name = base + '-' + i + '.' + ext; i++; } catch (e) { return name; } }
+}
+// 저장 대상 준비(렌더 전에 호출) — 1) 저장 폴더 바로쓰기, 2) 저장 대화상자, 3) 다운로드.
+// 반환 {name, write(bytes)} 또는 null(사용자 취소).
+async function prepareOutput(base, ext, mime, label) {
+  const dir = await getOutDir(true);
+  if (dir) {
+    const name = await uniqueName(dir, base, ext);
+    return { name, write: async (bytes) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(bytes); await w.close(); } };
+  }
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await window.showSaveFilePicker({ id: 'cgOut', suggestedName: base + '.' + ext, types: [{ description: label || '파일', accept: { [mime || 'application/octet-stream']: ['.' + ext] } }] });
+      return { name: h.name, write: async (bytes) => { const w = await h.createWritable(); await w.write(bytes); await w.close(); } };
+    } catch (e) { if (e.name === 'AbortError') return null; }
+  }
+  return { name: base + '.' + ext + ' (다운로드 폴더)', write: async (bytes) => download(new Blob([bytes], { type: mime || 'application/octet-stream' }), base + '.' + ext) };
+}
+
 // ===================== 토스 카드 모달 (공지·안내 공통) =====================
 // 스케줄앱 토스 모달처럼 상단 컬러헤더 + 하단 내용. 반환값으로 각 영역을 넘겨 추가 조작.
 const BLUE_GRAD = 'linear-gradient(135deg,#2f6bff,#1e50e6)';
@@ -5693,13 +5745,9 @@ async function bakeMp4() {
   const ext = vf ? 'mov' : 'mp4', mime = vf ? 'video/quicktime' : 'video/mp4', vlabel = vf ? 'MOV' : 'MP4';
   const tag = S.res === '2158x1214' ? 'touch' : vf ? 'vf' : 'normal';
   const fileName = `${dateTag()}.${ext}`;
-  // 저장 위치를 '렌더 전에' 먼저 묻는다 — 취소하면 렌더도 안 한다 (오래 걸리는 인코딩을 헛돌리지 않게).
-  let mp4Handle = null;
-  if (window.showSaveFilePicker) {
-    try {
-      mp4Handle = await window.showSaveFilePicker({ suggestedName: fileName, types: [{ description: `${vlabel} 영상`, accept: { [mime]: ['.' + ext] } }] });
-    } catch (e) { if (e.name === 'AbortError') return; /* 피커 미지원(file:// 등) → 렌더 후 다운로드 폴백 */ }
-  }
+  // 저장 대상을 '렌더 전에' 준비 — 저장 폴더(R:\Upload 등)면 바로쓰기, 아니면 저장창/다운로드. 취소면 렌더 안 함.
+  const out = await prepareOutput(dateTag(), ext, mime, `${vlabel} 영상`);
+  if (!out) return;
   const btn = $('#tlBake'); if (btn) btn.disabled = true;
 
   const samples = []; let avcc = null, encErr = null;
@@ -5733,10 +5781,7 @@ async function bakeMp4() {
     if (encErr) throw encErr;
     if (!avcc) throw new Error('디코더 설정(avcC)을 못 받았습니다');
     const blob = buildMp4(W, H, timescale, frameDur, samples, avcc);
-    // 위에서 고른 위치에 쓰거나(핸들), 피커가 없으면 다운로드 폴더로.
-    let name;
-    if (mp4Handle) { const w = await mp4Handle.createWritable(); await w.write(blob); await w.close(); name = mp4Handle.name; }
-    else { download(blob, fileName); name = fileName + ' (다운로드 폴더)'; }
+    await out.write(await blob.arrayBuffer()); const name = out.name;   // 저장 폴더/저장창/다운로드 (prepareOutput)
     const secs = (n * frameDur / timescale).toFixed(2), real = ((performance.now() - t0) / 1000).toFixed(1);
     $('#tlInfo').textContent = `${vlabel} 저장됨: ${name} · ${n}프레임 = ${secs}초 (굽는데 ${real}초)`;
     status(`${vlabel} 저장 완료 · ${name} · 정확히 ${secs}초`);
@@ -5760,14 +5805,9 @@ async function exportPngSeq() {
   const tag = S.res === '2158x1214' ? 'touch' : vf ? 'vf_alpha' : 'normal';
   const defName = `${dateTag()}`;
 
-  // 저장 위치·이름을 '렌더 전에' 먼저 고른다(버튼 클릭 직후라 파일 저장 대화상자가 정상적으로 뜬다).
-  // 폴더 선택기(directory picker)는 다운로드·바탕화면 같은 시스템 폴더를 막지만, '파일 저장'은 허용된다.
-  // → 프레임을 ZIP 한 개로 묶어 원하는 위치(다운로드·바탕화면 포함)에 저장한다.
-  let handle = null;
-  if (window.showSaveFilePicker) {
-    try { handle = await window.showSaveFilePicker({ suggestedName: `${defName}.zip`, types: [{ description: 'PNG 시퀀스(zip)', accept: { 'application/zip': ['.zip'] } }] }); }
-    catch (e) { if (e.name === 'AbortError') return; handle = null; /* file:// 등 미지원 → 아래 다운로드 폴백 */ }
-  }
+  // 저장 대상을 '렌더 전에' 준비 — 저장 폴더(R:\Upload 등)면 바로쓰기, 아니면 저장창/다운로드. 취소면 렌더 안 함.
+  const out = await prepareOutput(defName, 'zip', 'application/zip', 'PNG 시퀀스(zip)');
+  if (!out) return;
 
   animStop();
   const btn = $('#tlExportPng');
@@ -5787,9 +5827,7 @@ async function exportPngSeq() {
       exportProgress(i, n, 'PNG 프레임 만드는 중');
     }
     const zip = zipStore(zipFrames);
-    let where;
-    if (handle) { const w = await handle.createWritable(); await w.write(zip); await w.close(); where = handle.name; }
-    else { download(zip, `${defName}.zip`); where = `${defName}.zip (다운로드 폴더)`; }
+    await out.write(zip); const where = out.name;
     $('#tlInfo').textContent = `${n + 1}장을 ${where} 에 저장 — 압축 풀어 ${A.fps}fps로 합치세요`;
     status(`PNG ${n + 1}장 저장 완료 → ${where}`);
     flashDone('PNG 시퀀스 저장 완료');
@@ -5854,14 +5892,9 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const ext = alpha ? 'mov' : 'mxf';
   const [W, H] = RES[S.res].size;
   const A2 = anim();
-  const tag = S.res === '2158x1214' ? 'touch' : S.res === '1920x1080-vf' ? 'vf' : 'normal';
-  const suggested = `${dateTag()}.${ext}`;
-  // 저장 위치 선택 창 (지원 시). 미지원(file:// 일부)이면 다운로드 폴더로 폴백.
-  let handle = null;
-  if (window.showSaveFilePicker) {
-    try { handle = await window.showSaveFilePicker({ suggestedName: suggested, types: [{ description: label, accept: { 'application/octet-stream': ['.' + ext] } }] }); }
-    catch (e) { if (e.name === 'AbortError') return; handle = null; }
-  }
+  // 저장 대상 준비(렌더 전에) — 저장 폴더(R:\Upload 등) 있으면 바로쓰기, 없으면 저장창/다운로드. 취소면 렌더 안 함.
+  const out = await prepareOutput(dateTag(), ext, 'application/octet-stream', label);
+  if (!out) return;
   const n = Math.round(A2.dur * A2.fps);
   const sid = 'wns' + Date.now();
   const mv = alpha ? $('#wnsMov') : $('#wnsMxf');
@@ -5937,9 +5970,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     });
     if (!fr.ok) { let er = {}; try { er = await fr.json(); } catch (_) {} throw new Error(er.error || ('헬퍼 오류 ' + fr.status)); }
     const buf = await fr.arrayBuffer();   // 인코딩된 파일 바이트
-    let where;
-    if (handle) { const w = await handle.createWritable(); await w.write(buf); await w.close(); where = handle.name; }
-    else { download(new Blob([buf], { type: 'application/octet-stream' }), suggested); where = suggested + ' (다운로드 폴더)'; }
+    await out.write(buf); const where = out.name;
     $('#tlInfo').textContent = `${label} 저장됨: ${where}`; status(`${label} 저장 완료 → ${where}`);
     flashDone(`${label} 렌더 완료`);
   } catch (e) {
@@ -6134,16 +6165,18 @@ async function doExport() {
     // → 파일 저장 대화상자(showSaveFilePicker)로 '이름 + 위치'를 고르게 한다(파일 저장은 다운로드 폴더도 허용).
     //   미지원(file:// 일부)이면 그 이름 그대로 다운로드 폴더로 받는다. 여러 장이면 ZIP 한 개로 묶는다.
     if (files.length === 1) {
-      const nm = await saveBlobAs(files[0].blob, `${dateTag()}.png`, { description: '이미지(PNG)', accept: { 'image/png': ['.png'] } });
-      if (nm == null) { status('저장을 취소했습니다'); return; }
-      $('#exInfo').textContent = `${nm} 저장됨`; status('저장됨: ' + nm); flashDone('이미지 저장 완료');
+      const out = await prepareOutput(dateTag(), 'png', 'image/png', '이미지(PNG)');
+      if (!out) { status('저장을 취소했습니다'); return; }
+      await out.write(await files[0].blob.arrayBuffer());
+      $('#exInfo').textContent = `${out.name} 저장됨`; status('저장됨: ' + out.name); flashDone('이미지 저장 완료');
     } else {
       const zf = [];
       for (const f of files) zf.push({ name: f.name, data: await blobBytes(f.blob) });
-      const nm = await saveBlobAs(zipStore(zf), `${dateTag()}.zip`, { description: '이미지 묶음(zip)', accept: { 'application/zip': ['.zip'] } });
-      if (nm == null) { status('저장을 취소했습니다'); return; }
-      $('#exInfo').textContent = `${files.length}장을 ${nm} 로 저장 (압축 풀어서 사용)`;
-      status(`${files.length}장 저장됨 · ${nm}`); flashDone('이미지 저장 완료');
+      const out = await prepareOutput(dateTag(), 'zip', 'application/zip', '이미지 묶음(zip)');
+      if (!out) { status('저장을 취소했습니다'); return; }
+      await out.write(zipStore(zf));
+      $('#exInfo').textContent = `${files.length}장을 ${out.name} 로 저장 (압축 풀어서 사용)`;
+      status(`${files.length}장 저장됨 · ${out.name}`); flashDone('이미지 저장 완료');
     }
   } catch (err) {
     status('추출 실패: ' + err.message, true);
