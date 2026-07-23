@@ -8096,8 +8096,9 @@ setupDropOpen();   // 파일을 창에 끌어다 놓으면 열기
 // 새 창으로 켰고 아직 '다시 보지 않기'를 안 눌렀으면 둘러보기를 자동으로 띄운다(새로고침엔 안 뜸)
 const tourWillOpen = freshOpen && !localStorage.getItem(TOUR_KEY);
 if (tourWillOpen) setTimeout(() => tourOpen(false), 650);
-// 안 읽은 공지가 있으면 팝업(투어가 뜨는 첫 방문엔 겹치지 않게 건너뛴다 — 다음 실행 때 뜬다)
-else if (freshOpen) setTimeout(checkNoticeOnBoot, 700);
+// 안 읽은 공지가 있으면 팝업 — 새로고침·새 접속 어느 쪽이든 매번 확인(닫으면 읽음처리돼 다신 안 뜸).
+// 투어가 뜨는 첫 방문이면 투어 뒤에 겹쳐 뜨도록 조금 늦춘다.
+setTimeout(checkNoticeOnBoot, tourWillOpen ? 1500 : 600);
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
 setInterval(saveWork, 1500);
