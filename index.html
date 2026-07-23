@@ -5548,6 +5548,15 @@ function tossModal(opt) {
 const NOTICE_SEEN_KEY = 'wcg_notice_seen', NOTICE_AUTH_KEY = 'wcg_notices', NOTICE_PW = '7989';
 // 배포에 심는 기본 공지 — 모든 사용자에게 뜬다. (사용자가 쓴 공지는 그 브라우저 localStorage 에만 쌓인다)
 const SEED_NOTICES = [{
+  id: '2026-07-24-aeexport', date: '2026.07.24', title: '새 기능 — AE로 보내기',
+  body:
+    '<p>지금 만든 CG를 <b>애프터이펙트로 자동으로 넘기는</b> 기능이 생겼어요.</p>'
+    + '<ul>'
+    + '<li><b>AE로 보내기 버튼</b> — 상단 <b>‘영상으로 추출’ 옆</b>에 <b>‘AE로 보내기’</b> 버튼이 생겼습니다.</li>'
+    + '<li><b>레이어별로 자동 구성</b> — 배경·지도, 색칠(색별), 산, 경계선, 라벨(배경+글자), 제목이 각각 <b>편집 가능한 레이어</b>로 들어가고, <b>타임라인과 같은 애니메이션</b>(색별로 1초, 라벨 올라오기, VF 진입)이 자동으로 걸립니다.</li>'
+    + '<li><b>쓰는 법</b> — 버튼을 누르면 <b>‘렌더 도우미’</b>가 알아서 처리합니다(제목 폰트도 자동 설치). 도우미가 꺼져 있으면 안내창이 뜨니 처음 한 번만 켜 주세요. <b>AE가 꺼진 상태</b>에서 누르는 게 가장 깔끔합니다.</li>'
+    + '</ul>'
+}, {
   id: '2026-07-23-newfeatures', date: '2026.07.23', title: '새 기능 업데이트',
   body:
     '<p><b>노말 VF 출력</b>과 <b>방송용 렌더</b>가 새로 들어왔어요.</p>'
@@ -6268,7 +6277,6 @@ function aeLabelCompData() {
   return out;
 }
 async function sendToAE() {
-  if (!aeIsLocal()) return;
   const A = anim();
   let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
   if (!up) { wnsHelperOffNotice(); return; }
@@ -7092,12 +7100,8 @@ function wire() {
     else { const p = await pickOutDir(); if (!p) return; status('출력 폴더 지정: ' + p.name + ' — 이제 여기로 바로 저장됩니다'); }
     updateOutDirBtn();
   };
-  // AE로 보내기 (로컬에서만 노출 — 실험 기능). 숨기면 '영상으로 추출'이 그룹의 시각상 마지막이라 오른쪽을 둥글게.
-  if ($('#aeSend')) {
-    $('#aeSend').onclick = sendToAE;
-    if (aeIsLocal()) $('#aeSend').style.display = '';
-    else { const tl = $('#tlToggle'); if (tl) { tl.style.borderTopRightRadius = 'var(--rb)'; tl.style.borderBottomRightRadius = 'var(--rb)'; } }
-  }
+  // AE로 보내기 — 모두에게 노출(로컬 헬퍼로 동작, 헬퍼 꺼져 있으면 안내창).
+  if ($('#aeSend')) { $('#aeSend').onclick = sendToAE; $('#aeSend').style.display = ''; }
 
   $('#newWork').onclick = () => {
     if (!confirm('지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작할까요?')) return;
