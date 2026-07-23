@@ -1370,7 +1370,7 @@
       <div class="body">
         <p class="hint" style="margin-top:0">뽑을 것을 <b>골라</b> 두고 <b>선택 항목 뽑기</b>를 누르면 저장 폴더를 물어보고 그 안에 이미지를 만듭니다.</p>
         <div class="exPick" id="exPick"></div>
-        <div class="btns" style="margin-top:8px"><button class="pri" id="doExport">선택 항목 뽑기</button></div>
+        <div class="btns" style="margin-top:8px"><button id="exAll" title="아래 항목 전체를 한 번에 선택/해제">전체 선택</button><button class="pri" id="doExport">선택 항목 뽑기</button></div>
         <p class="hint" id="exInfo">배경/지도/색칠/라벨을 따로 뽑으면 편집 툴에서 레이어로 합성할 수 있습니다.</p>
       </div>
     </div>
@@ -6883,6 +6883,13 @@ function wire() {
   buildExportPick();
   buildMtnPresets();
   $('#doExport').onclick = doExport;
+  // 전체 선택/해제 토글 — 다 선택돼 있으면 전부 해제, 아니면 전부 선택
+  $('#exAll').onclick = () => {
+    const allOn = EXPORT_TARGETS.every((t) => exportPick.has(t.key));
+    exportPick = new Set(allOn ? [] : EXPORT_TARGETS.map((t) => t.key));
+    buildExportPick();
+    $('#exAll').textContent = EXPORT_TARGETS.every((t) => exportPick.has(t.key)) ? '전체 해제' : '전체 선택';
+  };
 
   $('#newWork').onclick = () => {
     if (!confirm('지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작할까요?')) return;
