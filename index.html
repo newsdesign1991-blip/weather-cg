@@ -5879,7 +5879,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     // 인코딩(PNG/JPEG)+전송이 프레임당 가장 느리다 → Web Worker 여러 개로 병렬 처리.
     // 메인 스레드는 프레임을 그려 픽셀만 넘기고(전송 소유권 이전), 굽기·프리멀티플라이드·POST는 워커가.
     const canPool = (typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && OffscreenCanvas.prototype.convertToBlob);
-    const POOL = canPool ? Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 1)) : 0;
+    const POOL = canPool ? Math.max(2, Math.min(6, (navigator.hardwareConcurrency || 4) - 1)) : 0;
 
     await sendFrameMain(0);                     // 프레임0 먼저(세션 폴더 리셋 보장)
     exportProgress(1, n + 1, label + ' 전송 중');
