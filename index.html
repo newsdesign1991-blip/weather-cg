@@ -5854,9 +5854,10 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   if (mv) mv.disabled = true;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha });
-  // MXF(불투명)는 JPEG 프레임으로 — 굽기·전송이 훨씬 빠름(mpeg2라 화질 영향 미미). 알파 MOV는 투명 유지 위해 PNG.
-  const fmt = alpha ? 'image/png' : 'image/jpeg';
-  const fext = alpha ? 'png' : 'jpg';
+  // MXF·MOV 모두 PNG(무손실·풀 크로마) 프레임으로 굽는다. JPEG는 4:2:0 크로마 서브샘플링이라
+  // 색 글자·경계선이 살짝 번진다 → PNG가 4:2:2 XDCAM으로 색을 더 깨끗이 살린다. (느린 건 워커 병렬로 상쇄)
+  const fmt = 'image/png';
+  const fext = 'png';
   try {
     // 한 프레임을 메인 스레드에서 직접 인코딩·전송(프레임0 = 헬퍼 세션 리셋용 + 워커 미지원 폴백).
     // 알파는 프리멀티플라이드(AE 동일)로 굽는다 — Uint32로 반투명 픽셀만 곱해 빠르게.
