@@ -6213,6 +6213,45 @@ async function aeFillBlob(col) {
     });
   });
 }
+// 라벨 하나의 배경만(텍스트 뺀 rect+구분선) 그 라벨 크기(w×h)로 잘라서 PNG
+async function aeLabelBgBlob(ld) {
+  const box = { x: ld.cx - ld.w / 2, y: ld.cy - ld.h / 2, w: ld.w, h: ld.h };
+  const clone = svg.cloneNode(true);
+  keepLayers(clone, ['L_labels']);
+  clone.querySelectorAll('#L_labels > g').forEach((g) => { if (g.dataset.id !== ld.id) g.remove(); });
+  clone.querySelectorAll(`#L_labels > g[data-id="${ld.id}"] text`).forEach((t) => t.remove());   // 텍스트 제거 → 배경만
+  clone.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
+  const W = Math.max(1, Math.round(box.w)), H = Math.max(1, Math.round(box.h));
+  clone.setAttribute('width', W); clone.setAttribute('height', H);
+  const fs = clone.querySelector('#fontStyle'); if (fs) fs.textContent = window.WANTED_FONT_CSS;
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
+  try { const img = new Image(); img.src = url; await img.decode(); const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(img, 0, 0, W, H); return await new Promise((r) => c.toBlob(r, 'image/png')); }
+  finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+}
+// 각 라벨의 프리컴프 정보(크기·중심위치·안쪽 텍스트들) — 화면에 그려진 DOM에서 실측
+function aeLabelCompData() {
+  const out = [];
+  for (const g of document.querySelectorAll('#L_labels > g')) {
+    const id = g.dataset.id; const b = S.labels.find((x) => x.id === id);
+    if (!b || b.off) continue;
+    const rect = g.querySelector('rect'); if (!rect) continue;
+    const w = Math.max(1, Math.round(+rect.getAttribute('width'))), h = Math.max(1, Math.round(+rect.getAttribute('height')));
+    const texts = [];
+    for (const t of g.querySelectorAll('text')) {
+      const size = +t.getAttribute('font-size') || 30;
+      texts.push({
+        content: t.textContent, size,
+        weight: parseInt(t.getAttribute('font-weight') || '500', 10),
+        col: t.getAttribute('fill') || '#FFFFFF',
+        track: +t.getAttribute('letter-spacing') || 0,
+        cx: w / 2,                                                 // 가로 중앙(text-anchor middle)
+        cy: h / 2 + (+t.getAttribute('y') || 0) + size * 0.34,     // 세로 중앙(central) → AE 베이스라인 보정
+      });
+    }
+    out.push({ id, w, h, cx: b.x, cy: b.y, fill: b.fill, texts });
+  }
+  return out;
+}
 async function sendToAE() {
   if (!aeIsLocal()) return;
   const A = anim();
@@ -6241,9 +6280,17 @@ async function sendToAE() {
       const ms = Math.min.apply(null, mtns.map((m) => startForFill(m.col)));
       addImg('산(색)', await aeMtnBlob(false), { start: ms, len: ANIM_FILL_LEN });   // 최종색 산 — 위에서 페이드인
     }
-    const labs = S.labels.filter((b) => !b.off);
-    const labBlobs = await exportBlobs('labels');
-    labBlobs.forEach((lb, i) => addImg('라벨' + (i + 1), lb.blob, { start: startForFill(labs[i] && labs[i].fill), len: ANIM_LABEL_LEN }));
+    // 라벨 = 프리컴프(배경 이미지 + 편집 텍스트). AE에서 라벨 하나가 한 컴프.
+    const labData = aeLabelCompData();
+    let li = 0;
+    for (const ld of labData) {
+      li++;
+      const fi = uploads.length; uploads.push(await aeLabelBgBlob(ld));
+      specLayers.push({
+        labelComp: { w: ld.w, h: ld.h, x: ld.cx, y: ld.cy, bg: 'f_' + String(fi).padStart(5, '0') + '.png', texts: ld.texts },
+        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: ANIM_LABEL_LEN },
+      });
+    }
     for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);   // 제목=편집형 텍스트, 맨 위·정적
     let end = start0;
     for (const l of specLayers) if (l.fade) end = Math.max(end, l.fade.start + l.fade.len);
