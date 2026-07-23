@@ -918,6 +918,12 @@
     box-shadow: 0 24px 64px rgba(0,0,0,.55), 0 0 0 5px rgba(22,163,74,.28);
   }
   #doneMsg svg { flex: 0 0 auto; }
+  /* Face ID 성공 모션 — 원형 링이 그려지고, 체크가 그어지고, 살짝 스프링 바운스 */
+  #doneMsg .doneIcon { transform-origin: 50% 50%; animation: doneIconPop .55s cubic-bezier(.34, 1.56, .64, 1) .26s both; }
+  #doneMsg .doneCircle { stroke-dasharray: 145; stroke-dashoffset: 145; animation: doneDraw .45s ease-out .05s forwards; }
+  #doneMsg .doneCheck { stroke-dasharray: 48; stroke-dashoffset: 48; animation: doneDraw .34s cubic-bezier(.2, .9, .3, 1) .42s forwards; }
+  @keyframes doneDraw { to { stroke-dashoffset: 0; } }
+  @keyframes doneIconPop { from { transform: scale(.3); } to { transform: scale(1); } }
   #doneMsg.show { animation: donePop 4.2s cubic-bezier(0.34, 0, 0.15, 1) forwards; }
   @keyframes donePop {
     0%   { opacity: 0; transform: translate(-50%, -50%) scale(.86); }
@@ -5417,7 +5423,12 @@ function flash(m) {
 // 렌더/추출 완료 — 화면 정중앙에 파란 카드('완료' 등)가 떴다가 사라진다
 function flashDone(m) {
   const n = $('#doneMsg');
-  n.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5l5 5L20 6.5"/></svg><span></span>';
+  // Face ID 성공 모션: 원형 링(doneCircle)이 그려지고 → 체크(doneCheck)가 그어지고 → 아이콘 스프링 바운스.
+  n.innerHTML =
+    '<svg class="doneIcon" viewBox="0 0 52 52" width="34" height="34" aria-hidden="true">'
+    + '<circle class="doneCircle" cx="26" cy="26" r="23" fill="none" stroke="#fff" stroke-width="3"/>'
+    + '<path class="doneCheck" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" d="M15 27 l7 7 l15 -16"/>'
+    + '</svg><span></span>';
   n.querySelector('span').textContent = m || '완료';
   n.classList.remove('show'); void n.offsetWidth; n.classList.add('show');   // 애니메이션 재시작
 }
