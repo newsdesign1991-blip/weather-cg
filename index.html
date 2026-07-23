@@ -6173,9 +6173,13 @@ async function aeBaseBlob() {
     c.querySelector('#L_title')?.remove();    // 제목은 AE 편집형 텍스트 레이어로
   });
 }
-// 산 표시만(투명) — 색칠 레이어보다 위에 올려 안 덮이게
-async function aeMtnBlob() {
-  return svgBlob((c) => { keepLayers(c, ['L_mtn']); c.querySelector('#L_mtn')?.removeAttribute('filter'); });
+// 산 표시만(투명) — 색칠 위에 올림. base=true면 바탕색(정적, 항상 보임), false면 최종색(페이드인).
+async function aeMtnBlob(base) {
+  return svgBlob((c) => {
+    keepLayers(c, ['L_mtn']);
+    c.querySelector('#L_mtn')?.removeAttribute('filter');
+    if (base) c.querySelectorAll('#L_mtn path').forEach((p) => p.setAttribute('fill', S.base));
+  });
 }
 // 색 하나만 칠한 투명 PNG (그 색만 따로 페이드인시키려고)
 async function aeFillBlob(col) {
@@ -6220,7 +6224,11 @@ async function sendToAE() {
     addImg('배경·지도', await aeBaseBlob());
     for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: ANIM_FILL_LEN });
     const mtns = (S.mtns || []).filter((m) => !m.off);
-    if (mtns.length) { const ms = Math.min.apply(null, mtns.map((m) => startForFill(m.col))); addImg('산', await aeMtnBlob(), { start: ms, len: ANIM_FILL_LEN }); }
+    if (mtns.length) {
+      addImg('산(바탕)', await aeMtnBlob(true));   // 바탕색 산 — 항상 보임(정적). 색칠처럼 모양은 처음부터.
+      const ms = Math.min.apply(null, mtns.map((m) => startForFill(m.col)));
+      addImg('산(색)', await aeMtnBlob(false), { start: ms, len: ANIM_FILL_LEN });   // 최종색 산 — 위에서 페이드인
+    }
     const labs = S.labels.filter((b) => !b.off);
     const labBlobs = await exportBlobs('labels');
     labBlobs.forEach((lb, i) => addImg('라벨' + (i + 1), lb.blob, { start: startForFill(labs[i] && labs[i].fill), len: ANIM_LABEL_LEN }));
