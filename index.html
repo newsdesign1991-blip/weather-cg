@@ -6200,6 +6200,19 @@ async function aeBaseBlob() {
     c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
   });
 }
+// 브러쉬 덧칠 — 그 색 하나만(투명). 지도 좌표계(L_map) 유지해 브러쉬 위치 그대로.
+async function aeBrushBlob(col) {
+  const U = col.toUpperCase();
+  return svgBlob((c) => {
+    keepLayers(c, ['L_sea', 'L_map']);
+    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
+    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    c.querySelector('#gMainSoft')?.remove();
+    c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
+    c.querySelectorAll('#seaT .sea').forEach((p) => { p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'none'); p.removeAttribute('mask'); });
+    c.querySelectorAll('image.brushLayer').forEach((im) => { if ((im.getAttribute('data-col') || '').toUpperCase() !== U) im.remove(); else { im.style.display = ''; im.removeAttribute('opacity'); } });
+  });
+}
 // 시도/시군 경계선만(투명) — 색칠 위에 얹어 항상 보이게(정적)
 async function aeLinesBlob() {
   return svgBlob((c) => {
@@ -6298,6 +6311,10 @@ async function sendToAE() {
     const addText = (name, t) => specLayers.push({ text: { content: aeArrow(t.txt || ''), x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0, weight: t.w || 400 }, name });
     addImg('배경·지도', await aeBaseBlob());
     for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: AE_LEN });
+    // 브러쉬 덧칠 — 색별 레이어(색칠 위, 경계선 아래). 매칭 색보다 살짝 먼저 들어옴(타임라인과 동일).
+    const brushCols = [];
+    for (const s of brushStrokes()) if (!s.erase && !brushCols.some((x) => x.toUpperCase() === s.col.toUpperCase())) brushCols.push(s.col);
+    for (const col of brushCols) addImg('브러쉬_' + col.replace('#', ''), await aeBrushBlob(col), { start: Math.max(start0, startForFill(col) - AE_LEN), len: AE_LEN });
     addImg('경계선', await aeLinesBlob());   // 시도·시군 선 — 색칠 위, 정적(항상 보임)
     const mtns = (S.mtns || []).filter((m) => !m.off);
     if (mtns.length) {
