@@ -917,12 +917,12 @@
     border: 1px solid rgba(255,255,255,.25); box-shadow: 0 22px 60px rgba(37,99,235,.5);
   }
   #doneMsg svg { flex: 0 0 auto; }
-  #doneMsg.show { animation: donePop 2.2s cubic-bezier(0.34, 0, 0.15, 1) forwards; }
+  #doneMsg.show { animation: donePop 4.2s cubic-bezier(0.34, 0, 0.15, 1) forwards; }
   @keyframes donePop {
     0%   { opacity: 0; transform: translate(-50%, -50%) scale(.86); }
-    10%  { opacity: 1; transform: translate(-50%, -50%) scale(1.07); }
-    20%  { transform: translate(-50%, -50%) scale(1); }
-    80%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    5%   { opacity: 1; transform: translate(-50%, -50%) scale(1.07); }
+    10%  { transform: translate(-50%, -50%) scale(1); }
+    90%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(.98); }
   }
   /* 브러쉬 마스크로 선택된 영역 외곽선 (지도 배율과 무관하게 일정 굵기) */
@@ -5421,6 +5421,9 @@ function flashDone(m) {
   n.classList.remove('show'); void n.offsetWidth; n.classList.add('show');   // 애니메이션 재시작
 }
 
+// 오늘 날짜 태그 — 파일명 기본값(예: 0723). 월·일 2자리.
+function dateTag() { const d = new Date(), p = (x) => String(x).padStart(2, '0'); return p(d.getMonth() + 1) + p(d.getDate()); }
+
 // ===================== 토스 카드 모달 (공지·안내 공통) =====================
 // 스케줄앱 토스 모달처럼 상단 컬러헤더 + 하단 내용. 반환값으로 각 영역을 넘겨 추가 조작.
 const BLUE_GRAD = 'linear-gradient(135deg,#2f6bff,#1e50e6)';
@@ -5677,7 +5680,7 @@ async function bakeMp4() {
   const vf = S.res === '1920x1080-vf';                 // VF는 .mov로 뽑는다(컨테이너만 QuickTime, 코덱은 동일 H.264)
   const ext = vf ? 'mov' : 'mp4', mime = vf ? 'video/quicktime' : 'video/mp4', vlabel = vf ? 'MOV' : 'MP4';
   const tag = S.res === '2158x1214' ? 'touch' : vf ? 'vf' : 'normal';
-  const fileName = `cg_${tag}_${W}x${H}_${fps}fps.${ext}`;
+  const fileName = `${dateTag()}.${ext}`;
   // 저장 위치를 '렌더 전에' 먼저 묻는다 — 취소하면 렌더도 안 한다 (오래 걸리는 인코딩을 헛돌리지 않게).
   let mp4Handle = null;
   if (window.showSaveFilePicker) {
@@ -5743,7 +5746,7 @@ async function exportPngSeq() {
   const n = Math.round(A.dur * A.fps);
   const vf = S.res === '1920x1080-vf';   // VF는 투명(알파) PNG로 뽑아 AE에서 QuickTime Animation(RGB+Alpha)로 렌더
   const tag = S.res === '2158x1214' ? 'touch' : vf ? 'vf_alpha' : 'normal';
-  const defName = `cg_${tag}_${W}x${H}_${A.fps}fps`;
+  const defName = `${dateTag()}`;
 
   // 저장 위치·이름을 '렌더 전에' 먼저 고른다(버튼 클릭 직후라 파일 저장 대화상자가 정상적으로 뜬다).
   // 폴더 선택기(directory picker)는 다운로드·바탕화면 같은 시스템 폴더를 막지만, '파일 저장'은 허용된다.
@@ -5840,7 +5843,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const [W, H] = RES[S.res].size;
   const A2 = anim();
   const tag = S.res === '2158x1214' ? 'touch' : S.res === '1920x1080-vf' ? 'vf' : 'normal';
-  const suggested = `cg_${tag}_${W}x${H}_${A2.fps}fps.${ext}`;
+  const suggested = `${dateTag()}.${ext}`;
   // 저장 위치 선택 창 (지원 시). 미지원(file:// 일부)이면 다운로드 폴더로 폴백.
   let handle = null;
   if (window.showSaveFilePicker) {
@@ -6119,16 +6122,16 @@ async function doExport() {
     // → 파일 저장 대화상자(showSaveFilePicker)로 '이름 + 위치'를 고르게 한다(파일 저장은 다운로드 폴더도 허용).
     //   미지원(file:// 일부)이면 그 이름 그대로 다운로드 폴더로 받는다. 여러 장이면 ZIP 한 개로 묶는다.
     if (files.length === 1) {
-      const nm = await saveBlobAs(files[0].blob, files[0].name, { description: '이미지(PNG)', accept: { 'image/png': ['.png'] } });
+      const nm = await saveBlobAs(files[0].blob, `${dateTag()}.png`, { description: '이미지(PNG)', accept: { 'image/png': ['.png'] } });
       if (nm == null) { status('저장을 취소했습니다'); return; }
-      $('#exInfo').textContent = `${nm} 저장됨`; status('저장됨: ' + nm);
+      $('#exInfo').textContent = `${nm} 저장됨`; status('저장됨: ' + nm); flashDone('이미지 저장 완료');
     } else {
       const zf = [];
       for (const f of files) zf.push({ name: f.name, data: await blobBytes(f.blob) });
-      const nm = await saveBlobAs(zipStore(zf), 'weathercg_export.zip', { description: '이미지 묶음(zip)', accept: { 'application/zip': ['.zip'] } });
+      const nm = await saveBlobAs(zipStore(zf), `${dateTag()}.zip`, { description: '이미지 묶음(zip)', accept: { 'application/zip': ['.zip'] } });
       if (nm == null) { status('저장을 취소했습니다'); return; }
       $('#exInfo').textContent = `${files.length}장을 ${nm} 로 저장 (압축 풀어서 사용)`;
-      status(`${files.length}장 저장됨 · ${nm}`);
+      status(`${files.length}장 저장됨 · ${nm}`); flashDone('이미지 저장 완료');
     }
   } catch (err) {
     status('추출 실패: ' + err.message, true);
