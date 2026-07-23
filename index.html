@@ -6231,7 +6231,7 @@ async function sendToAE() {
     // bottom→top 순서로 레이어 구성. 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
     const uploads = [], specLayers = [];
     const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
-    const addText = (name, t) => specLayers.push({ text: { content: t.txt || '', x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0 }, name });
+    const addText = (name, t) => specLayers.push({ text: { content: t.txt || '', x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0, weight: t.w || 400 }, name });
     addImg('배경·지도', await aeBaseBlob());
     for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: ANIM_FILL_LEN });
     addImg('경계선', await aeLinesBlob());   // 시도·시군 선 — 색칠 위, 정적(항상 보임)
