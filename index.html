@@ -907,14 +907,15 @@
     84%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(.98); }
   }
-  /* 렌더/추출 완료 — 화면 정중앙에 파란 카드가 떴다가 사라진다 */
+  /* 렌더/추출 완료 — 화면 정중앙에 초록 카드가 떴다가 사라진다(파란 배경 지도 위에서도 확 띄게) */
   #doneMsg {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     z-index: 100001; pointer-events: none; opacity: 0; white-space: nowrap;
     display: flex; align-items: center; gap: 12px;
-    padding: 20px 34px; border-radius: 18px; font-size: 22px; font-weight: 800; letter-spacing: -.01em;
-    background: linear-gradient(135deg, #2f6bff, #1e50e6); color: #fff;
-    border: 1px solid rgba(255,255,255,.25); box-shadow: 0 22px 60px rgba(37,99,235,.5);
+    padding: 22px 38px; border-radius: 18px; font-size: 23px; font-weight: 800; letter-spacing: -.01em;
+    background: linear-gradient(135deg, #2fd36a, #16a34a); color: #fff;
+    border: 2px solid rgba(255,255,255,.7);
+    box-shadow: 0 24px 64px rgba(0,0,0,.55), 0 0 0 5px rgba(22,163,74,.28);
   }
   #doneMsg svg { flex: 0 0 auto; }
   #doneMsg.show { animation: donePop 4.2s cubic-bezier(0.34, 0, 0.15, 1) forwards; }
