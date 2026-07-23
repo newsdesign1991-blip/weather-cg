@@ -155,7 +155,14 @@
     background: var(--surface-c); border-top: 1px solid var(--outline-var);
     box-shadow: 0 -6px 14px -8px var(--shade);
   }
-  .panelFooter button { width: 100%; }
+  .panelFooter .footRow { display: flex; gap: 8px; align-items: stretch; }
+  .panelFooter .footRow .newBtn { flex: 1; }
+  .panelFooter .footIcon { flex: 0 0 auto; width: 42px; padding: 6px 0; display: inline-flex; align-items: center; justify-content: center; }
+  .panelFooter .footIcon svg { width: 18px; height: 18px; }
+  /* 상단바 작은 아이콘 버튼 (되돌리기/다시) */
+  .topbar .iconBtn { padding: 5px 8px; display: inline-flex; align-items: center; justify-content: center; }
+  .topbar .iconBtn svg { width: 16px; height: 16px; display: block; }
+  .topbar .iconBtn:disabled { opacity: .35; }
   /* 스크롤 여백(옛 85vh 패딩 대체) — footer 앞에 두어야 sticky가 바닥에 제대로 붙는다 */
   .panelScrollPad { flex: 0 0 auto; height: 70vh; pointer-events: none; }
   /* 약간 붉은 톤 버튼 */
@@ -1405,6 +1412,7 @@
      <div class="exportGroup" id="exportGroup">
        <button class="menuBtn tintBtn" data-menu="out" title="이미지로 추출"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M11 3h2v8h3l-4 5-4-5h3zM4 18h16v2H4z"/></svg>이미지로 추출</button>
        <button id="tlToggle" class="hasIcon tintBtn" title="영상으로 추출 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 4h16v3H4zm0 5h16v11H4zm3 2v7l6-3.5z"/></svg>영상으로 추출</button>
+       <button id="aeSend" class="hasIcon tintBtn" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm2.6 5.2l2.2 7.6h1.5l.5-1.8h2.3l.5 1.8h1.5l-2.2-7.6h-1.6zm2.9 1.7l.8 2.8h-1.6z"/></svg>AE로 보내기</button>
      </div>
      <div class="sep"></div>
      <div class="mode">
@@ -1413,16 +1421,11 @@
        <button id="mMove">이동</button>
      </div>
      <div class="sep"></div>
-     <button id="undo" title="Ctrl+Z">되돌리기</button>
-     <button id="redo" title="Ctrl+Shift+Z">다시</button>
+     <button id="undo" class="iconBtn" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 8h9a5 5 0 010 10H8M4 8l4-4M4 8l4 4"/></svg></button>
+     <button id="redo" class="iconBtn" title="다시 (Ctrl+Shift+Z)" aria-label="다시"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 8h-9a5 5 0 000 10h5M20 8l-4-4M20 8l-4 4"/></svg></button>
      <div class="sep"></div>
      <span class="zoomInfo" id="zoomV">100%</span>
-     <button id="zoomFit">화면 맞춤</button>
      <div class="sep"></div>
-     <button id="delSel">선택 삭제</button>
-     <div class="sep"></div>
-     <button id="dockSide" title="사이드바를 반대쪽 끝으로">사이드바 →</button>
-     <button id="resetLayout" title="떼어낸 창을 전부 사이드바로">기본 배치</button>
      <button id="theme" class="themeToggle" role="switch" title="사이드바 밝기 (작업물과 무관)" aria-label="밝기 전환">
        <span class="tgTrack"><span class="tgThumb">
          <svg class="tgSun" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 100 10 5 5 0 000-10zM12 1a1 1 0 011 1v2a1 1 0 11-2 0V2a1 1 0 011-1zm0 18a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1zM2 11h2a1 1 0 110 2H2a1 1 0 110-2zm18 0h2a1 1 0 110 2h-2a1 1 0 110-2zM4.2 4.2a1 1 0 011.4 0L7 5.6A1 1 0 015.6 7L4.2 5.6a1 1 0 010-1.4zm12.4 12.4a1 1 0 011.4 0L19.8 18a1 1 0 01-1.4 1.4L17 18a1 1 0 010-1.4zM19.8 4.2a1 1 0 010 1.4L18.4 7A1 1 0 0117 5.6l1.4-1.4a1 1 0 011.4 0zM7 17a1 1 0 010 1.4L5.6 19.8A1 1 0 014.2 18.4L5.6 17A1 1 0 017 17z"/></svg>
@@ -6156,6 +6159,96 @@ async function exportBlobs(key) {
   return [];
 }
 
+// ===== After Effects 자동 임포트(로컬 헬퍼 경유) — 타임라인과 같은 애니메이션 =====
+function aeIsLocal() { const h = location.hostname; return h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:'; }
+// 배경·지도 base — 칠·라벨·브러쉬 빼고 처음부터 보이는 정적 레이어(땅 색은 베이스로 비움)
+async function aeBaseBlob() {
+  return svgBlob((c) => {
+    keepLayers(c, ALL_LAYERS);
+    c.querySelector('#gMainSoft')?.remove();
+    c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => z.setAttribute('fill', S.base));
+    c.querySelectorAll('#L_labels > g').forEach((g) => g.remove());
+    c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());
+    c.querySelector('#L_mtn')?.remove();     // 산은 색칠 위 별도 레이어로 (덮임 방지)
+    c.querySelector('#L_title')?.remove();    // 제목은 AE 편집형 텍스트 레이어로
+  });
+}
+// 산 표시만(투명) — 색칠 레이어보다 위에 올려 안 덮이게
+async function aeMtnBlob() {
+  return svgBlob((c) => { keepLayers(c, ['L_mtn']); c.querySelector('#L_mtn')?.removeAttribute('filter'); });
+}
+// 색 하나만 칠한 투명 PNG (그 색만 따로 페이드인시키려고)
+async function aeFillBlob(col) {
+  const F = fills(); const U = col.toUpperCase();
+  return svgBlob((c) => {
+    keepLayers(c, ['L_sea', 'L_map']);
+    c.querySelector('#L_map')?.removeAttribute('filter');   // 색칠 레이어엔 지도 그림자(#shadowF) 빼기
+    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
+    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    c.querySelector('#gMainSoft')?.remove();
+    c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
+      const fc = F[z.dataset.id];
+      if (fc && fc.toUpperCase() === U) { z.setAttribute('fill', fc); z.setAttribute('stroke', 'none'); }
+      else z.setAttribute('fill', 'none');
+    });
+    c.querySelectorAll('#seaT .sea').forEach((p) => {
+      const sc = S.seaFills[p.dataset.id];
+      p.setAttribute('fill', (sc && sc.toUpperCase() === U) ? sc : 'none');
+      p.setAttribute('stroke', 'none'); p.removeAttribute('mask'); p.removeAttribute('opacity');
+    });
+  });
+}
+async function sendToAE() {
+  if (!aeIsLocal()) return;
+  const A = anim();
+  let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
+  if (!up) { wnsHelperOffNotice(); return; }
+  const F = fills();
+  if (!Object.keys(F).length) { status('칠한 색이 없습니다 — 먼저 색칠하세요', true); return; }
+  const btn = $('#aeSend'); if (btn) btn.disabled = true;
+  try {
+    const [W, H] = RES[S.res].size;
+    const fps = A.fps || 29.97, step = 5 / fps, start0 = animStart();
+    const seen = {}; for (const c of Object.values(F)) seen[c.toUpperCase()] = true;
+    const cols = Object.keys(seen).sort((a, b) => lumOf(b) - lumOf(a));   // 밝은→어두운 (타임라인과 동일)
+    const startOf = {}; cols.forEach((c, i) => startOf[c] = start0 + i * step);
+    const startForFill = (col) => (col && startOf[col.toUpperCase()] != null ? startOf[col.toUpperCase()] : start0);
+    // bottom→top 순서로 레이어 구성. 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
+    const uploads = [], specLayers = [];
+    const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
+    const addText = (name, t) => specLayers.push({ text: { content: t.txt || '', x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0 }, name });
+    addImg('배경·지도', await aeBaseBlob());
+    for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: ANIM_FILL_LEN });
+    const mtns = (S.mtns || []).filter((m) => !m.off);
+    if (mtns.length) { const ms = Math.min.apply(null, mtns.map((m) => startForFill(m.col))); addImg('산', await aeMtnBlob(), { start: ms, len: ANIM_FILL_LEN }); }
+    const labs = S.labels.filter((b) => !b.off);
+    const labBlobs = await exportBlobs('labels');
+    labBlobs.forEach((lb, i) => addImg('라벨' + (i + 1), lb.blob, { start: startForFill(labs[i] && labs[i].fill), len: ANIM_LABEL_LEN }));
+    for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);   // 제목=편집형 텍스트, 맨 위·정적
+    let end = start0;
+    for (const l of specLayers) if (l.fade) end = Math.max(end, l.fade.start + l.fade.len);
+    if (S.res === '1920x1080-vf') end = Math.max(end, ANIM_START + ANIM_VF_ENTER_LEN);
+    const dur = Math.max(6, Math.ceil((end + 0.6) * 2) / 2);
+    const sid = 'ae' + Date.now();
+    for (let i = 0; i < uploads.length; i++) {
+      const r = await fetch(WNS_HELPER + '/api/frame?sid=' + sid + '&index=' + i + '&ext=png', { method: 'POST', body: uploads[i] });
+      if (!r.ok) throw new Error('레이어 전송 실패(' + i + ')');
+      exportProgress(i + 1, uploads.length + 1, 'AE 레이어 전송 중');
+    }
+    const spec = {
+      sid, comp: { name: 'WeatherCG_' + dateTag(), w: W, h: H, fps, dur },
+      vfEnter: (S.res === '1920x1080-vf') ? { start: ANIM_START, len: ANIM_VF_ENTER_LEN, dx: vfEnterDist() } : null,
+      layers: specLayers,
+    };
+    const rr = await fetch(WNS_HELPER + '/api/ae', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(spec) });
+    const jr = await rr.json().catch(() => ({}));
+    if (!rr.ok || !jr.ok) throw new Error(jr.error || ('AE 실행 실패 ' + rr.status));
+    status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다'); flashDone('AE로 보냄');
+  } catch (e) {
+    status('AE 보내기 실패: ' + (e.message || e), true);
+  } finally { if (btn) btn.disabled = false; }
+}
+
 // 폴더를 물어보고 그 안에 이미지를 만든다. 폴더 선택을 못 쓰는 브라우저는 한 장씩 내려받는다.
 async function doExport() {
   const keys = EXPORT_TARGETS.filter((t) => exportPick.has(t.key)).map((t) => t.key);
@@ -6434,8 +6527,7 @@ function colorAtPoint(e) {
 function wire() {
   // 제목 접기는 pointerdown 쪽(끌어서 떼어내기)에서 '안 움직였을 때'만 처리한다.
   // 여기에 onclick 을 또 달면 떼어낸 직후에 접히거나 두 번 토글된다.
-  $('#resetLayout').onclick = resetLayout;
-  $('#dockSide').onclick = () => setDockSide(dockSide === 'left' ? 'right' : 'left');
+  // 사이드바 위치/기본배치 버튼은 사이드바 하단 footer에서 만들고 배선한다(위 footer 생성부).
   applyDockSide();   // 저장하지 않고 기본 상태만 반영 (loadLayout가 이 뒤에 덮어쓴다)
 
   // 툴바 좌우로 끌어 옮기기 (손잡이)
@@ -6548,9 +6640,7 @@ function wire() {
   brSync();
   $('#undo').onclick = undo;
   $('#redo').onclick = redo;
-  $('#delSel').onclick = delSel;
-  $('#zoomFit').onclick = zoomFit;
-
+  // (선택 삭제·화면 맞춤 버튼은 상단바에서 제거 — Delete 키·더블클릭 화면맞춤 등은 그대로)
   // 사이드바 밝기. 작업물(CG)과는 무관하니 작업 내용이 아니라 이 브라우저에 저장한다.
   const setTheme = (t) => {
     document.documentElement.dataset.theme = t;
@@ -6906,6 +6996,12 @@ function wire() {
     else { const p = await pickOutDir(); if (!p) return; status('출력 폴더 지정: ' + p.name + ' — 이제 여기로 바로 저장됩니다'); }
     updateOutDirBtn();
   };
+  // AE로 보내기 (로컬에서만 노출 — 실험 기능). 숨기면 '영상으로 추출'이 그룹의 시각상 마지막이라 오른쪽을 둥글게.
+  if ($('#aeSend')) {
+    $('#aeSend').onclick = sendToAE;
+    if (aeIsLocal()) $('#aeSend').style.display = '';
+    else { const tl = $('#tlToggle'); if (tl) { tl.style.borderTopRightRadius = 'var(--rb)'; tl.style.borderBottomRightRadius = 'var(--rb)'; } }
+  }
 
   $('#newWork').onclick = () => {
     if (!confirm('지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작할까요?')) return;
@@ -7538,9 +7634,15 @@ let dockSide = 'left';   // 사이드바가 어느 끝에 붙어 있나 (처음 
 // setDockSide가 loadLayout보다 먼저 저장을 부르면 저장된 배치를 덮어써 버린다.
 function applyDockSide() {
   document.querySelector('.app').classList.toggle('dockR', dockSide === 'right');
-  $('#dockSide').textContent = dockSide === 'right' ? '사이드바 ←' : '사이드바 →';
+  updateDockBtn();
   applyPanelSize();    // 폭이 바뀌면 손잡이 위치도 다시 잡는다
   applyToolbarPos();   // 스테이지 폭이 바뀌니 툴바 위치 다시 잡는다
+}
+// 사이드바 하단 위치 버튼 — 화살표 방향·툴팁을 현재 도킹에 맞춘다(아이콘 버튼이라 텍스트 대신 회전).
+function updateDockBtn() {
+  const b = $('#dockSide'); if (!b) return;
+  b.title = dockSide === 'right' ? '사이드바를 왼쪽으로' : '사이드바를 오른쪽으로';
+  const svg = b.querySelector('svg'); if (svg) svg.style.transform = dockSide === 'right' ? 'scaleX(-1)' : '';
 }
 
 // 사이드바 크기 = zoom 배율(panelZoom). 폭이 커지면 글자·컨트롤이 다 같이 커진다.
@@ -7961,7 +8063,18 @@ function setupMenus() {
   const nw = $('#newWork');
   if (nw) {
     const pad = document.createElement('div'); pad.className = 'panelScrollPad'; $('#panel').appendChild(pad);
-    const ft = document.createElement('div'); ft.className = 'panelFooter'; nw.classList.add('danger'); ft.appendChild(nw); $('#panel').appendChild(ft);
+    const ft = document.createElement('div'); ft.className = 'panelFooter';
+    const row = document.createElement('div'); row.className = 'footRow';
+    nw.classList.add('danger', 'newBtn');
+    // 사이드바 위치 바꾸기(화살표) + 기본 배치(되돌리기 아이콘) — 상단바에서 여기로 옮김
+    const dock = document.createElement('button'); dock.id = 'dockSide'; dock.className = 'footIcon';
+    dock.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>';
+    dock.onclick = () => setDockSide(dockSide === 'left' ? 'right' : 'left');
+    const reset = document.createElement('button'); reset.id = 'resetLayout'; reset.className = 'footIcon'; reset.title = '기본 배치 — 떼어낸 창을 전부 사이드바로';
+    reset.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9a7 7 0 111.5 6M4 9V4M4 9h5"/></svg>';
+    reset.onclick = resetLayout;
+    row.append(nw, dock, reset); ft.appendChild(row); $('#panel').appendChild(ft);
+    updateDockBtn();
   }
   let openSec = null;
   const close = () => { drop.classList.remove('on'); openSec = null; document.querySelectorAll('.menuBtn.on').forEach((b) => b.classList.remove('on')); };
