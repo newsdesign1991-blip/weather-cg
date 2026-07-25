@@ -5395,7 +5395,33 @@ function loadPresets() {
 // 프리셋(기본 배치)과 별개로, 지금 하던 작업을 통째로 계속 저장한다.
 // 새로고침하거나 브라우저를 닫았다 열어도 그대로 이어서 한다.
 const WORK_KEY = 'wcg_work';
+const DEPLOY_DEFAULTS_KEY = 'wcg_deployment_defaults_signature';
 let lastWork = '';
+function deploymentDefaultsSignature() {
+  const defaults = window.WCG_DEFAULTS;
+  if (!defaults || typeof defaults !== 'object' || !Object.keys(defaults).length) return '';
+  const json = JSON.stringify(defaults);
+  let hash = 2166136261;
+  for (let i = 0; i < json.length; i++) {
+    hash ^= json.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return json.length + ':' + (hash >>> 0).toString(16);
+}
+function preferUpdatedDeploymentDefaults() {
+  const signature = deploymentDefaultsSignature();
+  if (!signature) return false;
+  try {
+    if (localStorage.getItem(DEPLOY_DEFAULTS_KEY) === signature) return false;
+    localStorage.setItem(DEPLOY_DEFAULTS_KEY, signature);
+    localStorage.removeItem(WORK_KEY);
+    localStorage.removeItem('wcg_presets');
+    lastWork = '';
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 function saveWork() {
   try {
     const s = JSON.stringify(S);
@@ -8571,6 +8597,7 @@ renderAll();
 
 // 앱을 '새 창으로 켜면'(=이 창 세션의 첫 실행) 늘 빈 화면(시작 안내)으로 시작한다.
 // 지난 지도를 자동으로 띄우지 않는다. 새로고침(F5)일 때만(=세션 플래그 있음) 하던 작업을 이어 붙인다.
+preferUpdatedDeploymentDefaults();
 const freshOpen = !sessionStorage.getItem('wcg_open');
 sessionStorage.setItem('wcg_open', '1');
 const work = freshOpen ? null : loadWork();
