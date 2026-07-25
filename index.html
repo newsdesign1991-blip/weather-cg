@@ -1258,6 +1258,10 @@
         <div class="list" id="textList"></div>
         <div class="row"><label>그림자</label><label class="chk" style="flex:1"><input type="checkbox" id="txtShadow">지도와 같은 그림자</label></div>
         <div class="btns"><button id="addText">+ 텍스트 추가</button></div>
+        <div id="vfScaleUI" style="display:none;margin-top:12px;border-top:1px solid var(--outline-var);padding-top:10px">
+          <div class="row wide"><label>VF 전체 크기</label><input type="range" id="vfScale" min="50" max="150" step="1"><span class="v" id="vfScaleV">100%</span></div>
+          <p class="hint" style="margin:4px 0 7px">이동 모드에서 파란 배경판 왼쪽아래 핸들로도 조절합니다. 오른쪽위는 고정됩니다.</p>
+        </div>
         <div id="vfBarUI" style="display:none;margin-top:12px;border-top:1px solid var(--outline-var);padding-top:10px">
           <label class="chk"><input type="checkbox" id="vfBarOn">제목 바 (VF 배경 크롭)</label>
           <p class="hint" style="margin:4px 0 7px">이동 모드에서 <b>끌어 옮기고</b> 오른쪽아래 <b>파란 핸들로 크기</b> 조절. 아래 숫자로도 됩니다. 제목 글자는 위 <b>텍스트 추가</b>로 얹으세요.</p>
@@ -1601,6 +1605,7 @@
       <!-- 노말 VF에서 이 래퍼 하나에 슬라이드(transform)+페이드(opacity)+크롭(clip)을 걸어 전체를 한 덩어리로 다룬다.
            (레이어별로 각각 걸면 겹쳐서 잔상이 생기고, 라벨·제목이 패널 밖으로 샌다.) 다른 화면에선 아무 속성도 없어 무영향. -->
       <g id="L_vfWrap">
+      <g id="L_vfScale">
       <g id="L_bg">
         <image id="bgImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>
         <g id="bgMapT"><path id="nbrNW"/><path id="nbrJP"/></g>
@@ -1632,9 +1637,12 @@
       <g id="L_labels"/>
       <g id="L_title"/>
       <g id="L_legend"/>
+      </g><!-- /L_vfScale -->
       </g><!-- /L_vfWrap -->
       <!-- 도서 박스 크기 핸들 + 지도 전체 크기 핸들. 이동 모드에서만 보이고 추출 시 제거된다. (래퍼 밖 = 크롭/슬라이드 영향 안 받음) -->
       <g id="L_grips">
+        <rect id="vfScaleBounds" class="selbox" style="display:none"/>
+        <g id="vfScaleGrip" class="insetGrip" style="display:none"><circle r="13"/><path class="gripArrow" d="M5 -5 L-5 5 M-5 5 L-5 0 M-5 5 L0 5"/><title>끌어서 VF 출력화면 전체 크기 조절</title></g>
         <g id="mapGrip" class="insetGrip" data-mapgrip="1">
           <circle r="13"/>
           <path class="gripArrow" d="M-5 5 L5 -5 M5 -5 L5 0 M5 -5 L0 -5"/>
@@ -1805,6 +1813,8 @@ const DEFAULTS = () => ({
   softFill: 0,   // 아사모사(부드러운 경계) — 통보문 색칠을 경계에서 부드럽게 섞을지
   softZonesByStyle: {}, // 지도 종류별 '부드럽게' 대상 구역 id들(내륙·해안·산지처럼 애매한 표현만). 확실한 지명은 또렷하게 둔다.
   vfBar: { on: 0, x: 1140, y: 150, w: 640, h: 110, shOp: 42, shBlur: 7, shDy: 7 }, // 노말 VF 제목 바(배경 크롭+그림자 농도/번짐/거리). 배치는 프리셋에 저장.
+  vfScale: 100, // 노말 VF 출력 전체 크기(%). 파란 배경판 오른쪽 위를 고정하고 전체를 함께 확대·축소.
+  vfScales: {}, // 작업 중 공유값: common / warnsea 두 칸. 밝은·어두운 전환 때 현재 크기가 유지된다.
   // 기상특보 범례 — 제목 밑에 '색상 상자 + 이름' 목록. 특보용 지도에서만 UI 노출, 배치는 프리셋에 저장.
   legend: { on: 0, auto: 1, horiz: 0, x: 150, y: 560, box: 34, radius: 6, rowGap: 16, size: 34, weight: 600, txtCol: '#FFFFFF', gap: 18,
     items: [{ col: '#FA2E1E', txt: '폭염특보' }, { col: '#FFC400', txt: '폭염주의보' }] },
@@ -2709,6 +2719,72 @@ function computeVfPanelRect(cb) {
   im.onerror = () => cb(null);
   im.src = src;
 }
+function clampVfScale(v) {
+  v = Number(v);
+  return Number.isFinite(v) ? Math.max(50, Math.min(150, Math.round(v))) : 100;
+}
+function vfScaleGroup() {
+  return layoutGroup(S.style) === 'warnsea' ? 'warnsea' : 'common';
+}
+function setVfScale(v) {
+  const scale = clampVfScale(v);
+  S.vfScale = scale;
+  S.vfScales ||= {};
+  S.vfScales[vfScaleGroup()] = scale;
+  return scale;
+}
+function vfScaleValue() {
+  S.vfScales ||= {};
+  const saved = S.vfScales[vfScaleGroup()];
+  return setVfScale(saved === undefined ? S.vfScale : saved);
+}
+function vfScaleTransform(r, value) {
+  const k = clampVfScale(value) / 100;
+  const ax = r.x + r.w, ay = r.y;
+  return `translate(${ax} ${ay}) scale(${k}) translate(${-ax} ${-ay})`;
+}
+function renderVfScale() {
+  const layer = $('#L_vfScale'), bounds = $('#vfScaleBounds'), grip = $('#vfScaleGrip');
+  if (!layer || !bounds || !grip) return;
+  if (S.res !== '1920x1080-vf') {
+    layer.removeAttribute('transform');
+    bounds.style.display = grip.style.display = 'none';
+    return;
+  }
+  computeVfPanelRect((r) => {
+    if (!r || S.res !== '1920x1080-vf') {
+      layer.removeAttribute('transform');
+      bounds.style.display = grip.style.display = 'none';
+      return;
+    }
+    const scale = vfScaleValue(), k = scale / 100, ax = r.x + r.w, ay = r.y;
+    layer.setAttribute('transform', vfScaleTransform(r, scale));
+    const x = ax + (r.x - ax) * k, y = ay, w = r.w * k, h = r.h * k;
+    const handles = mode === 'move';
+    bounds.style.display = grip.style.display = handles ? '' : 'none';
+    if (handles) {
+      bounds.setAttribute('x', x); bounds.setAttribute('y', y);
+      bounds.setAttribute('width', w); bounds.setAttribute('height', h);
+      grip.setAttribute('transform', `translate(${x} ${y + h})`);
+    }
+    const input = $('#vfScale'), value = $('#vfScaleV');
+    if (input) input.value = scale;
+    if (value) value.textContent = scale + '%';
+  });
+}
+function startVfScaleResize(e) {
+  computeVfPanelRect((r) => {
+    if (!r || S.res !== '1920x1080-vf') return;
+    const start = vfScaleValue() / 100;
+    const vx = -r.w, vy = r.h, denom = vx * vx + vy * vy;
+    pushUndo('vfScale');
+    dragLoop(e, (dx, dy) => {
+      const nx = vx * start + dx, ny = vy * start + dy;
+      setVfScale((nx * vx + ny * vy) / denom * 100);
+      renderVfScale();
+    }, () => syncPanelFromState());
+  });
+}
 function applyVfClip() {
   const vf = S.res === '1920x1080-vf' && S.showBg;
   const wrap = document.getElementById('L_vfWrap');
@@ -3185,7 +3261,7 @@ function renderSel() {
 
 function renderAll() {
   renderBg(); renderShadow(); renderMapTransform(); renderInsets();
-  renderBrush(); renderTexts(); renderLegend(); renderLabels(); renderMtns(); renderSel();
+  renderBrush(); renderTexts(); renderLegend(); renderLabels(); renderMtns(); renderSel(); renderVfScale();
 }
 
 // ===================== 패널 =====================
@@ -3521,6 +3597,10 @@ function syncPanelFromState() {
   updateAutoPaintSecs();
   if (typeof updateWnsButtons === 'function') updateWnsButtons();   // MXF/MOV 버튼: 노말 VF + 로컬만
   { // 노말 VF 제목 바 — VF 화면에서만 UI 표시 + 값 동기화
+    const scaleUi = $('#vfScaleUI'), scale = vfScaleValue();
+    if (scaleUi) scaleUi.style.display = (S.res === '1920x1080-vf') ? '' : 'none';
+    if ($('#vfScale')) $('#vfScale').value = scale;
+    if ($('#vfScaleV')) $('#vfScaleV').textContent = scale + '%';
     const ui = $('#vfBarUI'); const b = (S.vfBar ||= { on: 0, x: 1140, y: 150, w: 640, h: 110 });
     if (ui) ui.style.display = (S.res === '1920x1080-vf') ? '' : 'none';
     if ($('#vfBarOn')) $('#vfBarOn').checked = !!b.on;
@@ -3738,6 +3818,7 @@ svg.addEventListener('pointerdown', (e) => {
   }
 
   if (mode === 'move') {
+    if (e.target.closest('#vfScaleGrip')) { startVfScaleResize(e); return; } // VF 전체 크기
     if (e.target.closest('#vfBarGrip')) { startVfBarResize(e); return; }   // 제목 바 크기
     if (e.target.closest('#vfBarHit')) { startVfBarMove(e); return; }      // 제목 바 이동
     if (e.target.closest('[data-mapgrip]')) { revealSec('map'); startScaleMap(e); return; }
@@ -4153,6 +4234,7 @@ function setMode(m) {
   renderInsets();
   renderMapTransform();
   renderVfBar();   // 이동 모드 전환에 맞춰 제목 바 핸들 표시/숨김
+  renderVfScale(); // 이동 모드에서만 VF 전체 외곽선·핸들 표시
   status(m === 'move' ? '이동 모드 — 끌어서 이동, 파란 핸들로 크기 조절 (지도 전체 / 도서 박스)'
     : m === 'brush' ? '브러쉬 모드 — 한 영역을 끌어서 그 안에만 부드럽게 덧칠' : '칠하기 모드');
 }
@@ -5221,7 +5303,7 @@ const PRESET_KEYS = ['map', 'insets', 'texts', 'labScale', 'mtnScale', 'cgLight'
   'txtShadow', 'labShadow',   // 제목·라벨 그림자 켬/끔도 화면(모드)별로 기억 (밝은 모드에서 뺀 게 유지되도록)
   // 바다(해상) 색·경계선도 화면별 룩에 포함 — '특보+해상' 화면의 바다 색/경계를 따로 기억한다.
   'seaCol', 'seaW', 'seaBase', 'seaBaseOp', 'seaFade',
-  'vfBar', 'legend', 'wrnColors'];   // 노말 VF 제목 바 배치 · 기상특보 범례 · 특보 종류별 색(범례 자동색도 이걸 따름)
+  'vfBar', 'vfScale', 'legend', 'wrnColors'];   // 노말 VF 제목 바·전체 크기 · 기상특보 범례 · 특보 종류별 색
 
 // 배치는 [출력 화면] × [배치 그룹] × [밝은/어두운]으로 따로 기억한다.
 // '특보 + 해상'은 바다까지 담느라 지도를 줄여야 해서 배치가 완전히 다르다.
@@ -5256,6 +5338,7 @@ function mergeVfBar(dst, src) {
 function savePreset() {
   const p = {};
   for (const k of PRESET_KEYS) p[k] = JSON.parse(JSON.stringify(S[k]));
+  if (S.res !== '1920x1080-vf') delete p.vfScale; // VF 전용 값이 일반 화면 프리셋에 섞이지 않게
   // 내가 저장한 것만 localStorage에 둔다(배포 기본배치는 복사하지 않는다).
   const mine = userPresets();
   const key = presetKey();
@@ -5270,6 +5353,7 @@ function savePreset() {
       const target = mine[other] ? mine[other] : JSON.parse(JSON.stringify(all[other]));
       for (const k of ['map', 'insets', 'labScale', 'mtnScale']) if (p[k] !== undefined) target[k] = JSON.parse(JSON.stringify(p[k]));
       if (p.vfBar !== undefined) target.vfBar = mergeVfBar(target.vfBar, p.vfBar);   // 위치는 공유, 그림자는 그 모드 것 유지
+      if (p.vfScale !== undefined) target.vfScale = clampVfScale(p.vfScale);
       if (p.legend !== undefined) {   // 범례: 위치·크기는 공유, 글자색(txtCol)은 그 모드 것 유지(어두운=흰, 밝은=남색)
         const keepCol = target.legend && target.legend.txtCol;
         target.legend = JSON.parse(JSON.stringify(p.legend));
@@ -5324,6 +5408,7 @@ function loadWork() {
 function applyPreset() {
   const key = presetKey();
   const all = loadPresets();
+  const liveVfScale = S.vfScales && S.vfScales[vfScaleGroup()];
   let p = all[key];
   const full = !!p;
   if (!p) {
@@ -5342,6 +5427,7 @@ function applyPreset() {
     if (p.vfBar !== undefined) S.vfBar = mergeVfBar(S.vfBar, p.vfBar);   // 위치만 따라오고 그림자는 지금 모드 것 유지
     if (p.texts) S.texts = mergeTextPos(S.texts, p.texts);
   }
+  setVfScale(liveVfScale !== undefined ? liveVfScale : (p.vfScale !== undefined ? p.vfScale : 100));
   // 특보 범례: 이 그룹 배치가 범례를 갖고 있으면 그대로, 없으면(옛/배포 프리셋) 기본값으로 리셋한다.
   // 안 그러면 특보구역↔특보+해상처럼 그룹을 옮길 때 이전 그룹의 범례 위치가 그대로 남는다.
   S.legend = (p.legend !== undefined) ? JSON.parse(JSON.stringify(p.legend)) : JSON.parse(JSON.stringify(DEFAULTS().legend));
@@ -6265,15 +6351,24 @@ async function aeFillBlob(col) {
     });
   });
 }
+function vfScaledPoint(x, y) {
+  if (S.res !== '1920x1080-vf' || !_vfPanelRect) return { x, y };
+  const k = vfScaleValue() / 100, ax = _vfPanelRect.x + _vfPanelRect.w, ay = _vfPanelRect.y;
+  return { x: ax + (x - ax) * k, y: ay + (y - ay) * k };
+}
+function vfScaledSize(value) {
+  return S.res === '1920x1080-vf' ? value * vfScaleValue() / 100 : value;
+}
 // 라벨 하나의 배경만(텍스트 뺀 rect+구분선) 그 라벨 크기(w×h)로 잘라서 PNG
 async function aeLabelBgBlob(ld) {
   const box = { x: ld.cx - ld.w / 2, y: ld.cy - ld.h / 2, w: ld.w, h: ld.h };
   const clone = svg.cloneNode(true);
   keepLayers(clone, ['L_labels']);
+  const scaleLayer = clone.querySelector('#L_vfScale'); if (scaleLayer) scaleLayer.removeAttribute('transform'); // 아래 캔버스 확대와 중복 금지
   clone.querySelectorAll('#L_labels > g').forEach((g) => { if (g.dataset.id !== ld.id) g.remove(); });
   clone.querySelectorAll(`#L_labels > g[data-id="${ld.id}"] text`).forEach((t) => t.remove());   // 텍스트 제거 → 배경만
   clone.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
-  const W = Math.max(1, Math.round(box.w)), H = Math.max(1, Math.round(box.h));
+  const W = Math.max(1, Math.round(vfScaledSize(box.w))), H = Math.max(1, Math.round(vfScaledSize(box.h)));
   clone.setAttribute('width', W); clone.setAttribute('height', H);
   const fs = clone.querySelector('#fontStyle'); if (fs) fs.textContent = window.WANTED_FONT_CSS;
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
@@ -6323,7 +6418,10 @@ async function sendToAE() {
     // bottom→top 순서로 레이어 구성. 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
     const uploads = [], specLayers = [];
     const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
-    const addText = (name, t) => specLayers.push({ text: { content: aeArrow(t.txt || ''), x: t.x, y: t.y, size: t.size, col: t.col, align: t.align || 'start', track: t.track || 0, weight: t.w || 400 }, name });
+    const addText = (name, t) => {
+      const p = vfScaledPoint(t.x, t.y);
+      specLayers.push({ text: { content: aeArrow(t.txt || ''), x: p.x, y: p.y, size: vfScaledSize(t.size), col: t.col, align: t.align || 'start', track: vfScaledSize(t.track || 0), weight: t.w || 400 }, name });
+    };
     addImg('배경·지도', await aeBaseBlob());
     for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: AE_LEN });
     // 브러쉬 덧칠 — 색별 레이어(색칠 위, 경계선 아래). 매칭 색보다 살짝 먼저 들어옴(타임라인과 동일).
@@ -6343,9 +6441,11 @@ async function sendToAE() {
     for (const ld of labData) {
       li++;
       const fi = uploads.length; uploads.push(await aeLabelBgBlob(ld));
+      const p = vfScaledPoint(ld.cx, ld.cy), k = S.res === '1920x1080-vf' ? vfScaleValue() / 100 : 1;
       specLayers.push({
-        labelComp: { w: ld.w, h: ld.h, x: ld.cx, y: ld.cy, bg: 'f_' + String(fi).padStart(5, '0') + '.png', texts: ld.texts },
-        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: AE_LEN, rise: 26 },   // rise=아래서 올라오기(타임라인 동일)
+        labelComp: { w: vfScaledSize(ld.w), h: vfScaledSize(ld.h), x: p.x, y: p.y, bg: 'f_' + String(fi).padStart(5, '0') + '.png',
+          texts: ld.texts.map((t) => ({ ...t, size: t.size * k, track: t.track * k, cx: t.cx * k, cy: t.cy * k })) },
+        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: AE_LEN, rise: vfScaledSize(26) },   // rise=아래서 올라오기(타임라인 동일)
       });
     }
     for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);   // 제목=편집형 텍스트, 맨 위·정적
@@ -6362,7 +6462,7 @@ async function sendToAE() {
     const sh = S.shadow || {};
     const spec = {
       sid, comp: { name: 'WeatherCG_' + dateTag(), w: W, h: H, fps, dur },
-      vfEnter: (S.res === '1920x1080-vf') ? { start: ANIM_START, len: AE_LEN, dx: vfEnterDist() } : null,
+      vfEnter: (S.res === '1920x1080-vf') ? { start: ANIM_START, len: AE_LEN, dx: vfEnterDist() * vfScaleValue() / 100 } : null,
       shadow: { x: sh.x || 0, y: sh.y == null ? 8 : sh.y, blur: sh.blur == null ? 10 : sh.blur, op: sh.op == null ? 45 : sh.op, col: sh.col || '#000814' },
       layers: specLayers,
     };
@@ -6512,13 +6612,24 @@ async function saveProject(saveAs) {
 
 // 지금까지 저장한 모든 화면 기본배치를 default-presets.js 파일로 구워 낸다.
 // 그 파일을 WeatherCG 폴더에 두면 새로 받은 사람도(localStorage 비어 있을 때) 이 배치로 열린다.
+function normalizeBakedVfScales(presets) {
+  for (const group of ['common', 'warnsea']) {
+    const keys = [`1920x1080-vf|${group}|L`, `1920x1080-vf|${group}|D`];
+    const entries = keys.map((k) => presets[k]).filter((p) => p && typeof p === 'object');
+    if (!entries.length) continue;
+    const source = entries.find((p) => p.vfScale !== undefined);
+    const scale = clampVfScale(source ? source.vfScale : 100);
+    for (const p of entries) p.vfScale = scale;
+  }
+  return presets;
+}
 async function bakeDefaults() {
   // 굽기 직전에 '지금 보고 있는 화면'을 자동 저장한다 — 크기·색을 바꾸고 "현재 배치를 기본값으로"를
   // 깜빡해도 지금 화면 값이 그대로 담기게. (안 그러면 저장 안 한 변경은 굽기에서 빠진다.)
   savePreset();
   // '지금 유효한' 배치 전체(배포 기본배치 + 내가 저장한 화면)를 굽는다.
   // localStorage만 raw로 읽으면 내가 이번에 저장한 화면만 담겨, 나머지 배치가 통째로 사라진다.
-  const presets = loadPresets();
+  const presets = normalizeBakedVfScales(loadPresets());
   const keys = Object.keys(presets);
   if (!keys.length) { status('저장된 배치가 없습니다 — 각 화면에서 "현재 배치를 이 화면 기본값으로"를 먼저 누르세요', true); return; }
   // 지금 화면에 '강원 산지'(통보문 bul 산)가 있으면 그 위치를 경위도로 저장 → 자동 산지 기본 위치가 된다.
@@ -6811,10 +6922,17 @@ function wire() {
     if (!ok) return;
     pushUndo();
     localStorage.removeItem('wcg_presets');   // 로컬 덮어쓰기 제거 → loadPresets()가 WCG_DEFAULTS를 쓴다
+    S.vfScales = {};                         // 작업 중 공유값도 비워 배포 기본 VF 크기로 복귀
     applyPreset();
     status('모두의 기본 배치로 되돌렸습니다');
   };
   $('#bakeDefaults').onclick = bakeDefaults;
+  $('#vfScale').oninput = (e) => {
+    pushUndo('vfScale');
+    setVfScale(e.target.value);
+    $('#vfScaleV').textContent = S.vfScale + '%';
+    renderVfScale();
+  };
   // 노말 VF 제목 바 컨트롤
   $('#vfBarOn').onchange = (e) => { pushUndo(); (S.vfBar ||= {x:1140,y:150,w:640,h:110}).on = e.target.checked ? 1 : 0; renderVfBar(); };
   const vfw = (id, key) => { $(id).oninput = (e) => { pushUndo('vfbar'); (S.vfBar ||= {on:1,x:1140,y:150,w:640,h:110})[key] = Math.round(+e.target.value) || 0; renderVfBar(); }; };
