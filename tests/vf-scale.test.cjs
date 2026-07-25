@@ -16,6 +16,13 @@ test('VF scale contract clamps to 50..150 percent around the panel top-right', (
   assert.match(html, /function startVfScaleResize\(/);
 });
 
+test('VF panel clip scales with sea and background content', () => {
+  const applyClip = html.match(/function applyVfClip\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(applyClip, /const scaleLayer = document\.getElementById\('L_vfScale'\)/);
+  assert.match(applyClip, /scaleLayer\.setAttribute\('clip-path', 'url\(#vfClip\)'\)/);
+  assert.match(applyClip, /wrap\.removeAttribute\('clip-path'\)/);
+});
+
 test('VF scale has a 50..150 sidebar control', () => {
   assert.match(html, /id="vfScale"[^>]*min="50"[^>]*max="150"[^>]*step="1"/);
   assert.match(html, /id="vfScaleV"/);

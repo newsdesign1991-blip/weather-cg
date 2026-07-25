@@ -2788,13 +2788,15 @@ function startVfScaleResize(e) {
 function applyVfClip() {
   const vf = S.res === '1920x1080-vf' && S.showBg;
   const wrap = document.getElementById('L_vfWrap');
-  if (!wrap) return;
-  if (!vf) { wrap.removeAttribute('clip-path'); return; }
+  const scaleLayer = document.getElementById('L_vfScale');
+  if (!wrap || !scaleLayer) return;
+  wrap.removeAttribute('clip-path'); // 진입 애니 래퍼는 이동·페이드만 담당
+  if (!vf) { scaleLayer.removeAttribute('clip-path'); return; }
   computeVfPanelRect((r) => {
-    if (!r) { wrap.removeAttribute('clip-path'); return; }
+    if (!r) { scaleLayer.removeAttribute('clip-path'); return; }
     const rc = $('#vfClipRect');
     if (rc) { rc.setAttribute('x', r.x); rc.setAttribute('y', r.y); rc.setAttribute('width', r.w); rc.setAttribute('height', r.h); }
-    wrap.setAttribute('clip-path', 'url(#vfClip)');
+    scaleLayer.setAttribute('clip-path', 'url(#vfClip)');
   });
 }
 
