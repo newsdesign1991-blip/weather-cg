@@ -22,6 +22,15 @@
 <style id="fontEmbed"></style>
 <script>try { document.getElementById('fontEmbed').textContent = (window.WANTED_FONT_CSS || '').replace('font-display:block', 'font-display:swap'); } catch (e) {}</script>
 <style>
+  /* CG 출력 전용 글꼴. 편집기 UI는 아래 body의 Wanted Sans를 그대로 사용한다. */
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 300; src: url('FontNew/SUITE-Light.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 400; src: url('FontNew/SUITE-Regular.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 500; src: url('FontNew/SUITE-Medium.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 600; src: url('FontNew/SUITE-SemiBold.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 700; src: url('FontNew/SUITE-Bold.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 800; src: url('FontNew/SUITE-ExtraBold.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 900; src: url('FontNew/SUITE-Heavy.otf') format('opentype'); }
+
   * { box-sizing: border-box; }
 
   /* ===== 머티리얼 3 색 역할 =====
@@ -2826,7 +2835,7 @@ function renderTexts() {
     if (t.off) continue; // 눈 꺼짐 — 화면에도 추출에도 안 나온다
     const n = el('text', {
       class: 'drag', 'data-kind': 'text', 'data-id': t.id,
-      x: t.x, y: t.y, fill: t.col, 'font-family': '"Wanted Sans Variable"',
+      x: t.x, y: t.y, fill: t.col, 'font-family': '"SUITE CG", "Malgun Gothic", sans-serif',
       'font-size': t.size, 'font-weight': t.w, 'letter-spacing': t.track,
       'text-anchor': t.align, 'xml:space': 'preserve',
     });
@@ -2891,7 +2900,7 @@ function renderLegend() {
     const top = horiz ? 0 : i * (rowH + rowGap);
     grp.append(el('rect', { x: ox, y: top + (rowH - box) / 2, width: box, height: box, rx: g.radius || 0, ry: g.radius || 0, fill: it.col || '#FFFFFF' }));
     const t = el('text', {
-      x: ox + box + gap, y: top + rowH / 2, fill: g.txtCol || '#FFFFFF', 'font-family': '"Wanted Sans Variable"',
+      x: ox + box + gap, y: top + rowH / 2, fill: g.txtCol || '#FFFFFF', 'font-family': '"SUITE CG", "Malgun Gothic", sans-serif',
       'font-size': size, 'font-weight': g.weight || 600, 'dominant-baseline': 'central', 'letter-spacing': -0.5, 'xml:space': 'preserve',
     });
     t.textContent = it.txt || '';
@@ -2965,7 +2974,7 @@ function renderLabels() {
     // 텍스트 한 줄 만들기 헬퍼 (세로 중심 = yc)
     const mkText = (txt, fs, fw, yc) => {
       const t = el('text', {
-        fill: b.txtCol, 'font-family': '"Wanted Sans Variable"', 'font-size': fs,
+        fill: b.txtCol, 'font-family': '"SUITE CG", "Malgun Gothic", sans-serif', 'font-size': fs,
         'font-weight': fw, 'text-anchor': 'middle', 'letter-spacing': track, y: yc,
         'dominant-baseline': 'central', 'xml:space': 'preserve',
       });
@@ -3214,7 +3223,7 @@ function renderMtns() {
     if (m.txt) {
       const ts = m.txtSize * k;
       const t = el('text', {
-        fill: m.txtCol, 'font-family': '"Wanted Sans Variable"', 'font-size': ts,
+        fill: m.txtCol, 'font-family': '"SUITE CG", "Malgun Gothic", sans-serif', 'font-size': ts,
         'font-weight': 500, 'text-anchor': 'middle', 'letter-spacing': -0.5,
         y: ts + 2, 'xml:space': 'preserve',
       });
@@ -3753,7 +3762,7 @@ function inlineEdit(kind, id) {
   const fs = Math.max(12, r.height * 0.8);
   inp.style.cssText = `position:fixed; left:${r.left - 6}px; top:${r.top - 4}px;
     width:${Math.max(r.width + 40, 120)}px; height:${r.height + 8}px;
-    font-family:'Wanted Sans Variable',sans-serif; font-size:${fs}px; font-weight:${it.w == null ? 500 : it.w};
+    font-family:'SUITE CG','Malgun Gothic',sans-serif; font-size:${fs}px; font-weight:${it.w == null ? 500 : it.w};
     color:#fff !important; background:rgba(12,18,34,.96) !important; border:2px solid #3b82f6; border-radius:4px;
     padding:0 6px; z-index:9999; outline:none;`;
   document.body.append(inp);

@@ -47,3 +47,20 @@ test('baking normalizes VF scale and AE uses scale-aware coordinates', () => {
   assert.match(html, /function vfScaledSize\(/);
   assert.match(html, /vfEnter:[\s\S]*dx:\s*vfEnterDist\(\)\s*\*\s*vfScaleValue\(\)\s*\/\s*100/);
 });
+
+test('CG uses local SUITE weights while editor UI keeps Wanted Sans', () => {
+  const weights = [
+    ['300', 'Light'], ['400', 'Regular'], ['500', 'Medium'],
+    ['600', 'SemiBold'], ['700', 'Bold'], ['800', 'ExtraBold'], ['900', 'Heavy'],
+  ];
+  for (const [weight, file] of weights) {
+    assert.match(
+      html,
+      new RegExp(`@font-face\\s*\\{[^}]*font-family:\\s*['"]SUITE CG['"][^}]*font-weight:\\s*${weight}[^}]*FontNew/SUITE-${file}\\.otf`, 's'),
+    );
+  }
+  const bodyRule = html.match(/^\s*body\s*\{[^}]*\}/m)?.[0] || '';
+  assert.match(bodyRule, /font-family:\s*'Wanted Sans Variable'/);
+  assert.match(html, /'font-family':\s*'"SUITE CG"/);
+  assert.doesNotMatch(bodyRule, /font-family:\s*'SUITE CG'/);
+});
