@@ -110,3 +110,10 @@ test('output and map cards require an explicit apply action', () => {
   assert.match(html, /applyPendingRes[\s\S]*markStartStep\('res'\)[\s\S]*_closeMenu/);
   assert.match(html, /applyPendingStyle[\s\S]*markStartStep\('style'\)[\s\S]*_closeMenu/);
 });
+
+test('enabled apply buttons keep a high-contrast blue hover state', () => {
+  assert.match(
+    html,
+    /\.applyChoice:not\(:disabled\):hover\s*\{[^}]*background:\s*var\(--accent-grad,\s*var\(--primary\)\)[^}]*color:\s*var\(--on-primary\)/,
+  );
+});
