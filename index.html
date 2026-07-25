@@ -6477,15 +6477,18 @@ async function sendToAE() {
       shadow: { x: sh.x || 0, y: sh.y == null ? 8 : sh.y, blur: sh.blur == null ? 10 : sh.blur, op: sh.op == null ? 45 : sh.op, col: sh.col || '#000814' },
       layers: specLayers,
     };
+    exportProgress(uploads.length + 1, uploads.length + 1, 'AE 여는 중');
     const rr = await fetch(WNS_HELPER + '/api/ae', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(spec) });
     const jr = await rr.json().catch(() => ({}));
     if (!rr.ok || !jr.ok) throw new Error(jr.error || ('AE 실행 실패 ' + rr.status));
     status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다'); flashDone('AE로 보냄');
+    { const el = $('#tlInfo'); if (el) el.textContent = 'AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 열림'; }
     // AE가 켜지는 동안 재전송하면 '프로젝트 닫을까?' 창이 뜬다 → 잠깐 잠가 중복 전송 막기
     cooldown = true;
     if (btn) { const lbl = btn.textContent; btn.textContent = 'AE 여는 중…'; setTimeout(() => { btn.disabled = false; btn.textContent = lbl; }, 9000); }
   } catch (e) {
     status('AE 보내기 실패: ' + (e.message || e), true);
+    { const el = $('#tlInfo'); if (el) el.textContent = 'AE 보내기 실패'; }
   } finally { if (btn && !cooldown) btn.disabled = false; }
 }
 
