@@ -1,5 +1,6 @@
 # 웹(GitHub Pages) 배포에는 앱 실행 파일만 올린다. 개발·소스용은 제외.
 /ImageSources/
+/Preset_Location/
 /PSD/
 /build/
 /data/
