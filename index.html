@@ -294,8 +294,36 @@
   }
   button.pri:hover { filter: brightness(1.05); }
   button:disabled { opacity: .4; cursor: default; }
+  .choiceBtns button {
+    position: relative; overflow: visible;
+    transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s, background .2s, border-color .2s, color .2s;
+  }
+  .choiceBtns button.choicePending {
+    color: var(--on-primary); background: var(--accent-grad, var(--primary)); border-color: transparent;
+    transform: translateY(-4px) scale(1.025); box-shadow: 0 9px 22px -7px rgba(49,130,246,.72);
+    animation: choicePop .3s cubic-bezier(.2,1.35,.35,1);
+  }
+  .choiceBtns button.choicePending::after {
+    content: '✓'; position: absolute; top: -8px; right: -7px; width: 21px; height: 21px;
+    display: grid; place-items: center; border-radius: 50%; background: #fff; color: var(--primary);
+    border: 2px solid var(--primary); font-size: 12px; font-weight: 900;
+    animation: choiceCheck .32s cubic-bezier(.2,1.5,.35,1);
+  }
+  @keyframes choicePop { from { transform: translateY(1px) scale(.96); box-shadow: none; } }
+  @keyframes choiceCheck { from { opacity: 0; transform: scale(.3) rotate(-20deg); } }
+  .applyChoice {
+    width: 100%; min-height: 44px; margin-top: 12px; font-size: 13px; font-weight: 800;
+    background: var(--accent-grad, var(--primary)); color: var(--on-primary); border: none;
+  }
+  .applyChoice:not(:disabled) { animation: applyRise .28s cubic-bezier(.2,.9,.25,1); box-shadow: 0 7px 18px -8px rgba(49,130,246,.7); }
+  .applyChoice:disabled { background: var(--surface-hi); color: var(--on-surface-var); border: 1px solid var(--outline-var); opacity: .55; }
+  @keyframes applyRise { from { opacity: .35; transform: translateY(7px); } }
+  .presetManage { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--outline-var); }
+  .presetManageTitle { margin-bottom: 9px; color: var(--on-surface); font-size: 12px; font-weight: 800; }
+  .presetReset { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--outline-var); }
+  .presetResetTitle { margin-bottom: 8px; color: var(--danger); font-size: 11px; font-weight: 800; }
   /* 잘 안 쓰는 출력화면 버튼(날씨 팀) — 골라지지 않았을 때 흐리게(눈에 덜 띄게) */
-  #resBtns button.resDim:not(.pri) { opacity: .4; color: var(--on-surface-var); }
+  #resBtns button.resDim:not(.choicePending) { opacity: .4; color: var(--on-surface-var); }
   .btns { display: flex; gap: 7px; flex-wrap: wrap; }
   .btns > button { flex: 1; }
   .hint { color: var(--on-surface-var); line-height: 1.6; margin: 6px 0 0; white-space: pre-line; }
@@ -1046,19 +1074,24 @@
     <div class="sec pinned" data-sec="out0">
       <h3>출력 화면</h3>
       <div class="body">
-        <div class="btns" id="resBtns"></div>
-        <p class="hint" id="presetInfo"></p>
-        <div class="btns"><button id="savePreset">현재 배치를 이 화면 기본값으로</button></div>
-        <div class="btns" style="margin-top:14px"><button id="restoreDefaults" class="danger" title="이 브라우저에 내가 저장한 배치를 모두 지우고, 배포된 '모두의 기본 배치'로 되돌립니다 (다른 사람에겐 영향 없음)">기본값으로 배치</button></div>
-        <p class="hint" style="margin-top:6px">배치는 <b>내 브라우저에만</b> 저장돼요. 여기서 바꿔도 다른 사람 화면은 안 바뀝니다. 실수로 바꿨으면 위 버튼으로 되돌리세요.</p>
+        <div class="btns choiceBtns" id="resBtns"></div>
+        <button id="resApply" class="applyChoice" disabled>선택한 출력 화면 적용</button>
+        <div class="presetManage">
+          <div class="presetManageTitle">개인 배치 저장</div>
+          <div class="btns"><button id="savePreset">현재 배치를 이 화면 기본값으로 저장</button></div>
+          <div class="presetReset">
+            <div class="presetResetTitle">배포 기본값으로 초기화</div>
+            <div class="btns"><button id="restoreDefaults" class="danger" title="이 브라우저에 내가 저장한 배치를 모두 지우고, 배포된 '모두의 기본 배치'로 되돌립니다 (다른 사람에겐 영향 없음)">모든 개인 배치 지우고 초기화</button></div>
+          </div>
+        </div>
       </div>
     </div>
 
     <div class="sec pinned" data-sec="style">
       <h3>지도 종류</h3>
       <div class="body">
-        <div class="btns" id="styleBtns"></div>
-        <p class="hint">지도를 바꾸면 칠하기 단위가 달라집니다. 칠한 색은 종류별로 따로 기억됩니다.</p>
+        <div class="btns choiceBtns" id="styleBtns"></div>
+        <button id="styleApply" class="applyChoice" disabled>선택한 지도 적용</button>
       </div>
     </div>
 
@@ -2330,7 +2363,7 @@ function setStyle(name) {
   if (fctRows.length && (name === 'sgg' || name === 'sido')) paintFct();
 }
 function markStyleBtns() {
-  document.querySelectorAll('#styleBtns button').forEach((b) => b.classList.toggle('pri', b.dataset.style === S.style));
+  document.querySelectorAll('#styleBtns button').forEach((b) => b.classList.toggle('choicePending', b.dataset.style === pendingStyle));
 }
 // 어느 지도가 무엇에 쓰는 것인지. 이름만으론 특보용/예보용 구분이 안 된다.
 const STYLE_USE = { sgg: '날씨 예보용', sido: '날씨 예보용', warn: '기상특보용', warnsea: '기상특보용' };
@@ -2391,7 +2424,12 @@ function buildStyleBtns() {
     b.append(s);
     b.dataset.style = k;
     b.style.flex = '1 0 46%';
-    b.onclick = () => setStyle(k);
+    b.onclick = () => {
+      pendingStyle = k;
+      markStyleBtns();
+      const apply = $('#styleApply');
+      if (apply) apply.disabled = false;
+    };
     w.append(b);
   }
   markStyleBtns();
@@ -5487,12 +5525,7 @@ function applyPreset() {
   return true;
 }
 function showPresetInfo() {
-  const has = Object.keys(loadPresets());
-  const cur = presetKey();
-  $('#presetInfo').textContent =
-    `지금: ${presetLabel(cur)} ${has.includes(cur) ? '— 저장됨' : '— 아직 저장 안 됨'}` +
-    (has.length ? `\n저장된 배치: ${has.map(presetLabel).join(', ')}` : '') +
-    '\n배치는 [출력 화면 × 지도 종류 × 밝은/어두운]별로 따로 기억합니다. 색·폰트·위치 모두 포함.';
+  // 선택 메뉴를 간결하게 유지한다. 저장 여부 목록은 배치 동작과 무관해 표시하지 않는다.
 }
 
 // ===================== 추출 =====================
@@ -5505,6 +5538,7 @@ const RES = {
   // 날씨 팀 전용 — 크기는 노말 CG와 같은 1920x1080이지만 배치는 따로 기억한다. 잘 안 쓰는 옵션이라 흐리게(dim), 맨 오른쪽.
   '1920x1080-team': { size: [1920, 1080], label: '날씨 팀', dim: 1 },
 };
+let pendingRes = null, pendingStyle = null;
 
 function buildResBtns() {
   const w = $('#resBtns');
@@ -5518,7 +5552,7 @@ function buildResBtns() {
     b.dataset.res = k;
     if (v.dim) b.classList.add('resDim');   // 잘 안 쓰는 옵션(날씨 팀) — 흐리게
     b.style.cssText = 'flex:1;line-height:1.3;text-align:center;word-break:keep-all;padding-left:6px;padding-right:6px';
-    b.onclick = () => {
+    b._apply = () => {
       if (S.res === k) return;
       if (animT != null) { animStop(); animOff(); }   // 애니 프리뷰 중이었으면 종료 — VF 진입 슬라이드/페이드 잔재 제거
       pushUndo();
@@ -5537,12 +5571,38 @@ function buildResBtns() {
       if (typeof tlNote === 'function') tlNote();   // 해상도마다 렌더 안내가 다르다
       status(v.label);
     };
+    b.onclick = () => {
+      pendingRes = k;
+      markResBtns();
+      const apply = $('#resApply');
+      if (apply) apply.disabled = false;
+    };
     w.append(b);
   }
   markResBtns();
 }
 const markResBtns = () =>
-  document.querySelectorAll('#resBtns button').forEach((b) => b.classList.toggle('pri', b.dataset.res === S.res));
+  document.querySelectorAll('#resBtns button').forEach((b) => b.classList.toggle('choicePending', b.dataset.res === pendingRes));
+
+function applyPendingRes() {
+  if (!pendingRes) return;
+  const b = document.querySelector(`#resBtns button[data-res="${pendingRes}"]`);
+  if (!b || typeof b._apply !== 'function') return;
+  b._apply();
+  pendingRes = null;
+  markResBtns();
+  markStartStep('res');
+  if (_closeMenu) _closeMenu();
+}
+function applyPendingStyle() {
+  if (!pendingStyle) return;
+  const style = pendingStyle;
+  pendingStyle = null;
+  setStyle(style);
+  markStyleBtns();
+  markStartStep('style');
+  if (_closeMenu) _closeMenu();
+}
 
 // 평소엔 비어 있고, 알릴 게 있을 때만 잠깐 떴다가 사라진다.
 // hold=true면 다음 알림이 올 때까지 남긴다 (추출 중 같은 진행 표시용)
@@ -6937,6 +6997,8 @@ function wire() {
   setTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
   $('#theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
 
+  $('#resApply').onclick = applyPendingRes;
+  $('#styleApply').onclick = applyPendingStyle;
   $('#savePreset').onclick = async () => {
     const key = presetKey();
     // 내 브라우저에 '직접 저장'해 둔 배치가 있을 때만 덮어쓰기 경고(배포 기본배치와 구분)
@@ -8367,7 +8429,17 @@ function setupMenus() {
     updateDockBtn();
   }
   let openSec = null;
-  const close = () => { drop.classList.remove('on'); openSec = null; document.querySelectorAll('.menuBtn.on').forEach((b) => b.classList.remove('on')); };
+  const clearPendingChoices = () => {
+    pendingRes = null; pendingStyle = null;
+    markResBtns(); markStyleBtns();
+    if ($('#resApply')) $('#resApply').disabled = true;
+    if ($('#styleApply')) $('#styleApply').disabled = true;
+  };
+  const close = () => {
+    drop.classList.remove('on'); openSec = null;
+    document.querySelectorAll('.menuBtn.on').forEach((b) => b.classList.remove('on'));
+    clearPendingChoices();
+  };
   const openMenu = (sec, btn) => {
     if (openSec === sec) { close(); return; }
     close();
@@ -8406,8 +8478,6 @@ function markStartStep(which) {
   }
 }
 function setupStartScreen() {
-  $('#resBtns')?.addEventListener('click', (e) => { if (e.target.closest('button')) markStartStep('res'); });
-  $('#styleBtns')?.addEventListener('click', (e) => { if (e.target.closest('button')) markStartStep('style'); });
   const rb = $('#startResume');
   if (rb) rb.onclick = () => { const w = loadWork(); if (w) loadProjectData(w, null); };   // 직전 자동저장 작업 이어보기
   // (시작 화면 자동표시는 부팅의 freshOpen이 담당 — 여기선 안 띄운다)

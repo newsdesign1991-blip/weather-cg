@@ -92,3 +92,21 @@ test('a changed deployment default clears saved work and personal presets once',
   assert.equal(values.has('wcg_presets'), false);
   assert.match(html, /preferUpdatedDeploymentDefaults\(\);\s*\nconst freshOpen/);
 });
+
+test('output and map cards require an explicit apply action', () => {
+  assert.match(html, /id="resApply"[^>]*disabled/);
+  assert.match(html, /id="styleApply"[^>]*disabled/);
+  assert.match(html, /let pendingRes = null,\s*pendingStyle = null/);
+  const buildRes = html.match(/function buildResBtns\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+  const buildStyle = html.match(/function buildStyleBtns\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+  const resClick = buildRes.match(/b\.onclick = \(\) => \{[\s\S]*?\n\s*\};/)?.[0] || '';
+  const styleClick = buildStyle.match(/b\.onclick = \(\) => \{[\s\S]*?\n\s*\};/)?.[0] || '';
+  assert.match(resClick, /pendingRes = k/);
+  assert.doesNotMatch(resClick, /S\.res\s*=\s*k/);
+  assert.match(styleClick, /pendingStyle = k/);
+  assert.doesNotMatch(styleClick, /setStyle\(k\)/);
+  assert.match(html, /function applyPendingRes\(\)/);
+  assert.match(html, /function applyPendingStyle\(\)/);
+  assert.match(html, /applyPendingRes[\s\S]*markStartStep\('res'\)[\s\S]*_closeMenu/);
+  assert.match(html, /applyPendingStyle[\s\S]*markStartStep\('style'\)[\s\S]*_closeMenu/);
+});
