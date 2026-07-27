@@ -1846,7 +1846,8 @@ const DEFAULTS = () => ({
   fctColors: {},  // 예보문구 -> 색 (안 정하면 문구 보고 자동)
   seaFills: {}, seaBase: '#2A3A63', seaBaseOp: 30, seaCol: '#7E8AA8', seaW: 0.6,
   seaFade: 18, // 프레임 좌·우·하단에서 사라지는 폭 (%). 상단은 안 건드린다.
-  wrnColors: JSON.parse(JSON.stringify(WRN_COLORS)), // 특보 종류별 색 (수정 가능)
+  wrnColors: JSON.parse(JSON.stringify(WRN_COLORS)), // 특보 종류별 기본색 (주의보/경보 폴백)
+  wrnLevelColors: {}, // 들어온 특보에서 지정한 종류×정확한 단계별 색
   wrnOff: {},   // 목록에서 끈 특보 종류
   wrnProxy: '', // 프록시 주소를 넣으면 자동 가져오기가 열린다
   texts: [
@@ -4318,11 +4319,24 @@ function tmShort(t) {
   return `${+s.slice(4, 6)}/${+s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}`;
 }
 
-// 특보 하나의 색 — 종류 × 수준(주의보/경보)
+const wrnColorKey = (wrn, lvl) => String(wrn || '') + '|' + String(lvl || '');
+function ensureWrnLevelColors() {
+  if (!S.wrnLevelColors || typeof S.wrnLevelColors !== 'object' || Array.isArray(S.wrnLevelColors)) S.wrnLevelColors = {};
+  return S.wrnLevelColors;
+}
+// 특보 하나의 색 — 정확한 종류×단계 사용자색을 우선하고, 없으면 기존 주의보/경보 기본색
 function wrnColorOf(wrn, lvl) {
+  const exact = hex(ensureWrnLevelColors()[wrnColorKey(wrn, lvl)]);
+  if (exact) return exact;
   const c = S.wrnColors[wrn];
   if (!c) return null;
   return /경보/.test(lvl) ? c[1] : c[0];
+}
+function setWrnLevelColor(wrn, lvl, color) {
+  const value = hex(color);
+  if (!value) return false;
+  ensureWrnLevelColors()[wrnColorKey(wrn, lvl)] = value;
+  return true;
 }
 
 // 켜고 끄는 단위. 목록이 종류×수준으로 나오므로 키도 같이 가야 한다.
@@ -4500,9 +4514,8 @@ function buildWrnList() {
     // 발표시각이 구역마다 다르면 범위로 보여준다 ("7/12 16:00~7/15 10:00")
     const fc = a.fc0 === a.fc1 ? tmShort(a.fc0) : tmShort(a.fc0) + '~' + tmShort(a.fc1);
     // 이름(폭염경보 등)을 윗줄에 온전히, 발표시각은 아랫줄에 — 한 줄에 다 넣으면 이름이 1글자로 잘린다.
-    const cIdx = /경보/.test(a.lvl) ? 1 : 0;   // 경보=진한색[1], 주의보/그 외=[0]
     d.innerHTML = `<button class="eye${on ? '' : ' off'}"></button>` +
-      `<input type="color" class="wrnCol" style="width:24px;height:20px;flex:none" title="이 특보 색 바꾸기 (같은 종류 구역 전부 바뀜)">` +
+      `<input type="color" class="wrnCol" style="width:24px;height:20px;flex:none" title="이 특보 색 바꾸기 (같은 종류·단계 구역만 바뀜)">` +
       `<div style="flex:1;min-width:0">` +
         `<div class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>` +
         `<div class="fc" style="color:var(--on-surface-var);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>` +
@@ -4514,9 +4527,9 @@ function buildWrnList() {
     d.querySelector('.nm').style.opacity = on ? '' : '.45';
     const ci = d.querySelector('.wrnCol');
     ci.value = wrnColorOf(a.wrn, a.lvl) || '#666666';
-    ci.oninput = (e) => {   // 들어온 특보 색을 골라 그 종류 구역을 한 번에 바꾼다 (통보문 색칠처럼)
+    ci.oninput = (e) => {   // 들어온 특보의 정확한 종류×단계 색만 바꾼다
       pushUndo('wrncol' + key);
-      (S.wrnColors[a.wrn] ||= ['#C4C4C4', '#8C8C8C'])[cIdx] = e.target.value.toUpperCase();
+      setWrnLevelColor(a.wrn, a.lvl, e.target.value);
       paintWrn(); renderLegend();
     };
     d.querySelector('.eye').onclick = () => {
@@ -5360,7 +5373,7 @@ const PRESET_KEYS = ['map', 'insets', 'texts', 'labScale', 'mtnScale', 'cgLight'
   'txtShadow', 'labShadow',   // 제목·라벨 그림자 켬/끔도 화면(모드)별로 기억 (밝은 모드에서 뺀 게 유지되도록)
   // 바다(해상) 색·경계선도 화면별 룩에 포함 — '특보+해상' 화면의 바다 색/경계를 따로 기억한다.
   'seaCol', 'seaW', 'seaBase', 'seaBaseOp', 'seaFade',
-  'vfBar', 'vfScale', 'legend', 'wrnColors'];   // 노말 VF 제목 바·전체 크기 · 기상특보 범례 · 특보 종류별 색
+  'vfBar', 'vfScale', 'legend', 'wrnColors', 'wrnLevelColors'];   // 노말 VF 제목 바·전체 크기 · 기상특보 범례 · 특보 기본색·단계별 색
 
 // 배치는 [출력 화면] × [배치 그룹] × [밝은/어두운]으로 따로 기억한다.
 // '특보 + 해상'은 바다까지 담느라 지도를 줄여야 해서 배치가 완전히 다르다.
