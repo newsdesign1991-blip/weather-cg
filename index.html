@@ -5733,7 +5733,7 @@ function tossModal(opt) {
 }
 
 // ===================== 공지사항 =====================
-const NOTICE_SEEN_KEY = 'wcg_notice_seen', NOTICE_AUTH_KEY = 'wcg_notices', NOTICE_PW = '7989';
+const NOTICE_SEEN_KEY = 'wcg_notice_seen', NOTICE_AUTH_KEY = 'wcg_notices', NOTICE_DELETED_KEY = 'wcg_notice_deleted', NOTICE_PW = '7989';
 // 배포에 심는 기본 공지 — 모든 사용자에게 뜬다. (사용자가 쓴 공지는 그 브라우저 localStorage 에만 쌓인다)
 const SEED_NOTICES = [{
   id: '2026-07-24-aeexport', date: '2026.07.24', title: '새 기능 — AE로 보내기',
@@ -5756,9 +5756,29 @@ const SEED_NOTICES = [{
 }];
 function noticeSeenSet() { try { return new Set(JSON.parse(localStorage.getItem(NOTICE_SEEN_KEY) || '[]')); } catch (e) { return new Set(); } }
 function authoredNotices() { try { const a = JSON.parse(localStorage.getItem(NOTICE_AUTH_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-function allNotices() { const map = {}; for (const n of [...SEED_NOTICES, ...authoredNotices()]) if (n && n.id) map[n.id] = n; return Object.values(map).sort((a, b) => (a.id < b.id ? 1 : -1)); }  // 최신 먼저
+function deletedNoticeIds() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(NOTICE_DELETED_KEY) || '[]');
+    return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && id) : []);
+  } catch (e) { return new Set(); }
+}
+function allNotices() {
+  const deleted = deletedNoticeIds(), map = {};
+  for (const n of [...SEED_NOTICES, ...authoredNotices()]) if (n && n.id && !deleted.has(n.id)) map[n.id] = n;
+  return Object.values(map).sort((a, b) => (a.id < b.id ? 1 : -1));
+}  // 최신 먼저
 function unseenNotices() { const s = noticeSeenSet(); return allNotices().filter((n) => !s.has(n.id)); }
 function noticeMarkAllSeen() { localStorage.setItem(NOTICE_SEEN_KEY, JSON.stringify(allNotices().map((n) => n.id))); updateNoticeDot(); }
+function deleteNotice(id) {
+  if (!allNotices().some((notice) => notice.id === id)) return false;
+  localStorage.setItem(NOTICE_AUTH_KEY, JSON.stringify(authoredNotices().filter((notice) => notice && notice.id !== id)));
+  const deleted = deletedNoticeIds(); deleted.add(id);
+  localStorage.setItem(NOTICE_DELETED_KEY, JSON.stringify([...deleted]));
+  const seen = noticeSeenSet(); seen.delete(id);
+  localStorage.setItem(NOTICE_SEEN_KEY, JSON.stringify([...seen]));
+  updateNoticeDot();
+  return true;
+}
 // 공지 날짜("YYYY.MM.DD") 파싱
 function parseNoticeDate(s) { const m = /^(\d{4})\.(\d{1,2})\.(\d{1,2})/.exec(String(s || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
 // 만든 지 7일 이내면 '최근' — 읽었어도 빨간 점 유지
