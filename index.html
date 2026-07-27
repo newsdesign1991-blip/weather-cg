@@ -385,6 +385,25 @@
   .item .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px var(--outline); }
   .item .x { color: var(--on-surface-var); padding: 0 3px; }
   .item .x:hover { color: var(--danger); }
+  .wrnItem { position: relative; margin-bottom: 6px; }
+  .wrnItem.dragging { opacity: .42; }
+  .wrnItem.drop-before::before,
+  .wrnItem.drop-after::after {
+    content: ''; position: absolute; left: 7px; right: 7px; height: 3px;
+    border-radius: 3px; background: var(--primary); z-index: 4;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 22%, transparent);
+    pointer-events: none;
+  }
+  .wrnItem.drop-before::before { top: -5px; }
+  .wrnItem.drop-after::after { bottom: -5px; }
+  .wrnItem.drop-before .wrnDrag::after,
+  .wrnItem.drop-after .wrnDrag::after {
+    content: ''; position: absolute; left: 50%; margin-left: -5px;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    pointer-events: none; z-index: 5;
+  }
+  .wrnItem.drop-before .wrnDrag::after { top: -6px; border-top: 6px solid var(--primary); }
+  .wrnItem.drop-after .wrnDrag::after { bottom: -6px; border-bottom: 6px solid var(--primary); }
   .empty { color: var(--on-surface-var); padding: 8px 0; }
 
   /* 사이드바를 오른쪽 끝에 붙인 상태 */
@@ -4406,6 +4425,16 @@ function moveWrnOrder(order, from, to) {
   next.splice(to, 0, item);
   return next;
 }
+function wrnDropIndex(from, over, after, length) {
+  let insertion = Math.max(0, Math.min(length, over + (after ? 1 : 0)));
+  if (from < insertion) insertion--;
+  return Math.max(0, Math.min(length - 1, insertion));
+}
+function clearWrnDragFeedback(container) {
+  container.querySelectorAll('.dragging,.drop-before,.drop-after').forEach((node) => {
+    node.classList.remove('dragging', 'drop-before', 'drop-after');
+  });
+}
 function defaultWrnOrder(rows, warningTypes) {
   const typeRank = new Map(warningTypes.map((name, i) => [name, i]));
   const unique = new Map();
@@ -4587,12 +4616,15 @@ function buildWrnList() {
   head.className = 'subhead';
   head.innerHTML = '들어온 특보 <span>· 위에 있을수록 우선 (겹치면 이김)</span>';
   w.append(head);
+  w.ondragleave = (e) => {
+    if (!e.relatedTarget || !w.contains(e.relatedTarget)) clearWrnDragFeedback(w);
+  };
 
   for (const [listIndex, a] of list.entries()) {
     const key = wrnKeyOf(a);
     const on = !S.wrnOff[key];
     const d = document.createElement('div');
-    d.className = 'item';
+    d.className = 'item wrnItem';
     // 발표시각이 구역마다 다르면 범위로 보여준다 ("7/12 16:00~7/15 10:00")
     const fc = a.fc0 === a.fc1 ? tmShort(a.fc0) : tmShort(a.fc0) + '~' + tmShort(a.fc1);
     // 이름(폭염경보 등)을 윗줄에 온전히, 발표시각은 아랫줄에 — 한 줄에 다 넣으면 이름이 1글자로 잘린다.
@@ -4625,14 +4657,25 @@ function buildWrnList() {
       drag.ondragstart = (e) => {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', String(listIndex));
+        d.classList.add('dragging');
       };
-      d.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+      drag.ondragend = () => clearWrnDragFeedback(w);
+      d.ondragover = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        w.querySelectorAll('.drop-before,.drop-after').forEach((node) => node.classList.remove('drop-before', 'drop-after'));
+        const rect = d.getBoundingClientRect();
+        d.classList.add(e.clientY >= rect.top + rect.height / 2 ? 'drop-after' : 'drop-before');
+      };
       d.ondrop = (e) => {
         e.preventDefault();
         const from = Number(e.dataTransfer.getData('text/plain'));
-        if (!Number.isInteger(from) || from === listIndex) return;
+        const rect = d.getBoundingClientRect();
+        const to = wrnDropIndex(from, listIndex, e.clientY >= rect.top + rect.height / 2, list.length);
+        clearWrnDragFeedback(w);
+        if (!Number.isInteger(from) || from === to) return;
         pushUndo();
-        wrnOrder = moveWrnOrder(list.map(wrnKeyOf), from, listIndex);
+        wrnOrder = moveWrnOrder(list.map(wrnKeyOf), from, to);
         buildWrnList(); paintWrn();
       };
     }

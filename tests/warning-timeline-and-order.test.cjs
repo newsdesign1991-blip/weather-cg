@@ -74,6 +74,21 @@ test('existing warning priority is used by default and a drag move only changes 
   assert.deepEqual(incoming, ['강풍|주의보', '폭염|경보', '호우|경보']);
 });
 
+test('warning drop index matches the visible before or after guide', () => {
+  const { wrnDropIndex } = timelineContext();
+  assert.equal(wrnDropIndex(0, 2, false, 4), 1);
+  assert.equal(wrnDropIndex(0, 2, true, 4), 2);
+  assert.equal(wrnDropIndex(3, 1, false, 4), 1);
+  assert.equal(wrnDropIndex(3, 1, true, 4), 2);
+});
+
+test('warning rows expose drag guides and six pixel separation', () => {
+  assert.match(html, /\.wrnItem\s*\{[^}]*margin-bottom:\s*6px/s);
+  assert.match(html, /\.wrnItem\.drop-before::before/);
+  assert.match(html, /\.wrnItem\.drop-after::after/);
+  assert.match(html, /\.wrnItem\.dragging/);
+});
+
 test('warning API requests effective-time status', () => {
   assert.match(html, /wrn_now_data\.php\?fe=e&tm=\{TM\}/);
 });
