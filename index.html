@@ -4439,10 +4439,13 @@ function defaultWrnOrder(rows, warningTypes) {
   const typeRank = new Map(warningTypes.map((name, i) => [name, i]));
   const unique = new Map();
   const keyOf = (r) => `${r.wrn}|${r.lvl}`;
+  const levelRank = (r) => (r.wrn === '폭염' && /중대경보/.test(r.lvl))
+    ? -1
+    : (/경보/.test(r.lvl) ? 0 : 1);
   for (const r of rows) if (!unique.has(keyOf(r))) unique.set(keyOf(r), r);
   return Array.from(unique.values())
     .sort((a, b) => ((typeRank.get(a.wrn) ?? 999) - (typeRank.get(b.wrn) ?? 999))
-      || ((/경보/.test(a.lvl) ? 0 : 1) - (/경보/.test(b.lvl) ? 0 : 1)))
+      || (levelRank(a) - levelRank(b)))
     .map(keyOf);
 }
 

@@ -74,6 +74,19 @@ test('existing warning priority is used by default and a drag move only changes 
   assert.deepEqual(incoming, ['강풍|주의보', '폭염|경보', '호우|경보']);
 });
 
+test('major heat warning is above heat warning in the default priority', () => {
+  const { defaultWrnOrder } = timelineContext();
+  const rows = [
+    { wrn: '폭염', lvl: '경보' },
+    { wrn: '폭염', lvl: '중대경보' },
+    { wrn: '폭염', lvl: '주의보' },
+  ];
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(defaultWrnOrder(rows, ['폭염']))),
+    ['폭염|중대경보', '폭염|경보', '폭염|주의보'],
+  );
+});
+
 test('warning drop index matches the visible before or after guide', () => {
   const { wrnDropIndex } = timelineContext();
   assert.equal(wrnDropIndex(0, 2, false, 4), 1);
