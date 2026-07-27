@@ -1012,10 +1012,13 @@
   .tossPath { margin-top: 14px; padding: 11px 14px; background: var(--surface-hi, #f2f4f8); border-radius: 10px; font-size: 13px; color: var(--on-surface-var, #556); word-break: break-all; }
   /* 공지 목록·작성 */
   .ntList { display: flex; flex-direction: column; gap: 12px; }
-  .ntItem { border: 1px solid var(--outline-var, #e5e7eb); border-radius: 14px; padding: 14px 16px; background: var(--surface-hi, #f7f9fc); }
+  .ntItem { position: relative; border: 1px solid var(--outline-var, #e5e7eb); border-radius: 14px; padding: 14px 52px 14px 16px; background: var(--surface-hi, #f7f9fc); }
   .ntItem .d { font-size: 12px; color: var(--on-surface-var, #6b7280); font-weight: 700; margin-bottom: 4px; }
   .ntItem .t { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: var(--on-surface, #111); }
   .ntItem .b { font-size: 14px; line-height: 1.6; color: var(--on-surface, #111); }
+  .ntDelete { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid rgba(229,72,77,.28); border-radius: 9px; background: rgba(229,72,77,.08); color: #E5484D; cursor: pointer; }
+  .ntDelete:hover { background: #E5484D; color: #fff; border-color: #E5484D; }
+  .ntDelete:focus-visible { outline: 3px solid rgba(229,72,77,.28); outline-offset: 2px; }
   .ntEmpty { color: var(--on-surface-var, #6b7280); text-align: center; padding: 26px 0; }
   .ntForm label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 5px; color: var(--on-surface, #111); }
   .ntForm input, .ntForm textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--outline-var, #d1d5db); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: var(--surface, #fff); color: var(--on-surface, #111); margin-bottom: 12px; }
@@ -5786,7 +5789,8 @@ function noticeIsRecent(n) { const d = parseNoticeDate(n && n.date); return d ? 
 function updateNoticeDot() { const b = $('#noticeBtn'); if (b) b.classList.toggle('hasNew', unseenNotices().length > 0 || allNotices().some(noticeIsRecent)); }
 function noticeItemHTML(n) {
   const body = n.body || '';   // 저장 시 이미 정제됨(작성자=관리자만 7989로 작성)
-  return `<div class="ntItem"><div class="d">${(n.date || '').replace(/</g, '&lt;')}</div><div class="t">${(n.title || '').replace(/</g, '&lt;')}</div><div class="b">${body}</div></div>`;
+  const id = encodeURIComponent(String(n.id || ''));
+  return `<div class="ntItem"><button class="ntDelete" type="button" data-notice-delete="${id}" title="공지 삭제" aria-label="공지 삭제"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M7 21a2 2 0 0 1-2-2V6h14v13a2 2 0 0 1-2 2H7zM9 9v8h2V9H9zm4 0v8h2V9h-2zm1-6 1 1h4v2H5V4h4l1-1h4z"/></svg></button><div class="d">${(n.date || '').replace(/</g, '&lt;')}</div><div class="t">${(n.title || '').replace(/</g, '&lt;')}</div><div class="b">${body}</div></div>`;
 }
 // 공지 하나를 팝업으로 (부팅 자동 안내). 닫으면 전부 읽음 처리 → 다시 안 뜬다.
 function openNoticePopup(n) {
@@ -5807,7 +5811,21 @@ function openNoticeHistory() {
   write.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M4 20h4L18 10l-4-4L4 16v4zM16.5 3.5l4 4L18.8 9.2l-4-4L16.5 3.5z"/></svg>';
   write.onclick = openNoticeWrite;
   m.head.appendChild(write);
+  m.body.onclick = (e) => {
+    const button = e.target.closest('[data-notice-delete]');
+    if (!button || !m.body.contains(button)) return;
+    requestNoticeDelete(decodeURIComponent(button.dataset.noticeDelete || ''));
+  };
   noticeMarkAllSeen();   // 히스토리를 열면 전부 읽음
+}
+function requestNoticeDelete(id) {
+  const pw = prompt('공지 삭제 비밀번호를 입력하세요');
+  if (pw == null) return;
+  if (pw !== NOTICE_PW) { flash('비밀번호가 틀립니다'); return; }
+  if (!confirm('이 공지를 삭제할까요?')) return;
+  if (!deleteNotice(id)) { flash('삭제할 공지를 찾지 못했어요'); return; }
+  flash('공지를 삭제했어요');
+  openNoticeHistory();
 }
 // 공지 작성 — 비번 7989 확인 후 제목·내용 입력. 저장하면 다음 실행 때 팝업으로 뜬다.
 function openNoticeWrite() {
