@@ -135,6 +135,33 @@ test('a changed deployment default clears saved work and personal presets once',
   assert.match(html, /preferUpdatedDeploymentDefaults\(\);\s*\nconst freshOpen/);
 });
 
+test('legacy passive 100 percent VF scales are removed from autosaved work once', () => {
+  const block = html.match(/const VF_SCALE_MIGRATION_KEY[\s\S]*?function migrateLegacyVfScaleState\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+  const values = new Map([[
+    'wcg_work',
+    JSON.stringify({
+      map: { x: 1, y: 2, s: 1 },
+      vfScale: 100,
+      vfScales: { common: 100, warnsea: 83 },
+      texts: [{ id: 'keep-me' }],
+    }),
+  ]]);
+  const context = {
+    localStorage: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+    },
+  };
+  vm.runInNewContext(`const WORK_KEY = 'wcg_work';\n${block}\nthis.runMigration = migrateLegacyVfScaleState;`, context);
+
+  assert.equal(context.runMigration(), true);
+  const migrated = JSON.parse(values.get('wcg_work'));
+  assert.equal('common' in migrated.vfScales, false);
+  assert.equal(migrated.vfScales.warnsea, 83);
+  assert.equal(migrated.texts[0].id, 'keep-me');
+  assert.equal(context.runMigration(), false);
+});
+
 test('output and map cards require an explicit apply action', () => {
   assert.match(html, /id="resApply"[^>]*disabled/);
   assert.match(html, /id="styleApply"[^>]*disabled/);

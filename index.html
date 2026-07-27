@@ -5484,7 +5484,27 @@ function loadPresets() {
 // 새로고침하거나 브라우저를 닫았다 열어도 그대로 이어서 한다.
 const WORK_KEY = 'wcg_work';
 const DEPLOY_DEFAULTS_KEY = 'wcg_deployment_defaults_signature';
+const VF_SCALE_MIGRATION_KEY = 'wcg_vf_scale_state_v2';
 let lastWork = '';
+function migrateLegacyVfScaleState() {
+  try {
+    if (localStorage.getItem(VF_SCALE_MIGRATION_KEY)) return false;
+    const raw = localStorage.getItem(WORK_KEY);
+    let changed = false;
+    if (raw) {
+      const work = JSON.parse(raw);
+      const scales = work && work.vfScales;
+      if (scales && typeof scales === 'object' && !Array.isArray(scales)) {
+        for (const group of ['common', 'warnsea']) {
+          if (Number(scales[group]) === 100) { delete scales[group]; changed = true; }
+        }
+        if (changed) localStorage.setItem(WORK_KEY, JSON.stringify(work));
+      }
+    }
+    localStorage.setItem(VF_SCALE_MIGRATION_KEY, '1');
+    return changed;
+  } catch (e) { return false; }
+}
 function deploymentDefaultsSignature() {
   const defaults = window.WCG_DEFAULTS;
   if (!defaults || typeof defaults !== 'object' || !Object.keys(defaults).length) return '';
@@ -8754,6 +8774,7 @@ renderAll();
 
 // 앱을 '새 창으로 켜면'(=이 창 세션의 첫 실행) 늘 빈 화면(시작 안내)으로 시작한다.
 // 지난 지도를 자동으로 띄우지 않는다. 새로고침(F5)일 때만(=세션 플래그 있음) 하던 작업을 이어 붙인다.
+migrateLegacyVfScaleState();   // 옛 빌드가 일반 화면에서 자동 생성한 VF 100% 값을 한 번만 제거
 preferUpdatedDeploymentDefaults();
 const freshOpen = !sessionStorage.getItem('wcg_open');
 sessionStorage.setItem('wcg_open', '1');
