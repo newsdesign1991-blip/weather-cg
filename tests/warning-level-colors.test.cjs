@@ -118,6 +118,28 @@ test('warning level colors participate in screen presets and baked defaults', ()
   assert.equal(context.__presetKeys.includes('wrnLevelColors'), true);
 });
 
+test('a legacy full preset clears exact-level colors from the previous screen', () => {
+  const context = createWarningContext();
+  context.__state.wrnLevelColors = { '폭염|중대경보': '#550000' };
+
+  context.applyPresetWarningColors({ wrnColors: { 폭염: ['#F57C00', '#FA2E1E'] } }, true);
+
+  assert.equal(JSON.stringify(context.__state.wrnLevelColors), '{}');
+});
+
+test('a full preset refreshes warning controls, list, and active map colors', () => {
+  const context = createWarningContext();
+  const calls = [];
+  context.buildWrnCols = () => calls.push('columns');
+  context.buildWrnList = () => calls.push('list');
+  context.paintWrn = () => calls.push('paint');
+  context.wrnRows = [{ wrn: '폭염', lvl: '경보' }];
+
+  context.refreshWarningColorsAfterPreset(true);
+
+  assert.deepEqual(calls, ['columns', 'list', 'paint']);
+});
+
 test('incoming warning color input changes only its exact warning level', () => {
   const { context, list } = createWarningEditorContext();
   context.__setWrnRows([

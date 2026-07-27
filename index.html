@@ -4338,6 +4338,25 @@ function setWrnLevelColor(wrn, lvl, color) {
   ensureWrnLevelColors()[wrnColorKey(wrn, lvl)] = value;
   return true;
 }
+function normalizedWrnLevelColors(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out = {};
+  for (const [key, color] of Object.entries(value)) {
+    const valid = typeof key === 'string' && key.includes('|') ? hex(color) : null;
+    if (valid) out[key] = valid;
+  }
+  return out;
+}
+function applyPresetWarningColors(preset, full) {
+  if (!full) return;
+  S.wrnLevelColors = normalizedWrnLevelColors(preset && preset.wrnLevelColors);
+}
+function refreshWarningColorsAfterPreset(full) {
+  if (!full) return;
+  buildWrnCols();
+  buildWrnList();
+  if (wrnRows.length) paintWrn();
+}
 
 // 켜고 끄는 단위. 목록이 종류×수준으로 나오므로 키도 같이 가야 한다.
 // (종류만으로 키를 잡으면 '호우 예비'를 끌 때 '호우 주의보'까지 같이 꺼진다.)
@@ -5517,6 +5536,7 @@ function applyPreset() {
   if (!p) { showPresetInfo(); return false; }
   if (full) {
     for (const k of PRESET_KEYS) if (p[k] !== undefined) S[k] = JSON.parse(JSON.stringify(p[k]));   // 0·false 값도 복원
+    applyPresetWarningColors(p, true);   // 옛 프리셋에 단계별 색이 없으면 이전 화면의 색을 남기지 않는다
   } else {
     // 폴백: 위치만 가져오고 색은 지금 모드 것 유지. 텍스트도 위치만 병합(색·굵기 유지).
     for (const k of ['map', 'insets', 'labScale', 'mtnScale']) if (p[k] !== undefined) S[k] = JSON.parse(JSON.stringify(p[k]));
@@ -5541,6 +5561,7 @@ function applyPreset() {
   applyVfDefaults();   // VF면 라벨 92%·산 70% 강제(프리셋에 옛 128이 있어도)
   sel = []; bgUseFile = 0;
   markCgMode(); buildBgBtns(); syncPanelFromState(); renderAll();
+  refreshWarningColorsAfterPreset(full);   // 배치 색 적용 직후 목록·지도·범례를 같은 상태로 맞춘다
   showPresetInfo();
   status(full ? `${presetLabel(key)} 배치 적용됨` : `${presetLabel(key)} — 위치만 다른 배치에서 가져옴`);
   return true;
