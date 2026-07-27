@@ -162,6 +162,39 @@ test('legacy passive 100 percent VF scales are removed from autosaved work once'
   assert.equal(context.runMigration(), false);
 });
 
+test('legacy autosave already on VF resumes with its deployment default scale', () => {
+  const block = html.match(/const VF_SCALE_MIGRATION_KEY[\s\S]*?function migrateLegacyVfScaleState\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+  const values = new Map([[
+    'wcg_work',
+    JSON.stringify({
+      res: '1920x1080-vf',
+      style: 'warnsea',
+      cgLight: 0,
+      map: { x: 1, y: 2, s: 1 },
+      vfScale: 100,
+      vfScales: { warnsea: 100 },
+    }),
+  ]]);
+  const context = {
+    window: {
+      WCG_DEFAULTS: {
+        '1920x1080-vf|common|D': { vfScale: 86 },
+        '1920x1080-vf|warnsea|D': { vfScale: 83 },
+      },
+    },
+    localStorage: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+    },
+  };
+  vm.runInNewContext(`const WORK_KEY = 'wcg_work';\n${block}\nthis.runMigration = migrateLegacyVfScaleState;`, context);
+
+  assert.equal(context.runMigration(), true);
+  const migrated = JSON.parse(values.get('wcg_work'));
+  assert.deepEqual(migrated.vfScales, {});
+  assert.equal(migrated.vfScale, 83);
+});
+
 test('output and map cards require an explicit apply action', () => {
   assert.match(html, /id="resApply"[^>]*disabled/);
   assert.match(html, /id="styleApply"[^>]*disabled/);

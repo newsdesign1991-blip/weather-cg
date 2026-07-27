@@ -5486,6 +5486,14 @@ const WORK_KEY = 'wcg_work';
 const DEPLOY_DEFAULTS_KEY = 'wcg_deployment_defaults_signature';
 const VF_SCALE_MIGRATION_KEY = 'wcg_vf_scale_state_v2';
 let lastWork = '';
+function deploymentVfScaleForWork(work) {
+  const group = work && work.style === 'warnsea' ? 'warnsea' : 'common';
+  const mode = work && work.cgLight ? 'L' : 'D';
+  const key = `1920x1080-vf|${group}|${mode}`;
+  const preset = window.WCG_DEFAULTS && window.WCG_DEFAULTS[key];
+  const value = Number(preset && preset.vfScale);
+  return Number.isFinite(value) ? Math.max(50, Math.min(150, Math.round(value))) : 100;
+}
 function migrateLegacyVfScaleState() {
   try {
     if (localStorage.getItem(VF_SCALE_MIGRATION_KEY)) return false;
@@ -5495,9 +5503,16 @@ function migrateLegacyVfScaleState() {
       const work = JSON.parse(raw);
       const scales = work && work.vfScales;
       if (scales && typeof scales === 'object' && !Array.isArray(scales)) {
+        const currentGroup = work.style === 'warnsea' ? 'warnsea' : 'common';
+        let removedCurrent = false;
         for (const group of ['common', 'warnsea']) {
-          if (Number(scales[group]) === 100) { delete scales[group]; changed = true; }
+          if (Number(scales[group]) === 100) {
+            delete scales[group];
+            changed = true;
+            if (group === currentGroup) removedCurrent = true;
+          }
         }
+        if (removedCurrent && work.res === '1920x1080-vf') work.vfScale = deploymentVfScaleForWork(work);
         if (changed) localStorage.setItem(WORK_KEY, JSON.stringify(work));
       }
     }
