@@ -6627,7 +6627,9 @@ async function aeBaseBlob() {
     c.querySelectorAll('#L_labels > g').forEach((g) => g.remove());
     c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());
     c.querySelector('#L_mtn')?.remove();     // 산은 색칠 위 별도 레이어로 (덮임 방지)
+    c.querySelector('#L_vfBar')?.remove();   // 제목 바는 지도·경계선 위 별도 레이어로
     c.querySelector('#L_title')?.remove();    // 제목은 AE 편집형 텍스트 레이어로
+    c.querySelector('#L_legend')?.remove();  // 범례는 AE 편집형 Shape/Text 프리컴프로
     // 시도/시군 선은 색칠 위에 얹을 별도 레이어로 → base에선 뺀다(안 그러면 색칠이 선을 덮음)
     c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
     c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
@@ -6731,6 +6733,53 @@ function aeLabelCompData() {
   }
   return out;
 }
+// VF 제목 바만 투명 PNG로. 지도·경계선보다 나중에 추가해 한반도가 바 위로 올라오지 않게 한다.
+async function aeVfBarBlob() {
+  return svgBlob((c) => keepLayers(c, ['L_vfBar']));
+}
+// 화면에 실제 렌더된 범례를 AE 편집형 프리컴프 계약으로 바꾼다.
+// 문자열 폭을 다시 추정하지 않고 SVG getBBox 실측값을 써서 자동/수동 배치를 그대로 보존한다.
+function aeLegendCompData() {
+  if (!S.legend || !S.legend.on) return null;
+  const grp = document.querySelector('#L_legend g[data-kind="legend"]');
+  if (!grp) return null;
+  const rects = Array.from(grp.querySelectorAll('rect'));
+  const texts = Array.from(grp.querySelectorAll('text'));
+  if (!rects.length || rects.length !== texts.length) return null;
+  let bb;
+  try { bb = grp.getBBox(); } catch (e) { return null; }
+  if (!bb || !(bb.width > 0) || !(bb.height > 0)) return null;
+  const tf = grp.transform && grp.transform.baseVal && grp.transform.baseVal.consolidate
+    ? grp.transform.baseVal.consolidate() : null;
+  const ox = tf ? tf.matrix.e : 0, oy = tf ? tf.matrix.f : 0;
+  const k = S.res === '1920x1080-vf' ? vfScaleValue() / 100 : 1;
+  const center = vfScaledPoint(ox + bb.x + bb.width / 2, oy + bb.y + bb.height / 2);
+  const items = rects.map((r, i) => {
+    const t = texts[i], tb = t.getBBox();
+    const content = t.textContent || '';
+    return {
+      name: content.trim() || `범례 ${i + 1}`,
+      shape: {
+        x: (+r.getAttribute('x') - bb.x) * k,
+        y: (+r.getAttribute('y') - bb.y) * k,
+        w: (+r.getAttribute('width')) * k,
+        h: (+r.getAttribute('height')) * k,
+        radius: (+r.getAttribute('rx') || 0) * k,
+        fill: r.getAttribute('fill') || '#FFFFFF',
+      },
+      text: {
+        content: aeArrow(content),
+        x: (tb.x - bb.x) * k,
+        centerY: (tb.y + tb.height / 2 - bb.y) * k,
+        size: (+t.getAttribute('font-size') || 30) * k,
+        weight: parseInt(t.getAttribute('font-weight') || '600', 10),
+        track: (+t.getAttribute('letter-spacing') || 0) * k,
+        fill: t.getAttribute('fill') || '#FFFFFF',
+      },
+    };
+  });
+  return { w: bb.width * k, h: bb.height * k, x: center.x, y: center.y, items };
+}
 async function sendToAE() {
   const A = anim();
   let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
@@ -6780,7 +6829,13 @@ async function sendToAE() {
         name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: AE_LEN, rise: vfScaledSize(26) },   // rise=아래서 올라오기(타임라인 동일)
       });
     }
+    if (S.res === '1920x1080-vf' && S.vfBar && S.vfBar.on) addImg('VF_제목바', await aeVfBarBlob());
     for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);   // 제목=편집형 텍스트, 맨 위·정적
+    if (S.legend && S.legend.on) {
+      const legendComp = aeLegendCompData();
+      if (!legendComp) throw new Error('범례 레이어 측정 실패 — 화면을 새로고침한 뒤 다시 보내 주세요');
+      specLayers.push({ legendComp, name: '범례' });
+    }
     let end = start0;
     for (const l of specLayers) if (l.fade) end = Math.max(end, l.fade.start + l.fade.len);
     if (S.res === '1920x1080-vf') end = Math.max(end, ANIM_START + AE_LEN);
