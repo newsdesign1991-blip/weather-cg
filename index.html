@@ -1847,7 +1847,7 @@ const DEFAULTS = () => ({
   seaFills: {}, seaBase: '#2A3A63', seaBaseOp: 30, seaCol: '#7E8AA8', seaW: 0.6,
   seaFade: 18, // 프레임 좌·우·하단에서 사라지는 폭 (%). 상단은 안 건드린다.
   wrnColors: JSON.parse(JSON.stringify(WRN_COLORS)), // 특보 종류별 기본색 (주의보/경보 폴백)
-  wrnLevelColors: {}, // 들어온 특보에서 지정한 종류×정확한 단계별 색
+  wrnLevelColors: { '폭염|중대경보': '#8B0000' }, // 들어온 특보에서 지정한 종류×정확한 단계별 색
   wrnOff: {},   // 목록에서 끈 특보 종류
   wrnProxy: '', // 프록시 주소를 넣으면 자동 가져오기가 열린다
   texts: [
@@ -2699,7 +2699,7 @@ function renderVfBar() {
   if (layer) layer.style.display = show ? '' : 'none';
   if (show && layer) {
     const img = $('#vfBarImg'); if (img) img.setAttribute('href', IMG[bgKey()] || IMG.bgVfDark || '');
-    const av = vfAutoLegend();   // 특보 3+면 바를 아래로 확장해 가로 범례가 들어갈 띠를 만든다
+    const av = vfExpandedLegend();   // 범례 3+면 바를 아래로 확장해 가로 범례가 들어갈 띠를 만든다
     const barH = av ? b.h + av.extraH : b.h;
     const rc = $('#vfBarRect'); if (rc) { rc.setAttribute('x', b.x); rc.setAttribute('y', b.y); rc.setAttribute('width', Math.max(1, b.w)); rc.setAttribute('height', Math.max(1, barH)); }
     // 그림자 + 배경 패널로 클립(그림자가 패널 밖으로 안 나가게). 패널 사각형은 vfClip 공유.
@@ -2717,7 +2717,7 @@ function renderVfBar() {
   renderLegend();   // 바 높이·상태가 바뀌면 범례도 함께 재배치(자동일 때 바 확장/축소에 맞춤). renderLegend는 renderVfBar를 안 부름(무한루프 방지).
 }
 // 범례 통째로 이동 — dragLoop(svg 좌표 델타) 사용. 3+ 자동배치 중이면 many(3개 이상 전용)를 옮긴다.
-function startLegendMove(e) { const g = (S.legend ||= {}); const t = vfAutoLegend() ? (g.many ||= {}) : g; const ox = t.x, oy = t.y; pushUndo(); dragLoop(e, (dx, dy) => { t.x = Math.round(ox + dx); t.y = Math.round(oy + dy); renderLegend(); }); }
+function startLegendMove(e) { const g = (S.legend ||= {}); const t = vfExpandedLegend() ? (g.many ||= {}) : g; const ox = t.x, oy = t.y; pushUndo(); dragLoop(e, (dx, dy) => { t.x = Math.round(ox + dx); t.y = Math.round(oy + dy); renderLegend(); }); }
 // 노말 VF에선 범례가 래퍼(패널) 클립 안에 있어야 보인다. 패널 밖에 있으면 패널 안으로 옮겨 준다.
 // (VF 특보 지도에서 범례를 켜도 화면 왼쪽 기본위치라 잘려 안 보이던 문제 — 켤 때 패널 안으로.)
 function ensureLegendInVfPanel() {
@@ -2733,7 +2733,7 @@ function ensureLegendInVfPanel() {
 // 범례 크기 조절 — 우하단 핸들을 끌면 상자·글자·간격이 함께 커지고 작아진다
 function startLegendResize(e) {
   const g = (S.legend ||= {});
-  const t = vfAutoLegend() ? (g.many ||= {}) : g;   // 3+ 자동배치 중이면 many 크기 조절
+  const t = vfExpandedLegend() ? (g.many ||= {}) : g;   // 3+ 확장배치 중이면 many 크기 조절
   const grp = document.querySelector('#L_legend g[data-kind="legend"]');
   const w0 = Math.max(40, grp ? grp.getBBox().width : 200);
   const s0 = { box: t.box, size: t.size, gap: t.gap == null ? 18 : t.gap, rowGap: t.rowGap == null ? 16 : t.rowGap };
@@ -2914,12 +2914,12 @@ function wrnLegendItems() {
 
 // 노말 VF 완전자동: 제목 바가 켜져 있고 특보가 3개 이상이면 → 바를 아래로 확장하고 범례를 그 띠에 가로로 자동 배치.
 // (2개까지는 사용자가 잡은 세로 배치 그대로.) 반환 null = 자동 적용 안 함.
-function vfAutoLegend() {
+function vfExpandedLegend() {
   const g = S.legend;
   if (S.res !== '1920x1080-vf' || !g || !g.on) return null;
-  if ((g.auto == null ? 1 : g.auto) === 0) return null;   // 자동 채움 모드일 때만
   const b = S.vfBar; if (!b || !b.on) return null;         // 제목 바가 있어야 그 아래로 확장
-  const items = wrnLegendItems();
+  const auto = g.auto == null ? 1 : g.auto;
+  const items = (auto ? wrnLegendItems() : (g.items || [])).filter((it) => it && (it.txt || it.col));
   if (items.length < 3) return null;                       // 3개 이상일 때만
   // 3개 이상 전용 배치(many) — 사용자가 끌기·핸들로 조정하고 저장한다. 없으면 제목 바 아래 띠에 기본값 생성.
   if (!g.many) g.many = { x: Math.round(b.x + 20), y: Math.round(b.y + b.h + 8),
@@ -2943,7 +2943,7 @@ function renderLegend() {
   const src = auto ? wrnLegendItems() : (g.items || []);
   const items = src.filter((it) => it && (it.txt || it.col));
   if (!items.length) return;
-  const av = vfAutoLegend();       // VF 특보 3+ → 별도 배치(many) 사용
+  const av = vfExpandedLegend();       // VF 범례 3+ → 별도 배치(many) 사용
   const lay = av ? av.m : g;       // 3+면 many(사용자 조정값), 아니면 기본 배치
   const horiz = av ? true : !!g.horiz;   // 3+면 강제 가로
   const box = lay.box, size = lay.size, rowGap = lay.rowGap == null ? 16 : lay.rowGap, gap = lay.gap == null ? 18 : lay.gap;
@@ -2998,9 +2998,9 @@ function buildLgList() {
       + `<button data-i="${i}" class="lgItemDel" title="삭제" style="flex:0 0 30px">✕</button>`;
     L.append(row);
   });
-  L.querySelectorAll('.lgItemCol').forEach((n) => { n.oninput = (e) => { pushUndo('lgcol'); items[+e.target.dataset.i].col = e.target.value.toUpperCase(); renderLegend(); }; });
-  L.querySelectorAll('.lgItemTxt').forEach((n) => { n.oninput = (e) => { pushUndo('lgtxt'); items[+e.target.dataset.i].txt = e.target.value; renderLegend(); }; });
-  L.querySelectorAll('.lgItemDel').forEach((n) => { n.onclick = (e) => { pushUndo(); items.splice(+e.target.dataset.i, 1); renderLegend(); buildLgList(); }; });
+  L.querySelectorAll('.lgItemCol').forEach((n) => { n.oninput = (e) => { pushUndo('lgcol'); items[+e.target.dataset.i].col = e.target.value.toUpperCase(); renderVfBar(); }; });
+  L.querySelectorAll('.lgItemTxt').forEach((n) => { n.oninput = (e) => { pushUndo('lgtxt'); items[+e.target.dataset.i].txt = e.target.value; renderVfBar(); }; });
+  L.querySelectorAll('.lgItemDel').forEach((n) => { n.onclick = (e) => { pushUndo(); items.splice(+e.target.dataset.i, 1); renderVfBar(); buildLgList(); }; });
 }
 
 // 라벨 하나. 직접 추가하는 것과 색 따라 자동 생성하는 것이 같은 기본값을 쓰도록 여기 모아둔다.
@@ -4332,6 +4332,7 @@ function tmShort(t) {
 const wrnColorKey = (wrn, lvl) => String(wrn || '') + '|' + String(lvl || '');
 function ensureWrnLevelColors() {
   if (!S.wrnLevelColors || typeof S.wrnLevelColors !== 'object' || Array.isArray(S.wrnLevelColors)) S.wrnLevelColors = {};
+  if (!hex(S.wrnLevelColors['폭염|중대경보'])) S.wrnLevelColors['폭염|중대경보'] = '#8B0000';
   return S.wrnLevelColors;
 }
 // 특보 하나의 색 — 정확한 종류×단계 사용자색을 우선하고, 없으면 기존 주의보/경보 기본색
@@ -4359,7 +4360,8 @@ function normalizedWrnLevelColors(value) {
 }
 function applyPresetWarningColors(preset, full) {
   if (!full) return;
-  S.wrnLevelColors = normalizedWrnLevelColors(preset && preset.wrnLevelColors);
+  const saved = normalizedWrnLevelColors(preset && preset.wrnLevelColors);
+  S.wrnLevelColors = { '폭염|중대경보': '#8B0000', ...saved };
 }
 function refreshWarningColorsAfterPreset(full) {
   if (!full) return;
@@ -4375,6 +4377,46 @@ const wrnKeyOf = (r) => r.wrn + '|' + r.lvl;
 // 주의보와 같은 색으로 깔리면 방송에서 사실과 다른 그림이 되므로 기본은 꺼둔다.
 const isPre = (lvl) => /예비/.test(lvl);
 
+const wrnCommandKind = (cmd) => {
+  const value = String(cmd || '').trim();
+  if (value === '3' || value === '4' || /해제/.test(value)) return 'release';
+  if (value === '2' || /대치/.test(value)) return 'replace';
+  if (value === '5' || /연장/.test(value)) return 'extend';
+  return 'announce';
+};
+const wrnEventTime = (r) => String(r.tmef || r.tmfc || '');
+function activeWrnRows(rows, target) {
+  const at = String(target || '999999999999');
+  const events = rows.map((r, i) => ({ r, i }))
+    .filter(({ r }) => !wrnEventTime(r) || wrnEventTime(r) <= at)
+    .sort((a, b) => wrnEventTime(a.r).localeCompare(wrnEventTime(b.r))
+      || String(a.r.tmfc || '').localeCompare(String(b.r.tmfc || '')) || a.i - b.i);
+  const active = new Map();
+  for (const { r } of events) {
+    const key = `${r.id}|${r.wrn}`;
+    if (wrnCommandKind(r.cmd) === 'release') active.delete(key);
+    else active.set(key, r);
+  }
+  return Array.from(active.values());
+}
+function moveWrnOrder(order, from, to) {
+  const next = order.slice();
+  if (from < 0 || from >= next.length || to < 0 || to >= next.length || from === to) return next;
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+function defaultWrnOrder(rows, warningTypes) {
+  const typeRank = new Map(warningTypes.map((name, i) => [name, i]));
+  const unique = new Map();
+  const keyOf = (r) => `${r.wrn}|${r.lvl}`;
+  for (const r of rows) if (!unique.has(keyOf(r))) unique.set(keyOf(r), r);
+  return Array.from(unique.values())
+    .sort((a, b) => ((typeRank.get(a.wrn) ?? 999) - (typeRank.get(b.wrn) ?? 999))
+      || ((/경보/.test(a.lvl) ? 0 : 1) - (/경보/.test(b.lvl) ? 0 : 1)))
+    .map(keyOf);
+}
+
 // ===================== API 주소 =====================
 // 기상청이 주소를 바꿔도 사용자가 직접 갈아끼울 수 있게 전부 설정으로 뺐다.
 // 인증키와 주소는 작업 내용이 아니라 '이 컴퓨터 설정'이라 localStorage에만 둔다
@@ -4387,7 +4429,7 @@ const API_SITE = 'https://apihub.kma.go.kr/';
 const API_BASE = 'https://apihub.kma.go.kr/api/typ01/url/';
 const API_URLS = {
   // tm을 비우면 지금, 넣으면 그 시각의 특보현황이 나온다 (과거 조회가 이걸로 된다)
-  wrnNow:  API_BASE + 'wrn_now_data.php?fe=f&tm={TM}&disp=0&help=1&authKey={KEY}',
+  wrnNow:  API_BASE + 'wrn_now_data.php?fe=e&tm={TM}&disp=0&help=1&authKey={KEY}',
   fctLand: API_BASE + 'fct_afs_dl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctSea:  API_BASE + 'fct_afs_do.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctMedLand: API_BASE + 'fct_afs_wl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
@@ -4427,22 +4469,32 @@ const WRN_URL = () => apiUrl('wrnNow', { TM: wrnWhen });
 
 // 마지막으로 읽어들인 특보. 목록에서 체크를 바꾸면 이걸로 다시 칠한다.
 let wrnRows = [];
+let wrnOrder = [];
+
+function currentTm() {
+  const d = new Date();
+  const p = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}`;
+}
 
 // 겹침 우선순위 — 낮을수록 이긴다.
 // 종류 순서(색 목록 순서)가 1순위, 같은 종류면 경보가 주의보를 이긴다.
 // 이렇게 안 하면 "응답에 먼저 나온 것"이 이겨서 색이 들쭉날쭉해진다.
 function wrnRank(r) {
+  const ordered = wrnOrder.indexOf(wrnKeyOf(r));
+  if (ordered >= 0) return ordered;
   const keys = Object.keys(S.wrnColors);
   const ti = keys.indexOf(r.wrn);
-  return (ti < 0 ? 999 : ti) * 10 + (/경보/.test(r.lvl) ? 0 : 1);
+  return wrnOrder.length + (ti < 0 ? 999 : ti) * 10 + (/경보/.test(r.lvl) ? 0 : 1);
 }
 
 function applyWrn(txt) {
-  const rows = parseWrn(txt);
-  if (!rows.length) { alert('특보 데이터를 못 읽었습니다. apihub 응답을 그대로 붙여넣었는지 확인해 주세요.'); return; }
+  const parsed = parseWrn(txt);
+  const rows = activeWrnRows(parsed, wrnWhen || currentTm());
+  if (!parsed.length) { alert('특보 데이터를 못 읽었습니다. apihub 응답을 그대로 붙여넣었는지 확인해 주세요.'); return; }
   // 기상청 응답은 EUC-KR이라 UTF-8로 잘못 읽히면 한글이 통째로 깨진다.
   // 그 상태로는 특보종류를 못 알아봐서 아무것도 안 칠해지므로 미리 잡아준다.
-  if (!rows.some((r) => /[가-힣]/.test(r.wrn))) {
+  if (!parsed.some((r) => /[가-힣]/.test(r.wrn))) {
     alert('한글이 깨진 채로 들어왔습니다 (EUC-KR 응답).\n\n' +
       '크롬 주소창에 URL을 직접 넣어 뜬 화면을 복사하면 보통 정상입니다. ' +
       '그래도 깨지면 응답을 파일로 저장한 뒤 EUC-KR로 열어 복사해 주세요.');
@@ -4460,8 +4512,9 @@ function applyWrn(txt) {
   if (added.length) buildWrnCols();
 
   // 해제된 건 애초에 뺀다
-  const released = rows.filter((r) => /해제/.test(r.cmd)).length;
-  wrnRows = rows.filter((r) => !/해제/.test(r.cmd));
+  const released = parsed.filter((r) => wrnCommandKind(r.cmd) === 'release').length;
+  wrnRows = rows;
+  wrnOrder = defaultWrnOrder(wrnRows, Object.keys(S.wrnColors));
   S.wrnOff = S.wrnOff || {};
   // 예비특보는 기본으로 꺼둔다. 한 번도 손대지 않은 것만 — 켜둔 걸 멋대로 되돌리면 안 된다.
   let pre = 0;
@@ -4535,7 +4588,7 @@ function buildWrnList() {
   head.innerHTML = '들어온 특보 <span>· 위에 있을수록 우선 (겹치면 이김)</span>';
   w.append(head);
 
-  for (const a of list) {
+  for (const [listIndex, a] of list.entries()) {
     const key = wrnKeyOf(a);
     const on = !S.wrnOff[key];
     const d = document.createElement('div');
@@ -4543,7 +4596,8 @@ function buildWrnList() {
     // 발표시각이 구역마다 다르면 범위로 보여준다 ("7/12 16:00~7/15 10:00")
     const fc = a.fc0 === a.fc1 ? tmShort(a.fc0) : tmShort(a.fc0) + '~' + tmShort(a.fc1);
     // 이름(폭염경보 등)을 윗줄에 온전히, 발표시각은 아랫줄에 — 한 줄에 다 넣으면 이름이 1글자로 잘린다.
-    d.innerHTML = `<button class="eye${on ? '' : ' off'}"></button>` +
+    d.innerHTML = `<span class="wrnDrag" draggable="true" title="드래그해서 겹침 순서 바꾸기" style="cursor:grab;user-select:none;font-size:16px;color:var(--on-surface-var)">☰</span>` +
+      `<button class="eye${on ? '' : ' off'}"></button>` +
       `<input type="color" class="wrnCol" style="width:24px;height:20px;flex:none" title="이 특보 색 바꾸기 (같은 종류·단계 구역만 바뀜)">` +
       `<div style="flex:1;min-width:0">` +
         `<div class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>` +
@@ -4566,6 +4620,22 @@ function buildWrnList() {
       S.wrnOff[key] = on ? 1 : 0;
       buildWrnList(); paintWrn(); renderLegend();   // 범례 자동 모드면 눈 상태에 맞춰 갱신
     };
+    const drag = d.querySelector('.wrnDrag');
+    if (drag) {
+      drag.ondragstart = (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(listIndex));
+      };
+      d.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+      d.ondrop = (e) => {
+        e.preventDefault();
+        const from = Number(e.dataTransfer.getData('text/plain'));
+        if (!Number.isInteger(from) || from === listIndex) return;
+        pushUndo();
+        wrnOrder = moveWrnOrder(list.map(wrnKeyOf), from, listIndex);
+        buildWrnList(); paintWrn();
+      };
+    }
     w.append(d);
   }
 }
@@ -7416,7 +7486,7 @@ function wire() {
   $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; if (e.target.checked) ensureLegendInVfPanel(); renderVfBar(); };
   $('#lgAuto').onchange = (e) => { pushUndo(); (S.legend ||= {}).auto = e.target.checked ? 1 : 0; syncLegendMode(); renderVfBar(); };
   $('#lgHoriz').onchange = (e) => { pushUndo(); (S.legend ||= {}).horiz = e.target.checked ? 1 : 0; renderVfBar(); };
-  $('#lgAdd').onclick = () => { pushUndo(); const g = (S.legend ||= { items: [] }); (g.items ||= []).push({ col: activeColor, txt: '' }); g.on = 1; $('#lgOn').checked = true; renderLegend(); buildLgList(); };
+  $('#lgAdd').onclick = () => { pushUndo(); const g = (S.legend ||= { items: [] }); (g.items ||= []).push({ col: activeColor, txt: '' }); g.on = 1; $('#lgOn').checked = true; renderVfBar(); buildLgList(); };
   const lgw = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('lg' + key); (S.legend ||= {})[key] = +e.target.value; if (vid) $(vid).textContent = e.target.value; renderVfBar(); }; };
   lgw('#lgSize', 'size', '#lgSizeV'); lgw('#lgBox', 'box', '#lgBoxV'); lgw('#lgRadius', 'radius', '#lgRadiusV'); lgw('#lgRowGap', 'rowGap', '#lgRowGapV'); lgw('#lgGap', 'gap', '#lgGapV'); lgw('#lgWeight', 'weight', '#lgWeightV');
   $('#lgTxtCol').oninput = (e) => { pushUndo('lgtc'); (S.legend ||= {}).txtCol = e.target.value.toUpperCase(); $('#lgTxtColHex').value = S.legend.txtCol; renderLegend(); };

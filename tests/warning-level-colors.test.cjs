@@ -108,7 +108,7 @@ test('existing warning colors remain the fallback for saved projects', () => {
 
   assert.equal(context.wrnColorOf('폭염', '주의보'), '#F57C00');
   assert.equal(context.wrnColorOf('폭염', '경보'), '#FA2E1E');
-  assert.equal(context.wrnColorOf('폭염', '중대경보'), '#FA2E1E');
+  assert.equal(context.wrnColorOf('폭염', '중대경보'), '#8B0000');
   assert.equal(context.wrnColorOf('없는특보', '경보'), null);
 });
 
@@ -118,13 +118,23 @@ test('warning level colors participate in screen presets and baked defaults', ()
   assert.equal(context.__presetKeys.includes('wrnLevelColors'), true);
 });
 
-test('a legacy full preset clears exact-level colors from the previous screen', () => {
+test('a legacy full preset restores the major heat warning deployment default', () => {
   const context = createWarningContext();
   context.__state.wrnLevelColors = { '폭염|중대경보': '#550000' };
 
   context.applyPresetWarningColors({ wrnColors: { 폭염: ['#F57C00', '#FA2E1E'] } }, true);
 
-  assert.equal(JSON.stringify(context.__state.wrnLevelColors), '{}');
+  assert.equal(JSON.stringify(context.__state.wrnLevelColors), '{"폭염|중대경보":"#8B0000"}');
+});
+
+test('saved exact colors merge with the major heat warning deployment default', () => {
+  const context = createWarningContext();
+  context.applyPresetWarningColors({
+    wrnLevelColors: { '호우|경보': '#123456' },
+  }, true);
+
+  assert.equal(context.wrnColorOf('호우', '경보'), '#123456');
+  assert.equal(context.wrnColorOf('폭염', '중대경보'), '#8B0000');
 });
 
 test('a full preset refreshes warning controls, list, and active map colors', () => {
