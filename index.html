@@ -6667,6 +6667,43 @@ async function aeMtnBlob(base) {
     if (base) c.querySelectorAll('#L_mtn path').forEach((p) => p.setAttribute('fill', S.base));
   });
 }
+// 특보 AE 레이어는 최종 화면에서 보이는 조각이 아니라 각 특보의 전체 발효 구역을 보낸다.
+// AE는 bottom→top으로 쌓으므로 낮은 우선순위부터 정렬한다. 사용자가 바꾼 wrnOrder도 그대로 반영된다.
+function aeWarningFillDefs() {
+  if (S.style !== 'warn' && S.style !== 'warnsea') return [];
+  const groups = new Map();
+  for (const r of wrnRows) {
+    const key = wrnKeyOf(r);
+    if (S.wrnOff[key]) continue;
+    const col = wrnColorOf(r.wrn, r.lvl);
+    if (!col || !r.id) continue;
+    if (!groups.has(key)) groups.set(key, {
+      key, name: `${r.wrn}_${r.lvl}`, col, rank: wrnRank(r), ids: new Set(),
+    });
+    groups.get(key).ids.add(r.id);
+  }
+  return Array.from(groups.values())
+    .sort((a, b) => b.rank - a.rank)
+    .map((g) => ({ ...g, ids: Array.from(g.ids) }));
+}
+async function aeWarningFillBlob(def) {
+  const ids = new Set(def.ids);
+  return svgBlob((c) => {
+    keepLayers(c, ['L_sea', 'L_map']);
+    c.querySelector('#L_map')?.removeAttribute('filter');
+    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
+    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    c.querySelector('#gMainSoft')?.remove();
+    c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
+      z.setAttribute('stroke', 'none');
+      z.setAttribute('fill', ids.has(z.dataset.id) ? def.col : 'none');
+    });
+    c.querySelectorAll('#seaT .sea').forEach((p) => {
+      p.setAttribute('fill', ids.has(p.dataset.id) ? def.col : 'none');
+      p.setAttribute('stroke', 'none'); p.removeAttribute('mask'); p.removeAttribute('opacity');
+    });
+  });
+}
 // 색 하나만 칠한 투명 PNG (그 색만 따로 페이드인시키려고)
 async function aeFillBlob(col) {
   const F = fills(); const U = col.toUpperCase();
@@ -6788,13 +6825,19 @@ async function sendToAE() {
   let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
   if (!up) { wnsHelperOffNotice(); return; }
   const F = fills();
-  if (!Object.keys(F).length) { status('칠한 색이 없습니다 — 먼저 색칠하세요', true); return; }
+  const warningDefs = aeWarningFillDefs();
+  if (!Object.keys(F).length && !warningDefs.length) { status('칠한 색이 없습니다 — 먼저 색칠하세요', true); return; }
   const btn = $('#aeSend'); if (btn) btn.disabled = true;
   let cooldown = false;
   try {
     const [W, H] = RES[S.res].size;
     const fps = A.fps || 29.97, step = 5 / fps, start0 = animStart();
-    const seen = {}; for (const c of Object.values(F)) seen[c.toUpperCase()] = true;
+    const seen = {};
+    if (warningDefs.length) {
+      for (const def of warningDefs) seen[def.col.toUpperCase()] = true;
+    } else {
+      for (const c of Object.values(F)) seen[c.toUpperCase()] = true;
+    }
     const cols = Object.keys(seen).sort((a, b) => lumOf(b) - lumOf(a));   // 밝은→어두운 (타임라인과 동일)
     const startOf = {}; cols.forEach((c, i) => startOf[c] = start0 + i * step);
     const startForFill = (col) => (col && startOf[col.toUpperCase()] != null ? startOf[col.toUpperCase()] : start0);
@@ -6807,7 +6850,13 @@ async function sendToAE() {
       specLayers.push({ text: { content: aeArrow(t.txt || ''), x: p.x, y: p.y, size: vfScaledSize(t.size), col: t.col, align: t.align || 'start', track: vfScaledSize(t.track || 0), weight: t.w || 400 }, name });
     };
     addImg('배경·지도', await aeBaseBlob());
-    for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: AE_LEN });
+    if (warningDefs.length) {
+      for (const def of warningDefs) {
+        addImg('특보_' + def.name, await aeWarningFillBlob(def), { start: startForFill(def.col), len: AE_LEN });
+      }
+    } else {
+      for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: AE_LEN });
+    }
     // 브러쉬 덧칠 — 색별 레이어(색칠 위, 경계선 아래). 매칭 색보다 살짝 먼저 들어옴(타임라인과 동일).
     const brushCols = [];
     for (const s of brushStrokes()) if (!s.erase && !brushCols.some((x) => x.toUpperCase() === s.col.toUpperCase())) brushCols.push(s.col);
