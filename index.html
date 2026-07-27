@@ -2794,6 +2794,16 @@ function vfScaleValue() {
   const saved = S.vfScales[vfScaleGroup()];
   return setVfScale(saved === undefined ? S.vfScale : saved);
 }
+// 일반 출력 화면에서 패널을 동기화할 때는 작업용 VF 스케일을 만들지 않는다.
+// 그래야 VF 첫 진입 시 배포 프리셋의 vfScale(일반/특보+해상)이 우선 적용된다.
+function vfScaleForPanel() {
+  return S.res === '1920x1080-vf' ? vfScaleValue() : clampVfScale(S.vfScale);
+}
+function applyPresetVfScale(preset, liveScale) {
+  if (S.res !== '1920x1080-vf') return false;
+  setVfScale(liveScale !== undefined ? liveScale : (preset && preset.vfScale !== undefined ? preset.vfScale : 100));
+  return true;
+}
 function vfScaleTransform(r, value) {
   const k = clampVfScale(value) / 100;
   const ax = r.x + r.w, ay = r.y;
@@ -3655,8 +3665,8 @@ function syncPanelFromState() {
   updateAutoPaintSecs();
   if (typeof updateWnsButtons === 'function') updateWnsButtons();   // MXF/MOV 버튼: 노말 VF + 로컬만
   { // 노말 VF 제목 바 — VF 화면에서만 UI 표시 + 값 동기화
-    const scaleUi = $('#vfScaleUI'), scale = vfScaleValue();
-    if (scaleUi) scaleUi.style.display = (S.res === '1920x1080-vf') ? '' : 'none';
+    const isVf = S.res === '1920x1080-vf', scaleUi = $('#vfScaleUI'), scale = vfScaleForPanel();
+    if (scaleUi) scaleUi.style.display = isVf ? '' : 'none';
     if ($('#vfScale')) $('#vfScale').value = scale;
     if ($('#vfScaleV')) $('#vfScaleV').textContent = scale + '%';
     const ui = $('#vfBarUI'); const b = (S.vfBar ||= { on: 0, x: 1140, y: 150, w: 640, h: 110 });
@@ -5543,7 +5553,7 @@ function applyPreset() {
     if (p.vfBar !== undefined) S.vfBar = mergeVfBar(S.vfBar, p.vfBar);   // 위치만 따라오고 그림자는 지금 모드 것 유지
     if (p.texts) S.texts = mergeTextPos(S.texts, p.texts);
   }
-  setVfScale(liveVfScale !== undefined ? liveVfScale : (p.vfScale !== undefined ? p.vfScale : 100));
+  applyPresetVfScale(p, liveVfScale);
   // 특보 범례: 이 그룹 배치가 범례를 갖고 있으면 그대로, 없으면(옛/배포 프리셋) 기본값으로 리셋한다.
   // 안 그러면 특보구역↔특보+해상처럼 그룹을 옮길 때 이전 그룹의 범례 위치가 그대로 남는다.
   S.legend = (p.legend !== undefined) ? JSON.parse(JSON.stringify(p.legend)) : JSON.parse(JSON.stringify(DEFAULTS().legend));

@@ -42,6 +42,48 @@ test('live VF scale keeps separate common and warnsea values across mode switche
   assert.match(html, /S\.vfScales\[vfScaleGroup\(\)\]/);
 });
 
+test('non-VF panel sync does not seed a 100 percent live VF scale', () => {
+  const block = html.match(/function clampVfScale\([^]*?function vfScaleTransform\(/)?.[0]
+    ?.replace(/function vfScaleTransform\($/, '') || '';
+  const context = {
+    S: { res: '1920x1080', style: 'sgg', vfScale: 100, vfScales: {} },
+    layoutGroup: (style) => style === 'warnsea' ? 'warnsea' : 'common',
+  };
+  vm.runInNewContext(`${block}\nthis.panelScale = vfScaleForPanel;`, context);
+
+  assert.equal(context.panelScale(), 100);
+  assert.deepEqual(context.S.vfScales, {});
+
+  context.S.style = 'warnsea';
+  assert.equal(context.panelScale(), 100);
+  assert.deepEqual(context.S.vfScales, {});
+});
+
+test('preset application seeds VF scale only after entering VF', () => {
+  const block = html.match(/function clampVfScale\([^]*?function vfScaleTransform\(/)?.[0]
+    ?.replace(/function vfScaleTransform\($/, '') || '';
+  const context = {
+    S: { res: '1920x1080', style: 'sgg', vfScale: 100, vfScales: {} },
+    layoutGroup: (style) => style === 'warnsea' ? 'warnsea' : 'common',
+  };
+  vm.runInNewContext(`${block}\nthis.applyScale = applyPresetVfScale;`, context);
+
+  context.applyScale({ vfScale: 86 });
+  assert.deepEqual(context.S.vfScales, {});
+
+  context.S.res = '1920x1080-vf';
+  context.applyScale({ vfScale: 86 });
+  assert.equal(context.S.vfScales.common, 86);
+
+  context.S.style = 'warnsea';
+  context.applyScale({ vfScale: 83 });
+  assert.equal(context.S.vfScales.warnsea, 83);
+
+  context.S.style = 'sgg';
+  context.applyScale({ vfScale: 86 }, 92);
+  assert.equal(context.S.vfScales.common, 92);
+});
+
 test('baking normalizes VF scale and AE uses scale-aware coordinates', () => {
   assert.match(html, /function normalizeBakedVfScales\(/);
   assert.match(html, /function vfScaledPoint\(/);
