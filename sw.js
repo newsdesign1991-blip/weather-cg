@@ -1,7 +1,7 @@
 // 날씨 CG 메이커 서비스워커 — 앱 설치 + 오프라인용.
 // network-first: 온라인이면 '항상 최신'을 받아 업데이트가 바로 반영되고(개발·배포에 중요),
 // 네트워크가 안 되면 마지막으로 받은 캐시로 오프라인 동작한다.
-const CACHE = 'weathercg-v2';
+const CACHE = 'weathercg-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(
