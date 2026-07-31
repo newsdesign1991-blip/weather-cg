@@ -3666,7 +3666,7 @@ function typhoonLegendCatalog() {
     { id: 'r70', kind: 'band', col: bcol('r70'), txt: '70% 확률반경' },
     { id: 'td', kind: 'td', col: '#9AA3AD', txt: '열대저압부 17m/s 미만' },
   ];
-  for (let n = 1; n <= 5; n++) items.push({ id: 'g' + n, kind: 'grade', g: n, col: TYPHOON_GRADE_COL[n], txt: '강도' + n + ' ' + TYPHOON_GRADE_RANGE[n] });
+  for (let n = 1; n <= 5; n++) items.push({ id: 'g' + n, kind: 'grade', g: n, col: TYPHOON_GRADE_COL[n], txt: '강도' + n + ', ' + TYPHOON_GRADE_RANGE[n] });
   return items;
 }
 const TYPHOON_LEGEND_DEFAULT_ORDER = ['r15', 'r25', 'r70', 'g1', 'g2', 'g3', 'g4', 'g5', 'td'];
