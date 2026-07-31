@@ -1141,10 +1141,25 @@
         <p class="hint" style="margin:2px 0">제목·단위·범례는 <b>제목 텍스트 / 범례</b> 메뉴에서 노말 CG와 똑같이 조절합니다.</p>
         <div class="subhead">지난 구간 <span>· 이전은 흑백 · 예상반경 제외</span></div>
         <div class="row"><label>현재 시각</label><input type="range" id="typNow" min="0" max="10" step="1"><span class="v" id="typNowV"></span></div>
+        <div class="subhead">표시 날짜 범위 <span>· 원하는 기간만</span></div>
+        <div class="fieldGroup">
+          <label class="chk" style="margin-bottom:4px"><input type="checkbox" id="typRangeOn">이 기간만 표시</label>
+          <div class="row"><label>시작</label><input type="date" id="typRangeFrom" style="flex:1"></div>
+          <div class="row"><label>끝</label><input type="date" id="typRangeTo" style="flex:1"></div>
+          <p class="hint" style="margin:2px 0 0">경로 전체 중 이 날짜(KST) 구간만 지도에 표시합니다. 예: 7/10~7/20.</p>
+        </div>
         <div class="subhead">반경 스타일 <span>· 면색 · 외곽 점선 · 굵기</span></div>
         <div id="typBands"></div>
         <div class="subhead">태풍 아이콘</div>
-        <div class="fieldGroup"><div class="row"><label>색</label><input type="color" id="typIconFill"><input type="text" id="typIconHex"></div></div>
+        <div class="fieldGroup">
+          <div class="row"><label>종류</label><div class="mode" id="typIconMode" style="flex:1;display:flex"><button data-im="image" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">태풍 아이콘</button><button data-im="grade" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">강도 숫자</button></div></div>
+          <div class="row"><label>전체 크기</label><input type="range" id="typIconScale" min="0.4" max="2.5" step="0.05"><span class="v" id="typIconScaleV"></span></div>
+          <div class="row" id="typIconColRow"><label>색</label><input type="color" id="typIconFill"><input type="text" id="typIconHex"></div>
+          <div class="row"><label>글로우</label><label class="chk" style="flex:1"><input type="checkbox" id="typGlowOn">아이콘 뒤 은은한 빛</label></div>
+          <div class="row"><label>글로우 강도</label><input type="range" id="typGlowStr" min="0" max="1" step="0.05"><span class="v" id="typGlowStrV"></span></div>
+          <div class="row"><label>글로우 색</label><input type="color" id="typGlowCol"><input type="text" id="typGlowHex"><button id="typGlowAuto" title="아이콘 색을 따라가기" style="flex:0 0 auto">자동</button></div>
+          <p class="hint" style="margin:2px 0 0"><b>강도 숫자</b>: 기상청 태풍강도(1~5)를 원 안 숫자·색으로 표시(17m/s 미만=점). <b>태풍 아이콘</b>: 넣어둔 일러스트. 글로우 색을 비우면(자동) 아이콘 색을 따라갑니다.</p>
+        </div>
         <p class="hint">라벨(표시할 시각·내용)은 <b>수치 라벨</b>에서, 지형·남한강조·광역색·화면맞춤은 <b>지도 위치</b>에서 조절합니다. 제목·단위는 <b>제목 텍스트</b>, 범례는 <b>범례</b> 섹션에서.</p>
       </div>
     </div>
@@ -1455,13 +1470,21 @@
       <h3>특보 범례</h3>
       <div class="body">
         <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgOn">제목 밑에 범례 표시</label>
-        <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동 (눈 켠 것만, 색 자동)</label>
-        <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgHoriz">가로로 배치 (항목이 많을 때 — 제목 바 아래 띠)</label>
-        <div id="lgManual">
-          <div class="list" id="lgList"></div>
-          <div class="btns" style="margin:6px 0"><button id="lgAdd">+ 항목 추가</button></div>
+        <div class="lgWarnOnly">
+          <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동 (눈 켠 것만, 색 자동)</label>
+          <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgHoriz">가로로 배치 (항목이 많을 때 — 제목 바 아래 띠)</label>
+          <div id="lgManual">
+            <div class="list" id="lgList"></div>
+            <div class="btns" style="margin:6px 0"><button id="lgAdd">+ 항목 추가</button></div>
+          </div>
+          <p class="hint" id="lgAutoHint" style="margin:2px 0 8px;display:none">기상특보 목록에서 <b>눈을 켠</b> 특보가 색·이름 그대로 자동 표시됩니다. 눈을 끄면 빠집니다.</p>
         </div>
-        <p class="hint" id="lgAutoHint" style="margin:2px 0 8px;display:none">기상특보 목록에서 <b>눈을 켠</b> 특보가 색·이름 그대로 자동 표시됩니다. 눈을 끄면 빠집니다.</p>
+        <div class="lgTyOnly" id="typLegendBox" style="display:none">
+          <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgHorizTy">가로로 배치</label>
+          <div class="subhead" style="margin-top:2px">표시할 항목 <span>· 눈으로 켜고 끄기 · 끌어서 순서</span></div>
+          <div class="list" id="typLegendList"></div>
+          <p class="hint" style="margin:4px 0 6px">강도 숫자 아이콘을 쓸 때 각 강도의 뜻을 범례에 넣습니다. 눈으로 표시할 것만 고르고, 끌어서 순서를 바꾸세요.</p>
+        </div>
         <div class="row wide"><label>글자색</label><input type="color" id="lgTxtCol"><input type="text" id="lgTxtColHex"></div>
         <div class="row wide"><label>글자 크기</label><input type="range" id="lgSize" min="16" max="80" step="1"><span class="v" id="lgSizeV">34</span></div>
         <div class="row wide"><label>글자 두께</label><input type="range" id="lgWeight" min="100" max="900" step="100"><span class="v" id="lgWeightV">600</span></div>
@@ -1731,7 +1754,8 @@
         </filter>
         <clipPath id="typhoonLandClip" clipPathUnits="userSpaceOnUse"><path id="typhoonLandClipP"/></clipPath>
         <!-- 태풍 아이콘 색조(빨강 기준 hueRotate) / 지난 구간 회색 -->
-        <filter id="typhoonIconTint" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feColorMatrix id="typhoonIconTintM" type="hueRotate" values="0"/></filter>
+        <filter id="typhoonIconTint" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feColorMatrix id="typhoonIconTintM" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter>
+        <filter id="typhoonIconGlow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feDropShadow id="typhoonIconGlowDS" dx="0" dy="0" stdDeviation="6" flood-color="#E5231E" flood-opacity="0.85"/></filter>
         <filter id="typhoonIconGray" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/><feColorMatrix type="matrix" values="1 0 0 0 0.15  0 1 0 0 0.15  0 0 1 0 0.15  0 0 0 1 0"/></filter>
       </defs>
 
@@ -2446,7 +2470,8 @@ function updateAutoPaintSecs() {
   const swap = (secSel, korSel, tySel) => { const s = $(secSel); if (!s) return; s.querySelectorAll(korSel).forEach((k) => k.style.display = isTy ? 'none' : ''); s.querySelectorAll(tySel).forEach((t) => t.style.display = isTy ? '' : 'none'); };
   swap('[data-sec="map"]', '.korMap', '.tyMap');
   swap('[data-sec="label"]', '.korLabel', '.tyLabel');
-  if (isTy) buildTyphoonPanel();
+  swap('[data-sec="legend"]', '.lgWarnOnly', '.lgTyOnly');   // 범례: 특보용 목록 ↔ 태풍 강도/반경 선택 목록
+  if (isTy) { buildTyphoonPanel(); buildTyphoonLegendList(); }
 }
 
 // VF 화면 기본 크기: 라벨 92% · 산 70%. 내가 직접 저장한 배치가 없을 때만 강제한다
@@ -3057,6 +3082,20 @@ function vfExpandedLegend() {
   return { items, m, rowH, pad, extraH: rowH + pad * 2, b };
 }
 
+// 범례 마크 한 개 — 강도(kind:grade)는 숫자 원, 열대저압부(td)는 점, 그 외는 색상 사각형.
+function drawLegendMark(grp, it, ox, top, box, rowH, radius) {
+  const cx = ox + box / 2, cy = top + rowH / 2;
+  if (it && it.kind === 'grade') {
+    const rr = box / 2;
+    grp.append(el('circle', { cx, cy, r: rr, fill: it.col || '#888', stroke: '#FFFFFF', 'stroke-width': Math.max(1, rr * 0.14) }));
+    const t = el('text', { x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: '#FFFFFF', 'font-family': '"SUITE CG","Malgun Gothic",sans-serif', 'font-weight': 800, 'font-size': rr * 1.3, 'xml:space': 'preserve' });
+    t.textContent = String(it.g); grp.append(t);
+  } else if (it && it.kind === 'td') {
+    grp.append(el('circle', { cx, cy, r: box * 0.28, fill: it.col || '#9AA3AD', stroke: '#FFFFFF', 'stroke-width': Math.max(1, box * 0.05) }));
+  } else {
+    grp.append(el('rect', { x: ox, y: top + (rowH - box) / 2, width: box, height: box, rx: radius || 0, ry: radius || 0, fill: (it && it.col) || '#FFFFFF' }));
+  }
+}
 // 기상특보 범례 — 제목 밑에 '색상 상자 + 이름' 줄들. 전체를 한 그룹으로 끌어 옮긴다.
 function renderLegend() {
   const L = $('#L_legend'); if (!L) return;
@@ -3083,7 +3122,7 @@ function renderLegend() {
   items.forEach((it, i) => {
     const ox = horiz ? cursor : 0;
     const top = horiz ? 0 : i * (rowH + rowGap);
-    grp.append(el('rect', { x: ox, y: top + (rowH - box) / 2, width: box, height: box, rx: g.radius || 0, ry: g.radius || 0, fill: it.col || '#FFFFFF' }));
+    drawLegendMark(grp, it, ox, top, box, rowH, g.radius);   // 강도=숫자원 / TD=점 / 그외=사각형
     const t = el('text', {
       x: ox + box + gap, y: top + rowH / 2, fill: g.txtCol || '#FFFFFF', 'font-family': '"SUITE CG", "Malgun Gothic", sans-serif',
       'font-size': size, 'font-weight': g.weight || 600, 'dominant-baseline': 'central', 'letter-spacing': -0.5, 'xml:space': 'preserve',
@@ -3129,6 +3168,49 @@ function buildLgList() {
   L.querySelectorAll('.lgItemCol').forEach((n) => { n.oninput = (e) => { pushUndo('lgcol'); items[+e.target.dataset.i].col = e.target.value.toUpperCase(); renderVfBar(); }; });
   L.querySelectorAll('.lgItemTxt').forEach((n) => { n.oninput = (e) => { pushUndo('lgtxt'); items[+e.target.dataset.i].txt = e.target.value; renderVfBar(); }; });
   L.querySelectorAll('.lgItemDel').forEach((n) => { n.onclick = (e) => { pushUndo(); items.splice(+e.target.dataset.i, 1); renderVfBar(); buildLgList(); }; });
+}
+// 태풍 범례 선택 목록 — 후보(반경·강도)마다 눈 토글 + 드래그 순서. 강도는 숫자 원 미리보기.
+function buildTyphoonLegendList() {
+  const L = $('#typLegendList'); if (!L) return;
+  const T = S.typhoon; if (!T) return;
+  if (!T.legendOrder || !T.legendOrder.length) T.legendOrder = TYPHOON_LEGEND_DEFAULT_ORDER.slice();
+  if (!T.legendHidden) T.legendHidden = Object.assign({}, TYPHOON_LEGEND_DEFAULT_HIDDEN);
+  const cat = typhoonLegendCatalog(), byId = {}; for (const it of cat) byId[it.id] = it;
+  for (const it of cat) if (!T.legendOrder.includes(it.id)) T.legendOrder.push(it.id);   // 새 후보 보강
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  L.innerHTML = '';
+  T.legendOrder.forEach((id) => {
+    const it = byId[id]; if (!it) return;
+    const hidden = !!T.legendHidden[id];
+    const mark = it.kind === 'grade'
+      ? `<span style="flex:0 0 20px;height:20px;border-radius:50%;background:${it.col};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;border:1px solid #fff">${it.g}</span>`
+      : it.kind === 'td'
+        ? `<span style="flex:0 0 20px;display:inline-flex;justify-content:center"><span style="width:9px;height:9px;border-radius:50%;background:${it.col};border:1px solid #fff"></span></span>`
+        : `<span style="flex:0 0 20px;height:14px;border-radius:3px;background:${it.col};display:inline-block"></span>`;
+    const row = document.createElement('div');
+    row.className = 'row wide'; row.draggable = true; row.dataset.id = id;
+    row.style.cssText = 'gap:8px;align-items:center;margin-bottom:3px;cursor:grab';
+    row.innerHTML = `<span style="flex:0 0 12px;opacity:.45;cursor:grab">⋮⋮</span>`
+      + `<button class="eye lgTyEye${hidden ? ' off' : ''}" data-id="${id}" title="켜기/끄기" style="flex:0 0 auto"></button>`
+      + mark
+      + `<span style="flex:1;font-size:12px;${hidden ? 'opacity:.4' : ''}">${esc(it.txt)}</span>`;
+    L.append(row);
+  });
+  L.querySelectorAll('.lgTyEye').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); pushUndo(); T.legendHidden[b.dataset.id] = T.legendHidden[b.dataset.id] ? 0 : 1; buildTyphoonLegendList(); renderLegend(); renderVfBar(); }; });
+  let dragId = null;
+  L.querySelectorAll('[draggable]').forEach((row) => {
+    row.addEventListener('dragstart', () => { dragId = row.dataset.id; row.style.opacity = '.4'; });
+    row.addEventListener('dragend', () => { row.style.opacity = ''; });
+    row.addEventListener('dragover', (e) => e.preventDefault());
+    row.addEventListener('drop', (e) => {
+      e.preventDefault(); const tid = row.dataset.id;
+      if (!dragId || dragId === tid) return;
+      const ord = T.legendOrder, from = ord.indexOf(dragId), to = ord.indexOf(tid);
+      if (from < 0 || to < 0) return;
+      pushUndo(); ord.splice(from, 1); ord.splice(to, 0, dragId);
+      buildTyphoonLegendList(); renderLegend(); renderVfBar();
+    });
+  });
 }
 
 // 라벨 하나. 직접 추가하는 것과 색 따라 자동 생성하는 것이 같은 기본값을 쓰도록 여기 모아둔다.
@@ -3477,11 +3559,36 @@ function typhoonXY(lon, lat) { const [lx, ly] = projLL(lon, lat); return [S.map.
 
 // 태풍 데이터 시드(샘플: 6호 '장미'). 실제 연동 시 기상청 API가 issues를 채운다.
 const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, terrain: 0.85, iconCol: '#E5231E', nowIdx: null, labelSel: null,
+  iconMode: 'image', iconScale: 0.75,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 75%)
+  glowOn: 1, glowStr: 0.5, glowCol: '',   // 아이콘 글로우: 켜기 / 강도(0~1) / 색('' 이면 아이콘색 따라감)
   // 새 태풍 라벨의 기본 스타일(굽기 포함). 라벨 하나를 원하는 대로 꾸민 뒤 그 라벨을 선택하고 굽기 하면 여기에 담긴다.
   labelStyle: { size: 40, w: 800, txtCol: '#FFFFFF', fill: '#0E2E68', stroke: '#3F6BD8', strokeW: 2, radius: 16, padX: 28, padY: 16, track: -1, titleRatio: 0.7, divider: 1 } };
+// 기상청 태풍 강도(최대풍속 m/s) → 등급(1~5)·색. 17 미만은 열대저압부(TD, 등급 0).
+const TYPHOON_GRADE_COL = { 1: '#4FB0E5', 2: '#38C172', 3: '#F2C14E', 4: '#EA8A3E', 5: '#E24C4C' };
+function typhoonGrade(ws) {
+  const v = +ws || 0;
+  const g = v >= 54 ? 5 : v >= 44 ? 4 : v >= 33 ? 3 : v >= 25 ? 2 : v >= 17 ? 1 : 0;
+  return { g, col: TYPHOON_GRADE_COL[g] || '#9AA3AD' };
+}
+// tmef("YYYYMMDDHHMM" UTC) → KST 날짜 "YYYY-MM-DD" (표시 날짜 범위 비교용)
+function typhoonDateKST(tmef) {
+  const s = String(tmef || '').replace(/\D/g, ''); if (s.length < 8) return '';
+  const d = new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +(s.slice(8, 10) || 0), +(s.slice(10, 12) || 0)));
+  d.setUTCHours(d.getUTCHours() + 9);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+// 지점 idx가 '표시 날짜 범위' 안에 드는가 (범위 꺼짐이면 항상 true)
+function typhoonIdxInRange(pts, idx) {
+  const T = S.typhoon || {}; if (!T.rangeOn) return true;
+  const p = pts[idx]; if (!p) return false;
+  const d = typhoonDateKST(p.tmef); if (!d) return true;
+  if (T.rangeFrom && d < T.rangeFrom) return false;
+  if (T.rangeTo && d > T.rangeTo) return false;
+  return true;
+}
 // 굽힌 배포 기본값(WCG_DEFAULTS.typhoonStyle)이 있으면 그걸 우선한 태풍 스타일 기본값.
 function typhoonStyleDefaults() { return Object.assign({}, TYPHOON_DEFAULTS, (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {}); }
-const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'terrain', 'iconCol', 'bands'];
+const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'terrain', 'iconCol', 'bands', 'iconMode', 'iconScale', 'glowOn', 'glowStr', 'glowCol', 'legendOrder', 'legendHidden'];
 // 태풍 스타일(색·반경·지형·남한강조)을 굽힌 기본값으로 맞춘다 — 모든 해상도가 같은 색을 쓰게(진입·부팅 시).
 function applyTyphoonStyle() {
   if (!S.typhoon) return;
@@ -3546,19 +3653,38 @@ const TYPHOON_BAND_DEF = {
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // 범례(우리 특보 범례 시스템)에 넣을 태풍 항목
-function typhoonLegendItems() {
+const TYPHOON_GRADE_RANGE = { 1: '17~24m/s', 2: '25~32m/s', 3: '33~43m/s', 4: '44~53m/s', 5: '54m/s 이상' };
+// 태풍 범례 후보 전체(고정 id) — 반경 밴드 3종 + 열대저압부 + 강도 1~5. 색: 밴드=현재 반경색, 강도=등급색.
+function typhoonLegendCatalog() {
   const b = (S.typhoon && S.typhoon.bands) || {};
-  const col = (k) => (b[k] && b[k].fill) || TYPHOON_BAND_DEF[k].fill;
-  return [
-    { col: col('r15'), txt: '15m/s 이상 범위' },
-    { col: col('r25'), txt: '25m/s 이상 범위' },
-    { col: col('r70'), txt: '70% 확률반경' },
+  const bcol = (k) => (b[k] && b[k].fill) || TYPHOON_BAND_DEF[k].fill;
+  const items = [
+    { id: 'r15', kind: 'band', col: bcol('r15'), txt: '15m/s 이상 범위' },
+    { id: 'r25', kind: 'band', col: bcol('r25'), txt: '25m/s 이상 범위' },
+    { id: 'r70', kind: 'band', col: bcol('r70'), txt: '70% 확률반경' },
+    { id: 'td', kind: 'td', col: '#9AA3AD', txt: '열대저압부 17m/s 미만' },
   ];
+  for (let n = 1; n <= 5; n++) items.push({ id: 'g' + n, kind: 'grade', g: n, col: TYPHOON_GRADE_COL[n], txt: '강도' + n + ' ' + TYPHOON_GRADE_RANGE[n] });
+  return items;
+}
+const TYPHOON_LEGEND_DEFAULT_ORDER = ['r15', 'r25', 'r70', 'g1', 'g2', 'g3', 'g4', 'g5', 'td'];
+const TYPHOON_LEGEND_DEFAULT_HIDDEN = { g1: 1, g2: 1, g3: 1, g4: 1, g5: 1, td: 1 };   // 기본은 반경 3종만 표시
+// 실제 범례에 그릴 항목(순서·숨김 적용). renderLegend/vfExpandedLegend 공용.
+function typhoonLegendItems() {
+  const T = S.typhoon || {};
+  const cat = typhoonLegendCatalog(), byId = {}; for (const it of cat) byId[it.id] = it;
+  const order = (T.legendOrder && T.legendOrder.length) ? T.legendOrder : TYPHOON_LEGEND_DEFAULT_ORDER;
+  const hidden = T.legendHidden || TYPHOON_LEGEND_DEFAULT_HIDDEN;
+  const out = [];
+  for (const id of order) { const it = byId[id]; if (it && !hidden[id]) out.push(it); }
+  for (const it of cat) if (!order.includes(it.id) && !hidden[it.id]) out.push(it);   // 카탈로그에 새로 생긴 항목 보강
+  return out;
 }
 
 // 애니메이션 진행도(null=전체, 아니면 0..N-1 실수 — 지점 사이를 부드럽게 보간)
 let typhoonProg = null;
 let typhoonRaf = 0;
+let typhoonHeadFade = 1;   // 애니 끝에서 이동 아이콘(head)을 부드럽게 사라지게(1→0)
 // 라벨 생성 애니메이션 — 라벨마다 '그 태풍 지점이 나타나는 순간' 개별 시작한다.
 // null=평소(완전표시). {at:경과ms, starts:{labelId:시작ms}, LINE, SCALE}
 let typhoonLabelAnim = null;
@@ -3594,16 +3720,28 @@ function typhoonScreenPts(pts) {
 function typhoonDefaultNowIdx(pts) { let idx = 0; pts.forEach((p, i) => { if (!p.fcst) idx = i; }); return idx; }
 const typhoonNowIdx = (pts) => clamp(S.typhoon && S.typhoon.nowIdx != null ? S.typhoon.nowIdx : typhoonDefaultNowIdx(pts), 0, pts.length - 1);
 
-// 태풍 아이콘 — 사용자 제공 이미지(빨간 3D '6'). past면 회색 필터, 아니면 색조 필터(iconCol 반영).
-// td=true(열대저압부, 17m/s 미만)면 아직 태풍이 아니므로 아이콘 대신 '그냥 점'. r = 반지름 기준.
-function typhoonIconEl(x, y, r, color, td, past) {
+// 태풍 아이콘 — 두 종류: 'image'(사용자 이미지) / 'grade'(기상청 강도 숫자 원). 전체 크기는 iconScale 배율.
+// td=true(열대저압부, 17m/s 미만)면 아이콘 대신 '그냥 점'. r = 반지름 기준. ws = 최대풍속(등급 판정용).
+function typhoonIconEl(x, y, r, color, td, past, ws, forceImage) {
+  const T = S.typhoon || {};
+  const scale = (T.iconScale == null ? 1 : +T.iconScale) || 1;
+  r = r * scale;
   const g = _te('g', { transform: `translate(${x} ${y})` });
-  const IC = window.TYPHOON_ICON;
-  if (td) {   // 아직 태풍이 아닌 열대저기압(TD) = 그냥 작은 점 (지난 구간이면 회색)
+  if (!past && (T.glowOn == null ? 1 : T.glowOn)) g.setAttribute('filter', 'url(#typhoonIconGlow)');   // 현재/미래 아이콘에 살짝 글로우
+  if (td && !forceImage) {   // 열대저압부(TD) = 그냥 작은 점 (지난 구간이면 회색)
     const rr = r * 0.42, dotCol = past ? '#9AA3AD' : color;
     g.appendChild(_te('circle', { r: rr, fill: dotCol, stroke: '#FFFFFF', 'stroke-width': Math.max(1, rr * 0.3), 'stroke-opacity': past ? 0.55 : 0.9 }));
     return g;
   }
+  if (!forceImage && (T.iconMode || 'image') === 'grade') {   // 기상청 강도(1~5) 숫자 원 (forceImage면 건너뛰고 일러스트)
+    const gr = typhoonGrade(ws), rr = r * 1.15;
+    g.appendChild(_te('circle', { r: rr, fill: past ? '#9AA3AD' : gr.col, stroke: '#FFFFFF', 'stroke-width': Math.max(1.5, rr * 0.13), 'stroke-opacity': past ? 0.6 : 1 }));
+    const t = _te('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: '#FFFFFF', 'font-family': '"SUITE CG","Malgun Gothic",sans-serif', 'font-weight': 800, 'font-size': rr * 1.25 });
+    t.textContent = String(gr.g || 1);
+    g.appendChild(t);
+    return g;
+  }
+  const IC = window.TYPHOON_ICON;
   if (!IC || !IC.img) { g.appendChild(_te('circle', { r: r * 0.6, fill: color })); return g; }
   const h = r * 2.5, w = h * (IC.w / IC.h);
   g.appendChild(_te('image', { href: IC.img, x: -w / 2, y: -h / 2, width: w, height: h, preserveAspectRatio: 'xMidYMid meet', filter: past ? 'url(#typhoonIconGray)' : 'url(#typhoonIconTint)' }));
@@ -3618,6 +3756,15 @@ function hexHue(hex) {
   if (d === 0) return 0;
   let h; if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
   h *= 60; if (h < 0) h += 360; return h;
+}
+// 아이콘(빨강 몸통 + 흰 눈)을 target색으로 재계산하는 feColorMatrix values.
+// 몸통 빨강(≈0.86,0.30,0.30)→target, 흰색(1,1,1)→흰색 유지. hueRotate와 달리 아무 색이나 정확히 적용됨.
+function iconTintValues(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '#E5231E');
+  const t = m ? [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255] : [0.9, 0.14, 0.12];
+  const RED = 0.86, LO = 0.30, span = RED - LO;
+  const row = (tk) => { const a = (tk - LO) / span, bc = (1 - a) / 2; return a + ' ' + bc + ' ' + bc + ' 0 0'; };
+  return row(t[0]) + ' ' + row(t[1]) + ' ' + row(t[2]) + ' 0 0 0 1 0';
 }
 
 // 선으로 튀어나오는 큰 날짜 라벨 — 남색 둥근박스 + 흰 날짜 + 청록 시각.
@@ -3709,20 +3856,25 @@ function drawTyphoonTrack(L, pts) {
   if (!pts || pts.length === 0) return;
   const T = S.typhoon;
   const nowIdx = typhoonNowIdx(pts);
-  const sp = typhoonScreenPts(pts);
+  let sp = typhoonScreenPts(pts);
+  if (T && T.rangeOn) sp = sp.filter((p) => p.head || typhoonIdxInRange(pts, p.idx));   // 표시 날짜 범위 밖 지점 제외
   const add = (e) => L.appendChild(e);
   // 독도 — 줌아웃하면 실제로는 안 보이므로 '있는듯 없는듯' 작은 점 하나로 표시(시청자 민감 이슈).
   // 크기는 울릉도 화면 반경의 1/4 정도로 비례, 색은 남한 강조 스트로크색. 남한 강조 끄면 같이 숨김.
   if (T && T.krShow !== 0) {
     const ul = projLL(130.905, 37.484), ul2 = projLL(130.905, 37.529);   // 울릉도 대략 반경(≈0.045°)
     const ulR = Math.abs(ul2[1] - ul[1]) * S.map.s;
-    const r = Math.max(1.4, Math.min(4.5, ulR * 0.32));                  // 울릉도의 약 1/3, 너무 작지·크지 않게
+    const sz = Math.max(1.2, Math.min(3, ulR * 0.22));                   // 예전보다 살짝 작게
     const [dokX, dokY] = typhoonXY(131.869, 37.241);
-    // 남한 강조와 같은 방식(면=krFill, 테두리=krStroke)의 미니 섬 — '대한민국 땅' 느낌.
-    // 작아도 밝은 스트로크색이 잘 보이도록 테두리를 살짝 강제로 굵게 준다.
-    add(_te('circle', { cx: dokX, cy: dokY, r,
-      fill: T.krFill || '#2E6FB0', 'fill-opacity': 0.9,
-      stroke: T.krStroke || '#BFE3FF', 'stroke-width': Math.max(1.8, r * 0.7), 'stroke-opacity': 1 }));
+    const fill = T.krFill || '#2E6FB0', strk = T.krStroke || '#BFE3FF', sw = Math.max(0.9, sz * 0.45);
+    // 실제 독도 모양 — 서도(왼쪽·높은 뾰족봉)와 동도(오른쪽·낮고 위가 평평). 색은 남한 강조색.
+    const by = dokY + sz * 0.9;
+    const peak = (cx, w, h) => `M${cx - w} ${by}L${cx - w * 0.55} ${by - h * 0.5}L${cx - w * 0.12} ${by - h}L${cx + w * 0.28} ${by - h * 0.55}L${cx + w * 0.66} ${by - h * 0.82}L${cx + w} ${by}Z`;
+    const flat = (cx, w, h) => `M${cx - w} ${by}L${cx - w * 0.6} ${by - h * 0.72}L${cx - w * 0.18} ${by - h}L${cx + w * 0.32} ${by - h * 0.94}L${cx + w * 0.72} ${by - h * 0.62}L${cx + w} ${by}Z`;
+    const g = _te('g', {});
+    g.appendChild(_te('path', { d: peak(dokX - sz * 1.0, sz * 0.85, sz * 2.0), fill, 'fill-opacity': 0.95, stroke: strk, 'stroke-width': sw, 'stroke-linejoin': 'round' }));  // 서도
+    g.appendChild(_te('path', { d: flat(dokX + sz * 0.95, sz * 0.8, sz * 1.35), fill, 'fill-opacity': 0.95, stroke: strk, 'stroke-width': sw, 'stroke-linejoin': 'round' }));  // 동도
+    add(g);
   }
   // 반경 엔벨로프 — 현재~미래(nowIdx 이상)만. 지난 구간은 예상반경 제외.
   const activeSp = sp.filter((p) => p.head || p.idx >= nowIdx);
@@ -3736,17 +3888,24 @@ function drawTyphoonTrack(L, pts) {
   const futLine = sp.filter((p) => p.head || p.idx >= nowIdx);
   if (pastLine.length > 1) add(_te('path', { d: 'M' + pastLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: '#96A0AD', 'stroke-width': 2.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   if (futLine.length > 1) add(_te('path', { d: 'M' + futLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: '#FFFFFF', 'stroke-width': 2.8, 'stroke-dasharray': '9 8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
-  // 태풍 아이콘 (지난 구간 회색, 현재/미래 색조 필터, 현재 크게, 약하면 열대저압부 ⊗)
+  // 지시선 레이어 — 아이콘보다 '먼저' 그려서 아이콘 뒤로 가게(선이 아이콘을 안 가림).
+  const leaderG = _te('g', { 'data-typhoon-leaders': '1' }); add(leaderG);
+  // 태풍 아이콘 (지난 구간 회색, 현재/미래 색조 필터, 현재 크게, 약하면 열대저압부 점)
   const iconCol = T.iconCol || '#E5231E';
+  const headWs = (pts[nowIdx] && pts[nowIdx].ws) || 40;
   for (const p of sp) {
-    if (p.head) { add(typhoonIconEl(p.x, p.y, 17, iconCol, false, false)); continue; }   // 최종 지점 크기(17)와 같게 — 끝날 때 '탁' 줄어드는 팝 방지
+    if (p.head) {   // 이동하는 선두 = 일러스트 아이콘(강도숫자 모드에서도). 애니 끝날 때 부드럽게 사라지도록 페이드.
+      const hi = typhoonIconEl(p.x, p.y, 17, iconCol, false, false, headWs, true);
+      if (typhoonHeadFade < 1) hi.setAttribute('opacity', Math.max(0, typhoonHeadFade).toFixed(3));
+      add(hi); continue;
+    }
     const past = p.idx < nowIdx, cur = p.idx === nowIdx;
     const ws = (pts[p.idx] && pts[p.idx].ws) || 99;
-    add(typhoonIconEl(p.x, p.y, cur ? 24 : 17, iconCol, ws < 17, past));
+    const baseR = cur ? 24 : 17;
+    add(typhoonIconEl(p.x, p.y, past ? baseR * 0.5 : baseR, iconCol, ws < 17, past, ws));   // 지나간 날짜는 50% 작게
   }
-  // 라벨 — labelList()의 각 라벨을 45° 지시선 + 리치 박스로. 드래그·선택·편집기 전부 노말과 공유.
+  // 라벨 — 지시선은 leaderG(아이콘 뒤)에, 박스는 맨 위에. 드래그·선택·편집기 전부 노말과 공유.
   const idxXY = {}; for (const p of sp) if (!p.head) idxXY[p.idx] = p;
-  const leaderG = _te('g', { 'data-typhoon-leaders': '1' }); add(leaderG);   // 지시선 먼저(박스 뒤)
   const boxNodes = [];
   for (const b of labelList()) {
     if (b.off) continue;
@@ -3795,15 +3954,16 @@ function playTyphoon() {
     const t = ts - t0;
     const pathK = Math.min(1, t / PATH);
     typhoonProg = pathK >= 1 ? null : easeCubic(pathK) * (N - 1);        // 경로 스으윽 이동(2초)
+    typhoonHeadFade = pathK < 0.78 ? 1 : Math.max(0, 1 - (pathK - 0.78) / 0.22);   // 끝 22%에서 이동 아이콘 부드럽게 사라짐
     const revealed = pathK >= 1 ? (N - 1) : Math.floor(easeCubic(pathK) * (N - 1) + 1e-6);
     // 지점이 나타나는 순간 그 라벨 애니 시작
     for (const b of labelList()) if (!b.off && b.idx != null && b.idx <= revealed && starts[b.id] == null) starts[b.id] = t;
     typhoonLabelAnim = { at: t, starts, LINE, SCALE };
     renderTyphoon();
     if (t < END) typhoonRaf = requestAnimationFrame(step);
-    else { typhoonProg = null; typhoonLabelAnim = null; renderTyphoon(); }
+    else { typhoonProg = null; typhoonLabelAnim = null; typhoonHeadFade = 1; renderTyphoon(); }
   };
-  typhoonProg = 0; typhoonLabelAnim = { at: 0, starts, LINE, SCALE }; renderTyphoon();
+  typhoonProg = 0; typhoonHeadFade = 1; typhoonLabelAnim = { at: 0, starts, LINE, SCALE }; renderTyphoon();
   typhoonRaf = requestAnimationFrame(step);
 }
 
@@ -3892,9 +4052,17 @@ function _renderTyphoon() {
       kr.style.mixBlendMode = 'screen';
     }
   }
-  // 아이콘 색조(빨강 기준 hueRotate) — 사용자 아이콘의 빨강 hue(~5°) 기준으로 회전
+  // 아이콘 색 — 빨강 몸통을 iconCol로 재계산(흰 눈 유지). hueRotate와 달리 아무 색이나 정확히 적용.
   const tintM = $('#typhoonIconTintM');
-  if (tintM && on && T) tintM.setAttribute('values', String(Math.round(hexHue(T.iconCol || '#E5231E') - 5)));
+  if (tintM && on && T) tintM.setAttribute('values', iconTintValues(T.iconCol || '#E5231E'));
+  // 아이콘 글로우 — 색은 glowCol(없으면 iconCol 따라감), 강도는 glowStr(0~1).
+  const glowDS = $('#typhoonIconGlowDS');
+  if (glowDS && on && T) {
+    const gs = T.glowStr == null ? 0.5 : +T.glowStr;
+    glowDS.setAttribute('flood-color', T.glowCol || T.iconCol || '#E5231E');
+    glowDS.setAttribute('stdDeviation', (2 + gs * 10).toFixed(1));
+    glowDS.setAttribute('flood-opacity', Math.min(1, 0.4 + gs * 0.7).toFixed(2));
+  }
   if (!L) return;
   L.textContent = '';
   L.style.display = on ? '' : 'none';
@@ -3904,22 +4072,27 @@ function _renderTyphoon() {
 
 // 태풍 사이드바 값 채우기 (태풍 모드에서만)
 // 태풍 라벨 기본값 — 노말 라벨과 같은 구조(newLabel) + idx(트랙 지점) + 진남색 박스. 내용은 그 시각.
-function makeTyphoonLabel(i, p) {
+function makeTyphoonLabel(i, p, side) {
   const [px, py] = typhoonXY(p.lon, p.lat);
   const ls = (typhoonStyleDefaults().labelStyle) || {};   // 굽힌 라벨 기본 스타일 우선
+  const s = side === 'l' ? -1 : 1;
+  // 아이콘 가까이 + 45° 대각선 뒤 수평이 잘 보이도록: 위로 살짝, 옆으로 조금 더(수평 구간 확보).
   return newLabel(Object.assign({
     idx: i, txt: p.label || ('지점 ' + (i + 1)), title: '',
-    x: Math.round(px + 140), y: Math.round(py - 150 - (i % 3) * 92),
+    x: Math.round(px + s * 150), y: Math.round(py - 92),
   }, ls));
 }
-// 불러오기/태풍 전환 시 오늘(현재 시각=마지막 실황) 지점에 라벨 하나를 자동 생성 —
-// 라벨이 하나도 없으면 수치라벨 기능이 없어 보여서, 기본으로 하나 보이게 한다. (현재 지도 뷰 기준으로 배치)
+// 불러오기/태풍 전환 시 라벨 자동 생성 — 오늘(현재 시각=마지막 실황) + 예측 최종 지점 2개.
+// 라벨이 하나도 없으면 수치라벨 기능이 없어 보여서, 기본으로 보이게 한다. (현재 지도 뷰 기준 배치)
 function autoTodayTyphoonLabel() {
   if (!S.typhoon) return;
   const pts = curTyphoonPoints();
   if (!pts || !pts.length) return;
-  const ni = typhoonNowIdx(pts);
-  if (pts[ni]) S.typhoon.labels = [makeTyphoonLabel(ni, pts[ni])];
+  const ni = typhoonNowIdx(pts), last = pts.length - 1;
+  const labs = [];
+  if (pts[ni]) labs.push(makeTyphoonLabel(ni, pts[ni], 'r'));            // 오늘 — 오른쪽 대각선
+  if (last !== ni && pts[last]) labs.push(makeTyphoonLabel(last, pts[last], 'r'));   // 예측 최종 — 오른쪽 대각선
+  S.typhoon.labels = labs;
 }
 function buildTyphoonPanel() {
   if (!isTyphoon()) return;
@@ -3982,6 +4155,25 @@ function buildTyphoonPanel() {
   const kop = $('#typKrOp'), kopV = $('#typKrOpV'); const kv = (T.krOpacity == null ? 0.45 : T.krOpacity);
   if (kop) kop.value = kv; if (kopV) kopV.textContent = Math.round(kv * 100) + '%';
   const eye = $('#typKrEye'); if (eye) eye.classList.toggle('off', T.krShow === 0);
+  // 아이콘 종류/전체 크기
+  const mode = T.iconMode || 'image';
+  document.querySelectorAll('#typIconMode button').forEach((b) => b.classList.toggle('on', b.dataset.im === mode));
+  const colRow = $('#typIconColRow'); if (colRow) colRow.style.display = (mode === 'image') ? '' : 'none';   // 색은 이미지 모드만
+  const isc = $('#typIconScale'), iscV = $('#typIconScaleV'); const sv = (T.iconScale == null ? 1 : T.iconScale);
+  if (isc) isc.value = sv; if (iscV) iscV.textContent = Math.round(sv * 100) + '%';
+  // 글로우
+  const gOn = $('#typGlowOn'); if (gOn) gOn.checked = (T.glowOn == null ? 1 : T.glowOn) ? true : false;
+  const gStr = $('#typGlowStr'), gStrV = $('#typGlowStrV'); const gsv = (T.glowStr == null ? 0.5 : T.glowStr);
+  if (gStr) gStr.value = gsv; if (gStrV) gStrV.textContent = Math.round(gsv * 100) + '%';
+  const gc = $('#typGlowCol'), gh = $('#typGlowHex');
+  if (gc) gc.value = T.glowCol || (T.iconCol || '#E5231E'); if (gh) gh.value = T.glowCol || '';
+  // 표시 날짜 범위 — 입력칸 min/max를 경로 실제 기간으로, 기본값은 전체 범위
+  const dates = pts.map((p) => typhoonDateKST(p.tmef)).filter(Boolean).sort();
+  const dMin = dates[0] || '', dMax = dates[dates.length - 1] || '';
+  const rOn = $('#typRangeOn'), rF = $('#typRangeFrom'), rT = $('#typRangeTo');
+  if (rOn) rOn.checked = !!T.rangeOn;
+  if (rF) { rF.min = dMin; rF.max = dMax; rF.value = T.rangeFrom || dMin; }
+  if (rT) { rT.min = dMin; rT.max = dMax; rT.value = T.rangeTo || dMax; }
 }
 
 // 반경 밴드 스타일 컨트롤(면색·투명도·외곽선색·굵기·점선) — 3밴드 동적 생성
@@ -4037,6 +4229,23 @@ function wireTyphoonPanel() {
   const kop = $('#typKrOp'); if (kop) kop.oninput = () => { pushUndo('typkrop'); T().krOpacity = +kop.value; const v = $('#typKrOpV'); if (v) v.textContent = Math.round(kop.value * 100) + '%'; renderTyphoon(); };
   const now = $('#typNow'); if (now) now.oninput = () => { pushUndo('typnow'); T().nowIdx = +now.value; const pts = curTyphoonPoints(); const nv = $('#typNowV'); if (nv) nv.textContent = (pts[+now.value] && pts[+now.value].label) || now.value; renderTyphoon(); };
   const terr = $('#typTerrain'); if (terr) terr.oninput = () => { pushUndo('typterr'); T().terrain = +terr.value; const tv = $('#typTerrainV'); if (tv) tv.textContent = Math.round(terr.value * 100) + '%'; renderTyphoon(); };
+  // 아이콘 종류(이미지/강도숫자)
+  document.querySelectorAll('#typIconMode button').forEach((b) => { b.onclick = () => {
+    pushUndo(); T().iconMode = b.dataset.im;
+    document.querySelectorAll('#typIconMode button').forEach((x) => x.classList.toggle('on', x === b));
+    const cr = $('#typIconColRow'); if (cr) cr.style.display = (b.dataset.im === 'image') ? '' : 'none';
+    renderTyphoon();
+  }; });
+  const isc = $('#typIconScale'); if (isc) isc.oninput = () => { pushUndo('typiconsc'); T().iconScale = +isc.value; const v = $('#typIconScaleV'); if (v) v.textContent = Math.round(isc.value * 100) + '%'; renderTyphoon(); };
+  // 글로우
+  const gOn = $('#typGlowOn'); if (gOn) gOn.onchange = () => { pushUndo(); T().glowOn = gOn.checked ? 1 : 0; renderTyphoon(); };
+  const gStr = $('#typGlowStr'); if (gStr) gStr.oninput = () => { pushUndo('typglow'); T().glowStr = +gStr.value; const v = $('#typGlowStrV'); if (v) v.textContent = Math.round(gStr.value * 100) + '%'; renderTyphoon(); };
+  bindCol('#typGlowCol', '#typGlowHex', (v) => T().glowCol = v);
+  const gAuto = $('#typGlowAuto'); if (gAuto) gAuto.onclick = () => { pushUndo(); T().glowCol = ''; const gh = $('#typGlowHex'); if (gh) gh.value = ''; const gc = $('#typGlowCol'); if (gc) gc.value = T().iconCol || '#E5231E'; renderTyphoon(); };
+  // 표시 날짜 범위
+  const rOn = $('#typRangeOn'); if (rOn) rOn.onchange = () => { pushUndo(); const t = T(); t.rangeOn = rOn.checked ? 1 : 0; if (t.rangeOn) { const rF = $('#typRangeFrom'), rT = $('#typRangeTo'); if (rF && !t.rangeFrom) t.rangeFrom = rF.value; if (rT && !t.rangeTo) t.rangeTo = rT.value; } renderTyphoon(); };
+  const rF = $('#typRangeFrom'); if (rF) rF.onchange = () => { pushUndo(); T().rangeFrom = rF.value; renderTyphoon(); };
+  const rT = $('#typRangeTo'); if (rT) rT.onchange = () => { pushUndo(); T().rangeTo = rT.value; renderTyphoon(); };
   const kin = $('#typKey'); if (kin) { kin.value = typKey(); kin.oninput = (e) => localStorage.setItem(TYP_KEY_STORE, e.target.value.trim()); }
   const which = $('#typWhichSel'); if (which) which.onchange = () => selectTyphoonFromApi(+which.value);
 }
@@ -4078,7 +4287,7 @@ function selectTyphoonFromApi(idx) {
   const pts = anal.concat(fcst);   // 분석(과거~현재) + 예측(미래). nowIdx=마지막 분석
   const prev = S.typhoon || {}, DEF = typhoonStyleDefaults();
   const style = {};
-  for (const k of ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'terrain', 'iconCol', 'bands']) style[k] = (prev[k] != null ? prev[k] : DEF[k]);
+  for (const k of TYPHOON_STYLE_KEYS) { const v = (prev[k] != null ? prev[k] : DEF[k]); if (v !== undefined) style[k] = v; }   // 아이콘/범례 등 스타일 키 모두 보존
   S.typhoon = Object.assign({
     name: w.name, issues: [{ tmfc: '', label: '실황 + 예상경로', points: pts }], sel: 0, fromApi: true,
     whichList: typhoonRaw.whichList.map((x) => ({ tno: x.tno, name: x.name })), whichSel: idx, nowIdx: null, labelSel: null,
@@ -4424,6 +4633,7 @@ function refreshPanel() {
     if ($('#lgOn')) $('#lgOn').checked = !!g.on;
     if ($('#lgAuto')) $('#lgAuto').checked = g.auto == null ? true : !!g.auto;
     if ($('#lgHoriz')) $('#lgHoriz').checked = !!g.horiz;
+    if ($('#lgHorizTy')) $('#lgHorizTy').checked = !!g.horiz;
     const sv = (id, v, vid) => { if ($(id)) { $(id).value = v; if (vid) $(vid).textContent = v; } };
     sv('#lgSize', g.size == null ? 34 : g.size, '#lgSizeV'); sv('#lgBox', g.box == null ? 34 : g.box, '#lgBoxV');
     sv('#lgRadius', g.radius == null ? 6 : g.radius, '#lgRadiusV'); sv('#lgRowGap', g.rowGap == null ? 16 : g.rowGap, '#lgRowGapV');
@@ -4431,6 +4641,7 @@ function refreshPanel() {
     sv('#lgWeight', g.weight == null ? 600 : g.weight, '#lgWeightV');
     if ($('#lgTxtCol')) { $('#lgTxtCol').value = g.txtCol || '#FFFFFF'; $('#lgTxtColHex').value = g.txtCol || '#FFFFFF'; }
     buildLgList();
+    if (isTyphoon()) buildTyphoonLegendList();
     syncLegendMode();
   }
   $('#labShadow').checked = S.labShadow == null ? true : !!S.labShadow;
@@ -7902,7 +8113,8 @@ async function bakeDefaults() {
     const T = S.typhoon;
     presets.typhoonStyle = {
       landFill: T.landFill, landStroke: T.landStroke, krShow: T.krShow, krFill: T.krFill, krStroke: T.krStroke, krStrokeW: T.krStrokeW, krOpacity: T.krOpacity,
-      terrain: T.terrain, iconCol: T.iconCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      terrain: T.terrain, iconCol: T.iconCol, iconMode: T.iconMode, iconScale: T.iconScale, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      legendOrder: T.legendOrder ? T.legendOrder.slice() : undefined, legendHidden: T.legendHidden ? JSON.parse(JSON.stringify(T.legendHidden)) : undefined,
     };
     // 라벨 기본 스타일(폰트 크기·굵기·색·박스)도 굽는다 — 선택한 태풍 라벨, 없으면 첫 라벨 기준.
     const labs = (T.labels || []).filter((b) => !b.off);
@@ -8471,6 +8683,7 @@ function wire() {
   $('#lgOn').onchange = (e) => { pushUndo(); (S.legend ||= { items: [] }).on = e.target.checked ? 1 : 0; if (e.target.checked) ensureLegendInVfPanel(); renderVfBar(); };
   $('#lgAuto').onchange = (e) => { pushUndo(); (S.legend ||= {}).auto = e.target.checked ? 1 : 0; syncLegendMode(); renderVfBar(); };
   $('#lgHoriz').onchange = (e) => { pushUndo(); (S.legend ||= {}).horiz = e.target.checked ? 1 : 0; renderVfBar(); };
+  { const h = $('#lgHorizTy'); if (h) h.onchange = (e) => { pushUndo(); (S.legend ||= {}).horiz = e.target.checked ? 1 : 0; renderLegend(); renderVfBar(); }; }
   $('#lgAdd').onclick = () => { pushUndo(); const g = (S.legend ||= { items: [] }); (g.items ||= []).push({ col: activeColor, txt: '' }); g.on = 1; $('#lgOn').checked = true; renderVfBar(); buildLgList(); };
   const lgw = (id, key, vid) => { $(id).oninput = (e) => { pushUndo('lg' + key); (S.legend ||= {})[key] = +e.target.value; if (vid) $(vid).textContent = e.target.value; renderVfBar(); }; };
   lgw('#lgSize', 'size', '#lgSizeV'); lgw('#lgBox', 'box', '#lgBoxV'); lgw('#lgRadius', 'radius', '#lgRadiusV'); lgw('#lgRowGap', 'rowGap', '#lgRowGapV'); lgw('#lgGap', 'gap', '#lgGapV'); lgw('#lgWeight', 'weight', '#lgWeightV');
