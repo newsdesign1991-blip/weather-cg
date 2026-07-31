@@ -1339,6 +1339,7 @@
           <div class="fieldGroup">
             <div class="row"><label>면 색</label><button class="eye" id="typKrEye" title="켜기/끄기"></button><input type="color" id="typKrFill"><input type="text" id="typKrFillHex"></div>
             <div class="row"><label>선 색</label><input type="color" id="typKrStroke"><input type="text" id="typKrStrokeHex"><input type="number" id="typKrW" step="0.1" min="0" max="8" style="flex:0 0 54px"></div>
+            <div class="row"><label>시도 경계</label><button class="eye" id="typSidoEye" title="켜기/끄기"></button><input type="color" id="typSidoCol"><input type="text" id="typSidoColHex"><input type="number" id="typSidoW" step="0.1" min="0" max="4" style="flex:0 0 54px"></div>
             <div class="row"><label>진하기</label><input type="range" id="typKrOp" min="0" max="1" step="0.05"><span class="v" id="typKrOpV"></span></div>
           </div>
           <div class="subhead">광역 지도 색</div>
@@ -1771,7 +1772,7 @@
         <rect id="typhoonOcean" x="0" y="0" width="1920" height="1080" fill="url(#typhoonOceanGrad)" style="display:none"/>
         <image id="bgImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>
         <!-- 태풍 광역 해안선(일본·중국·필리핀 등). 지도 변환(bgMapT)을 그대로 탄다. -->
-        <g id="bgMapT"><path id="typhoonLand" style="display:none"/><path id="typhoonKrBase" style="display:none"/><image id="typhoonRelief" filter="url(#typhoonReliefDark)" clip-path="url(#typhoonLandClip)" preserveAspectRatio="none" style="display:none"/><path id="typhoonKr" style="display:none"/><path id="nbrNW"/><path id="nbrJP"/></g>
+        <g id="bgMapT"><path id="typhoonLand" style="display:none"/><path id="typhoonKrBase" style="display:none"/><image id="typhoonRelief" filter="url(#typhoonReliefDark)" clip-path="url(#typhoonLandClip)" preserveAspectRatio="none" style="display:none"/><path id="typhoonKr" style="display:none"/><path id="typhoonSido" style="display:none" fill="none"/><path id="nbrNW"/><path id="nbrJP"/></g>
       </g>
 
       <!-- 해상 특보구역. 육상 아래에 깔아야 해안선이 육지에 먹히지 않는다. -->
@@ -3561,6 +3562,7 @@ function typhoonXY(lon, lat) { const [lx, ly] = projLL(lon, lat); return [S.map.
 const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, terrain: 0.85, iconCol: '#E5231E', nowIdx: null, labelSel: null,
   iconMode: 'image', iconScale: 0.75,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 75%)
   glowOn: 1, glowStr: 0.5, glowCol: '',   // 아이콘 글로우: 켜기 / 강도(0~1) / 색('' 이면 아이콘색 따라감)
+  sidoShow: 1, sidoCol: '', sidoW: 0.8, sidoOp: 0.55,   // 남한 시도 구분선: 켜기 / 색('' 이면 강조 선색 따라감) / 굵기 / 투명도
   // 새 태풍 라벨의 기본 스타일(굽기 포함). 라벨 하나를 원하는 대로 꾸민 뒤 그 라벨을 선택하고 굽기 하면 여기에 담긴다.
   labelStyle: { size: 40, w: 800, txtCol: '#FFFFFF', fill: '#0E2E68', stroke: '#3F6BD8', strokeW: 2, radius: 16, padX: 28, padY: 16, track: -1, titleRatio: 0.7, divider: 1 } };
 // 기상청 태풍 강도(최대풍속 m/s) → 등급(1~5)·색. 17 미만은 열대저압부(TD, 등급 0).
@@ -3588,7 +3590,7 @@ function typhoonIdxInRange(pts, idx) {
 }
 // 굽힌 배포 기본값(WCG_DEFAULTS.typhoonStyle)이 있으면 그걸 우선한 태풍 스타일 기본값.
 function typhoonStyleDefaults() { return Object.assign({}, TYPHOON_DEFAULTS, (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {}); }
-const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'terrain', 'iconCol', 'bands', 'iconMode', 'iconScale', 'glowOn', 'glowStr', 'glowCol', 'legendOrder', 'legendHidden'];
+const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'terrain', 'iconCol', 'bands', 'iconMode', 'iconScale', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'legendOrder', 'legendHidden'];
 // 태풍 스타일(색·반경·지형·남한강조)을 굽힌 기본값으로 맞춘다 — 모든 해상도가 같은 색을 쓰게(진입·부팅 시).
 function applyTyphoonStyle() {
   if (!S.typhoon) return;
@@ -4052,6 +4054,22 @@ function _renderTyphoon() {
       kr.style.mixBlendMode = 'screen';
     }
   }
+  // 남한 시도 구분선 — 남한과 같은 좌표계(KOREA_MAP 투영)라 #bgMapT에 얹으면 외곽선과 정확히 일치.
+  const sido = $('#typhoonSido');
+  if (sido) {
+    const SL = MAP.styles.sido && MAP.styles.sido.sidoLines;
+    const showS = on && T && T.krShow !== 0 && (T.sidoShow == null ? 1 : T.sidoShow) && SL && SL.main;
+    if (showS && sido.getAttribute('d') !== SL.main) sido.setAttribute('d', SL.main);
+    sido.style.display = showS ? '' : 'none';
+    if (showS) {
+      sido.setAttribute('fill', 'none');
+      sido.setAttribute('stroke', T.sidoCol || T.krStroke || '#BFE3FF');
+      sido.setAttribute('stroke-width', (T.sidoW == null ? 0.8 : T.sidoW) / (S.map.s || 1));
+      sido.setAttribute('stroke-opacity', T.sidoOp == null ? 0.55 : T.sidoOp);
+      sido.setAttribute('stroke-linejoin', 'round');
+      sido.setAttribute('stroke-linecap', 'round');
+    }
+  }
   // 아이콘 색 — 빨강 몸통을 iconCol로 재계산(흰 눈 유지). hueRotate와 달리 아무 색이나 정확히 적용.
   const tintM = $('#typhoonIconTintM');
   if (tintM && on && T) tintM.setAttribute('values', iconTintValues(T.iconCol || '#E5231E'));
@@ -4155,6 +4173,10 @@ function buildTyphoonPanel() {
   const kop = $('#typKrOp'), kopV = $('#typKrOpV'); const kv = (T.krOpacity == null ? 0.45 : T.krOpacity);
   if (kop) kop.value = kv; if (kopV) kopV.textContent = Math.round(kv * 100) + '%';
   const eye = $('#typKrEye'); if (eye) eye.classList.toggle('off', T.krShow === 0);
+  // 시도 구분선
+  setPair('#typSidoCol', '#typSidoColHex', T.sidoCol || T.krStroke || '#BFE3FF');
+  const sidoW = $('#typSidoW'); if (sidoW) sidoW.value = (T.sidoW == null ? 0.8 : T.sidoW);
+  const sidoEye = $('#typSidoEye'); if (sidoEye) sidoEye.classList.toggle('off', (T.sidoShow == null ? 1 : T.sidoShow) === 0);
   // 아이콘 종류/전체 크기
   const mode = T.iconMode || 'image';
   document.querySelectorAll('#typIconMode button').forEach((b) => b.classList.toggle('on', b.dataset.im === mode));
@@ -4226,6 +4248,10 @@ function wireTyphoonPanel() {
   bindCol('#typLandStroke', '#typLandStrokeHex', (v) => T().landStroke = v);
   const w = $('#typKrW'); if (w) w.oninput = () => { pushUndo('typw'); T().krStrokeW = +w.value; renderTyphoon(); };
   const eye = $('#typKrEye'); if (eye) eye.onclick = () => { pushUndo(); const t = T(); t.krShow = t.krShow === 0 ? 1 : 0; eye.classList.toggle('off', t.krShow === 0); renderTyphoon(); };
+  // 시도 구분선
+  bindCol('#typSidoCol', '#typSidoColHex', (v) => T().sidoCol = v);
+  const sidoW = $('#typSidoW'); if (sidoW) sidoW.oninput = () => { pushUndo('typsidow'); T().sidoW = +sidoW.value; renderTyphoon(); };
+  const sidoEye = $('#typSidoEye'); if (sidoEye) sidoEye.onclick = () => { pushUndo(); const t = T(); const cur = (t.sidoShow == null ? 1 : t.sidoShow); t.sidoShow = cur === 0 ? 1 : 0; sidoEye.classList.toggle('off', t.sidoShow === 0); renderTyphoon(); };
   const kop = $('#typKrOp'); if (kop) kop.oninput = () => { pushUndo('typkrop'); T().krOpacity = +kop.value; const v = $('#typKrOpV'); if (v) v.textContent = Math.round(kop.value * 100) + '%'; renderTyphoon(); };
   const now = $('#typNow'); if (now) now.oninput = () => { pushUndo('typnow'); T().nowIdx = +now.value; const pts = curTyphoonPoints(); const nv = $('#typNowV'); if (nv) nv.textContent = (pts[+now.value] && pts[+now.value].label) || now.value; renderTyphoon(); };
   const terr = $('#typTerrain'); if (terr) terr.oninput = () => { pushUndo('typterr'); T().terrain = +terr.value; const tv = $('#typTerrainV'); if (tv) tv.textContent = Math.round(terr.value * 100) + '%'; renderTyphoon(); };
@@ -8114,6 +8140,7 @@ async function bakeDefaults() {
     presets.typhoonStyle = {
       landFill: T.landFill, landStroke: T.landStroke, krShow: T.krShow, krFill: T.krFill, krStroke: T.krStroke, krStrokeW: T.krStrokeW, krOpacity: T.krOpacity,
       terrain: T.terrain, iconCol: T.iconCol, iconMode: T.iconMode, iconScale: T.iconScale, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      sidoShow: T.sidoShow, sidoCol: T.sidoCol, sidoW: T.sidoW, sidoOp: T.sidoOp,
       legendOrder: T.legendOrder ? T.legendOrder.slice() : undefined, legendHidden: T.legendHidden ? JSON.parse(JSON.stringify(T.legendHidden)) : undefined,
     };
     // 라벨 기본 스타일(폰트 크기·굵기·색·박스)도 굽는다 — 선택한 태풍 라벨, 없으면 첫 라벨 기준.
