@@ -6243,7 +6243,7 @@ const API_SITE = 'https://apihub.kma.go.kr/';
 const API_BASE = 'https://apihub.kma.go.kr/api/typ01/url/';
 const API_URLS = {
   // tm을 비우면 지금, 넣으면 그 시각의 특보현황이 나온다 (과거 조회가 이걸로 된다)
-  wrnNow:  API_BASE + 'wrn_now_data.php?fe=f&tm={TM}&disp=0&help=1&authKey={KEY}',   // fe=f + tm=고른시각으로 '재요청'하면 그 시각 발효현황을 기상청이 정확히 계산해 준다(로컬 재생 대신). 미래 발효 예정도 포함.
+  wrnNow:  API_BASE + 'wrn_now_data.php?fe=e&tm={TM}&disp=0&help=1&authKey={KEY}',   // fe=e = 실제 '발효현황'(KMA 발효현황 지도와 동일 기준). ⚠️fe=f는 같은 시각에도 발효현황이 달라짐(예: 8/3 17:00 서울 4권역→2권역) → 색칠이 KMA와 안 맞음. tm=고른시각으로 '재요청'하면 그 시각(미래 포함) 발효현황을 기상청이 계산해 준다.
   fctLand: API_BASE + 'fct_afs_dl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctSea:  API_BASE + 'fct_afs_do.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctMedLand: API_BASE + 'fct_afs_wl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
@@ -6351,14 +6351,21 @@ function showWrnAsOf(fc, announce) {
 function wrnEffLabel() { return wrnWhen ? `${tmShort(wrnWhen)} 발효 현황` : '발효 현황 (지금 유효한 특보)'; }
 // 202608031600 -> '2026.08.03.16:00' (KMA 통보문 목록 형식)
 function tmFull(t) { const s = String(t || ''); if (!/^\d{12}$/.test(s)) return ''; return `${s.slice(0, 4)}.${s.slice(4, 6)}.${s.slice(6, 8)}.${s.slice(8, 10)}:${s.slice(10, 12)}`; }
-// 발효현황 드롭다운 — '발효시각(TM_EF)'마다 한 줄. 최신(미래 발효예정 포함)이 위.
-// 고르면 그 시각으로 기상청에 '재요청'(fetchWrn)해서 그 시각의 발효현황을 정확히 받아 칠한다.
-// (한 번 받은 데이터로 로컬 재생하면 열대야 자동해제 등이 안 맞아 틀림 → 시각마다 재요청이 정답)
+// 'YYYYMMDDHHMM' ↔ Date (로컬시각). KMA 특보는 KST 로컬 기준으로 비교/표시한다.
+function tmToDate(tm) { const s = String(tm); return new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +(s.slice(10, 12) || 0)); }
+function dateToTm(d) { const p = (v) => String(v).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}00`; }
+
+// 발효현황 드롭다운 — '정시(매 시각) 스냅샷' 목록. 최신(미래 발효예정)이 위.
+// KMA는 발효현황을 임의 정시 기준(예: 15:00·17:00)으로 내는데, 그 시각들은 발효/발표시각과 안 맞을 수 있어
+// 데이터의 발효시각만 나열하면 15:00 같은 게 빠진다 → base(±) 매 정시를 만들어 어떤 정시든 고를 수 있게 한다.
+// 고르면 그 시각으로 기상청에 '재요청'(fetchWrn, fe=e)해서 그 정시의 발효현황을 정확히 받아 칠한다.
 function buildWrnBulletins() {
   const sel = $('#wrnBulletinSel'), row = $('#wrnBulletinRow'); if (!sel) return;
   const now = currentTm();
-  const times = [...new Set(wrnAllEvents.map((r) => String(r.tmef || '')).filter((t) => /^\d{12}$/.test(t)))]
-    .sort().reverse().slice(0, 80);
+  const base = wrnWhen || now;
+  const d0 = tmToDate(base); d0.setMinutes(0, 0, 0);   // base를 정시로 내림
+  const times = [];
+  for (let h = 18; h >= -36; h--) times.push(dateToTm(new Date(d0.getTime() + h * 3600e3)));   // 미래 +18h ~ 과거 -36h, 최신순
   sel.innerHTML = '';
   { const o = document.createElement('option'); o.value = '__NOW__'; o.textContent = wrnEffLabel(); sel.appendChild(o); }
   for (const t of times) {
@@ -8776,6 +8783,7 @@ async function exportBlobs(key) {
   }) }];
   if (key === 'sidoline') return [{ name: '시도선', blob: await svgBlob((c) => {
     keepLayers(c, ['L_map']);
+    c.querySelector('#L_map')?.removeAttribute('filter');   // 그림자(#shadowF)는 베이스 지도에만 — 선 레이어엔 없앤다
     c.querySelector('#gMainSoft')?.remove();   // 부드러운 경계 오버레이도 제거 — 시도선만 남긴다
     // 시도 경계선(sidoMain)만 남긴다 — 존 색·시군 경계선·실루엣은 전부 없앤다.
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
@@ -8784,6 +8792,7 @@ async function exportBlobs(key) {
   }) }];
   if (key === 'fills') return [{ name: '색칠', blob: await svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
+    c.querySelector('#L_map')?.removeAttribute('filter');   // 그림자(#shadowF)는 베이스 지도에만 — 색칠 레이어엔 없앤다
     // 칠한 구역만 남긴다 — 안 칠한 구역·경계선(본토+인셋 시도선)·바다 기본농도는 전부 없앤다
     c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
