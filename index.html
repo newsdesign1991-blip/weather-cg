@@ -17,6 +17,14 @@
 </script>
 <!-- 모두의 기본 배치 (fresh install 때 이 배치로 열린다). 없으면 그냥 빈 값. -->
 <script src="default-presets.js" onerror="window.WCG_DEFAULTS=window.WCG_DEFAULTS||{}"></script>
+<!-- 배치 슬롯: 앱에서 구운 파일을 꽂아 '완전 기본 배치'(master, 비번 필요)나 '개인 배치'(personal)로 지정하면
+     여기서 window.WCG_DEFAULTS를 그걸로 교체한다 → 앱 전체가 그 배치를 기본값으로 쓴다. (개인 배치 active면 우선) -->
+<script>try {
+  var _per = JSON.parse(localStorage.getItem('wcg_slot_personal') || 'null');
+  var _mas = JSON.parse(localStorage.getItem('wcg_slot_master') || 'null');
+  if (_per && _per.active && _per.presets) window.WCG_DEFAULTS = _per.presets;
+  else if (_mas && _mas.presets) window.WCG_DEFAULTS = _mas.presets;
+} catch (e) { /* 무시 — 배포 기본값 사용 */ }</script>
 <!-- 글꼴을 앱에 '직접' 넣어 쓴다(인터넷 CDN 안 씀) — 첫 실행·오프라인에도 상단바 글자가 안 깨지고 바로 제대로 나온다. -->
 <script src="font-data.js"></script>
 <style id="fontEmbed"></style>
@@ -958,6 +966,47 @@
   .confirmInput { width: 100%; box-sizing: border-box; margin: 0 0 14px; padding: 9px 11px; font-size: 13px;
     background: var(--surface-field); border: 1px solid var(--outline); border-radius: 9px; color: var(--on-surface); }
   .confirmInput:focus { outline: none; border-color: var(--primary); }
+
+  /* ===== 배치 지정하기(기본 배치 슬롯) 모달 ===== */
+  #slotOverlay { position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; background: color-mix(in srgb, #000 52%, transparent); backdrop-filter: blur(3px); }
+  #slotOverlay.on { display: flex; }
+  .slotCard { width: min(680px, 94vw); max-height: 88vh; overflow: auto; border-radius: 20px; background: var(--surface-c); border: 1px solid var(--outline); box-shadow: 0 28px 80px -14px var(--shade); font-family: 'Wanted Sans Variable', sans-serif; }
+  .slotHead { padding: 15px 18px; font-size: 15px; font-weight: 800; letter-spacing: -.01em; color: var(--on-primary); background: var(--primary); display: flex; justify-content: space-between; align-items: center; }
+  .slotHead .x { background: none; border: none; color: var(--on-primary); font-size: 20px; line-height: 1; cursor: pointer; opacity: .85; padding: 0 2px; }
+  .slotBody { padding: 16px 18px; }
+  .slotGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .slotGrid { grid-template-columns: 1fr; } }
+  .slot { border: 1px solid var(--outline-var); border-radius: 14px; padding: 14px; background: var(--surface-hi); text-align: center; transition: border-color .15s, background .15s; }
+  .slot.drag { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--surface-hi)); }
+  /* 플로피 디스크 — 장착(filled)=테마 틴트색 플로피, 빈(empty)=점선 플로피 아웃라인 */
+  .slotDrive { width: 138px; height: 116px; margin: 4px auto 10px; display: flex; align-items: center; justify-content: center; }
+  .flopSvg { width: 100px; height: 100px; }
+  .slotDrive.filled .flopSvg { filter: drop-shadow(0 6px 9px rgba(0,0,0,.35)); animation: flopIn .3s cubic-bezier(.2,.9,.25,1); }
+  @keyframes flopIn { from { transform: translateY(-16px) scale(.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+  .flopBody { stroke: rgba(0,0,0,.28); stroke-width: 1.5; }
+  .flop-personal .flopBody { fill: var(--primary); }
+  .flop-master .flopBody { fill: var(--danger); }
+  .flopSlider { fill: rgba(255,255,255,.82); }
+  .flopShutter { fill: #9aa7bd; stroke: rgba(0,0,0,.12); }
+  .flopLabel { fill: #f7fbff; }
+  .flopName { font: 800 15px 'Wanted Sans Variable', sans-serif; }
+  .flop-personal .flopName { fill: color-mix(in srgb, var(--primary) 72%, #000); }
+  .flop-master .flopName { fill: color-mix(in srgb, var(--danger) 72%, #000); }
+  .flopDate { font: 600 9.5px 'Wanted Sans Variable', sans-serif; fill: #6b7789; }
+  .flopDashed { color: var(--on-surface-var); opacity: .5; }
+  .flopDashed path, .flopDashed rect { fill: none; stroke: currentColor; stroke-width: 2; stroke-dasharray: 5 5; }
+  .slot.drag .flopDashed { color: var(--primary); opacity: .9; }
+  .slot h4 { margin: 0 0 4px; font-size: 14px; font-weight: 800; color: var(--on-surface); }
+  .slot .sub { font-size: 10.5px; color: var(--muted, #8a93a6); margin-bottom: 9px; }
+  .slot .slotState { font-size: 12px; color: var(--on-surface-var); min-height: 32px; line-height: 1.5; }
+  .slot .slotState b { color: var(--on-surface); }
+  .slot .badge { display: inline-block; margin-left: 5px; padding: 1px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; background: var(--primary); color: var(--on-primary); vertical-align: middle; }
+  .slot .drop { margin: 10px 0 11px; font-size: 11px; color: var(--muted, #8a93a6); }
+  .slot .drop b { color: var(--on-surface-var); }
+  .slot .slotBtns { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  .slot .slotBtns button { font-size: 12px; padding: 6px 11px; }
+  .slotFootHint { margin-top: 14px; font-size: 11.5px; color: var(--on-surface-var); line-height: 1.65; }
+  .slotFootHint b { color: var(--on-surface); }
 
   /* ===== 통보문 색칠 박스 (배경을 살짝 달리해 눈에 띄게) ===== */
   .bulBox {
@@ -7310,6 +7359,7 @@ function savePreset() {
   }
   localStorage.setItem('wcg_presets', JSON.stringify(mine));
   showPresetInfo();
+  if (typeof syncPersonalSlot === 'function') syncPersonalSlot();   // 개인 슬롯이 있으면 방금 저장을 그 슬롯에도 바로 반영
   status(`${presetLabel(key)} 배치로 저장됨 (위치는 밝은·어두운 공유)`);
 }
 // 이 브라우저에 '내가 직접 저장'한 배치만 (없으면 {}).
@@ -7887,6 +7937,238 @@ function tossPrompt(opts = {}) {
     ov.onclick = (e) => { if (e.target === ov) done(null); };
     document.addEventListener('keydown', onKey, true);
   });
+}
+
+// ===================== 배치 지정하기 (기본 배치 슬롯) =====================
+// 구운 배치 파일(default-presets.js/.json)을 슬롯에 드래그&드롭하면 '완전 기본 배치'(master, 비번)나 '개인 배치'(personal)로 지정.
+// 지정하면 시작 시 문서 상단 인라인 스크립트가 window.WCG_DEFAULTS를 그 배치로 바꾼다(개인 배치 active면 최우선).
+const SLOT_MASTER = 'wcg_slot_master', SLOT_PERSONAL = 'wcg_slot_personal', SLOT_PW = '7989';
+const slotGet = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+function slotFmtTs(ts) { if (!ts) return ''; const d = new Date(ts), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+// 구운 파일에서 배치 객체 추출: 'window.WCG_DEFAULTS = {...};' 또는 순수 JSON.
+function parseBakedPresets(text) {
+  let obj = null;
+  const m = text.match(/WCG_DEFAULTS\s*=\s*(\{[\s\S]*\})\s*;?\s*$/);
+  try { obj = m ? JSON.parse(m[1]) : JSON.parse(text); } catch (e) { obj = null; }
+  return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : null;
+}
+// 새 배치 vs 지금 기본값 차이 요약.
+function presetDiff(nw) {
+  const cur = (window.WCG_DEFAULTS && typeof window.WCG_DEFAULTS === 'object') ? window.WCG_DEFAULTS : {};
+  const keys = new Set([...Object.keys(nw), ...Object.keys(cur)]);
+  const added = [], changed = [], removed = [];
+  for (const k of keys) {
+    const inCur = Object.prototype.hasOwnProperty.call(cur, k), inNw = Object.prototype.hasOwnProperty.call(nw, k);
+    if (inNw && !inCur) added.push(k);
+    else if (!inNw && inCur) removed.push(k);
+    else if (JSON.stringify(cur[k]) !== JSON.stringify(nw[k])) changed.push(k);
+  }
+  const line = (label, arr) => arr.length ? `· ${label} ${arr.length}개: ${arr.slice(0, 5).join(', ')}${arr.length > 5 ? ' 외' : ''}` : '';
+  const parts = [line('바뀜', changed), line('추가', added), line('빠짐', removed)].filter(Boolean);
+  return { text: parts.join('\n') || '기존 기본값과 내용이 같습니다.', total: added.length + changed.length + removed.length };
+}
+// 토스 카드 확인창(입력 없음). Promise<boolean>.
+function tossConfirm(opts = {}) {
+  const ov = $('#confirmOverlay'), inp = $('#confirmInput');
+  if (!ov) return Promise.resolve(window.confirm(opts.message || ''));
+  $('#confirmHead').textContent = opts.title || '확인'; $('#confirmHead').classList.toggle('warn', !!opts.warn);
+  $('#confirmMsg').textContent = opts.message || '';
+  if (inp) inp.style.display = 'none';
+  $('#confirmOk').textContent = opts.ok || '적용'; $('#confirmOk').classList.toggle('warn', !!opts.warn);
+  $('#confirmCancel').textContent = opts.cancel || '취소';
+  ov.classList.add('on');
+  return new Promise((resolve) => {
+    const done = (v) => { ov.classList.remove('on'); $('#confirmOk').onclick = $('#confirmCancel').onclick = ov.onclick = null; document.removeEventListener('keydown', onKey, true); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); } };
+    $('#confirmOk').onclick = () => done(true); $('#confirmCancel').onclick = () => done(false);
+    ov.onclick = (e) => { if (e.target === ov) done(false); };
+    document.addEventListener('keydown', onKey, true);
+  });
+}
+function slotReload(msg) { status(msg || '적용되었습니다 — 새로고침합니다'); setTimeout(() => location.reload(), 550); }
+// 저장한 사람 이름 입력(직전 이름 기억). 취소=null, 빈칸 허용=''.
+async function askSaverName(title) {
+  const last = localStorage.getItem('wcg_last_by') || '';
+  const by = await tossPrompt({ title: title || '저장한 사람', message: '저장하는 사람 이름 (팝업에 표시돼요 · 비워도 됨)', value: last });
+  if (by == null) return null;
+  const v = by.trim(); if (v) localStorage.setItem('wcg_last_by', v);
+  return v;
+}
+// '지금 유효한 배치 전체'(기본배치+내가 저장한 화면) + 강원산지 + 태풍스타일을 담은 배치 객체.
+// bakeDefaults(파일로 굽기)와 '지금 배치로 채우기'가 공유한다. ※ bakeDefaults의 담는 내용과 항상 동일하게 유지할 것.
+function buildCurrentPresets() {
+  // 주의: 여기서 savePreset()을 부르지 않는다(savePreset→syncPersonalSlot→buildCurrentPresets 무한재귀 방지).
+  // 호출부가 필요하면 먼저 savePreset() 한다.
+  const presets = normalizeBakedVfScales(loadPresets());
+  if (!Object.keys(presets).length) return null;
+  const bulMtns = (S.mtns || []).filter((m) => m.bul && !m.off);
+  if (bulMtns.length) {
+    presets.mtnGangwon = { size: bulMtns[0].size, anchors: bulMtns.map((m) => (m.anchor && m.anchor.lon != null) ? { lon: m.anchor.lon, lat: m.anchor.lat } : xyToLonLat(m.x, m.y)) };
+  } else if (window.WCG_DEFAULTS && window.WCG_DEFAULTS.mtnGangwon) {
+    presets.mtnGangwon = window.WCG_DEFAULTS.mtnGangwon;
+  }
+  if (S.typhoon) {
+    const T = S.typhoon;
+    presets.typhoonStyle = {
+      landFill: T.landFill, landStroke: T.landStroke, krShow: T.krShow, krFill: T.krFill, krStroke: T.krStroke, krStrokeW: T.krStrokeW, krOpacity: T.krOpacity, krStrokeOp: T.krStrokeOp,
+      terrain: T.terrain, iconCol: T.iconCol, iconMode: T.iconMode, iconScale: T.iconScale, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      sidoShow: T.sidoShow, sidoCol: T.sidoCol, sidoW: T.sidoW, sidoOp: T.sidoOp,
+      gridShow: T.gridShow, gridCol: T.gridCol, gridW: T.gridW, gridOp: T.gridOp,
+      legendOrder: T.legendOrder ? T.legendOrder.slice() : undefined, legendHidden: T.legendHidden ? JSON.parse(JSON.stringify(T.legendHidden)) : undefined,
+    };
+    const labs = (T.labels || []).filter((b) => !b.off);
+    const selId = (sel.find((s) => s.kind === 'label') || {}).id;
+    const src = labs.find((b) => b.id === selId) || labs[0];
+    if (src) {
+      presets.typhoonStyle.labelStyle = { size: src.size, w: src.w, txtCol: src.txtCol, fill: src.fill, stroke: src.stroke, strokeW: src.strokeW, radius: src.radius, padX: src.padX, padY: src.padY, track: src.track, titleRatio: src.titleRatio, divider: src.divider,
+        fillGrad: src.fillGrad, fill2: src.fill2, strokeGrad: src.strokeGrad, stroke2: src.stroke2, gradAngle: src.gradAngle, fillOp: src.fillOp, glass: src.glass, glassBlur: src.glassBlur };
+    } else if (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle && window.WCG_DEFAULTS.typhoonStyle.labelStyle) {
+      presets.typhoonStyle.labelStyle = window.WCG_DEFAULTS.typhoonStyle.labelStyle;
+    }
+  } else if (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) {
+    presets.typhoonStyle = window.WCG_DEFAULTS.typhoonStyle;
+  }
+  delete presets.__meta__;   // 슬롯엔 순수 배치만(저장자 메타는 슬롯 레코드의 by로 따로 관리)
+  return presets;
+}
+// 개인 슬롯이 있으면 '현재 배치를 이 화면 기본값으로 저장'할 때마다 자동으로 그 슬롯을 최신 배치로 갱신한다(조용히·리로드 없음).
+// 개인 슬롯이 없으면 아무것도 안 한다(원치 않는 자동 생성 방지 — 슬롯은 사용자가 한 번 만든 뒤부터 연결됨).
+function syncPersonalSlot() {
+  const per = slotGet(SLOT_PERSONAL); if (!per) return;
+  const presets = buildCurrentPresets(); if (!presets) return;
+  localStorage.setItem(SLOT_PERSONAL, JSON.stringify({ presets, ts: Date.now(), active: per.active !== false, name: per.name || '현재 배치', by: per.by || '' }));
+  if ($('#slotOverlay') && $('#slotOverlay').classList.contains('on')) renderSlotStates();   // 팝업 열려 있으면 표시 갱신
+}
+// 파일 없이 '지금 화면 배치'를 슬롯에 바로 담기. (개인=비번없음 / 완전기본=비번)
+async function fillSlotFromCurrent(which) {
+  savePreset();   // 지금 보고 있는 화면도 담기게 먼저 저장
+  const presets = buildCurrentPresets();
+  if (!presets) { await tossConfirm({ title: '저장된 배치 없음', message: '각 화면에서 "현재 배치를 이 화면 기본값으로"를 먼저 저장해 주세요.', ok: '확인', cancel: '닫기' }); return; }
+  const nm = which === 'master' ? '완전 기본 배치' : '개인 배치';
+  if (which === 'master') {
+    const pw = await tossPrompt({ title: nm + ' 채우기', message: '관리자 비밀번호를 입력하세요' });
+    if (pw == null) return; if (pw !== SLOT_PW) { await tossConfirm({ title: '비밀번호 오류', message: '비밀번호가 틀립니다.', warn: true, ok: '확인', cancel: '닫기' }); return; }
+  }
+  const d = presetDiff(presets);
+  const ok = await tossConfirm({ title: nm + ' 채우기', message: `지금 화면 배치를 ${nm}으로 저장할까요?\n\n${d.text}\n\n앞으로 이 배치가 기본값이 됩니다.`, ok: '저장', cancel: '취소' });
+  if (!ok) return;
+  const by = await askSaverName(nm + ' 저장자'); if (by == null) return;
+  const rec = { presets, ts: Date.now(), by, name: '현재 배치' };
+  if (which === 'personal') rec.active = true;
+  localStorage.setItem(which === 'master' ? SLOT_MASTER : SLOT_PERSONAL, JSON.stringify(rec));
+  slotReload(nm + ' 저장됨 — 새로고침합니다');
+}
+async function assignSlotFromFile(which, file) {
+  let text; try { text = await file.text(); } catch (e) { status('파일을 못 읽었습니다', true); return; }
+  const presets = parseBakedPresets(text);
+  if (!presets) { await tossConfirm({ title: '읽기 실패', message: '배치 파일이 아닙니다.\n앱의 "…기본값으로 굽기"로 만든 default-presets.js(.json)를 넣어 주세요.', ok: '확인', cancel: '닫기' }); return; }
+  const meta = presets.__meta__ || null; delete presets.__meta__;   // 저장자·버전 메타는 슬롯 필드로 빼고 배치에선 제거
+  let by = meta && meta.by ? String(meta.by) : '';
+  const metaTs = meta && meta.ts ? meta.ts : null;
+  if (which === 'master') {
+    const pw = await tossPrompt({ title: '완전 기본 배치 교체', message: '관리자 비밀번호를 입력하세요 (아무나 못 바꾸게)', value: '' });
+    if (pw == null) return;
+    if (pw !== SLOT_PW) { await tossConfirm({ title: '비밀번호 오류', message: '비밀번호가 틀립니다.', warn: true, ok: '확인', cancel: '닫기' }); return; }
+  }
+  const d = presetDiff(presets), nm = which === 'master' ? '완전 기본 배치' : '개인 배치';
+  const ok = await tossConfirm({ title: nm + ' 적용', message: `이 파일을 ${nm}으로 적용할까요?${by ? '\n(저장자: ' + by + ')' : ''}\n\n${d.text}\n\n적용하면 앞으로 이 배치가 기본값이 됩니다.`, ok: '적용', cancel: '취소' });
+  if (!ok) return;
+  if (!by) { by = await askSaverName(nm + ' 저장자'); if (by == null) return; }
+  const rec = { presets, ts: metaTs || Date.now(), by, name: file.name };
+  if (which === 'personal') rec.active = true;
+  localStorage.setItem(which === 'master' ? SLOT_MASTER : SLOT_PERSONAL, JSON.stringify(rec));
+  slotReload(nm + ' 적용됨 — 새로고침합니다');
+}
+async function clearSlot(which) {
+  const nm = which === 'master' ? '완전 기본 배치' : '개인 배치';
+  if (which === 'master') {
+    const pw = await tossPrompt({ title: '완전 기본 배치 비우기', message: '관리자 비밀번호를 입력하세요' });
+    if (pw == null) return; if (pw !== SLOT_PW) { await tossConfirm({ title: '비밀번호 오류', message: '비밀번호가 틀립니다.', warn: true, ok: '확인', cancel: '닫기' }); return; }
+  }
+  const ok = await tossConfirm({ title: nm + ' 비우기', message: nm + '을 지우고 ' + (which === 'master' ? '배포 기본값으로' : '완전 기본 배치로') + ' 되돌릴까요?', warn: true, ok: '비우기', cancel: '취소' });
+  if (!ok) return;
+  localStorage.removeItem(which === 'master' ? SLOT_MASTER : SLOT_PERSONAL);
+  slotReload('되돌렸습니다 — 새로고침합니다');
+}
+function togglePersonalActive() {
+  const p = slotGet(SLOT_PERSONAL); if (!p) return;
+  p.active = !p.active; localStorage.setItem(SLOT_PERSONAL, JSON.stringify(p));
+  slotReload(p.active ? '개인 배치 사용 — 새로고침합니다' : '개인 배치 끔 — 새로고침합니다');
+}
+const _flopEsc = (s) => String(s == null ? '' : s).replace(/[<&>]/g, (c) => ({ '<': '&lt;', '&': '&amp;', '>': '&gt;' }[c]));
+const FLOP_PATH = 'M18 14 h68 l16 16 v72 a3 3 0 0 1-3 3 H21 a3 3 0 0 1-3-3 V17 a3 3 0 0 1 3-3 z';
+// 장착된 플로피 — 색은 앱 테마 틴트(개인=--primary, 완전기본=--danger, CSS 클래스로). 라벨엔 저장한 사람(없으면 종류)+날짜.
+function floppySvg(kind, by, ts) {
+  const label = (by && by.trim()) ? by.trim() : (kind === 'master' ? '기본' : '개인'), date = slotFmtTs(ts).slice(0, 10);
+  return `<svg viewBox="0 0 120 120" class="flopSvg flop-${kind}" aria-hidden="true">
+    <path class="flopBody" d="${FLOP_PATH}"/>
+    <rect class="flopSlider" x="34" y="14" width="40" height="30"/>
+    <rect class="flopShutter" x="56" y="17" width="16" height="25" rx="1.5"/>
+    <rect class="flopLabel" x="26" y="54" width="68" height="50" rx="3"/>
+    <text class="flopName" x="60" y="76" text-anchor="middle">${_flopEsc(label).slice(0, 7)}</text>
+    <text class="flopDate" x="60" y="94" text-anchor="middle">${date}</text>
+  </svg>`;
+}
+// 빈 슬롯 — 같은 플로피지만 점선 아웃라인.
+const EMPTY_DRIVE_SVG = `<svg viewBox="0 0 120 120" class="flopSvg flopDashed" aria-hidden="true"><path d="${FLOP_PATH}"/><rect x="34" y="14" width="40" height="30"/><rect x="26" y="54" width="68" height="50" rx="3"/></svg>`;
+function renderSlotStates() {
+  const per = slotGet(SLOT_PERSONAL), mas = slotGet(SLOT_MASTER);
+  const drive = (id, rec, kind) => { const d = $('#' + id); if (!d) return; d.classList.toggle('filled', !!rec); d.classList.toggle('empty', !rec); d.innerHTML = rec ? floppySvg(kind, rec.by, rec.ts) : EMPTY_DRIVE_SVG; };
+  drive('slotPersonalDrive', per, 'personal'); drive('slotMasterDrive', mas, 'master');
+  const byTxt = (rec) => rec && rec.by && rec.by.trim() ? ` · <b>${_flopEsc(rec.by.trim())}</b>` : '';
+  const ps = $('#slotPersonalState'), ms = $('#slotMasterState');
+  if (ps) ps.innerHTML = per ? `저장: ${slotFmtTs(per.ts)}${byTxt(per)}${per.active ? '<span class="badge">사용 중</span>' : ''}` : '비어 있음';
+  if (ms) ms.innerHTML = mas ? `버전: ${slotFmtTs(mas.ts)}${byTxt(mas)}` : '배포 기본값 사용 중';
+  const mkBtn = (txt, fn, cls) => { const b = document.createElement('button'); b.textContent = txt; if (cls) b.className = cls; b.onclick = fn; return b; };
+  const pb = $('#slotPersonalBtns'), mb = $('#slotMasterBtns');
+  if (pb) {
+    pb.innerHTML = '';
+    pb.append(mkBtn('지금 배치로 채우기', () => fillSlotFromCurrent('personal'), 'pri'));   // 파일 없이 현재 배치를 담기
+    if (per) { pb.append(mkBtn(per.active ? '끄기' : '켜기', togglePersonalActive), mkBtn('비우기', () => clearSlot('personal'), 'danger')); }
+  }
+  if (mb) {
+    mb.innerHTML = '';
+    mb.append(mkBtn('지금 배치로 채우기', () => fillSlotFromCurrent('master'), 'pri'));   // 비번 확인 후 담기
+    if (mas) mb.append(mkBtn('비우기', () => clearSlot('master'), 'danger'));
+  }
+}
+function openPresetSlots() {
+  let ov = $('#slotOverlay');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'slotOverlay';
+    ov.innerHTML = `<div class="slotCard">
+      <div class="slotHead">배치 지정하기<button class="x" id="slotX" aria-label="닫기">&times;</button></div>
+      <div class="slotBody">
+        <div class="slotGrid">
+          <div class="slot" id="slotPersonal">
+            <h4>개인 배치</h4><div class="sub">이 브라우저 전용 · 비번 없음</div>
+            <div class="slotDrive empty" id="slotPersonalDrive"></div>
+            <div class="slotState" id="slotPersonalState"></div>
+            <div class="drop">구운 파일을 <b>여기로 드래그&amp;드롭</b></div>
+            <div class="slotBtns" id="slotPersonalBtns"></div>
+          </div>
+          <div class="slot master" id="slotMaster">
+            <h4>완전 기본 배치</h4><div class="sub">모두의 기본값 · 교체 시 비번</div>
+            <div class="slotDrive empty" id="slotMasterDrive"></div>
+            <div class="slotState" id="slotMasterState"></div>
+            <div class="drop">구운 파일을 <b>여기로 드래그&amp;드롭</b> (비번)</div>
+            <div class="slotBtns" id="slotMasterBtns"></div>
+          </div>
+        </div>
+        <div class="slotFootHint">· <b>개인 배치</b>가 켜져 있으면 최우선, 없으면 <b>완전 기본 배치</b>, 그것도 없으면 배포 기본값을 씁니다.<br>· 파일은 앱의 <b>"…기본값으로 굽기"</b>로 만든 default-presets.js(.json)입니다.</div>
+      </div></div>`;
+    document.body.appendChild(ov);
+    $('#slotX').onclick = () => ov.classList.remove('on');
+    ov.onclick = (e) => { if (e.target === ov) ov.classList.remove('on'); };
+    for (const [id, which] of [['slotPersonal', 'personal'], ['slotMaster', 'master']]) {
+      const el = document.getElementById(id);
+      el.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add('drag'); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; });
+      el.addEventListener('dragleave', (e) => { e.stopPropagation(); el.classList.remove('drag'); });
+      el.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.remove('drag'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) assignSlotFromFile(which, f); });
+    }
+  }
+  renderSlotStates();
+  ov.classList.add('on');
 }
 
 // 추출용 폰트 CSS — CG 텍스트는 전부 'SUITE CG'(FontNew OTF)로 그린다. 그런데 추출은 SVG를 <img>로 래스터하는데,
@@ -8980,9 +9262,11 @@ async function bakeDefaults() {
   } else if (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) {
     presets.typhoonStyle = window.WCG_DEFAULTS.typhoonStyle;
   }
+  const by = await askSaverName('굽는 사람 (저장자)'); if (by == null) return;
+  presets.__meta__ = { by, ts: Date.now() };   // 저장자·버전 — 슬롯에 꽂으면 팝업에 표시된다
   const js = '// 모두의 기본 배치 (fresh install 때 이 배치로 열린다). 앱의 굽기 버튼으로 다시 만들 수 있다.\nwindow.WCG_DEFAULTS = ' + JSON.stringify(presets) + ';\n';
   const name = await saveBlobAs(new Blob([js], { type: 'application/javascript' }), 'default-presets.js', { description: '모두의 기본 배치', accept: { 'application/javascript': ['.js'] } });
-  if (name) status(`기본값 구움: ${name} (${keys.length}개 배치) — WeatherCG 폴더의 default-presets.js 를 이 파일로 교체하세요`);
+  if (name) status(`기본값 구움: ${name} (${keys.length}개 배치${by ? ', 저장자 ' + by : ''}) — WeatherCG 폴더의 default-presets.js 를 이 파일로 교체하세요`);
 }
 
 // ── 최근 파일 목록 (IndexedDB에 파일 핸들+스냅샷 저장) ──
@@ -10927,6 +11211,12 @@ function setupMenus() {
     const reset = document.createElement('button'); reset.id = 'resetLayout'; reset.className = 'footIcon'; reset.title = '기본 배치 — 떼어낸 창을 전부 사이드바로';
     reset.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9a7 7 0 111.5 6M4 9V4M4 9h5"/></svg>';
     reset.onclick = resetLayout;
+    // 배치 지정하기 — 구운 배치 파일을 꽂아 개인/완전 기본 배치로 지정(팝업)
+    const slotRow = document.createElement('div'); slotRow.className = 'footRow'; slotRow.style.marginBottom = '8px';
+    const slotBtn = document.createElement('button'); slotBtn.id = 'slotBtn'; slotBtn.className = 'newBtn'; slotBtn.textContent = '배치 지정하기';
+    slotBtn.title = '구운 배치 파일을 꽂아 개인 배치·완전 기본 배치로 지정합니다';
+    slotBtn.onclick = openPresetSlots;
+    slotRow.append(slotBtn); ft.appendChild(slotRow);
     row.append(nw, dock, reset); ft.appendChild(row); $('#panel').appendChild(ft);
     updateDockBtn();
   }
@@ -11011,6 +11301,17 @@ function tourMenu(sec) {
 }
 function tourMenuClose() { if (_closeMenu) _closeMenu(); }
 function tourExpand(sec, open) { const n = secNode(sec); if (!n) return; n.classList.toggle('closed', !open); if (open) { try { n.scrollIntoView({ block: 'center' }); } catch (e) {} } }
+// 투어 '설명용'으로 이 카드만 보이게 — 기상특보(wrn)는 특보 지도, 기상예보(fct)는 예보 지도에서만 보이므로
+// 지금 지도 모드와 상관없이 대상 카드만 강제로 펼쳐 보여준다(다른 자동색칠 카드는 숨김). 투어 끝나면 tourEnd가 updateAutoPaintSecs로 복원.
+function tourShowSec(sec) {
+  document.querySelectorAll('#panel .sec.toolSec, #panel .sec.special').forEach((n) => n.classList.add('closed'));
+  const wrn = $('[data-sec="wrn"]'), fct = $('[data-sec="fct"]');
+  if (wrn) wrn.style.display = (sec === 'wrn') ? '' : 'none';
+  if (fct) fct.style.display = (sec === 'fct') ? '' : 'none';
+  const n = secNode(sec); if (!n) return;
+  n.style.display = ''; n.classList.remove('closed');
+  try { n.scrollIntoView({ block: 'center' }); } catch (e) {}
+}
 function tourAllClosed() { document.querySelectorAll('#panel .sec.toolSec').forEach((n) => n.classList.add('closed')); }
 
 function tourStepList() {
@@ -11031,12 +11332,12 @@ function tourStepList() {
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
     { title: '카드 떼어내기 (포토샵처럼)', body: '자주 쓰는 카드는 <b>제목을 잡고 사이드바 밖으로 끌어내면</b> 별도 창으로 떠서 원하는 자리에 놓고 쓸 수 있어요. 다시 다 모으려면 상단바의 <b>기본 배치</b>를 누르면 됩니다. 사이드바 위치는 <b>사이드바 ←/→</b>로 좌우를 바꿔요.',
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
-    { title: '기상특보 자동 색칠', body: '특보 통보문을 붙여넣으면 지역별로 색을 자동으로 칠해 줍니다. (이렇게 카드를 누르면 펼쳐져요)',
-      target: () => secNode('wrn'), setup: () => { tourMenuClose(); tourExpand('wrn', true); }, delay: 540 },
-    { title: '기상예보 자동 색칠', body: '기상청 예보를 붙여넣으면 강수 · 기온 등을 지역별로 자동으로 색칠합니다. 단기 · 중기 예보 중 골라 쓸 수 있어요.',
-      target: () => secNode('fct'), setup: () => { tourExpand('wrn', false); tourExpand('fct', true); }, delay: 540 },
+    { title: '기상특보 자동 색칠', body: '‘기상청에서 불러오기’를 누르면(또는 특보 통보문을 붙여넣으면) 특보가 지역별로 자동 색칠됩니다. 이 카드는 특보 지도에서 나와요.',
+      target: () => secNode('wrn'), setup: () => { tourMenuClose(); tourShowSec('wrn'); }, delay: 540 },
+    { title: '기상예보 자동 색칠', body: '기상청 예보를 붙여넣으면 강수 · 기온 등을 지역별로 자동으로 색칠합니다. 단기 · 중기 예보 중 골라 쓸 수 있어요. 이 카드는 예보(시도·시군) 지도에서 나와요.',
+      target: () => secNode('fct'), setup: () => { tourMenuClose(); tourShowSec('fct'); }, delay: 540 },
     { title: '새로 시작 (작업 비우기)', body: '지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작합니다. 사이드바 맨 아래에 있어요.',
-      target: () => $('#newWork'), setup: () => { tourExpand('fct', false); tourMenuClose(); }, delay: 320 },
+      target: () => $('#newWork'), setup: () => { updateAutoPaintSecs(); tourMenuClose(); }, delay: 320 },
   ];
 }
 
@@ -11105,6 +11406,7 @@ function tourEnd(never) {
   $('#tourCard').classList.remove('show');
   tourMenuClose();
   if (tourSnap) { tourSnap.forEach(([n, wasClosed]) => n.classList.toggle('closed', wasClosed)); tourSnap = null; }
+  if (typeof updateAutoPaintSecs === 'function') updateAutoPaintSecs();   // 투어 중 강제로 보였던 특보·예보 카드를 지금 지도 모드 기준으로 복원
   TOUR = null; tourI = -1;
 }
 function tourNextOrEnd() { if (tourI >= TOUR.length - 1) tourEnd(false); else tourGo(tourI + 1); }   // 끝내기도 '이번만' (다시 보지 않기 눌러야 영구 종료)
