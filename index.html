@@ -520,6 +520,8 @@
   .ctrlHint svg { width: 14px; height: 14px; flex: none; opacity: .85; }
   .ctrlHint b { color: var(--on-surface); font-weight: 600; }
   .ctrlHint .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--on-surface-var); opacity: .5; }
+  #mapAltHint { display: inline-flex; align-items: center; gap: 8px; }
+  .ctrlHint .mapAltLabel { color: var(--primary); font-weight: 700; }
 
   /* 사이드바 맨 위 로고 헤더 (카드 바닥 위에 뜬다) */
   .appHeader {
@@ -822,7 +824,7 @@
   .app.tlFocus #panel { display: none; }
   .app.tlFocus #panelResize { display: none; }
   /* 카메라 조작 안내 오버레이 */
-  .camGuide { position: fixed; left: 16px; top: 66px; z-index: 60; background: rgba(14,20,34,.92); border: 1px solid rgba(120,160,220,.35);
+  .camGuide { position: fixed; left: 16px; bottom: 296px; z-index: 60; background: rgba(14,20,34,.92); border: 1px solid rgba(120,160,220,.35);
     border-radius: 12px; padding: 11px 13px; color: #dbe6f5; font-size: 11.5px; line-height: 1.7; box-shadow: 0 10px 30px rgba(0,0,0,.45); pointer-events: none; max-width: 260px; }
   .camGuide .cgHead { font-weight: 800; color: #fff; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 10px; }
   .camGuide .cgHead span { color: #7FD0FF; font-weight: 700; }
@@ -1270,11 +1272,14 @@
           <label>날짜 · 시각</label>
           <input type="date" id="wrnDate"><input type="time" id="wrnTime" step="600">
         </div>
-        <div class="subhead">2. 특보 가져오기</div>
+        <div class="subhead">2. 특보 불러오기</div>
         <div class="nokey" data-nokey>인증키가 없습니다 — <b>오른쪽 아래 톱니바퀴(API 설정)</b>에서 넣어주세요.</div>
-        <div class="btns" style="margin-bottom:6px"><button class="pri" id="wrnOpen">기상청 특보현황 새 창으로 열기</button></div>
-        <p class="hint" style="margin-top:0">버튼을 누르면 특보현황이 새 창에 뜹니다. 그 화면 글자를 <b>전체 선택(Ctrl+A) → 복사(Ctrl+C)</b> 해서 아래에 붙여넣으세요.</p>
-        <div class="subhead">3. 붙여넣기</div>
+        <div class="btns" style="margin:4px 0"><button class="pri" id="wrnFetch" style="flex:1">기상청에서 불러오기</button></div>
+        <p class="hint" style="margin-top:0">누르면 <b>지금(또는 위에서 고른 시각)</b>의 특보현황을 자동으로 불러와 색칠합니다. (태풍 지도와 같은 방식)</p>
+
+        <div class="subhead">자동이 안 될 때 · 수동 붙여넣기</div>
+        <div class="btns" style="margin-bottom:6px"><button id="wrnOpen">기상청 특보현황 새 창으로 열기</button></div>
+        <p class="hint" style="margin-top:0">새 창의 글자를 <b>전체 선택(Ctrl+A) → 복사(Ctrl+C)</b> 해서 아래에 붙여넣으세요.</p>
         <textarea id="wrnPaste" rows="4" placeholder="새 창에서 복사한 내용을 여기에 붙여넣기 (#START7777 ...)"></textarea>
         <div class="btns" style="margin:6px 0">
           <button class="pri" id="wrnApply">붙여넣은 걸로 칠하기</button>
@@ -1282,9 +1287,6 @@
         </div>
         <div id="wrnList"></div>
         <p class="hint" id="wrnInfo"></p>
-        <div class="subhead">프록시 <span>· 있으면 자동, 없으면 안 써도 됩니다</span></div>
-        <div class="row"><label>주소</label><input type="text" id="wrnProxy" placeholder="http://... (선택)"></div>
-        <div class="btns" style="margin-bottom:6px"><button id="wrnFetch">프록시로 자동 가져오기</button></div>
         <div class="subhead">특보 종류별 색 <span>· 주의보 / 경보 · 위에서부터 우선</span></div>
         <div id="wrnCols"></div>
       </div>
@@ -1715,6 +1717,15 @@
      <span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 2h8a2 2 0 012 2v16a2 2 0 01-2 2H8a2 2 0 01-2-2V4a2 2 0 012-2zm3 3v4h2V5z"/></svg>팬 <b>휠 클릭 드래그</b></span>
      <span class="dot"></span>
      <span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l4 5H8zm0 20l-4-5h8zM8 2h8a2 2 0 012 2v16a2 2 0 01-2 2H8a2 2 0 01-2-2V4a2 2 0 012-2zm0 2v16h8V4z"/></svg>줌 <b>휠 위·아래</b></span>
+     <span id="mapAltHint" style="display:none">
+       <span class="dot"></span>
+       <b class="mapAltLabel">지도 조작법 :</b>
+       <span><b>Alt+휠클릭</b> 드래그 팬</span>
+       <span class="dot" id="mapAltRotDot"></span>
+       <span id="mapAltRot"><b>Alt+왼쪽</b> 드래그 3D회전</span>
+       <span class="dot"></span>
+       <span><b>Alt+오른쪽·휠</b> 확대·축소</span>
+     </span>
    </div>
    <div class="ctrlHint" id="brushHint" style="display:none">
      <span><b>SHIFT+클릭</b> 영역 선택/해제</span>
@@ -2620,6 +2631,10 @@ function applyVfDefaults() {
   S.labScale = 92; S.mtnScale = 70;   // 노말 VF는 항상 라벨 92%·산 70% (저장된 옛 값 128 등이 있어도 강제)
   return true;
 }
+// 태풍에 '처음 진입'하는 applyPreset 동안만 true. 이때는 태풍 배치의 라벨/산 크기를 그대로 적용한다
+// (평소 태풍은 해상도끼리 라벨크기를 '공유'하려고 skip하는데, 진입 때까지 skip하면 직전 지도(예: 특보 128%)의
+//  값이 그대로 남아 태풍 기본 100%가 안 먹었다).
+let _enterTyphoonApply = false;
 function setStyle(name) {
   if (!MAP.styles[name] || name === S.style) return;
   pushUndo();
@@ -2635,8 +2650,14 @@ function setStyle(name) {
   buildZones();
   renderInsets(); // 지도 종류마다 박스를 쓰기도 안 쓰기도 한다
   renderFills();
-  markStyleBtns(); syncEyes();
-  if (before !== after && !applyPreset()) {
+  markStyleBtns(); syncEyes(); syncMapAltHint();   // 태풍↔다른 지도 전환 시 Alt 조작법 표시 갱신
+  let applied = true;
+  if (before !== after) {
+    _enterTyphoonApply = enteringTyphoon;   // 진입 때만 태풍 배치의 라벨/산 크기를 적용(직전 지도값 안 물려받게)
+    applied = applyPreset();
+    _enterTyphoonApply = false;
+  }
+  if (before !== after && !applied) {
     // 새 그룹에 저장된 게 없으면 지금 배치를 그대로 이어 쓴다
     if (enteringTyphoon) setTyphoonDefaultView();   // 태풍 첫 진입 — 광역이 화면에 들어오게
     applyVfDefaults();   // VF면 라벨·산 기본크기(92%·70%)
@@ -4367,6 +4388,9 @@ function _renderTyphoon() {
   if (!L) return;
   L.textContent = '';
   L.style.display = on ? '' : 'none';
+  // 라벨 레이어(#L_typhoonLabels)는 태풍 모드일 때만 drawTyphoonLabels가 비우고 다시 채운다.
+  // 태풍이 아니면 여기서 비워야 특보·일반 지도로 넘어갔을 때 옛 태풍 라벨(수치라벨+지시선)이 안 남는다.
+  const LB0 = $('#L_typhoonLabels'); if (LB0) { LB0.style.display = on ? '' : 'none'; if (!on) LB0.textContent = ''; }
   if (!on) return;
   drawTyphoonTrack(L, curTyphoonPoints());
 }
@@ -5283,6 +5307,7 @@ function updateFrameGuideLabel() {
 // #cg의 지도 레이어는 숨겨(뒤 캔버스가 비침) 제목·범례는 평면으로 위에 남긴다. 추출은 drawExportFrame가 같은 원근으로 합성.
 let _tiltRasterSig = null, _camRasterToken = 0, _exportingFrames = false;
 let _camRasterBusy = false, _camDragging = false;   // 재래스터 동시 1개(coalesce) · 드래그 중 저해상 플래그
+let _tiltPanCanvas = null, _tiltPanBase = null;     // 틸트 팬: 시작 때 캔버스 텍스처를 얼려 두고 드래그 중엔 즉시 이동(재래스터 지연 제거)
 let _wheelZoomTimer = 0, _wheelZoomBase = null;     // 휠 줌 GPU: 휠 도는 동안 CSS transform, 멈추면 1회 확정
 const camActive3d = () => { const m = S.map3d || {}; return !!m.on && (Math.abs(+m.rx || 0) > 0.05 || Math.abs(+m.ry || 0) > 0.05 || Math.abs(+m.rz || 0) > 0.05); };
 // 회전만 바뀔 때(드래그) — 캔버스 CSS transform만 갱신. 래스터·리렌더 없음 → 아주 가볍고 부드럽다.
@@ -5306,7 +5331,11 @@ function applyTilt() {
   // 캔버스를 프레임보다 크게(중앙 정렬) — 밖의 여백(블리드)이 기울임·축소 때 채워지게. clip-path가 프레임으로 자른다.
   cv.style.left = (-100 * CAM_BLEED) + '%'; cv.style.top = (-100 * CAM_BLEED) + '%';
   cv.style.width = (100 * (1 + 2 * CAM_BLEED)) + '%'; cv.style.height = (100 * (1 + 2 * CAM_BLEED)) + '%';
-  cv.style.webkitMaskImage = cv.style.maskImage = '';   // 페이드 없음 — 대신 캔버스 밖은 바다 북쪽색(CAM_VOID_COL)으로 이어져 이음새가 안 보인다
+  // 가장자리(블리드) 부드러운 페이드 — 기울였을 때 지도 끝(특히 북쪽 육지)이 '딱' 잘리지 않고 바다색으로 스르륵 사라지게.
+  // 프레임(가운데 1/(1+2B))은 완전 불투명, 바깥 블리드만 페이드. 두 방향 그라디언트를 교집합(intersect)해 4변 모두 부드럽게.
+  { const F = CAM_EDGE_FADE, g = `linear-gradient(to right, transparent 0, #000 ${F}%, #000 ${100 - F}%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 ${F}%, #000 ${100 - F}%, transparent 100%)`;
+    cv.style.webkitMaskImage = cv.style.maskImage = g;
+    cv.style.webkitMaskComposite = 'source-in'; cv.style.maskComposite = 'intersect'; }
   updateCamCanvasTransform();
   // 지도 내용(S.map)이나 재생 프레임(animT)이 바뀔 때만 다시 래스터. 회전만 바뀌면 CSS transform만 갱신(부드럽게).
   // 드래그 중(',d')엔 저해상으로 굽고, 놓으면 사인이 바뀌어 고해상으로 다시 굽는다.
@@ -5414,6 +5443,21 @@ function zoomMapAbout(cx, cy, news) {
   S.map.s = news; S.map.x = cx - pcx * news; S.map.y = cy - pcy * news;
 }
 const camMoveActive = () => camEditActive() || isTyphoon();   // 팬/줌은 작업창(태풍 지도)에서도, 3D 회전은 영상 추출 모드에서만
+// 카메라 조작 안내(#camGuide)를 타임라인 '바로 위'(좌하단)에 놓는다 — 타임라인 높이가 바뀌면 따라 올라간다.
+function syncCamGuidePos() {
+  const g = $('#camGuide'); if (!g) return;
+  const tl = $('#timeline');
+  const h = (tl && tl.classList.contains('on')) ? tl.getBoundingClientRect().height : 0;
+  g.style.top = 'auto';
+  g.style.bottom = (h + 10) + 'px';
+}
+// 좌하단 조작법 힌트에 'Alt 지도 조작법'을 보인다 — Alt 조작이 실제로 되는 태풍/추출 모드에서만. 3D회전은 추출 모드에서만.
+function syncMapAltHint() {
+  const h = $('#mapAltHint'); if (!h) return;
+  h.style.display = camMoveActive() ? '' : 'none';
+  const rot = $('#mapAltRot'), rd = $('#mapAltRotDot'), showRot = camEditActive() ? '' : 'none';
+  if (rot) rot.style.display = showRot; if (rd) rd.style.display = showRot;
+}
 svg.addEventListener('pointerdown', (e) => {
   if (!e.altKey) return;
   const btn = e.button;                 // 0 왼쪽=3D회전(XYZ, 타임라인에서만), 1 휠클릭=팬, 2 오른쪽=줌
@@ -5423,6 +5467,10 @@ svg.addEventListener('pointerdown', (e) => {
   const p0 = toUser(e), sx = e.clientX, sy = e.clientY;
   const m0 = { x: S.map.x, y: S.map.y, s: S.map.s }, r0 = camRot();
   if ((btn === 1 || btn === 2) && camActive3d()) _camDragging = true;   // 틸트 팬/줌 드래그: 저해상으로 가볍게
+  if (btn === 1 && camActive3d()) {   // 틸트 팬: 현재 캔버스 텍스처를 얼려 둔다(드래그 중 즉시 이동용)
+    const cv = $('#camCanvas');
+    if (cv && cv.width) { _tiltPanCanvas = document.createElement('canvas'); _tiltPanCanvas.width = cv.width; _tiltPanCanvas.height = cv.height; _tiltPanCanvas.getContext('2d').drawImage(cv, 0, 0); _tiltPanBase = { x: S.map.x, y: S.map.y }; }
+  }
   if ((btn === 1 || btn === 2) && !camActive3d()) setFlatPanLOD(true);  // 평면 팬/줌 드래그: 무거운 지형음영 숨기고 레이어 GPU 승격 → 빠르게
   let rotReady = false, panRAF = 0, moved = false;
   const move = (ev) => {
@@ -5444,6 +5492,7 @@ svg.addEventListener('pointerdown', (e) => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
     if (panRAF) cancelAnimationFrame(panRAF);
     _camDragging = false;   // 드래그 끝 → 다음 applyTilt는 고해상으로 다시 굽는다(사인에서 ',d' 빠짐)
+    _tiltPanCanvas = null; _tiltPanBase = null;   // 얼린 텍스처 해제 → 아래 applyTilt가 정확히 다시 굽는다
     if (moved && (btn === 1 || btn === 2)) {
       // 평면 팬/줌: 라벨 박스를 이동량만큼 실제로 옮겨 '지도에 붙은 채' 유지(놓을 때 원위치로 튀지 않게). 틸트는 빌보드라 제외.
       if (!camActive3d() && isTyphoon()) {
@@ -5469,13 +5518,25 @@ function setFlatPanLOD(on) {
   }
   if (!on) { const bg = document.querySelector('#bgMapT'), mt = document.querySelector('#mapT'); if (bg) bg.style.transform = ''; if (mt) mt.style.transform = ''; }
 }
+// 틸트 팬: 시작 때 얼려둔 #camCanvas 텍스처(블리드 포함, 평면)를 팬량만큼 즉시 옮겨 그린다 — SVG 재래스터가 없어 지연이 사라진다.
+// (평면 텍스처를 옮긴 뒤 CSS가 틸트를 입히므로 결과는 정확한 평면 팬. 놓을 때 up()에서 정확히 다시 굽는다.)
+function tiltPanShift() {
+  const cv = $('#camCanvas'); if (!cv || !_tiltPanCanvas || !_tiltPanBase) { applyTilt(); return; }
+  const q = cv.width / (1920 * (1 + 2 * CAM_BLEED));   // 캔버스 px / 프레임(viewBox) 단위
+  const dx = (S.map.x - _tiltPanBase.x) * q, dy = (S.map.y - _tiltPanBase.y) * q;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(_tiltPanCanvas, dx, dy);
+}
 // 드래그 중 초경량 팬/줌 — #bgMapT는 renderMapTransform(속성만), #L_typhoon은 변환으로만 이동(리렌더 없음). 틸트면 캔버스만 갱신.
 function lightPanZoom(base) {
   const bg = $('#bgMapT'), mt = $('#mapT');
   if (camActive3d()) {   // 틸트: 캔버스 렌더 기준이라 속성 transform 유지
     const t = `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`;
     if (bg) bg.setAttribute('transform', t); if (mt) mt.setAttribute('transform', t);
-    applyTilt(); updateTyphoonLeaders(); return;
+    if (_tiltPanCanvas) tiltPanShift();   // 팬: 얼린 텍스처를 즉시 이동(재래스터 지연 없음)
+    else applyTilt();                      // 줌 등: 기존대로 재래스터
+    updateTyphoonLeaders(); return;
   }
   // 평면 팬/줌: CSS transform(GPU 합성) — 거대한 path를 매 프레임 리페인트 안 하고 GPU 텍스처를 이동/스케일(초경량·부드러움).
   const t = `translate(${S.map.x}px, ${S.map.y}px) scale(${S.map.s})`;
@@ -5678,7 +5739,9 @@ function itemRect(kind, id) {
   // 라벨·산은 그룹을 translate로 옮겨 그리므로 getBBox()가 그룹 안 좌표로 나온다.
   // 텍스트는 x/y 속성을 직접 쓰니 이미 절대좌표다.
   const g = kind === 'label' || kind === 'mtn';
-  const ox = g ? it.x : 0, oy = g ? it.y : 0;
+  let ox = g ? it.x : 0, oy = g ? it.y : 0;
+  // 태풍 라벨은 틸트 시 지도평면 좌표(it.x/it.y)를 카메라로 투영해 '표시'되므로, 선택박스·정렬가이드도 투영 위치로 맞춘다.
+  if (kind === 'label' && isTyphoon() && camTiltOn()) { const p = camProjectXY(it.x, it.y); ox = p[0]; oy = p[1]; }
   return { x0: ox + b.x, y0: oy + b.y, x1: ox + b.x + b.width, y1: oy + b.y + b.height };
 }
 
@@ -5970,6 +6033,7 @@ function setMode(m) {
   svg.classList.toggle('brushmode', m === 'brush');
   $('#ctrlHint').style.display = m === 'brush' ? 'none' : '';
   $('#brushHint').style.display = m === 'brush' ? '' : 'none';
+  syncMapAltHint();   // 부팅·모드전환 때도 Alt 조작법 표시 갱신
   if (m !== 'brush') { clearBrushRegions(); hideBrushCursor(); }
   else if (secClosed('pal')) revealSec('pal');   // 브러쉬 모드 켜면 색 팔레트 펴 준다
   renderInsets();
@@ -7101,25 +7165,35 @@ function buildFctKindBtns() {
   setFctKind(fctKind);
 }
 
+// 특보를 '기상청에서 불러오기' — 태풍과 같은 내장 WNS 헬퍼(127.0.0.1:3720) /api/kma 프록시로 CORS 우회.
+// (직접 apihub를 부르면 CORS로 막힘.) S.wrnProxy가 설정돼 있으면 그 주소를 우선 사용(고급/수동).
 async function fetchWrn() {
-  const base = (S.wrnProxy || '').trim();
-  if (!base) { alert('프록시 주소를 넣어주세요. 없으면 붙여넣기를 쓰시면 됩니다.'); return; }
-  status('가져오는 중…', true);
+  if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); status('apihub 인증키가 필요합니다 (API 설정)', true); return; }
+  const override = (S.wrnProxy || '').trim();
+  status('특보 가져오는 중…', true);
+  // 헬퍼가 떠 있는지 확인(수동 프록시가 없을 때만 필요)
+  if (!override) {
+    let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
+    if (!up) {
+      status('');
+      alert('자동 불러오기 도우미(WNS 헬퍼)가 꺼져 있습니다.\n\n헬퍼를 켜거나, 아래 "기상청 특보현황 새 창으로 열기"로 열어 복사→붙여넣기 해주세요.');
+      return;
+    }
+  }
   try {
-    const r = await fetch(base);
+    const url = override || (WNS_HELPER + '/api/kma?u=' + encodeURIComponent(WRN_URL()));
+    const r = await fetch(url);
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    // 기상청 응답은 charset=EUC-KR 이다. 그냥 text()로 읽으면 UTF-8로 해석돼
-    // 한글이 깨지고, 특보종류가 깨지면 색 매칭이 통째로 실패한다.
+    // 프록시는 보통 UTF-8로 변환해 준다. 혹시 EUC-KR 원문이 오면 한글이 깨지므로 반대로 한 번 더 디코드.
     const buf = await r.arrayBuffer();
-    const ct = (r.headers.get('content-type') || '').toLowerCase();
-    let t = new TextDecoder(/utf-?8/.test(ct) ? 'utf-8' : 'euc-kr').decode(buf);
-    // 프록시가 charset을 안 알려줄 수도 있으니, 깨졌으면 반대로 한 번 더
-    if (!/[가-힣]/.test(t)) t = new TextDecoder('utf-8').decode(buf);
+    let t = new TextDecoder('utf-8').decode(buf);
+    if (!/[가-힣]/.test(t)) t = new TextDecoder('euc-kr').decode(buf);
     $('#wrnPaste').value = t.slice(0, 200000);
     applyWrn(t);
+    status('특보 불러오기 완료', true);
   } catch (e) {
     status('');
-    alert('가져오기 실패: ' + e.message + '\n\n브라우저에서 apihub를 직접 부르면 CORS로 막힙니다. 프록시가 CORS 헤더를 내려주는지 확인해 주세요.');
+    alert('가져오기 실패: ' + e.message + '\n\n아래 "기상청 특보현황 새 창으로 열기"로 열어 복사→붙여넣기 하면 확실합니다.');
   }
 }
 
@@ -7358,7 +7432,9 @@ function applyPreset() {
   }
   if (!p) { showPresetInfo(); return false; }
   // 태풍은 같은 콘텐츠라 해상도가 달라도 지도 뷰·라벨 크기를 '공유'한다(라벨값이 해상도마다 달라지지 않게).
-  const skip = isTyphoon() ? { map: 1, labScale: 1, mtnScale: 1 } : {};
+  // 태풍은 해상도끼리 지도뷰·라벨/산 크기를 '공유'하려 skip한다. 단 '처음 진입' 때는 배치의 라벨/산 크기를 그대로 써서
+  // 직전 지도(특보 128% 등)의 값이 남지 않게 한다(지도뷰 map은 진입 시 setTyphoonDefaultView가 따로 처리하므로 계속 skip).
+  const skip = isTyphoon() ? (_enterTyphoonApply ? { map: 1 } : { map: 1, labScale: 1, mtnScale: 1 }) : {};
   if (full) {
     for (const k of PRESET_KEYS) if (p[k] !== undefined && !skip[k]) S[k] = JSON.parse(JSON.stringify(p[k]));   // 0·false 값도 복원
     applyPresetWarningColors(p, true);   // 옛 프리셋에 단계별 색이 없으면 이전 화면의 색을 남기지 않는다
@@ -7838,6 +7914,7 @@ const CAM_MAP_LAYERS = ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn', 'L_typhoon
 const CAM_OVERLAY_LAYERS = ['L_typhoonLabels', 'L_vfBar', 'L_labels', 'L_title', 'L_legend'];
 // 3D 회전 시 프레임 밖 여백(블리드) — 축소·기울임에 지도/바다가 더 나오게. 프레임 대비 좌우·상하 30%씩.
 const CAM_BLEED = 1.0;   // 3D 기울임 시 프레임 밖(특히 북쪽)까지 지도를 더 렌더 — 기울여도 북쪽 끝이 하드컷(마스킹)되지 않게. (0.55→1.0)
+const CAM_EDGE_FADE = 26;   // 틸트 지도 가장자리 페이드 폭(캔버스 %). 바깥 블리드가 이 폭만큼 바다색으로 부드럽게 사라진다(하드컷 방지). 프레임(가운데)은 안 건드림.
 const CAM_VOID_COL = '#0e2a4e';   // 3D 회전 시 지도 밖(먼 거리)을 채우는 색 = 바다 그라디언트 '가장 북쪽' 색과 동일 → 이음새 안 보임
 const camBleedViewBox = () => `${-1920 * CAM_BLEED} ${-1080 * CAM_BLEED} ${1920 * (1 + 2 * CAM_BLEED)} ${1080 * (1 + 2 * CAM_BLEED)}`;
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
@@ -7877,9 +7954,22 @@ function drawTexTri(cx, img, s0, s1, s2, d0, d1, d2) {
   }
   cx.restore();
 }
+// 이미지 가장자리를 바깥으로 갈수록 투명하게(가로·세로 그라디언트 교집합) — 틸트 때 지도 끝이 딱 잘리지 않고 부드럽게 사라지게.
+function fadeEdgesCanvas(img, w, h, f) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.drawImage(img, 0, 0, w, h);
+  x.globalCompositeOperation = 'destination-in';
+  const grad = (x0, y0, x1, y1) => { const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(f, '#000'); g.addColorStop(1 - f, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); return g; };
+  x.fillStyle = grad(0, 0, w, 0); x.fillRect(0, 0, w, h);   // 좌우 페이드
+  x.fillStyle = grad(0, 0, 0, h); x.fillRect(0, 0, w, h);   // 상하 페이드(destination-in 두 번 = 교집합 = 4변 박스 페이드)
+  x.globalCompositeOperation = 'source-over';
+  return c;
+}
 // 확장 지도 이미지(블리드 포함, 프레임보다 큼)를 임의 3D 회전(rx,ry,rz)+원근으로 메시 워프. 프레임(W×H) 중앙 기준.
 function warpTilt3D(cx, img, W, H) {
   const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;   // 확장 이미지 크기(프레임px 단위)
+  img = fadeEdgesCanvas(img, iw, ih, CAM_EDGE_FADE / 100);   // 가장자리 부드럽게(미리보기 #camCanvas 마스크와 동일)
   const m = S.map3d || {};
   const rx = (+m.rx || 0) * Math.PI / 180, ry = (+m.ry || 0) * Math.PI / 180, rz = (+m.rz || 0) * Math.PI / 180;
   const P = (m.persp == null ? 2.2 : +m.persp) * W;
@@ -9077,6 +9167,9 @@ function wire() {
     document.querySelector('.app').classList.toggle('tlFocus', on);   // 사이드바 숨기고 타임라인·지도에 집중
     const gd = $('#camGuide'); if (gd) gd.style.display = on ? '' : 'none';
     const ke = $('#camKeyEditor'); if (ke) ke.style.display = on ? '' : 'none';
+    syncMapAltHint();   // 추출 모드 on/off에 맞춰 좌하단 Alt 조작법 표시 갱신
+    syncCamGuidePos();  // 카메라 안내를 타임라인 위(하단)에 맞춘다
+
     updateFrameGuideLabel();
     if (typeof applyToolbarPos === 'function') applyToolbarPos();
     if (on) { dropStaleTracks(); buildTimeline(); }
@@ -9139,6 +9232,7 @@ function wire() {
     const mv = (ev) => {
       tlH = Math.max(120, Math.min(window.innerHeight - 120, h0 - (ev.clientY - y0)));
       $('#timeline').style.height = tlH + 'px';
+      syncCamGuidePos();   // 타임라인 높이 바뀌면 카메라 안내도 따라 올라가게
     };
     const up = () => {
       window.removeEventListener('pointermove', mv);
@@ -9276,7 +9370,7 @@ function wire() {
 
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value);
   $('#wrnFetch').onclick = fetchWrn;
-  $('#wrnProxy').oninput = (e) => { S.wrnProxy = e.target.value; };
+  { const wp = $('#wrnProxy'); if (wp) wp.oninput = (e) => { S.wrnProxy = e.target.value; }; }   // 프록시 입력칸은 제거됨(내장 헬퍼 사용). 남아있을 때만 바인딩.
 
   // 인증키는 이 브라우저에만 둔다 — 프로젝트 JSON이나 배포 파일에 섞여 나가면 안 된다.
   // 넣는 곳은 API 설정 한 군데뿐이고, 특보·예보 항목은 없으면 그리로 보내기만 한다.
