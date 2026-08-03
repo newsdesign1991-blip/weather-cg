@@ -1325,6 +1325,7 @@
         <div class="nokey" data-nokey>인증키가 없습니다 — <b>오른쪽 아래 톱니바퀴(API 설정)</b>에서 넣어주세요.</div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="wrnFetch" style="flex:1">기상청에서 불러오기</button></div>
         <p class="hint" style="margin-top:0">누르면 <b>지금(또는 위에서 고른 시각)</b>의 특보현황을 자동으로 불러와 색칠합니다. (태풍 지도와 같은 방식)</p>
+        <div class="row" id="wrnBulletinRow" style="display:none"><label>통보문</label><select id="wrnBulletinSel" style="flex:1" title="표출할 특보 발표(통보문)를 고르세요 — 최신이 기본"></select></div>
 
         <div class="subhead">자동이 안 될 때 · 수동 붙여넣기</div>
         <div class="btns" style="margin-bottom:6px"><button id="wrnOpen">기상청 특보현황 새 창으로 열기</button></div>
@@ -6185,6 +6186,20 @@ function activeWrnRows(rows, target) {
   }
   return Array.from(active.values());
 }
+// 선택한 '발표시각(통보문)' 기준의 유효 특보 — 그 발표까지의 이벤트를 발표시각 순으로 재생(발표=추가, 해제=제거).
+// activeWrnRows는 발효(tmef) 기준이라 발효/발표가 섞였는데, 통보문 드롭다운에선 '발표시각' 하나로 일관되게 본다.
+function activeAtFc(rows, fc) {
+  const at = String(fc || '999999999999');
+  const evs = rows.map((r, i) => ({ r, i }))
+    .filter(({ r }) => String(r.tmfc || '') <= at)
+    .sort((a, b) => String(a.r.tmfc || '').localeCompare(String(b.r.tmfc || '')) || a.i - b.i);
+  const active = new Map();
+  for (const { r } of evs) {
+    const key = `${r.id}|${r.wrn}`;
+    if (wrnCommandKind(r.cmd) === 'release') active.delete(key); else active.set(key, r);
+  }
+  return Array.from(active.values());
+}
 function moveWrnOrder(order, from, to) {
   const next = order.slice();
   if (from < 0 || from >= next.length || to < 0 || to >= next.length || from === to) return next;
@@ -6228,7 +6243,7 @@ const API_SITE = 'https://apihub.kma.go.kr/';
 const API_BASE = 'https://apihub.kma.go.kr/api/typ01/url/';
 const API_URLS = {
   // tm을 비우면 지금, 넣으면 그 시각의 특보현황이 나온다 (과거 조회가 이걸로 된다)
-  wrnNow:  API_BASE + 'wrn_now_data.php?fe=e&tm={TM}&disp=0&help=1&authKey={KEY}',
+  wrnNow:  API_BASE + 'wrn_now_data.php?fe=f&tm={TM}&disp=0&help=1&authKey={KEY}',   // fe=f: 미래 발효 예정 특보까지 포함(fe=e는 이미 발효된 것만) — 예: 내일 11시 발효 예정도 목록에
   fctLand: API_BASE + 'fct_afs_dl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctSea:  API_BASE + 'fct_afs_do.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctMedLand: API_BASE + 'fct_afs_wl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
@@ -6287,9 +6302,10 @@ function wrnRank(r) {
   return wrnOrder.length + (ti < 0 ? 999 : ti) * 10 + (/경보/.test(r.lvl) ? 0 : 1);
 }
 
+let wrnAllEvents = [];   // 불러온 모든 특보 이벤트(발표/해제 등) — 통보문 드롭다운·발표시각 재생에 쓴다
+let wrnSelFc = '';       // 지금 지도에 표출 중인 '발표시각(통보문)'
 function applyWrn(txt) {
   const parsed = parseWrn(txt);
-  const rows = activeWrnRows(parsed, wrnWhen || currentTm());
   if (!parsed.length) { alert('특보 데이터를 못 읽었습니다. apihub 응답을 그대로 붙여넣었는지 확인해 주세요.'); return; }
   // 기상청 응답은 EUC-KR이라 UTF-8로 잘못 읽히면 한글이 통째로 깨진다.
   // 그 상태로는 특보종류를 못 알아봐서 아무것도 안 칠해지므로 미리 잡아준다.
@@ -6300,35 +6316,57 @@ function applyWrn(txt) {
     return;
   }
   pushUndo();
-
-  // 특보 지도(육상)와 해상은 칠하는 곳이 다르다
-  // 초안에 없는 특보종류가 나오면 회색으로라도 잡아둔다. 안 그러면 조용히 안 칠해져서
-  // 왜 빠졌는지 모른다 (열대야가 실제로 그랬다). 색은 아래 목록에서 바로 고칠 수 있다.
+  wrnAllEvents = parsed;
+  buildWrnBulletins();                       // 통보문 드롭다운 — 맨 위 '발효 현황'(기본), 아래 발표시각들
+  showWrnAsOf('__NOW__', true);              // 기본: 지금 발효 중인 특보 현황
+}
+// 고른 '발표시각(통보문)' 기준으로 특보를 계산·색칠. announce=true면 안내 메시지도.
+function showWrnAsOf(fc, announce) {
+  wrnSelFc = fc;
+  const sel = $('#wrnBulletinSel'); if (sel && sel.value !== fc) sel.value = fc;
+  // 모두 '발효현황' 기준(activeWrnRows). __NOW__=지금/고른날짜, 그 외=그 발효시각.
+  const at = (fc === '__NOW__') ? (wrnWhen || currentTm()) : fc;
+  const rows = activeWrnRows(wrnAllEvents, at);
+  // 초안에 없는 특보종류가 나오면 회색으로라도 잡아둔다(안 그러면 조용히 안 칠해짐).
   const added = [];
-  for (const r of rows) {
-    if (!S.wrnColors[r.wrn] && r.wrn) { S.wrnColors[r.wrn] = ['#C4C4C4', '#8C8C8C']; added.push(r.wrn); }
-  }
+  for (const r of rows) if (!S.wrnColors[r.wrn] && r.wrn) { S.wrnColors[r.wrn] = ['#C4C4C4', '#8C8C8C']; added.push(r.wrn); }
   if (added.length) buildWrnCols();
-
-  // 해제된 건 애초에 뺀다
-  const released = parsed.filter((r) => wrnCommandKind(r.cmd) === 'release').length;
   wrnRows = rows;
   wrnOrder = defaultWrnOrder(wrnRows, Object.keys(S.wrnColors));
   S.wrnOff = S.wrnOff || {};
-  // 예비특보는 기본으로 꺼둔다. 한 번도 손대지 않은 것만 — 켜둔 걸 멋대로 되돌리면 안 된다.
+  // 예비특보는 기본으로 꺼둔다(한 번도 안 건드린 것만).
   let pre = 0;
-  for (const r of wrnRows) {
-    const k = wrnKeyOf(r);
-    if (isPre(r.lvl) && S.wrnOff[k] === undefined) { S.wrnOff[k] = 1; pre++; }
-  }
+  for (const r of wrnRows) { const k = wrnKeyOf(r); if (isPre(r.lvl) && S.wrnOff[k] === undefined) { S.wrnOff[k] = 1; pre++; } }
   buildWrnList();
   paintWrn();
-
-  const msg = [];
-  if (released) msg.push(`해제 ${released}건 제외`);
-  if (pre) msg.push('예비특보는 발효된 게 아니라 꺼뒀습니다 — 필요하면 목록에서 켜세요');
-  if (added.length) msg.push(`처음 보는 특보라 회색으로 넣음 — 아래에서 색 지정: ${added.join(', ')}`);
-  if (msg.length) status(msg.join(' · '));
+  if (announce) {
+    const msg = [fc === '__NOW__' ? (wrnWhen ? `${tmShort(wrnWhen)} 발효현황 표출` : '발효 현황 표출 (지금 유효한 특보)') : `${tmShort(fc)} 발효현황 표출`];
+    if (pre) msg.push('예비특보는 꺼뒀습니다 — 필요하면 목록에서 켜세요');
+    if (added.length) msg.push(`처음 보는 특보라 회색으로 넣음 — 아래에서 색 지정: ${added.join(', ')}`);
+    status(msg.join(' · '));
+  }
+}
+// '발효 현황' 드롭다운 항목 라벨 — 날짜·시각을 고르면 그 시각 기준으로 표시.
+function wrnEffLabel() { return wrnWhen ? `${tmShort(wrnWhen)} 발효 현황` : '발효 현황 (지금 유효한 특보)'; }
+// 발효현황 드롭다운 — 특보가 바뀌는 '발효시각(TM_EF)'마다 그 시각의 발효현황을 목록으로. 날짜/시각 안 골라도 바로 고를 수 있게.
+// 각 항목 = 그 시각에 유효한 특보(발효 기준). 최신이 맨 위, 맨 위엔 '지금 발효현황'.
+function buildWrnBulletins() {
+  const sel = $('#wrnBulletinSel'), row = $('#wrnBulletinRow'); if (!sel) return;
+  const times = [...new Set(wrnAllEvents.map(wrnEventTime).filter((t) => /^\d{12}$/.test(t)))].sort().reverse();
+  const now = currentTm();
+  sel.innerHTML = '';
+  { const o = document.createElement('option'); o.value = '__NOW__'; o.textContent = wrnEffLabel(); sel.appendChild(o); }
+  for (const t of times) {
+    const rows = activeWrnRows(wrnAllEvents, t);
+    if (!rows.length) continue;
+    const kinds = [...new Set(rows.map((r) => r.wrn))];   // 종류만(폭염·열대야·호우 등) — 계절 바뀌면 항목 구분됨
+    const summary = kinds.slice(0, 4).join('·') + (kinds.length > 4 ? ' 외' : '');
+    const o = document.createElement('option');
+    o.value = t; o.textContent = `${tmShort(t)} ${t > now ? '발효 예정' : '발효현황'}${summary ? ' · ' + summary : ''}`;   // 미래 발효는 '예정'으로 구분
+    sel.appendChild(o);
+  }
+  if (row) row.style.display = '';
+  sel.value = '__NOW__';   // 기본: 지금 발효현황
 }
 
 // 지금 켜둔 특보만 골라 칠한다. 목록 체크를 바꾸면 다시 부른다.
@@ -9654,6 +9692,7 @@ function wire() {
 
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value);
   $('#wrnFetch').onclick = fetchWrn;
+  { const bs = $('#wrnBulletinSel'); if (bs) bs.onchange = () => { pushUndo(); showWrnAsOf(bs.value, true); }; }   // 통보문 고르면 그 발표 기준으로 다시 표출
   { const wp = $('#wrnProxy'); if (wp) wp.oninput = (e) => { S.wrnProxy = e.target.value; }; }   // 프록시 입력칸은 제거됨(내장 헬퍼 사용). 남아있을 때만 바인딩.
 
   // 인증키는 이 브라우저에만 둔다 — 프로젝트 JSON이나 배포 파일에 섞여 나가면 안 된다.
@@ -9663,15 +9702,21 @@ function wire() {
   syncKeyWarn();
 
   // 언제 특보 — '지금'이면 tm을 비우고, '지난 날짜'면 그 시각을 넣는다
-  const syncWhen = () => {
+  const syncWhen = (reapply) => {
     const past = $('#wrnPastRow').style.display !== 'none';
     $('#wrnWhenNow').classList.toggle('pri', !past);
     $('#wrnWhenPast').classList.toggle('pri', past);
-    if (!past) { wrnWhen = ''; return; }
-    const d = $('#wrnDate').value, t = $('#wrnTime').value || '00:00';
-    wrnWhen = d ? d.replace(/-/g, '') + t.replace(':', '') : '';
+    if (!past) { wrnWhen = ''; }
+    else { const d = $('#wrnDate').value, t = $('#wrnTime').value || '00:00'; wrnWhen = d ? d.replace(/-/g, '') + t.replace(':', '') : ''; }
+    // 이미 불러온 데이터가 있으면 '발효 현황'을 새 날짜·시각으로 재요청 없이 다시 계산·표출한다(라벨도 갱신).
+    if (wrnAllEvents.length) {
+      const sel = $('#wrnBulletinSel');
+      const opt = sel && [...sel.options].find((o) => o.value === '__NOW__');
+      if (opt) opt.textContent = wrnEffLabel();
+      if (reapply && wrnSelFc === '__NOW__') { pushUndo(); showWrnAsOf('__NOW__', true); }
+    }
   };
-  $('#wrnWhenNow').onclick = () => { $('#wrnPastRow').style.display = 'none'; syncWhen(); };
+  $('#wrnWhenNow').onclick = () => { $('#wrnPastRow').style.display = 'none'; syncWhen(true); };
   $('#wrnWhenPast').onclick = () => {
     $('#wrnPastRow').style.display = '';
     if (!$('#wrnDate').value) {
@@ -9680,10 +9725,10 @@ function wire() {
       $('#wrnDate').value = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
       $('#wrnTime').value = '09:00';
     }
-    syncWhen();
+    syncWhen(true);
   };
-  $('#wrnDate').onchange = syncWhen;
-  $('#wrnTime').onchange = syncWhen;
+  $('#wrnDate').onchange = () => syncWhen(true);
+  $('#wrnTime').onchange = () => syncWhen(true);
   syncWhen();
 
   $('#wrnOpen').onclick = () => {
