@@ -6243,7 +6243,7 @@ const API_SITE = 'https://apihub.kma.go.kr/';
 const API_BASE = 'https://apihub.kma.go.kr/api/typ01/url/';
 const API_URLS = {
   // tm을 비우면 지금, 넣으면 그 시각의 특보현황이 나온다 (과거 조회가 이걸로 된다)
-  wrnNow:  API_BASE + 'wrn_now_data.php?fe=f&tm={TM}&disp=0&help=1&authKey={KEY}',   // fe=f: 미래 발효 예정 특보까지 포함(fe=e는 이미 발효된 것만) — 예: 내일 11시 발효 예정도 목록에
+  wrnNow:  API_BASE + 'wrn_now_data.php?fe=f&tm={TM}&disp=0&help=1&authKey={KEY}',   // fe=f + tm=고른시각으로 '재요청'하면 그 시각 발효현황을 기상청이 정확히 계산해 준다(로컬 재생 대신). 미래 발효 예정도 포함.
   fctLand: API_BASE + 'fct_afs_dl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctSea:  API_BASE + 'fct_afs_do.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
   fctMedLand: API_BASE + 'fct_afs_wl.php?reg=&tmfc1={TM1}&tmfc2={TM2}&disp=0&help=1&authKey={KEY}',
@@ -6304,7 +6304,7 @@ function wrnRank(r) {
 
 let wrnAllEvents = [];   // 불러온 모든 특보 이벤트(발표/해제 등) — 통보문 드롭다운·발표시각 재생에 쓴다
 let wrnSelFc = '';       // 지금 지도에 표출 중인 '발표시각(통보문)'
-function applyWrn(txt) {
+function applyWrn(txt, keepSel) {
   const parsed = parseWrn(txt);
   if (!parsed.length) { alert('특보 데이터를 못 읽었습니다. apihub 응답을 그대로 붙여넣었는지 확인해 주세요.'); return; }
   // 기상청 응답은 EUC-KR이라 UTF-8로 잘못 읽히면 한글이 통째로 깨진다.
@@ -6317,8 +6317,9 @@ function applyWrn(txt) {
   }
   pushUndo();
   wrnAllEvents = parsed;
-  buildWrnBulletins();                       // 통보문 드롭다운 — 맨 위 '발효 현황'(기본), 아래 발표시각들
-  showWrnAsOf('__NOW__', true);              // 기본: 지금 발효 중인 특보 현황
+  // keepSel: 목록에서 특정 시각을 골라 '그 시각으로 재요청'한 경우 — 목록은 그대로 두고 그 시각 현황만 다시 칠한다.
+  if (!keepSel) buildWrnBulletins();         // 최초 불러오기만 목록을 새로 만든다 (맨 위 '발효 현황'=기본, 아래 발효시각들)
+  showWrnAsOf(keepSel || '__NOW__', true);   // 기본: 지금(또는 고른 시각) 발효 중인 특보 현황
 }
 // 고른 '발표시각(통보문)' 기준으로 특보를 계산·색칠. announce=true면 안내 메시지도.
 function showWrnAsOf(fc, announce) {
@@ -6348,25 +6349,38 @@ function showWrnAsOf(fc, announce) {
 }
 // '발효 현황' 드롭다운 항목 라벨 — 날짜·시각을 고르면 그 시각 기준으로 표시.
 function wrnEffLabel() { return wrnWhen ? `${tmShort(wrnWhen)} 발효 현황` : '발효 현황 (지금 유효한 특보)'; }
-// 발효현황 드롭다운 — 특보가 바뀌는 '발효시각(TM_EF)'마다 그 시각의 발효현황을 목록으로. 날짜/시각 안 골라도 바로 고를 수 있게.
-// 각 항목 = 그 시각에 유효한 특보(발효 기준). 최신이 맨 위, 맨 위엔 '지금 발효현황'.
+// 202608031600 -> '2026.08.03.16:00' (KMA 통보문 목록 형식)
+function tmFull(t) { const s = String(t || ''); if (!/^\d{12}$/.test(s)) return ''; return `${s.slice(0, 4)}.${s.slice(4, 6)}.${s.slice(6, 8)}.${s.slice(8, 10)}:${s.slice(10, 12)}`; }
+// 발효현황 드롭다운 — '발효시각(TM_EF)'마다 한 줄. 최신(미래 발효예정 포함)이 위.
+// 고르면 그 시각으로 기상청에 '재요청'(fetchWrn)해서 그 시각의 발효현황을 정확히 받아 칠한다.
+// (한 번 받은 데이터로 로컬 재생하면 열대야 자동해제 등이 안 맞아 틀림 → 시각마다 재요청이 정답)
 function buildWrnBulletins() {
   const sel = $('#wrnBulletinSel'), row = $('#wrnBulletinRow'); if (!sel) return;
-  const times = [...new Set(wrnAllEvents.map(wrnEventTime).filter((t) => /^\d{12}$/.test(t)))].sort().reverse();
   const now = currentTm();
+  const times = [...new Set(wrnAllEvents.map((r) => String(r.tmef || '')).filter((t) => /^\d{12}$/.test(t)))]
+    .sort().reverse().slice(0, 80);
   sel.innerHTML = '';
   { const o = document.createElement('option'); o.value = '__NOW__'; o.textContent = wrnEffLabel(); sel.appendChild(o); }
   for (const t of times) {
-    const rows = activeWrnRows(wrnAllEvents, t);
-    if (!rows.length) continue;
-    const kinds = [...new Set(rows.map((r) => r.wrn))];   // 종류만(폭염·열대야·호우 등) — 계절 바뀌면 항목 구분됨
-    const summary = kinds.slice(0, 4).join('·') + (kinds.length > 4 ? ' 외' : '');
     const o = document.createElement('option');
-    o.value = t; o.textContent = `${tmShort(t)} ${t > now ? '발효 예정' : '발효현황'}${summary ? ' · ' + summary : ''}`;   // 미래 발효는 '예정'으로 구분
+    o.value = t; o.textContent = `${tmFull(t)} 발효${t > now ? ' 예정' : ' 현황'}`;
     sel.appendChild(o);
   }
   if (row) row.style.display = '';
   sel.value = '__NOW__';   // 기본: 지금 발효현황
+}
+// 드롭다운/버튼으로 고른 시각을 왼쪽 날짜·시각 picker에도 반영해 화면을 일관되게 유지.
+function reflectWhenToPicker() {
+  const past = !!wrnWhen;
+  const pr = $('#wrnPastRow'); if (pr) pr.style.display = past ? '' : 'none';
+  const nb = $('#wrnWhenNow'), pb = $('#wrnWhenPast');
+  if (nb) nb.classList.toggle('pri', !past);
+  if (pb) pb.classList.toggle('pri', past);
+  if (past) {
+    const w = wrnWhen, di = $('#wrnDate'), ti = $('#wrnTime');
+    if (di) di.value = `${w.slice(0, 4)}-${w.slice(4, 6)}-${w.slice(6, 8)}`;
+    if (ti) ti.value = `${w.slice(8, 10)}:${w.slice(10, 12)}`;
+  }
 }
 
 // 지금 켜둔 특보만 골라 칠한다. 목록 체크를 바꾸면 다시 부른다.
@@ -7254,7 +7268,7 @@ function buildFctKindBtns() {
 
 // 특보를 '기상청에서 불러오기' — 태풍과 같은 내장 WNS 헬퍼(127.0.0.1:3720) /api/kma 프록시로 CORS 우회.
 // (직접 apihub를 부르면 CORS로 막힘.) S.wrnProxy가 설정돼 있으면 그 주소를 우선 사용(고급/수동).
-async function fetchWrn() {
+async function fetchWrn(keepSel) {
   if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); status('apihub 인증키가 필요합니다 (API 설정)', true); return; }
   const override = (S.wrnProxy || '').trim();
   status('특보 가져오는 중…', true);
@@ -7276,7 +7290,7 @@ async function fetchWrn() {
     let t = new TextDecoder('utf-8').decode(buf);
     if (!/[가-힣]/.test(t)) t = new TextDecoder('euc-kr').decode(buf);
     $('#wrnPaste').value = t.slice(0, 200000);
-    applyWrn(t);
+    applyWrn(t, keepSel);
     status('특보 불러오기 완료', true);
   } catch (e) {
     status('');
@@ -8770,10 +8784,8 @@ async function exportBlobs(key) {
   }) }];
   if (key === 'fills') return [{ name: '색칠', blob: await svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
-    // 칠한 구역만 남긴다 — 안 칠한 구역·경계선·바다 기본농도는 전부 없앤다
-    c.querySelector('#zoneLineMain')?.remove();
-    c.querySelector('#sidoMain')?.remove();
-    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    // 칠한 구역만 남긴다 — 안 칠한 구역·경계선(본토+인셋 시도선)·바다 기본농도는 전부 없앤다
+    c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
       const col = F[z.dataset.id];
       if (col) { z.setAttribute('fill', col); z.setAttribute('stroke', 'none'); }
@@ -8789,11 +8801,14 @@ async function exportBlobs(key) {
   if (key === 'labels') {
     const labs = S.labels.filter((b) => !b.off);
     if (!labs.length) return [];
-    const out = [];
+    const out = [], seen = {};
     for (let i = 0; i < labs.length; i++) {
-      const id = labs[i].id;
+      const b = labs[i], id = b.id;
+      // 파일명은 라벨에 적힌 글(수치라벨 이름). 파일명 금지문자·줄바꿈 정리, 없으면 라벨NN. 같은 이름은 (2)(3)으로 구분.
+      let nm = String(b.txt || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || ('라벨' + String(i + 1).padStart(2, '0'));
+      if (seen[nm] != null) { seen[nm]++; nm = `${nm} (${seen[nm]})`; } else seen[nm] = 1;
       out.push({
-        name: `라벨${String(i + 1).padStart(2, '0')}`,
+        name: nm,
         blob: await svgBlob((c) => {
           keepLayers(c, ['L_labels']);
           c.querySelectorAll('#L_labels > g').forEach((g) => { if (g.dataset.id !== id) g.remove(); });
@@ -8821,9 +8836,8 @@ async function aeBaseBlob() {
     c.querySelector('#L_vfBar')?.remove();   // 제목 바는 지도·경계선 위 별도 레이어로
     c.querySelector('#L_title')?.remove();    // 제목은 AE 편집형 텍스트 레이어로
     c.querySelector('#L_legend')?.remove();  // 범례는 AE 편집형 Shape/Text 프리컴프로
-    // 시도/시군 선은 색칠 위에 얹을 별도 레이어로 → base에선 뺀다(안 그러면 색칠이 선을 덮음)
-    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
-    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    // 시도/시군 선은 색칠 위에 얹을 별도 레이어(경계선)로 → base에선 전부 뺀다(본토+인셋 시도선까지)
+    c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());
   });
 }
 // 브러쉬 덧칠 — 그 색 하나만(투명). 지도 좌표계(L_map) 유지해 브러쉬 위치 그대로.
@@ -8831,8 +8845,7 @@ async function aeBrushBlob(col) {
   const U = col.toUpperCase();
   return svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
-    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
-    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());   // 본토+인셋 시도선·시군선 전부 제거(인셋 sidoLine이 남아 색/특보색 레이어에 지도라인이 새던 문제)
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
     c.querySelectorAll('#seaT .sea').forEach((p) => { p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'none'); p.removeAttribute('mask'); });
@@ -8879,8 +8892,7 @@ async function aeWarningFillBlob(def) {
   return svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
     c.querySelector('#L_map')?.removeAttribute('filter');
-    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
-    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());   // 본토+인셋 시도선·시군선 전부 제거(인셋 sidoLine이 남아 색/특보색 레이어에 지도라인이 새던 문제)
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
       z.setAttribute('stroke', 'none');
@@ -8898,8 +8910,7 @@ async function aeFillBlob(col) {
   return svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
     c.querySelector('#L_map')?.removeAttribute('filter');   // 색칠 레이어엔 지도 그림자(#shadowF) 빼기
-    c.querySelector('#zoneLineMain')?.remove(); c.querySelector('#sidoMain')?.remove();
-    c.querySelectorAll('[data-zoneline]').forEach((n) => n.remove());
+    c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());   // 본토+인셋 시도선·시군선 전부 제거(인셋 sidoLine이 남아 색/특보색 레이어에 지도라인이 새던 문제)
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
       const fc = F[z.dataset.id];
@@ -9187,21 +9198,23 @@ function zipStore(files) {   // files: [{name, data: Uint8Array}]
   const u16 = (n) => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, n & 0xffff, true); return b; };
   const u32 = (n) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n >>> 0, true); return b; };
   const push = (a) => { parts.push(a); offset += a.length; };
+  const FLAG = 0x0800;   // 파일명 UTF-8 플래그(비트11) — 한글 이름이 깨지지 않게(Windows 탐색기 포함)
   for (const f of files) {
     const name = enc.encode(f.name), data = f.data, crc = _crc32(data), localOff = offset;
-    push(u32(0x04034b50)); push(u16(20)); push(u16(0)); push(u16(0)); push(u16(0)); push(u16(0)); // ver, flag, method(store), time, date
+    push(u32(0x04034b50)); push(u16(20)); push(u16(FLAG)); push(u16(0)); push(u16(0)); push(u16(0)); // ver, flag(UTF-8), method(store), time, date
     push(u32(crc)); push(u32(data.length)); push(u32(data.length)); push(u16(name.length)); push(u16(0));
     push(name); push(data);
     central.push({ name, crc, size: data.length, localOff });
   }
   const cdStart = offset;
   for (const c of central) {
-    push(u32(0x02014b50)); push(u16(20)); push(u16(20)); push(u16(0)); push(u16(0)); push(u16(0)); push(u16(0)); // sig, made, need, flag, method, time, date
+    push(u32(0x02014b50)); push(u16(20)); push(u16(20)); push(u16(FLAG)); push(u16(0)); push(u16(0)); push(u16(0)); // sig, made, need, flag(UTF-8), method, time, date
     push(u32(c.crc)); push(u32(c.size)); push(u32(c.size)); push(u16(c.name.length)); push(u16(0)); push(u16(0)); // sizes, name/extra/comment len
     push(u16(0)); push(u16(0)); push(u32(0)); push(u32(c.localOff)); push(c.name); // disk, int/ext attr, local offset
   }
+  const cdSize = offset - cdStart;   // ★ 중앙디렉터리 크기는 EOCD 필드 push '전에' 확정해야 한다(예전엔 12바이트 초과 계산 → zip 손상).
   push(u32(0x06054b50)); push(u16(0)); push(u16(0)); push(u16(central.length)); push(u16(central.length));
-  push(u32(offset - cdStart)); push(u32(cdStart)); push(u16(0));
+  push(u32(cdSize)); push(u32(cdStart)); push(u16(0));
   return new Blob(parts, { type: 'application/zip' });
 }
 const blobBytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
@@ -9691,8 +9704,14 @@ function wire() {
   $('#seaClear').onclick = () => { pushUndo(); S.seaFills = {}; renderSea(); };
 
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value);
-  $('#wrnFetch').onclick = fetchWrn;
-  { const bs = $('#wrnBulletinSel'); if (bs) bs.onchange = () => { pushUndo(); showWrnAsOf(bs.value, true); }; }   // 통보문 고르면 그 발표 기준으로 다시 표출
+  $('#wrnFetch').onclick = () => fetchWrn();   // 인자 없이(=목록 새로 만듦). onclick이 이벤트를 keepSel로 넘기지 않게 감쌈.
+  // 발효시각을 고르면 그 시각으로 '재요청'해서 정확한 발효현황을 받아 칠한다(picker와 동일). 목록은 그대로 둠.
+  { const bs = $('#wrnBulletinSel'); if (bs) bs.onchange = () => {
+      const v = bs.value;
+      wrnWhen = (v === '__NOW__') ? '' : v;
+      reflectWhenToPicker();
+      fetchWrn(v === '__NOW__' ? null : v);   // __NOW__는 목록도 새로, 특정시각은 목록 유지(keepSel)
+    }; }
   { const wp = $('#wrnProxy'); if (wp) wp.oninput = (e) => { S.wrnProxy = e.target.value; }; }   // 프록시 입력칸은 제거됨(내장 헬퍼 사용). 남아있을 때만 바인딩.
 
   // 인증키는 이 브라우저에만 둔다 — 프로젝트 JSON이나 배포 파일에 섞여 나가면 안 된다.
@@ -9708,13 +9727,15 @@ function wire() {
     $('#wrnWhenPast').classList.toggle('pri', past);
     if (!past) { wrnWhen = ''; }
     else { const d = $('#wrnDate').value, t = $('#wrnTime').value || '00:00'; wrnWhen = d ? d.replace(/-/g, '') + t.replace(':', '') : ''; }
-    // 이미 불러온 데이터가 있으면 '발효 현황'을 새 날짜·시각으로 재요청 없이 다시 계산·표출한다(라벨도 갱신).
+    // '발효 현황' 라벨만 새 시각으로 갱신. 실제 색칠은 '기상청에서 불러오기'가 그 시각으로 재요청해 정확히 받아온다.
+    // (한 번 받은 데이터를 다른 시각으로 로컬 재계산하면 열대야 자동해제 등이 안 맞아 틀림 → 재요청이 정답)
     if (wrnAllEvents.length) {
       const sel = $('#wrnBulletinSel');
       const opt = sel && [...sel.options].find((o) => o.value === '__NOW__');
       if (opt) opt.textContent = wrnEffLabel();
-      if (reapply && wrnSelFc === '__NOW__') { pushUndo(); showWrnAsOf('__NOW__', true); }
     }
+    // reapply=true면 그 시각으로 바로 재요청(picker 조작 시 사용자가 기대하는 동작).
+    if (reapply && wrnAllEvents.length) fetchWrn();
   };
   $('#wrnWhenNow').onclick = () => { $('#wrnPastRow').style.display = 'none'; syncWhen(true); };
   $('#wrnWhenPast').onclick = () => {
