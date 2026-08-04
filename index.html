@@ -9420,7 +9420,7 @@ async function exportPngSeq() {
 const WNS_HELPER = 'http://127.0.0.1:3720';
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260805;
+const HELPER_VER_MIN = 20260806;
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
