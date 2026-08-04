@@ -1183,8 +1183,8 @@
   .ntForm label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 5px; color: var(--on-surface, #111); }
   .ntForm input, .ntForm textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--outline-var, #d1d5db); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: var(--surface, #fff); color: var(--on-surface, #111); margin-bottom: 12px; }
   .ntForm textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
-  #noticeBtn { position: relative; }
-  #noticeBtn.hasNew::after { content: ''; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #E5484D; border: 1.5px solid var(--surface-c, #fff); }
+  #noticeBtn, #helperBtn { position: relative; }
+  #noticeBtn.hasNew::after, #helperBtn.hasNew::after { content: ''; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #E5484D; border: 1.5px solid var(--surface-c, #fff); }
   /* 마우스 주변 브러쉬 크기 원. non-scaling-stroke 는 dash 길이를 어긋나게 해서(원이 안 닫힘) 쓰지 않는다. */
   #brushCursor { fill: none; stroke: #4a94ff; stroke-width: 2; stroke-opacity: .9; pointer-events: none; }
   /* 브러쉬 그림은 순수 시각 오버레이 — 지도 전체 bbox를 덮으므로 클릭을 가로채면 안 된다
@@ -1757,6 +1757,9 @@
      </button>
      <button id="noticeBtn" class="tourInfoBtn" title="공지사항 — 업데이트·안내 모아보기" aria-label="공지사항">
        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 002.4-2.2H9.6A2.4 2.4 0 0012 22zm6.3-6.1V11a6.3 6.3 0 00-4.8-6.12V4.2a1.5 1.5 0 10-3 0v.68A6.3 6.3 0 005.7 11v4.8L4 17.6v.9h16v-.9l-1.7-1.7z"/></svg>
+     </button>
+     <button id="helperBtn" class="tourInfoBtn" title="렌더·불러오기 도우미 — 켜는 방법 보기" aria-label="도우미 안내">
+       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
      </button>
    </div>
    <div class="menuDrop" id="menuDrop"></div>
@@ -7287,7 +7290,8 @@ async function fetchWrn(keepSel) {
     let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
     if (!up) {
       status('');
-      alert('자동 불러오기 도우미(WNS 헬퍼)가 꺼져 있습니다.\n\n헬퍼를 켜거나, 아래 "기상청 특보현황 새 창으로 열기"로 열어 복사→붙여넣기 해주세요.');
+      if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice();   // MXF와 같은 친절한 안내 모달
+      else alert('자동 불러오기 도우미(WNS 헬퍼)가 꺼져 있습니다.');
       return;
     }
   }
@@ -8237,19 +8241,37 @@ function openPresetSlots() {
 // <img> 안의 SVG는 보안상 외부 폰트 URL(FontNew/*.otf)을 못 불러온다 → data:base64로 '심어야' 정확히 나온다.
 // (예전엔 여기에 Wanted를 심었지만 CG 텍스트는 Wanted를 안 써서 폰트가 Malgun으로 대체돼 렌더가 달라졌음.)
 let _suiteFontCss = null;
+let _suiteFontsReady = false;
 async function suiteFontCss() {
-  if (_suiteFontCss != null) return _suiteFontCss;
+  if (_suiteFontCss != null) { await ensureSuiteFontsLoaded(); return _suiteFontCss; }
   const W = [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'SemiBold'], [700, 'Bold'], [800, 'ExtraBold'], [900, 'Heavy']];
+  const bufs = [];
   const rules = await Promise.all(W.map(async ([wt, name]) => {
     try {
       const buf = await (await fetch('FontNew/SUITE-' + name + '.otf')).arrayBuffer();
       const b = new Uint8Array(buf); let bin = '';
       for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+      bufs.push([wt, buf]);
       return "@font-face{font-family:'SUITE CG';font-style:normal;font-weight:" + wt + ";src:url(data:font/otf;base64," + btoa(bin) + ") format('opentype');}";
     } catch (e) { return ''; }
   }));
   _suiteFontCss = rules.join('\n');
+  _suiteFontBufs = bufs;
+  await ensureSuiteFontsLoaded();
   return _suiteFontCss;
+}
+// 같은 base64 폰트를 브라우저 폰트시스템(document.fonts)에도 올려 둔다.
+// <img> 안 SVG는 폰트를 이 캐시에서 찾으므로, 미리 로드해 두면 export 첫 렌더부터 SUITE가 확실히 적용된다(폴백 레이스 방지).
+let _suiteFontBufs = null;
+async function ensureSuiteFontsLoaded() {
+  if (_suiteFontsReady || !_suiteFontBufs || !window.FontFace) return;
+  try {
+    await Promise.all(_suiteFontBufs.map(async ([wt, buf]) => {
+      const ff = new FontFace('SUITE CG', buf, { weight: String(wt), style: 'normal' });
+      await ff.load(); document.fonts.add(ff);
+    }));
+    _suiteFontsReady = true;
+  } catch (e) { /* 실패해도 base64 임베드가 있으니 계속 진행 */ }
 }
 
 // 3D 카메라 회전이 '지도만' 적용되도록 레이어를 두 묶음으로 나눈다.
@@ -8528,6 +8550,29 @@ async function exportPngSeq() {
 // R:\[F]_Util\WNS 의 WNS_START 로 켜둔 로컬 헬퍼(localhost:3720)에 프레임을 보내 ffmpeg 로 인코딩한다.
 // 파이썬/설치 없이(헬퍼는 컴파일 exe), 저장 위치는 '저장폴더' 칸으로 지정. 헬퍼가 그 PC 기준으로 파일을 만든다.
 const WNS_HELPER = 'http://127.0.0.1:3720';
+// 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
+// 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
+const HELPER_VER_MIN = 20260804;
+// 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
+async function pingHelper() {
+  try {
+    const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' });
+    if (!r.ok) return { up: false, ver: 0, old: false };
+    const j = await r.json().catch(() => ({}));
+    const ver = +(j.ver || 0);
+    return { up: true, ver, old: ver < HELPER_VER_MIN };
+  } catch (e) { return { up: false, ver: 0, old: false }; }
+}
+// 부팅 때 한 번 확인 — 구버전 헬퍼가 켜져 있으면 상단바 도우미 버튼에 빨간 점 + (세션당 1회) 안내 팝업.
+async function checkHelperFreshOnBoot() {
+  const st = await pingHelper();
+  const b = $('#helperBtn');
+  if (b) b.classList.toggle('hasNew', st.up && st.old);
+  if (st.up && st.old && !sessionStorage.getItem('wcg_helper_old_seen')) {
+    sessionStorage.setItem('wcg_helper_old_seen', '1');
+    if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice('old');
+  }
+}
 // 깃헙(https) 배포본에서도 로컬 헬퍼(127.0.0.1)는 호출 가능하다(브라우저가 localhost는 예외 허용).
 // 그래서 해상도만 맞으면 항상 버튼을 보인다. 헬퍼가 꺼져 있으면 누를 때 안내 팝업이 뜬다.
 function updateWnsButtons() {
@@ -8539,19 +8584,23 @@ function updateWnsButtons() {
   g.style.display = (showMxf || showMov) ? '' : 'none';
 }
 // 헬퍼가 꺼져 있을 때 크게 보여주는 안내 (토스 카드)
-function wnsHelperOffNotice() {
+function wnsHelperOffNotice(mode) {
+  const old = mode === 'old';   // old=도우미가 켜져 있지만 구버전 → '다시 실행' 안내
   const PATH = 'R:\\[F]_Util\\WNS\\자동시작';
   const step = (n, html) => `<div class="tossStep"><span class="n">${n}</span><div>${html}</div></div>`;
   const bodyHTML =
-    'MXF·MOV로 뽑으려면 <b>렌더 도우미</b>를 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>'
+    (old
+      ? '도우미가 <b>구버전</b>으로 켜져 있어요. 아래대로 <b>다시 실행</b>하면 최신으로 바뀝니다. (지금도 쓸 수는 있어요.)<br><br>'
+      : '<b>기상청 불러오기</b>·<b>MXF/MOV 렌더</b> 같은 자동 기능을 쓰려면 <b>도우미</b>를 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>')
     + step(1, '아래 <b>[폴더 경로 복사]</b> 버튼을 누르세요.')
     + step(2, '키보드 <b>⊞Win + E</b> 로 <b>내 컴퓨터(파일 탐색기)</b>를 열고, 맨 위 <b>주소칸을 클릭</b>한 뒤 <b>Ctrl+V</b> 붙여넣고 <b>Enter</b>.')
-    + step(3, '열린 폴더에서 <b>“① 자동시작 켜기 (한번만)”</b> 을 <b>더블클릭</b>. (검은 창이 잠깐 떴다 사라짐)')
-    + step(4, '이 창을 닫고 <b>다시 MXF/MOV 버튼</b>을 누르면 렌더됩니다.')
+    + step(3, '열린 폴더의 <b>WNS_START</b> 파일을 <b>더블클릭</b>. (검은 창이 잠깐 떴다 사라짐 — 켜기·다시켜기를 한 번에 합니다)')
+    + step(4, '이 창을 닫고 <b>다시 그 버튼</b>(불러오기·MXF·MOV)을 누르면 됩니다.')
     + `<div class="tossPath">${PATH}</div>`
     + '<div style="margin-top:10px;color:var(--on-surface-var,#778);font-size:12.5px">한 번 하면 다음부턴 PC를 켤 때 자동으로 준비됩니다 — 다시 안 해도 돼요.</div>';
   const m = tossModal({
-    title: '렌더 준비 — 딱 한 번만 하면 끝나요', sub: 'MXF · MOV 방송용 렌더',
+    title: old ? '도우미 업데이트 — 다시 실행만 하면 끝나요' : '도우미 준비 — 딱 한 번만 하면 끝나요',
+    sub: '기상청 불러오기 · MXF/MOV 렌더',
     accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)', bodyHTML,
     footHTML: '<button class="tossBtn pri" data-copy>폴더 경로 복사</button><button class="tossBtn ghost" data-ok>닫기</button>',
   });
@@ -8774,7 +8823,10 @@ let exportPick = new Set(['full']);
 async function exportBlobs(key) {
   const F = fills();
   if (key === 'full') return [{ name: '전체', blob: await svgBlob((c) => keepLayers(c, ALL_LAYERS)) }];
-  if (key === 'bgtext') return [{ name: '배경글자', blob: await svgBlob((c) => keepLayers(c, ['L_bg', 'L_title'])) }];
+  if (key === 'bgtext') return [{ name: '배경글자', blob: await svgBlob((c) => {
+    keepLayers(c, ['L_bg', 'L_title']);
+    c.querySelector('#bgMapT')?.remove();   // 배경글자엔 지도 요소(북한·일본 실루엣 등) 빼고 배경+제목만
+  }) }];
   if (key === 'map') return [{ name: '지도', blob: await svgBlob((c) => {
     keepLayers(c, ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn']);
     c.querySelector('#bgImg')?.remove();   // 배경 이미지만 빼고 실루엣(bgMapT)은 남긴다 -> 투명 + 북한
@@ -11499,6 +11551,7 @@ function wireTour() {
   $('#tourNext').onclick = tourNextOrEnd;
   $('#tourBtn').onclick = () => tourOpen(true);         // 상단바 i 버튼
   if ($('#noticeBtn')) { $('#noticeBtn').onclick = openNoticeHistory; updateNoticeDot(); }   // 상단바 공지 버튼
+  if ($('#helperBtn')) $('#helperBtn').onclick = () => { if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice(); };   // 도우미 켜는 방법 언제든 보기
   // 투어 UI 클릭이 메뉴 '바깥 클릭 닫기'를 건드리지 않게 + 어두운 영역 클릭 무효
   $('#tourWrap').addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target.closest('#tourBlock')) e.preventDefault(); });
   window.addEventListener('keydown', (e) => {
@@ -11588,6 +11641,8 @@ if (tourWillOpen) setTimeout(() => tourOpen(false), 650);
 // 안 읽은 공지가 있으면 팝업 — 새로고침·새 접속 어느 쪽이든 매번 확인(닫으면 읽음처리돼 다신 안 뜸).
 // 투어가 뜨는 첫 방문이면 투어 뒤에 겹쳐 뜨도록 조금 늦춘다.
 setTimeout(checkNoticeOnBoot, tourWillOpen ? 1500 : 600);
+// 구버전 헬퍼가 켜져 있으면 도우미 버튼에 빨간 점 + 세션 첫 회 안내(공지 팝업 뒤에 오도록 조금 더 늦춤)
+setTimeout(checkHelperFreshOnBoot, tourWillOpen ? 2400 : 1300);
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
 setInterval(saveWork, 1500);
