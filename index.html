@@ -1193,6 +1193,8 @@
   .typOther[open] > summary::before { content: '▾ '; }
   .typOther > summary:hover { background: var(--btn-hover); }
   /* 렌더(추출) 중 스테이지 깜빡임 가리개 — 라이브 SVG를 프레임마다 갱신해 깜빡이므로 덮어 둔다 */
+  /* 참고 이미지 드롭 박스 — 파일 끌어오면 강조 */
+  #tycRefDrop.drophot { border-color: var(--primary) !important; border-style: solid; background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--on-surface); }
   /* 모바일풍 토글 스위치 (비교 태풍 탭의 표시 on/off) — 한 줄에 하나: 글자 왼쪽·스위치 오른쪽 */
   .swtch { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; font-size: 12.5px; cursor: pointer; user-select: none; white-space: nowrap; margin: 5px 0; }
   .swtch > span { flex: 1 1 auto; }
@@ -1368,13 +1370,14 @@
         <div class="btns" style="margin:4px 0"><button id="tycPen" style="flex:1" title="지도를 클릭해 점을 찍어 태풍 경로를 직접 그립니다. Enter=완료, Esc=취소">펜툴로 경로 그리기</button></div>
         <div class="fieldGroup" style="margin:6px 0">
           <div class="subhead" style="margin-top:0">참고 이미지 <span>· 대고 그리기</span></div>
-          <div id="tycRefDrop" style="border:1px dashed var(--outline-var);border-radius:9px;padding:12px 8px;text-align:center;font-size:12px;cursor:pointer;color:var(--on-surface-var)">이미지를 <b>끌어다 놓거나</b> 눌러서 불러오기</div>
+          <div id="tycRefDrop" style="border:1px dashed var(--outline-var);border-radius:9px;padding:12px 8px;text-align:center;font-size:12px;cursor:pointer;color:var(--on-surface-var)">이미지를 <b>끌어다 놓거나</b> 눌러서 불러오기 <span style="opacity:.6">(최대 5)</span></div>
           <input type="file" id="tycRefFile" accept="image/*" style="display:none">
           <div id="tycRefCtl" style="display:none">
-            <label class="swtch"><span>이미지 표시</span><input type="checkbox" id="tycRefShow"></label>
+            <div id="tycRefList" style="display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 5px"></div>
+            <label class="swtch"><span>선택 이미지 표시</span><input type="checkbox" id="tycRefShow"></label>
             <div class="row"><label>투명도</label><input type="range" id="tycRefOp" min="0.1" max="1" step="0.05"><span class="v" id="tycRefOpV"></span></div>
-            <div class="btns" style="margin:4px 0 0"><button id="tycRefRemove" class="ghost" style="flex:1">이미지 제거</button></div>
-            <p class="hint" style="margin:5px 0 0">모서리=크기(<b>Shift=정비율</b>) · 위쪽 원=회전 · 본체 드래그=이동. 펜툴로 그 위를 대고 그리세요.</p>
+            <div class="btns" style="margin:4px 0 0"><button id="tycRefRemove" class="ghost" style="flex:1">선택 이미지 제거</button></div>
+            <p class="hint" style="margin:5px 0 0">칩으로 이미지 선택 · 모서리=크기(<b>Shift=정비율</b>) · 위쪽 원=회전 · 본체 드래그=이동 · <b>Delete</b>=삭제. 펜툴로 그 위를 대고 그리세요.</p>
           </div>
         </div>
         <label class="chk" style="margin:6px 0;gap:6px"><input type="checkbox" id="tycLegend">범례 표시(기관 이름·색)</label>
@@ -4401,8 +4404,8 @@ function shiftCompareLabelsBy(tx, ty, r) {
     if (c.labelPos) { c.labelPos.x = Math.round(tx + c.labelPos.x * r); c.labelPos.y = Math.round(ty + c.labelPos.y * r); }
     for (const lb of (c.labels || [])) { if (lb.x != null) { lb.x = Math.round(tx + lb.x * r); lb.y = Math.round(ty + lb.y * r); } }
   }
-  const ri = S.typhoon && S.typhoon.refImg;   // 참고 이미지(기준점 포함)도 지도와 함께 이동·확대(정렬 유지)
-  if (ri) { ri.x = Math.round(tx + ri.x * r); ri.y = Math.round(ty + ri.y * r); ri.w = Math.round(ri.w * r); ri.h = Math.round(ri.h * r); if (ri.px != null) { ri.px = Math.round(tx + ri.px * r); ri.py = Math.round(ty + ri.py * r); } }
+  const imgs = (S.typhoon && (S.typhoon.refImgs || (S.typhoon.refImg ? [S.typhoon.refImg] : []))) || [];   // 참고 이미지(기준점 포함) 모두 지도와 함께 이동·확대(정렬 유지)
+  for (const ri of imgs) { ri.x = Math.round(tx + ri.x * r); ri.y = Math.round(ty + ri.y * r); ri.w = Math.round(ri.w * r); ri.h = Math.round(ri.h * r); if (ri.px != null) { ri.px = Math.round(tx + ri.px * r); ri.py = Math.round(ty + ri.py * r); } }
 }
 // 비교 예보선들을 그린다(비교 지도 전용). 얇은 색선 + 솎은 작은 아이콘(아이콘 표시 토글·날짜범위 반영).
 function drawCompareTracks(L) {
@@ -4916,10 +4919,13 @@ function buildCompareSection() {
     else { const o = document.createElement('option'); o.textContent = '(불러오기 전)'; which.appendChild(o); which.disabled = true; }
   }
   const lg = $('#tycLegend'); if (lg) lg.checked = !!(S.legend && S.legend.on);
-  // 참고 이미지 컨트롤 동기화
-  { const ri = T.refImg, ctl = $('#tycRefCtl'), drop = $('#tycRefDrop');
-    if (ctl) ctl.style.display = ri && ri.href ? '' : 'none';
-    if (drop) drop.style.display = ri && ri.href ? 'none' : '';
+  // 참고 이미지 컨트롤 동기화(배열·선택 칩)
+  { const arr = refImgs(), sel = refSelIdx(), ri = refImg(), ctl = $('#tycRefCtl'), drop = $('#tycRefDrop');
+    if (ctl) ctl.style.display = arr.length ? '' : 'none';
+    if (drop) drop.style.display = arr.length >= MAX_REF ? 'none' : '';   // 5개 차면 드롭존 숨김
+    const list = $('#tycRefList');
+    if (list) { list.innerHTML = arr.map((im, i) => `<button data-refi="${i}" class="ghost" style="padding:3px 9px;font-size:11px${i === sel ? ';outline:2px solid var(--primary);background:color-mix(in srgb,var(--primary) 18%,transparent)' : ''}">이미지 ${i + 1}${im.show === 0 ? ' (숨김)' : ''}</button>`).join('');
+      list.querySelectorAll('[data-refi]').forEach((n) => { n.onclick = () => { S.typhoon.refSel = +n.dataset.refi; renderRefImg(); buildCompareSection(); }; }); }
     if (ri) { const sh = $('#tycRefShow'); if (sh) sh.checked = ri.show !== 0; const op = $('#tycRefOp'), opv = $('#tycRefOpV'); const v = ri.op == null ? 0.6 : ri.op; if (op) op.value = v; if (opv) opv.textContent = Math.round(v * 100) + '%'; } }
   const wrap = $('#tycList'); const cmp = (T.compare ||= []);
   if (wrap) wrap.innerHTML = cmp.length
@@ -5113,8 +5119,12 @@ svg.addEventListener('pointerdown', (e) => {   // 캡처 단계 — 색칠/선�
   if (penMode) { e.preventDefault(); e.stopPropagation(); const p = toUser(e), ll = xyToLonLat(p.x, p.y); penPts.push(ll); renderPenPreview(); return; }
   if (penExtendId) { const c = compareById(penExtendId); if (c) { e.preventDefault(); e.stopPropagation(); const p = toUser(e), ll = xyToLonLat(p.x, p.y); (c.points ||= []).push({ lon: ll.lon, lat: ll.lat, ws: 30, r15: 0, r25: 0, r70: 0, tmef: '', label: '', fcst: false }); renderTyphoon(); } return; }
 }, true);
-// ── 참고 이미지(대고 그리기용) + 프리 트랜스폼(이동·모서리 스케일[Shift=정비율]·회전) ──
-const refImg = () => (S.typhoon && S.typhoon.refImg) || null;
+// ── 참고 이미지(대고 그리기용, 최대 5개) + 프리 트랜스폼(이동·기준점 스케일[Shift=정비율]·회전) ──
+const MAX_REF = 5;
+// 배열로 통일(옛 단일 refImg는 배열로 마이그레이션). refImgs()=배열, refSelIdx()=편집 중(핸들 표시)인 인덱스.
+function refImgs() { const T = S.typhoon; if (!T) return []; if (T.refImg && !T.refImgs) { T.refImgs = [T.refImg]; delete T.refImg; } return T.refImgs || (T.refImgs = []); }
+function refSelIdx() { const T = S.typhoon; if (!T) return -1; const a = refImgs(); if (!a.length) return -1; if (T.refSel == null || T.refSel < 0 || T.refSel >= a.length) T.refSel = a.length - 1; return T.refSel; }
+const refImg = () => { const a = refImgs(), i = refSelIdx(); return i >= 0 ? a[i] : null; };   // 선택된 이미지(컨트롤 대상)
 const _rotPt = (px, py, cx, cy, rad) => { const c = Math.cos(rad), s = Math.sin(rad), dx = px - cx, dy = py - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; };
 function _ftDrag(e, onMove) {
   e.preventDefault(); e.stopPropagation();
@@ -5125,67 +5135,79 @@ function _ftDrag(e, onMove) {
 function clearRefImgLayer() { const g = document.getElementById('L_refImg'); if (g) g.remove(); }
 function renderRefImg() {
   clearRefImgLayer();
-  const ri = refImg(); if (!ri || !ri.href || !isTyphoonCompare() || ri.show === 0) return;
-  if (ri.px == null) ri.px = ri.x + ri.w / 2;   // 기준점(pivot) — 확대/축소·회전의 중심. 기본=이미지 중앙, 옮길 수 있음.
-  if (ri.py == null) ri.py = ri.y + ri.h / 2;
+  if (!isTyphoonCompare()) return;
+  const arr = refImgs(); if (!arr.length) return;
   const g = el('g', { id: 'L_refImg' }); svg.appendChild(g);
-  const rot = ri.rot || 0;
-  const inner = el('g', { transform: `rotate(${rot} ${ri.px} ${ri.py})` }); g.appendChild(inner);   // 회전=기준점 중심
-  inner.appendChild(el('image', { href: ri.href, x: ri.x, y: ri.y, width: ri.w, height: ri.h, opacity: (ri.op == null ? 0.6 : ri.op), preserveAspectRatio: 'none', style: 'pointer-events:none' }));
   const editing = !penMode && !penExtendId;   // 트레이싱(펜) 중엔 핸들 숨기고 클릭이 통과되게(대고 그리기)
-  if (!editing) return;
-  const body = el('rect', { x: ri.x, y: ri.y, width: ri.w, height: ri.h, fill: '#7FD0FF', 'fill-opacity': 0.001, stroke: '#7FD0FF', 'stroke-width': 2, 'stroke-dasharray': '7 5', style: 'cursor:move' });
-  inner.appendChild(body);
-  body.addEventListener('pointerdown', (e) => { const o = { x: ri.x, y: ri.y, px: ri.px, py: ri.py }, s = toUser(e); pushUndo(); _ftDrag(e, (P) => { const dx = P.x - s.x, dy = P.y - s.y; ri.x = Math.round(o.x + dx); ri.y = Math.round(o.y + dy); ri.px = Math.round(o.px + dx); ri.py = Math.round(o.py + dy); renderRefImg(); }); });   // 본체 = 이동(기준점도 함께)
-  // 모서리 스케일 핸들 4개 — '기준점(pivot)' 고정, 그 점 기준으로 키우고 줄임. Shift=정비율.
-  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
-  for (const [sx, sy] of corners) {
-    const hx = sx < 0 ? ri.x : ri.x + ri.w, hy = sy < 0 ? ri.y : ri.y + ri.h;
-    const h = el('rect', { x: hx - 8, y: hy - 8, width: 16, height: 16, rx: 3, fill: '#FFFFFF', stroke: '#3B82F6', 'stroke-width': 2, style: 'cursor:nwse-resize' });
-    inner.appendChild(h);
-    h.addEventListener('pointerdown', (e) => {
-      const r0 = Object.assign({}, ri), rad = (r0.rot || 0) * Math.PI / 180;
-      const rx = sx < 0 ? r0.x : r0.x + r0.w, ry = sy < 0 ? r0.y : r0.y + r0.h;   // 잡은 모서리(사각형 좌표계)
-      pushUndo();
-      _ftDrag(e, (P, ev) => {
-        const PL = _rotPt(P.x, P.y, r0.px, r0.py, -rad);   // 포인터를 기준점 중심으로 역회전 → 사각형 좌표계
-        let sxr = (PL[0] - r0.px) / ((rx - r0.px) || 1e-6), syr = (PL[1] - r0.py) / ((ry - r0.py) || 1e-6);
-        if (ev.shiftKey) { const s2 = Math.max(sxr, syr); sxr = s2; syr = s2; }   // Shift=정비율
-        sxr = Math.max(0.03, sxr); syr = Math.max(0.03, syr);   // 뒤집힘 방지
-        ri.w = Math.max(24, Math.round(r0.w * sxr)); ri.h = Math.max(24, Math.round(r0.h * syr));
-        ri.x = Math.round(r0.px + (r0.x - r0.px) * sxr); ri.y = Math.round(r0.py + (r0.y - r0.py) * syr);   // 기준점 고정
-        renderRefImg();
+  const sel = refSelIdx();
+  arr.forEach((ri, i) => {
+    if (!ri || !ri.href || ri.show === 0) return;
+    if (ri.px == null) ri.px = ri.x + ri.w / 2;
+    if (ri.py == null) ri.py = ri.y + ri.h / 2;
+    const inner = el('g', { transform: `rotate(${ri.rot || 0} ${ri.px} ${ri.py})` }); g.appendChild(inner);   // 회전=기준점 중심
+    inner.appendChild(el('image', { href: ri.href, x: ri.x, y: ri.y, width: ri.w, height: ri.h, opacity: (ri.op == null ? 0.6 : ri.op), preserveAspectRatio: 'none', style: 'pointer-events:none' }));
+    if (!editing) return;
+    if (i !== sel) {   // 선택 안 된 이미지 — 옅은 테두리, 클릭하면 선택(그 이미지에 핸들)
+      const pick = el('rect', { x: ri.x, y: ri.y, width: ri.w, height: ri.h, fill: '#7FD0FF', 'fill-opacity': 0.001, stroke: '#7FD0FF', 'stroke-opacity': 0.45, 'stroke-width': 1.5, 'stroke-dasharray': '4 4', style: 'cursor:pointer' });
+      inner.appendChild(pick);
+      pick.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); S.typhoon.refSel = i; renderRefImg(); buildCompareSection(); status('참고 이미지 ' + (i + 1) + ' 선택', true); });
+      return;
+    }
+    // 선택된 이미지 — 이동/스케일/회전/기준점 핸들
+    const body = el('rect', { x: ri.x, y: ri.y, width: ri.w, height: ri.h, fill: '#7FD0FF', 'fill-opacity': 0.001, stroke: '#3B82F6', 'stroke-width': 2, 'stroke-dasharray': '7 5', style: 'cursor:move' });
+    inner.appendChild(body);
+    body.addEventListener('pointerdown', (e) => { const o = { x: ri.x, y: ri.y, px: ri.px, py: ri.py }, s = toUser(e); pushUndo(); _ftDrag(e, (P) => { const dx = P.x - s.x, dy = P.y - s.y; ri.x = Math.round(o.x + dx); ri.y = Math.round(o.y + dy); ri.px = Math.round(o.px + dx); ri.py = Math.round(o.py + dy); renderRefImg(); }); });
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    for (const [sx, sy] of corners) {
+      const hx = sx < 0 ? ri.x : ri.x + ri.w, hy = sy < 0 ? ri.y : ri.y + ri.h;
+      const h = el('rect', { x: hx - 8, y: hy - 8, width: 16, height: 16, rx: 3, fill: '#FFFFFF', stroke: '#3B82F6', 'stroke-width': 2, style: 'cursor:nwse-resize' });
+      inner.appendChild(h);
+      h.addEventListener('pointerdown', (e) => {
+        const r0 = Object.assign({}, ri), rad = (r0.rot || 0) * Math.PI / 180;
+        const rx = sx < 0 ? r0.x : r0.x + r0.w, ry = sy < 0 ? r0.y : r0.y + r0.h;
+        pushUndo();
+        _ftDrag(e, (P, ev) => {
+          const PL = _rotPt(P.x, P.y, r0.px, r0.py, -rad);
+          let sxr = (PL[0] - r0.px) / ((rx - r0.px) || 1e-6), syr = (PL[1] - r0.py) / ((ry - r0.py) || 1e-6);
+          if (ev.shiftKey) { const s2 = Math.max(sxr, syr); sxr = s2; syr = s2; }
+          sxr = Math.max(0.03, sxr); syr = Math.max(0.03, syr);
+          ri.w = Math.max(24, Math.round(r0.w * sxr)); ri.h = Math.max(24, Math.round(r0.h * syr));
+          ri.x = Math.round(r0.px + (r0.x - r0.px) * sxr); ri.y = Math.round(r0.py + (r0.y - r0.py) * syr);
+          renderRefImg();
+        });
       });
-    });
-  }
-  // 회전 핸들 (기준점 위쪽) — 기준점 중심 회전
-  const rhx = ri.x + ri.w / 2;
-  const rh = el('circle', { cx: rhx, cy: ri.y - 26, r: 8, fill: '#3B82F6', stroke: '#FFFFFF', 'stroke-width': 2, style: 'cursor:grab' });
-  inner.appendChild(el('line', { x1: rhx, y1: ri.y, x2: rhx, y2: ri.y - 26, stroke: '#7FD0FF', 'stroke-width': 1.5, style: 'pointer-events:none' }));
-  inner.appendChild(rh);
-  rh.addEventListener('pointerdown', (e) => { pushUndo(); _ftDrag(e, (P, ev) => { let ang = Math.atan2(P.y - ri.py, P.x - ri.px) * 180 / Math.PI + 90; ri.rot = ev.shiftKey ? Math.round(ang / 15) * 15 : Math.round(ang * 10) / 10; renderRefImg(); }); });
-  // 기준점(pivot) 핸들 — 노란 십자. 드래그로 어디든 옮겨 '거기 기준'으로 확대/축소·회전.
-  const pv = el('g', { transform: `translate(${ri.px} ${ri.py})`, style: 'cursor:move' });
-  pv.appendChild(el('circle', { r: 11, fill: 'rgba(0,0,0,0.25)', stroke: '#FFD400', 'stroke-width': 2 }));
-  pv.appendChild(el('path', { d: 'M-15 0H15M0 -15V15', stroke: '#FFD400', 'stroke-width': 1.3, 'stroke-opacity': 0.8, style: 'pointer-events:none' }));
-  pv.appendChild(el('circle', { r: 3.2, fill: '#FFD400' }));
-  g.appendChild(pv);   // g(비회전)에 둔다 — 기준점은 자기 자신을 중심으로 회전해도 제자리
-  pv.addEventListener('pointerdown', (e) => { const o = { px: ri.px, py: ri.py }, s = toUser(e); pushUndo(); _ftDrag(e, (P) => { ri.px = Math.round(o.px + (P.x - s.x)); ri.py = Math.round(o.py + (P.y - s.y)); renderRefImg(); }); });
+    }
+    const rhx = ri.x + ri.w / 2;
+    inner.appendChild(el('line', { x1: rhx, y1: ri.y, x2: rhx, y2: ri.y - 26, stroke: '#7FD0FF', 'stroke-width': 1.5, style: 'pointer-events:none' }));
+    const rh = el('circle', { cx: rhx, cy: ri.y - 26, r: 8, fill: '#3B82F6', stroke: '#FFFFFF', 'stroke-width': 2, style: 'cursor:grab' });
+    inner.appendChild(rh);
+    rh.addEventListener('pointerdown', (e) => { pushUndo(); _ftDrag(e, (P, ev) => { let ang = Math.atan2(P.y - ri.py, P.x - ri.px) * 180 / Math.PI + 90; ri.rot = ev.shiftKey ? Math.round(ang / 15) * 15 : Math.round(ang * 10) / 10; renderRefImg(); }); });
+    const pv = el('g', { transform: `translate(${ri.px} ${ri.py})`, style: 'cursor:move' });
+    pv.appendChild(el('circle', { r: 11, fill: 'rgba(0,0,0,0.25)', stroke: '#FFD400', 'stroke-width': 2 }));
+    pv.appendChild(el('path', { d: 'M-15 0H15M0 -15V15', stroke: '#FFD400', 'stroke-width': 1.3, 'stroke-opacity': 0.8, style: 'pointer-events:none' }));
+    pv.appendChild(el('circle', { r: 3.2, fill: '#FFD400' }));
+    g.appendChild(pv);
+    pv.addEventListener('pointerdown', (e) => { const o = { px: ri.px, py: ri.py }, s = toUser(e); pushUndo(); _ftDrag(e, (P) => { ri.px = Math.round(o.px + (P.x - s.x)); ri.py = Math.round(o.py + (P.y - s.y)); renderRefImg(); }); });
+  });
 }
-// 이미지 파일 → 참고 이미지로(현재 화면 중앙에 자연 크기 맞춤).
+// 이미지 파일 → 참고 이미지 목록에 추가(최대 5개). 새로 추가한 걸 선택 상태로.
 function loadRefImgFromFile(file) {
   if (!file || !/^image\//.test(file.type)) { status('이미지 파일이 아닙니다', true); return; }
+  if (!S.typhoon) initTyphoonData();
+  if (refImgs().length >= MAX_REF) { status('참고 이미지는 최대 ' + MAX_REF + '개입니다 — 하나 지우고 추가하세요', true); return; }
   const rd = new FileReader();
   rd.onload = () => {
     const im = new Image();
     im.onload = () => {
-      if (!S.typhoon) initTyphoonData();
       const maxW = 1920 * 0.6, sc = Math.min(1, maxW / im.width), w = Math.round(im.width * sc), h = Math.round(im.height * sc);
       pushUndo();
-      const rx0 = Math.round(960 - w / 2), ry0 = Math.round(540 - h / 2);
-      S.typhoon.refImg = { href: rd.result, x: rx0, y: ry0, w, h, rot: 0, op: 0.6, show: 1, px: 960, py: 540 };
+      const arr = refImgs();
+      const off = arr.length * 24;   // 겹치지 않게 살짝 어긋나게
+      const rx0 = Math.round(960 - w / 2 + off), ry0 = Math.round(540 - h / 2 + off);
+      arr.push({ href: rd.result, x: rx0, y: ry0, w, h, rot: 0, op: 0.6, show: 1, px: Math.round(rx0 + w / 2), py: Math.round(ry0 + h / 2) });
+      S.typhoon.refSel = arr.length - 1;
       buildCompareSection(); renderRefImg();
-      status('참고 이미지 불러옴 — 노란 기준점을 원하는 곳으로 옮기면 그 점 기준으로 크기(Shift=정비율)·회전, 본체 드래그=이동', true);
+      status('참고 이미지 추가 (' + arr.length + '/' + MAX_REF + ') — 노란 기준점 기준으로 크기(Shift=정비율)·회전, 본체 드래그=이동, Delete=삭제', true);
     };
     im.src = rd.result;
   };
@@ -5215,14 +5237,15 @@ function wireCompareSection() {
   const drop = $('#tycRefDrop'), file = $('#tycRefFile');
   if (drop && file) {
     drop.onclick = () => file.click();
-    drop.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); drop.style.borderColor = 'var(--primary)'; });
-    drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
-    drop.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); drop.style.borderColor = ''; const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) loadRefImgFromFile(f); });
+    const hot = (on) => { drop.classList.toggle('drophot', on); const h = $('#dropHint'); if (h && on) h.classList.remove('on'); };   // 박스 위에선 전체창 오버레이 숨기고 박스 강조
+    ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; hot(true); }));
+    drop.addEventListener('dragleave', (e) => { e.stopPropagation(); hot(false); });
+    drop.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); hot(false); const h = $('#dropHint'); if (h) h.classList.remove('on'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) loadRefImgFromFile(f); });
     file.onchange = () => { if (file.files && file.files[0]) loadRefImgFromFile(file.files[0]); file.value = ''; };
   }
-  const rShow = $('#tycRefShow'); if (rShow) rShow.onchange = () => { const ri = refImg(); if (!ri) return; pushUndo(); ri.show = rShow.checked ? 1 : 0; renderRefImg(); };
+  const rShow = $('#tycRefShow'); if (rShow) rShow.onchange = () => { const ri = refImg(); if (!ri) return; pushUndo(); ri.show = rShow.checked ? 1 : 0; renderRefImg(); buildCompareSection(); };
   const rOp = $('#tycRefOp'); if (rOp) rOp.oninput = () => { const ri = refImg(); if (!ri) return; pushUndo('refop'); ri.op = +rOp.value; const v = $('#tycRefOpV'); if (v) v.textContent = Math.round(rOp.value * 100) + '%'; renderRefImg(); };
-  const rRem = $('#tycRefRemove'); if (rRem) rRem.onclick = () => { if (!S.typhoon) return; pushUndo(); S.typhoon.refImg = null; clearRefImgLayer(); buildCompareSection(); };
+  const rRem = $('#tycRefRemove'); if (rRem) rRem.onclick = () => { if (!S.typhoon) return; const a = refImgs(), i = refSelIdx(); if (i < 0) return; pushUndo(); a.splice(i, 1); S.typhoon.refSel = a.length - 1; clearRefImgLayer(); buildCompareSection(); renderRefImg(); };
 }
 // 태풍 사이드바 핸들러 1회 배선
 function wireTyphoonPanel() {
@@ -5349,6 +5372,7 @@ function selectTyphoonFromApi(idx, opts) {
     src: (typhoonRaw && typhoonRaw.src === 'apihub') ? 'kma' : ((typhoonRaw && typhoonRaw.src) || 'kma'),   // 반경 이름을 나라별로 바꾸는 데 씀
     whichList: typhoonRaw.whichList.map((x) => ({ tno: x.tno, name: x.name })), whichSel: idx, nowIdx: null, labelSel: null,
     compare: prev.compare || [],   // 비교 목록은 불러오기(트랙 교체)에도 보존 — 여러 기관 누적 비교 가능
+    refImgs: prev.refImgs || (prev.refImg ? [prev.refImg] : []), refSel: prev.refSel,   // 대고 그리는 참고 이미지는 통보문/예보 불러와도 보존(간섭 방지)
   }, style);
   autoTodayTyphoonLabel();   // 오늘 지점 라벨 하나 자동 표시
   buildTyphoonPanel(); renderTyphoon();
@@ -6304,7 +6328,7 @@ svg.addEventListener('pointerdown', (e) => {
 function setFlatPanLOD(on) {
   // GPU 합성이라 지형음영을 켠 채로도 부드러움(깜빡임 없음). #bgMapT/#mapT는 renderTyphoon이 태풍모드 내내 GPU로 데워두니 여기선 안 건드리고,
   // 경로·라벨 레이어만 드래그 동안 승격. 끝나면 transform만 해제(#bgMapT will-change는 유지).
-  for (const id of ['L_typhoon', 'L_typhoonLabels']) {
+  for (const id of ['L_typhoon', 'L_typhoonLabels', 'L_refImg']) {
     const n = document.querySelector('#' + id); if (!n) continue;
     if (on) { n.style.willChange = 'transform'; n.style.transformBox = 'view-box'; n.style.transformOrigin = '0 0'; }
     else { n.style.willChange = ''; n.style.transformBox = ''; n.style.transformOrigin = ''; n.style.transform = ''; }
@@ -6335,9 +6359,10 @@ function lightPanZoom(base) {
   const t = `translate(${S.map.x}px, ${S.map.y}px) scale(${S.map.s})`;
   if (bg) bg.style.transform = t; if (mt) mt.style.transform = t;
   const r = S.map.s / (base.s || 1), tr = `translate(${S.map.x - base.x * r}px, ${S.map.y - base.y * r}px) scale(${r})`;
-  const L = $('#L_typhoon'), LB = $('#L_typhoonLabels');   // 지도·라벨 둘 다 지도와 함께 rigid 이동
+  const L = $('#L_typhoon'), LB = $('#L_typhoonLabels'), RI = $('#L_refImg');   // 지도·라벨·참고이미지 모두 지도와 함께 rigid 이동
   if (L) L.style.transform = tr;
   if (LB) LB.style.transform = tr;
+  if (RI) RI.style.transform = tr;   // 대고 그리는 참고 이미지도 팬 중 실시간으로 붙어 이동
 }
 svg.addEventListener('wheel', (e) => {
   if (!e.altKey || !camMoveActive()) return;
@@ -6357,9 +6382,10 @@ svg.addEventListener('wheel', (e) => {
   clearTimeout(_wheelZoomTimer);
   _wheelZoomTimer = setTimeout(() => {
     const base = _wheelZoomBase; _wheelZoomBase = null;
-    if (isTyphoon() && base) {   // 라벨을 지도에 붙은 채 유지(확대량만큼 위치 갱신)
+    if (isTyphoon() && base) {   // 라벨·참고이미지를 지도에 붙은 채 유지(확대량만큼 위치·크기 갱신)
       const r = S.map.s / (base.s || 1), tx = S.map.x - base.x * r, ty = S.map.y - base.y * r;
       for (const b of labelList()) if (b && b.x != null) { b.x = Math.round(tx + b.x * r); b.y = Math.round(ty + b.y * r); }
+      shiftCompareLabelsBy(tx, ty, r);   // 휠 줌에도 비교 라벨·참고 이미지 따라오게(확대/축소 반영)
     }
     renderMapTransform(); applyTilt(); setFlatPanLOD(false);
   }, 180);
@@ -6808,7 +6834,10 @@ window.addEventListener('keydown', (e) => {
     }
     return;
   }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length) { e.preventDefault(); delSel(); }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (sel.length) { e.preventDefault(); delSel(); return; }
+    if (isTyphoonCompare() && S.typhoon && refImgs().length) { e.preventDefault(); pushUndo(); const a = refImgs(), i = refSelIdx(); if (i >= 0) a.splice(i, 1); S.typhoon.refSel = a.length - 1; if (typeof clearRefImgLayer === 'function') clearRefImgLayer(); buildCompareSection(); renderRefImg(); status('참고 이미지 삭제 (Ctrl+Z로 되돌리기)', true); return; }   // 선택된 참고 이미지 Delete로 삭제
+  }
 });
 
 function delSel() {
@@ -12433,7 +12462,7 @@ function setupDropOpen() {
     e.preventDefault(); over = 0; hint.classList.remove('on');
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
     if (!f) return;
-    // 태풍 비교 지도에서 일반 이미지(.wcg 작업파일 제외) → 대고 그리기용 참고 이미지로.
+    // 태풍 비교 지도에서 일반 이미지(.wcg 작업파일 제외)는 창 어디에 놓아도 대고 그리기 참고 이미지로.
     if (isTyphoonCompare() && /^image\//.test(f.type || '') && !/\.wcg/i.test(f.name)) { loadRefImgFromFile(f); return; }
     // JTWC 통보문 파일(.tcw 등 텍스트) — 태풍 지도로 그린다.
     if (/\.(tcw|txt|dat)$/i.test(f.name) || !/\.(png|json|wcg)/i.test(f.name)) {
