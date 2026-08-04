@@ -9415,6 +9415,7 @@ function loadProjectData(data, handle) {
   // '예전 작업 불러오기'로 시작화면에서 열었다면 시작화면을 닫는다 (이제 작업이 있으니)
   const ov = document.getElementById('startOverlay');
   if (ov && ov.classList.contains('on')) { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); }
+  localStorage.removeItem('wcg_pending_start');   // 프로젝트를 열었으면 '선택 화면 대기' 해제
 }
 
 // 불러오기 (사이드바 버튼·시작화면 버튼 공용). 새 형식(PNG, 데이터 내장)·옛 형식(JSON) 둘 다 연다.
@@ -10036,7 +10037,8 @@ function wire() {
       applyCgDefaults(keepLight);
       markCgMode(); buildBgBtns(); syncPanelFromState(); renderAll(); showPresetInfo();
     }
-    localStorage.removeItem('wcg_started');   // 다시 빈 화면 + 선택 안내부터
+    localStorage.removeItem('wcg_started');           // 다시 빈 화면 + 선택 안내부터
+    localStorage.setItem('wcg_pending_start', '1');   // 새로고침해도 '출력화면·지도종류 선택' 화면이 계속 뜨게(자동저장된 빈 작업을 로드하지 않도록)
     showStartScreen();
     status('새로 시작');
   };
@@ -11346,12 +11348,12 @@ function markStartStep(which) {
   if (which === 'style') startStyleDone = true;
   ov.querySelector(`.startStep[data-step="${which}"]`)?.classList.add('done');
   if (startResDone && startStyleDone) {
-    setTimeout(() => { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); saveWork(); }, 260);
+    setTimeout(() => { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); localStorage.removeItem('wcg_pending_start'); saveWork(); }, 260);
   }
 }
 function setupStartScreen() {
   const rb = $('#startResume');
-  if (rb) rb.onclick = () => { const w = loadWork(); if (w) loadProjectData(w, null); };   // 직전 자동저장 작업 이어보기
+  if (rb) rb.onclick = () => { localStorage.removeItem('wcg_pending_start'); const w = loadWork(); if (w) loadProjectData(w, null); };   // 직전 자동저장 작업 이어보기
   // (시작 화면 자동표시는 부팅의 freshOpen이 담당 — 여기선 안 띄운다)
 }
 
@@ -11560,7 +11562,9 @@ migrateLegacyVfScaleState();   // 옛 빌드가 일반 화면에서 자동 생�
 preferUpdatedDeploymentDefaults();
 const freshOpen = !sessionStorage.getItem('wcg_open');
 sessionStorage.setItem('wcg_open', '1');
-const work = freshOpen ? null : loadWork();
+// '새로 시작' 후엔 선택 화면 대기 상태(새로고침에도 유지). 자동저장된 빈 작업을 로드하지 않고 시작화면을 띄운다.
+const pendingStart = !!localStorage.getItem('wcg_pending_start');
+const work = (freshOpen || pendingStart) ? null : loadWork();
 if (work) {
   S = work;
   applyVfDefaults();   // 이어서 열 때 VF면 라벨 92%·산 70% 강제
@@ -11573,7 +11577,7 @@ if (work) {
   flash('하던 작업 이어서 열었습니다');
 } else {
   applyPreset();   // 저장해 둔 기본 배치(있으면)로 베이스 지도만 (showPresetInfo는 안에서 부른다)
-  if (freshOpen) showStartScreen();   // 빈 화면 + '출력 화면·지도 종류 선택' 안내
+  if (freshOpen || pendingStart) showStartScreen();   // 빈 화면 + '출력 화면·지도 종류 선택' 안내 (새 접속 또는 '새로 시작' 후)
 }
 
 wireTour();
