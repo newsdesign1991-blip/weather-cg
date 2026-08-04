@@ -638,9 +638,15 @@
     transition: left .34s cubic-bezier(.4, 0, .15, 1), top .34s cubic-bezier(.4, 0, .15, 1),
       width .34s cubic-bezier(.4, 0, .15, 1), height .34s cubic-bezier(.4, 0, .15, 1), opacity .2s;
   }
-  .tourBar { position: fixed; top: 14px; left: 16px; z-index: 9996; display: flex; gap: 8px; pointer-events: auto; }
-  .tourBar .tourX { width: 36px; height: 36px; padding: 0; border-radius: 10px; font-size: 15px; }
-  .tourBar .tourNever { border-radius: 10px; }
+  .tourBar { position: fixed; top: 16px; right: 16px; left: auto; z-index: 9996; display: flex; gap: 8px; pointer-events: auto; }
+  /* 어두운 투어 배경 위에서도 확실히 보이게 — 밝은 알약 + 테두리 + 그림자 + 굵게 */
+  .tourBar .tourX, .tourBar .tourNever {
+    background: #FFFFFF; color: #10131A; border: 1.5px solid rgba(0,0,0,.12);
+    box-shadow: 0 6px 18px rgba(0,0,0,.5); font-weight: 800;
+  }
+  .tourBar .tourX:hover, .tourBar .tourNever:hover { background: #EEF1F6; border-color: var(--primary); color: #10131A; }
+  .tourBar .tourX { width: 38px; height: 38px; padding: 0; border-radius: 11px; font-size: 17px; }
+  .tourBar .tourNever { border-radius: 11px; padding: 0 15px; height: 38px; }
   .tourCard {
     position: fixed; z-index: 9995; width: 320px; max-width: calc(100vw - 24px);
     background: var(--surface-c); border: 1px solid var(--outline); border-radius: 16px;
@@ -1180,6 +1186,16 @@
   .ntDelete:hover { background: #E5484D; color: #fff; border-color: #E5484D; }
   .ntDelete:focus-visible { outline: 3px solid rgba(229,72,77,.28); outline-offset: 2px; }
   .ntEmpty { color: var(--on-surface-var, #6b7280); text-align: center; padding: 26px 0; }
+  /* 자주 안 쓰는 '다른 나라' 불러오기 묶음 (접이식) */
+  .typOther > summary { cursor: pointer; font-size: 12px; color: var(--on-surface-var); padding: 5px 8px; border: 1px dashed var(--outline-var); border-radius: 8px; list-style: none; user-select: none; }
+  .typOther > summary::-webkit-details-marker { display: none; }
+  .typOther > summary::before { content: '▸ '; color: var(--on-surface-var); }
+  .typOther[open] > summary::before { content: '▾ '; }
+  .typOther > summary:hover { background: var(--btn-hover); }
+  /* 렌더(추출) 중 스테이지 깜빡임 가리개 — 라이브 SVG를 프레임마다 갱신해 깜빡이므로 덮어 둔다 */
+  #exportMask { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--surface-c, #0e1626) 90%, #000); }
+  #exportMask .emCard { text-align: center; color: var(--on-surface, #eef); font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
+  #exportMask .emSub { margin-top: 7px; font-size: 12.5px; color: var(--on-surface-var, #9fb0c8); font-weight: 500; }
   .ntForm label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 5px; color: var(--on-surface, #111); }
   .ntForm input, .ntForm textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--outline-var, #d1d5db); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: var(--surface, #fff); color: var(--on-surface, #111); margin-bottom: 12px; }
   .ntForm textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
@@ -1271,6 +1287,12 @@
       <div class="body">
         <div class="subhead">불러오기 <span>· 기상청 API허브(특보와 같은 키)</span></div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="typFetch" style="flex:1">기상청에서 불러오기</button></div>
+        <details class="typOther" style="margin:4px 0">
+          <summary>다른 나라 태풍정보 (JMA · JTWC)</summary>
+          <div class="btns" style="margin:6px 0 4px"><button id="typFetchJma" style="flex:1" title="일본 기상청(JMA) 공개 자료 — 경로·아이콘·반경(予報円·暴風域·強風域)">일본 기상청(JMA)에서 불러오기</button></div>
+          <div class="btns" style="margin:4px 0"><button id="typJtwcDl" style="flex:1" title="미해군 합동태풍경보센터(JTWC) — 통보문(.tcw) 파일을 받아 창에 끌어다 놓거나 아래 '수동 붙여넣기'에 붙이면 그려집니다">미해군(JTWC) 자료 받기 →</button></div>
+          <p class="hint" style="margin:4px 0 0">JTWC는 위 링크에서 통보문(.tcw)을 받아 <b>창에 끌어다 놓거나</b> 아래 <b>수동 붙여넣기</b>에 붙이면 그려집니다.</p>
+        </details>
         <div class="row"><label>태풍</label><select id="typWhichSel" style="flex:1"></select></div>
         <div class="row"><label>발표 시각</label><select id="typIssueSel" style="flex:1"></select></div>
         <div class="btns" style="margin:6px 0"><button id="typPlay" style="flex:1">애니메이션 확인</button></div>
@@ -1279,8 +1301,9 @@
         <div class="fieldGroup" style="margin:8px 0;border:1px dashed var(--outline-var);border-radius:10px;padding:8px">
           <div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기</div>
           <div class="btns" style="margin:0 0 4px"><button id="typOpen" style="flex:1">태풍정보 새 창으로 열기</button></div>
-          <textarea id="typPaste" rows="2" placeholder="새 창의 JSON 전체 복사(Ctrl+A, C) → 붙여넣기"></textarea>
+          <textarea id="typPaste" rows="2" placeholder="기상청 새 창 JSON 전체 복사 → 붙여넣기 / 또는 JTWC 통보문(.tcw) 내용 붙여넣기"></textarea>
           <div class="btns" style="margin:4px 0 0"><button id="typPasteApply" style="flex:1">붙여넣은 걸로 표시</button></div>
+          <p class="hint" style="margin:5px 0 0">JTWC는 통보문(.tcw) 파일을 열어 내용을 붙여넣거나, 파일을 <b>창에 끌어다 놓으면</b> 됩니다.</p>
         </div>
         <p class="hint" style="margin:2px 0">제목·단위·범례는 <b>제목 텍스트 / 범례</b> 메뉴에서 노말 CG와 똑같이 조절합니다.</p>
         <div class="btns" style="margin:4px 0 2px"><button id="typAddTD" style="flex:1" title="발생(앞)·소멸(뒤) 열대저압부(TD)를 기상청 td_now의 실제 좌표로 앞뒤에 이어붙입니다. 불러오기 때 자동으로도 붙습니다. 한 번 더 누르면 취소(원복).">발생·소멸 열대저압부(TD) 붙이기</button></div>
@@ -1752,6 +1775,7 @@
        </span></span>
      </button>
      <div class="sep"></div>
+     <span id="tbInfoGroup" style="display:inline-flex;gap:6px;align-items:center">
      <button id="tourBtn" class="tourInfoBtn" title="둘러보기 — 각 기능 설명 다시 보기" aria-label="둘러보기">
        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="8.1" r="1.3" fill="currentColor"/><rect x="10.9" y="10.8" width="2.2" height="6.4" rx="1.1" fill="currentColor"/></svg>
      </button>
@@ -1761,6 +1785,7 @@
      <button id="helperBtn" class="tourInfoBtn" title="렌더·불러오기 도우미 — 켜는 방법 보기" aria-label="도우미 안내">
        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
      </button>
+     </span>
    </div>
    <div class="menuDrop" id="menuDrop"></div>
    <div id="status"></div>
@@ -3861,7 +3886,7 @@ const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1
   sidoShow: 1, sidoCol: '', sidoW: 0.8, sidoOp: 0.55,   // 남한 시도 구분선: 켜기 / 색('' 이면 강조 선색 따라감) / 굵기 / 투명도
   gridShow: 1, gridCol: '#7FA8CC', gridW: 0.4, gridOp: 0.12,   // 경위도 격자선(바다): 켜기 / 색 / 굵기 / 투명도(아주 살짝)
   // 새 태풍 라벨의 기본 스타일(굽기 포함). 라벨 하나를 원하는 대로 꾸민 뒤 그 라벨을 선택하고 굽기 하면 여기에 담긴다.
-  labelStyle: { size: 40, w: 600, txtCol: '#FFFFFF', fill: '#0C295F', stroke: '#3F6BD8', strokeW: 1, radius: 16, padX: 28, padY: 16, track: -1, titleRatio: 0.7, divider: 1,
+  labelStyle: { size: 40, w: 600, txtCol: '#FFFFFF', fill: '#0C295F', stroke: '#3F6BD8', strokeW: 2, radius: 16, padX: 28, padY: 16, track: -1, titleRatio: 0.7, divider: 1,
     fillGrad: 0, fill2: '#071B40', strokeGrad: 1, stroke2: '#4F7DF3', gradAngle: 90, fillOp: 0.72, glass: 0, glassBlur: 3 } };
 // 기상청 태풍 강도(최대풍속 m/s) → 등급(1~5)·색. 17 미만은 열대저압부(TD, 등급 0).
 const TYPHOON_GRADE_COL = { 1: '#4FB0E5', 2: '#38C172', 3: '#F2C14E', 4: '#EA8A3E', 5: '#E24C4C' };
@@ -3886,9 +3911,21 @@ function typhoonIdxInRange(pts, idx) {
   if (T.rangeTo && d > T.rangeTo) return false;
   return true;
 }
+// 애니메이션이 훑을 인덱스 구간 [lo,hi] — '표시 날짜 범위'가 켜져 있으면 그 안의 첫/끝 지점.
+// (안 그러면 애니가 범위 밖 처음 지점부터 그려버린다.)
+function typhoonRangeWindow(pts) {
+  const N = pts.length; let lo = 0, hi = Math.max(0, N - 1);
+  if ((S.typhoon || {}).rangeOn) {
+    let a = -1, b = -1;
+    for (let i = 0; i < N; i++) if (typhoonIdxInRange(pts, i)) { if (a < 0) a = i; b = i; }
+    if (a >= 0) { lo = a; hi = b; }
+  }
+  return { lo, hi };
+}
 // 굽힌 배포 기본값(WCG_DEFAULTS.typhoonStyle)이 있으면 그걸 우선한 태풍 스타일 기본값.
 function typhoonStyleDefaults() { return Object.assign({}, TYPHOON_DEFAULTS, (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {}); }
-const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'bands', 'iconMode', 'iconScale', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden'];
+const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'bands', 'iconMode', 'iconScale', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
+// 34노트(=r15) 위험구역 여유(버퍼) km — JTWC의 '34 KNOT WIND DANGER AREA'는 풍역+오차버퍼라 실제 풍역보다 크다. 이 값을 r15에 더해 크게 그린다.
 // 태풍 스타일(색·반경·지형·남한강조)을 굽힌 기본값으로 맞춘다 — 모든 해상도가 같은 색을 쓰게(진입·부팅 시).
 function applyTyphoonStyle() {
   if (!S.typhoon) return;
@@ -3950,6 +3987,20 @@ const TYPHOON_BAND_DEF = {
   r15: { fill: '#8EA8DD', fillOp: 0.22, stroke: '#B7CCF2', strokeW: 2.0, dash: 1 },
   r25: { fill: '#6A5CC0', fillOp: 0.42, stroke: '#8E82D8', strokeW: 0, dash: 0 },
 };
+// 나라(소스)별 반경 이름 — 나라 정보를 고르면 그 나라 용어로 반경 스타일 라벨·범례가 바뀐다.
+const BAND_NAMES = {
+  kma:  { r15: '강풍반경(15m/s)', r25: '폭풍반경(25m/s)', r70: '70% 확률반경' },
+  jma:  { r15: '강풍역(強風域)',   r25: '폭풍역(暴風域)',  r70: '예보원(予報円)' },
+  jtwc: { r15: '34kt 강풍역',      r25: '50kt 폭풍역',     r70: '70% 확률반경' },
+};
+const BAND_LEGEND_NAMES = {
+  kma:  { r15: '15m/s 이상 범위', r25: '25m/s 이상 범위', r70: '70% 확률반경' },
+  jma:  { r15: '강풍역(15m/s↑)',  r25: '폭풍역(25m/s↑)',  r70: '예보원(70% 확률)' },
+  jtwc: { r15: '34kt 위험구역',   r25: '50kt 폭풍역',     r70: '70% 확률반경' },
+};
+const typSrc = () => ((S.typhoon && S.typhoon.src) || 'kma');
+const bandName = (key) => (BAND_NAMES[typSrc()] || BAND_NAMES.kma)[key] || key;
+const bandLegendName = (key) => (BAND_LEGEND_NAMES[typSrc()] || BAND_LEGEND_NAMES.kma)[key] || key;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // 범례(우리 특보 범례 시스템)에 넣을 태풍 항목
@@ -3959,9 +4010,9 @@ function typhoonLegendCatalog() {
   const b = (S.typhoon && S.typhoon.bands) || {};
   const bcol = (k) => (b[k] && b[k].fill) || TYPHOON_BAND_DEF[k].fill;
   const items = [
-    { id: 'r15', kind: 'band', col: bcol('r15'), txt: '15m/s 이상 범위' },
-    { id: 'r25', kind: 'band', col: bcol('r25'), txt: '25m/s 이상 범위' },
-    { id: 'r70', kind: 'band', col: bcol('r70'), txt: '70% 확률반경' },
+    { id: 'r15', kind: 'band', col: bcol('r15'), txt: bandLegendName('r15') },
+    { id: 'r25', kind: 'band', col: bcol('r25'), txt: bandLegendName('r25') },
+    { id: 'r70', kind: 'band', col: bcol('r70'), txt: bandLegendName('r70') },
     { id: 'td', kind: 'td', col: '#9AA3AD', txt: '열대저압부 17m/s 미만' },
   ];
   for (let n = 1; n <= 5; n++) items.push({ id: 'g' + n, kind: 'grade', g: n, col: TYPHOON_GRADE_COL[n], txt: '강도' + n + ', ' + TYPHOON_GRADE_RANGE[n] });
@@ -3975,9 +4026,10 @@ function typhoonLegendItems() {
   const cat = typhoonLegendCatalog(), byId = {}; for (const it of cat) byId[it.id] = it;
   const order = (T.legendOrder && T.legendOrder.length) ? T.legendOrder : TYPHOON_LEGEND_DEFAULT_ORDER;
   const hidden = T.legendHidden || TYPHOON_LEGEND_DEFAULT_HIDDEN;
+  const bandOff = (id) => (T.bands && T.bands[id] && T.bands[id].off);   // 눈 꺼둔 반경은 범례에서도 뺀다
   const out = [];
-  for (const id of order) { const it = byId[id]; if (it && !hidden[id]) out.push(it); }
-  for (const it of cat) if (!order.includes(it.id) && !hidden[it.id]) out.push(it);   // 카탈로그에 새로 생긴 항목 보강
+  for (const id of order) { const it = byId[id]; if (it && !hidden[id] && !bandOff(id)) out.push(it); }
+  for (const it of cat) if (!order.includes(it.id) && !hidden[it.id] && !bandOff(it.id)) out.push(it);   // 카탈로그에 새로 생긴 항목 보강
   return out;
 }
 
@@ -4003,7 +4055,8 @@ function typhoonLabelProg(id) {
 
 // 지점(경위도+반경km) -> 화면좌표 + 화면반경. 애니 head는 보간값. idx=원본 인덱스.
 function typhoonScreenPts(pts) {
-  const toS = (p, idx) => { const [x, y] = typhoonXY(p.lon, p.lat); return { x, y, idx, r15: (p.r15 || 0) ? typhoonKmToUnit(p.r15, p.lat) * S.map.s : 0, r25: (p.r25 || 0) ? typhoonKmToUnit(p.r25, p.lat) * S.map.s : 0, r70: (p.r70 || 0) ? typhoonKmToUnit(p.r70, p.lat) * S.map.s : 0, label: p.label, head: false }; };
+  const r15b = (S.typhoon && +S.typhoon.r15Buf) || 0;   // 34노트(r15) 위험구역 여유(km) — JTWC 위험구역처럼 크게
+  const toS = (p, idx) => { const [x, y] = typhoonXY(p.lon, p.lat); return { x, y, idx, r15: (p.r15 || 0) ? typhoonKmToUnit(p.r15 + r15b, p.lat) * S.map.s : 0, r25: (p.r25 || 0) ? typhoonKmToUnit(p.r25, p.lat) * S.map.s : 0, r70: (p.r70 || 0) ? typhoonKmToUnit(p.r70, p.lat) * S.map.s : 0, label: p.label, head: false, noIcon: !!p.noIcon }; };
   if (typhoonProg == null) return pts.map(toS);
   const prog = Math.max(0, Math.min(pts.length - 1, typhoonProg));
   const fl = Math.floor(prog), frac = prog - fl;
@@ -4199,6 +4252,7 @@ function drawTyphoonTrack(L, pts) {
   const activeSp = sp.filter((p) => p.head || p.idx >= nowIdx);
   const drawBand = (key) => {
     const st = Object.assign({}, TYPHOON_BAND_DEF[key], (T.bands && T.bands[key]) || {});
+    if (st.off) return;   // 눈 꺼둔 반경은 안 그린다
     typhoonBandInto(L, activeSp, key, st);
   };
   drawBand('r70'); drawBand('r15'); drawBand('r25');
@@ -4217,6 +4271,7 @@ function drawTyphoonTrack(L, pts) {
       if (typhoonHeadFade < 1) hi.setAttribute('opacity', Math.max(0, typhoonHeadFade).toFixed(3));
       add(hi); continue;
     }
+    if (p.noIcon) continue;   // 아이콘 숨김 지점(예: JMA 과거 경로·촘촘한 근접예보) — 선만 남기고 아이콘은 생략
     const past = p.idx < nowIdx;
     const ws = (pts[p.idx] && pts[p.idx].ws) || 99;
     const baseR = 17;   // 현재시각도 다른 지점과 같은 크기(예전엔 현재만 24로 살짝 키웠음 — 제거)
@@ -4271,6 +4326,7 @@ function playTyphoon() {
   const pts = curTyphoonPoints();
   if (pts.length < 2) { typhoonProg = null; renderTyphoon(); return; }
   const N = pts.length;
+  const { lo, hi } = typhoonRangeWindow(pts); const span = Math.max(1, hi - lo);   // '표시 날짜 범위'가 켜지면 그 구간만 애니
   const PATH = 2000, LINE = 800, SCALE = 800;   // 경로 2초(고정) · 라벨: 선 그려지고(선 절반쯤에서 박스 시작) 총 ~1.2초
   const LABEL_TOTAL = LINE * 0.5 + SCALE;        // 한 라벨 애니 총 길이 = 1200ms
   const hasLabels = labelList().some((b) => !b.off && b.idx != null);
@@ -4284,18 +4340,18 @@ function playTyphoon() {
     if (t0 == null) t0 = ts;
     const t = ts - t0;
     const pathK = Math.min(1, t / PATH);
-    typhoonProg = pathK >= 1 ? null : easeCubic(pathK) * (N - 1);        // 경로 스으윽 이동(2초)
+    typhoonProg = pathK >= 1 ? null : lo + easeCubic(pathK) * span;        // 범위 구간 [lo,hi]만 스으윽 이동(2초)
     { const fk = Math.max(0, Math.min(1, (pathK - 0.55) / 0.35)); typhoonHeadFade = 1 - (fk < 0.5 ? 2 * fk * fk : 1 - Math.pow(-2 * fk + 2, 2) / 2); }   // 0.55~0.90에서 ease로 사라져(0.90엔 이미 0) 끝에 뚝 안 끊김
-    const revealed = pathK >= 1 ? (N - 1) : Math.floor(easeCubic(pathK) * (N - 1) + 1e-6);
-    // 지점이 나타나는 순간 그 라벨 애니 시작
-    for (const b of labelList()) if (!b.off && b.idx != null && b.idx <= revealed && starts[b.id] == null) starts[b.id] = t;
+    const revealed = pathK >= 1 ? hi : Math.floor(lo + easeCubic(pathK) * span + 1e-6);
+    // 지점이 나타나는 순간 그 라벨 애니 시작 (범위 안 지점만)
+    for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= revealed && starts[b.id] == null) starts[b.id] = t;
     typhoonLabelAnim = { at: t, starts, LINE, SCALE };
     if (hasCam) applyCam(t / 1000);   // 카메라 키가 있으면 '애니메이션 확인'에서도 카메라 이동을 같이 보여준다(초 단위 = 타임라인 시각)
     renderTyphoon();
     if (t < END) typhoonRaf = requestAnimationFrame(step);
     else { typhoonProg = null; typhoonLabelAnim = null; typhoonHeadFade = 1; if (hasCam) restoreCamMap(); renderTyphoon(); }
   };
-  typhoonProg = 0; typhoonHeadFade = 1; typhoonLabelAnim = { at: 0, starts, LINE, SCALE }; renderTyphoon();
+  typhoonProg = lo; typhoonHeadFade = 1; typhoonLabelAnim = { at: 0, starts, LINE, SCALE }; renderTyphoon();
   typhoonRaf = requestAnimationFrame(step);
 }
 
@@ -4574,14 +4630,24 @@ function buildTyphoonPanel() {
 function buildTyphoonBands() {
   const wrap = $('#typBands'); if (!wrap || !S.typhoon) return;
   const T = S.typhoon; T.bands = T.bands || {};
-  const meta = [['r70', '70% 확률반경'], ['r15', '15m/s 강풍'], ['r25', '25m/s 폭풍']];
+  const meta = [['r70', bandName('r70')], ['r15', bandName('r15')], ['r25', bandName('r25')]];   // 나라별 반경 이름
   wrap.innerHTML = '';
   for (const [key, label] of meta) {
     const st = Object.assign({}, TYPHOON_BAND_DEF[key], T.bands[key] || {});
     const fg = document.createElement('div'); fg.className = 'fieldGroup'; fg.style.marginBottom = '6px';
-    fg.innerHTML = `<div class="subhead" style="margin:2px 0">${label}</div>`
+    if (st.off) fg.style.opacity = '.55';
+    fg.innerHTML = `<div class="subhead" style="margin:2px 0;display:flex;align-items:center;gap:7px">`
+      + `<button class="eye${st.off ? ' off' : ''}" data-b="${key}" data-eye="1" title="이 반경 표시/숨기기" style="flex:0 0 auto"></button>`
+      + `<span>${label}</span></div>`
       + `<div class="row"><label>면 색</label><input type="color" data-b="${key}" data-f="fill" value="${st.fill}"><input type="range" data-b="${key}" data-f="fillOp" min="0" max="1" step="0.02" value="${st.fillOp}" title="채우기 투명도"></div>`
       + `<div class="row"><label>외곽선</label><input type="color" data-b="${key}" data-f="stroke" value="${st.stroke}"><input type="number" data-b="${key}" data-f="strokeW" step="0.5" min="0" max="10" style="flex:0 0 54px" value="${st.strokeW}"><label class="chk" style="flex:0 0 auto;gap:4px"><input type="checkbox" data-b="${key}" data-f="dash" ${st.dash ? 'checked' : ''}>점선</label></div>`;
+    wrap.append(fg);
+  }
+  // 34노트 위험구역 여유(버퍼) — JTWC 위험구역(풍역+오차)처럼 15m/s(r15) 반경을 키운다. 0이면 실제 풍역 그대로.
+  { const buf = +T.r15Buf || 0;
+    const fg = document.createElement('div'); fg.className = 'fieldGroup'; fg.style.marginBottom = '6px';
+    fg.innerHTML = `<div class="subhead" style="margin:2px 0">15m/s 위험구역 여유 <span>· JTWC처럼 크게</span></div>`
+      + `<div class="row"><label>여유(km)</label><input type="range" id="typR15Buf" min="0" max="400" step="10" value="${buf}"><input type="number" id="typR15BufN" min="0" max="600" step="10" style="flex:0 0 60px" value="${buf}"></div>`;
     wrap.append(fg);
   }
   const apply = (el) => {
@@ -4596,6 +4662,16 @@ function buildTyphoonBands() {
   wrap.querySelectorAll('input[type=color],input[type=number]').forEach((n) => { n.onchange = () => { pushUndo('typband'); apply(n); }; });
   wrap.querySelectorAll('input[type=range]').forEach((n) => { n.oninput = () => { pushUndo('typbandop'); apply(n); }; });
   wrap.querySelectorAll('input[type=checkbox]').forEach((n) => { n.onchange = () => { pushUndo(); apply(n); }; });
+  wrap.querySelectorAll('button[data-eye]').forEach((n) => { n.onclick = () => {
+    const key = n.dataset.b;
+    const b = (T.bands[key] = Object.assign({}, TYPHOON_BAND_DEF[key], T.bands[key] || {}));
+    pushUndo(); b.off = !b.off;
+    buildTyphoonBands(); renderTyphoon(); renderLegend();   // UI(눈·흐림)·지도·범례 모두 갱신
+  }; });
+  { const sl = $('#typR15Buf'), nm = $('#typR15BufN');
+    const setBuf = (v) => { T.r15Buf = Math.max(0, +v || 0); if (sl) sl.value = T.r15Buf; if (nm) nm.value = T.r15Buf; renderTyphoon(); };
+    if (sl) sl.oninput = () => { pushUndo('r15buf'); setBuf(sl.value); };
+    if (nm) nm.onchange = () => { pushUndo(); setBuf(nm.value); }; }
 }
 
 // 태풍 사이드바 핸들러 1회 배선
@@ -4608,6 +4684,8 @@ function wireTyphoonPanel() {
   const pasteApply = $('#typPasteApply'); if (pasteApply) pasteApply.onclick = () => { const t = $('#typPaste'); if (t && t.value.trim()) { pushUndo(); applyTyphoonText(t.value); } else status('붙여넣은 내용이 없습니다', true); };
   const addTD = $('#typAddTD'); if (addTD) addTD.onclick = prependGenesisTD;
   const fetchB = $('#typFetch'); if (fetchB) fetchB.onclick = () => { if (typeof fetchTyphoon === 'function') fetchTyphoon(); else status('태풍 API 연동은 곧 추가됩니다 (기존 특보 키 사용 예정)', true); };
+  const fetchJmaB = $('#typFetchJma'); if (fetchJmaB) fetchJmaB.onclick = fetchJma;
+  const jtwcDl = $('#typJtwcDl'); if (jtwcDl) jtwcDl.onclick = () => { window.open('https://www.metoc.navy.mil/jtwc/jtwc.html', '_blank', 'noopener'); status('JTWC 사이트에서 통보문(.tcw)을 받아 창에 끌어다 놓거나 수동 붙여넣기 하세요', true); };
   const bindCol = (colId, hexId, apply) => {
     const c = $(colId), h = $(hexId);
     const set = (v) => { v = (v || '').toUpperCase(); if (!/^#[0-9A-F]{6}$/.test(v)) return; if (c) c.value = v; if (h) h.value = v; pushUndo('typcol'); apply(v); renderTyphoon(); };
@@ -4718,15 +4796,117 @@ function selectTyphoonFromApi(idx) {
   for (const k of TYPHOON_STYLE_KEYS) { const v = (prev[k] != null ? prev[k] : DEF[k]); if (v !== undefined) style[k] = v; }   // 아이콘/범례 등 스타일 키 모두 보존
   S.typhoon = Object.assign({
     name: w.name, issues: [{ tmfc: '', label: '실황 + 예상경로', points: pts }], sel: 0, fromApi: true,
+    src: (typhoonRaw && typhoonRaw.src === 'apihub') ? 'kma' : ((typhoonRaw && typhoonRaw.src) || 'kma'),   // 반경 이름을 나라별로 바꾸는 데 씀
     whichList: typhoonRaw.whichList.map((x) => ({ tno: x.tno, name: x.name })), whichSel: idx, nowIdx: null, labelSel: null,
   }, style);
   autoTodayTyphoonLabel();   // 오늘 지점 라벨 하나 자동 표시
   buildTyphoonPanel(); renderTyphoon();
 }
 
+// JMA 경계역/예보원 → 반경(km). {radius}(強風域·予報円) 또는 {arc:[[center,radius_m,[a0,a1]]…]}(暴風域) 둘 다 최대반경으로.
+function jmaAreaRadKm(area) {
+  if (!area) return 0;
+  let m = +area.radius || 0;
+  if (Array.isArray(area.arc)) for (const x of area.arc) { const r = +x[1] || 0; if (r > m) m = r; }
+  return m ? Math.round(m / 1000) : 0;
+}
+// 일본 기상청(JMA) 공개 JSON(bosai) — CORS 허용이라 브라우저가 직접 fetch(헬퍼 불필요).
+// 予報円(probabilityCircle)→r70(70% 확률반경), 暴風域(stormWarningArea)→r25(25m/s), 強風域(galeWarningArea)→r15(15m/s).
+async function fetchJma() {
+  const B = 'https://www.jma.go.jp/bosai/typhoon/data/';
+  const btn = $('#typFetchJma'); if (btn) btn.disabled = true;
+  status('일본 기상청(JMA) 불러오는 중…', true);
+  try {
+    const list = await (await fetch(B + 'targetTc.json', { cache: 'no-store' })).json();
+    if (!Array.isArray(list) || !list.length) { status('JMA: 활동 중인 태풍이 없습니다', true); return; }
+    const catWs = { TY: 35, STS: 28, TS: 20, TD: 12, LOW: 10 };
+    const utc12 = (v) => String((v && v.UTC) || '').replace(/\D/g, '').slice(0, 12);
+    const whichList = [];
+    for (const tc of list) {
+      const id = tc.tropicalCyclone; if (!id) continue;
+      let fc; try { fc = await (await fetch(B + id + '/forecast.json', { cache: 'no-store' })).json(); } catch (e) { continue; }
+      if (!Array.isArray(fc)) continue;
+      const title = fc.find((p) => p.part === 'title') || {};
+      const nm = (title.name && (title.name.jp || title.name.en)) || id;
+      const num = title.typhoonNumber || '';
+      const ws = catWs[tc.category] || 25;
+      const anal = fc.find((p) => p.part === 'Analysis' || (p.part && p.part.en === 'Analysis'));
+      const pts = [];
+      const tk = anal && anal.track && anal.track.typhoon;   // 과거 경로 폴리라인 [[lat,lon],…]
+      if (Array.isArray(tk) && tk.length > 1) {
+        const step = Math.max(1, Math.round(tk.length / 24));   // 촘촘히 넣되 아이콘은 숨겨(noIcon) 매끈한 과거 '선'만
+        for (let i = 0; i < tk.length - 1; i += step) { const q = tk[i]; if (Array.isArray(q) && q.length >= 2) pts.push({ lon: q[1], lat: q[0], ws, r15: 0, r25: 0, r70: 0, tmef: '', label: '', fcst: false, noIcon: true }); }
+      }
+      if (anal && Array.isArray(anal.center)) pts.push({ lon: anal.center[1], lat: anal.center[0], ws, r15: jmaAreaRadKm(anal.galeWarningArea), r25: jmaAreaRadKm(anal.stormWarningArea), r70: 0, tmef: utc12(anal.validtime), label: '', fcst: false });
+      for (const p of fc) {
+        if (!Array.isArray(p.center) || !(p.advancedHours > 0)) continue;
+        const tmef = utc12(p.validtime);
+        // 예보는 촘촘한 3시간 근접점(+1~+19h)은 아이콘 숨기고(선만) 하루 간격(+22h 이상)만 아이콘 — 안 그러면 아이콘이 뭉친다.
+        pts.push({ lon: p.center[1], lat: p.center[0], ws, r15: jmaAreaRadKm(p.galeWarningArea), r25: jmaAreaRadKm(p.stormWarningArea), r70: (p.probabilityCircle ? Math.round((+p.probabilityCircle.radius || 0) / 1000) : 0), tmef, label: fmtKST(tmef), fcst: true, noIcon: !(p.advancedHours >= 22) });
+      }
+      if (pts.length < 2) continue;
+      whichList.push({ tno: num || id, name: nm + ' (JMA' + (num && /^\d+$/.test(num) ? ' 제' + num + '호' : '') + ')', td: tc.category === 'TD', points: pts });
+    }
+    if (!whichList.length) { status('JMA 자료를 해석하지 못했습니다', true); return; }
+    pushUndo();
+    typhoonRaw = { src: 'jma', whichList };
+    selectTyphoonFromApi(0);
+    if (S.typhoon) S.typhoon.r15Buf = 0;   // JMA r15=실제 強風域이라 버퍼 없음
+    if (S.map.s > 0.5) setTyphoonDefaultView();
+    autoTodayTyphoonLabel(); renderAll();
+    status(`일본 기상청(JMA) 불러옴 · ${whichList.length}개 · ${whichList[0].name}`, true);
+  } catch (e) {
+    status('JMA 불러오기 실패: ' + (e.message || e), true);
+  } finally { if (btn) btn.disabled = false; }
+}
+// JTWC 통보문(.tcw / WTPN) 파싱 → whichList 항목. 압축 예보줄(T000 253N 1419E 115 R064… R050… R034…)과
+// 하단 베스트트랙(1226080406 253N1419E 115)을 모두 읽어 과거+예보 한 트랙으로. 풍속 kt→m/s, 반경 NM→km(사분면 최대).
+function parseJtwcTcw(text) {
+  const lines = String(text).split(/\r?\n/);
+  const KT = 0.514444, NM = 1.852;
+  let base = '', stormNum = '', name = '';
+  for (const ln of lines) { const m = ln.match(/^\s*(\d{10})\s+(\d+)[WEC]\s+([A-Z][A-Z0-9\-]*)\s+\d+/); if (m) { base = m[1]; stormNum = m[2]; name = m[3]; break; } }
+  const addHours = (b, h) => { const d = new Date(Date.UTC(+b.slice(0, 4), +b.slice(4, 6) - 1, +b.slice(6, 8), +b.slice(8, 10), 0)); d.setUTCHours(d.getUTCHours() + h); const p = (v) => String(v).padStart(2, '0'); return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}00`; };
+  const eLon = (v, hemi) => (hemi === 'W' ? 360 - v : v);   // 날짜변경선 넘는 서경은 동경 연속값(360-)으로
+  const byTm = {};
+  for (const ln of lines) {   // 압축 예보줄
+    const m = ln.match(/^\s*T(\d{3})\s+(\d+)([NS])\s+(\d+)([EW])\s+(\d+)(.*)$/);
+    if (!m || !base) continue;
+    const tau = +m[1], rest = m[7] || '';
+    const rad = (tag) => { const r = rest.match(new RegExp('R' + tag + '\\s+(\\d+)\\s+NE\\s+QD\\s+(\\d+)\\s+SE\\s+QD\\s+(\\d+)\\s+SW\\s+QD\\s+(\\d+)\\s+NW\\s+QD')); return r ? Math.max(+r[1], +r[2], +r[3], +r[4]) * NM : 0; };
+    const tmef = addHours(base, tau);
+    byTm[tmef] = { lon: eLon((+m[4]) / 10, m[5]), lat: (+m[2]) / 10 * (m[3] === 'S' ? -1 : 1), ws: Math.round((+m[6]) * KT), r15: Math.round(rad('034')), r25: Math.round(rad('050')), r70: 0, tmef, loc: '', fcst: tau > 0, label: fmtKST(tmef) };
+  }
+  for (const ln of lines) {   // 하단 베스트트랙(과거) — SSYY MMDDHH latN lonE wind
+    const m = ln.match(/^\s*\d{2}(\d{2})(\d{6})\s+(\d+)([NS])(\d+)([EW])\s+(\d+)\s*$/);
+    if (!m) continue;
+    const tmef = '20' + m[1] + m[2] + '00';
+    if (byTm[tmef]) continue;   // 예보(반경 포함)가 있으면 우선
+    byTm[tmef] = { lon: eLon((+m[5]) / 10, m[6]), lat: (+m[3]) / 10 * (m[4] === 'S' ? -1 : 1), ws: Math.round((+m[7]) * KT), r15: 0, r25: 0, r70: 0, tmef, loc: '', fcst: false, label: fmtKST(tmef) };
+  }
+  const points = Object.values(byTm).sort((a, b) => (a.tmef < b.tmef ? -1 : 1));
+  if (points.length < 2) return null;
+  const isTD = Math.max(...points.map((p) => p.ws)) < 17;
+  return [{ tno: stormNum || 'JTWC', name: (name ? name + ' ' : '') + '(JTWC' + (stormNum ? ' ' + stormNum + 'W' : '') + ')', td: isTD, points }];
+}
 // apihub typ_now(태풍) + td_now(TD) 파싱 → S.typhoon. TD는 연결된 태풍(TYP) 앞에 붙여 하나의 트랙(TD→태풍)으로.
 function applyTyphoonText(rawTyp, rawTd) {
   rawTyp = (rawTyp || '').trim();
+  // JTWC 통보문(.tcw) 자동 감지 — PGTW/WTPN 헤더나 'T000 …N …E' 압축 예보줄이 있으면 JTWC로 파싱.
+  if (/\bPGTW\b|\bWTPN|^\s*T\d{3}\s+\d+[NS]\s+\d+[EW]\s/m.test(rawTyp)) {
+    const wl = parseJtwcTcw(rawTyp);
+    if (wl) {
+      typhoonRaw = { src: 'jtwc', whichList: wl };
+      selectTyphoonFromApi(0);
+      // JTWC '34노트 위험구역'은 풍역+오차버퍼라 실제 풍역보다 큼 → r15에 기본 여유 150km(사용자 조절 가능).
+      if (S.typhoon) { S.typhoon.r15Buf = (S.typhoon.r15Buf != null && S.typhoon.r15Buf > 0) ? S.typhoon.r15Buf : 150; if (typeof buildTyphoonBands === 'function') buildTyphoonBands(); }
+      if (S.map.s > 0.5) setTyphoonDefaultView();
+      autoTodayTyphoonLabel(); renderAll();
+      status(`JTWC 통보문 불러옴 · ${wl[0].name} · ${wl[0].points.length}개 지점`, true);
+      return true;
+    }
+    status('JTWC 통보문을 못 읽었습니다 (형식 확인)', true); return false;
+  }
   const typRows = rawTyp ? parseTypNow(rawTyp) : [];
   let tdRows = rawTd ? parseTdRows(rawTd) : [];
   if (!tdRows.length && rawTyp) tdRows = parseTdRows(rawTyp);   // 붙여넣기에 typ+TD가 섞여 있거나 TD만일 때 여기서 TD 추출
@@ -4758,6 +4938,7 @@ function applyTyphoonText(rawTyp, rawTd) {
   if (!whichList.length) { $('#typInfo').textContent = '태풍 응답 형식을 인식하지 못했습니다'; status('형식 오류', true); return false; }
   typhoonRaw = { src: 'apihub', whichList };
   selectTyphoonFromApi(0);
+  if (S.typhoon) S.typhoon.r15Buf = 0;   // 기상청 r15=실제 강풍반경 → JTWC 버퍼가 남지 않게 0
   if (S.map.s > 0.5) setTyphoonDefaultView();
   autoTodayTyphoonLabel();
   renderAll();
@@ -7941,6 +8122,20 @@ function exportProgress(done, total, label) {
   const pct = total ? Math.max(0, Math.min(100, Math.round(done / total * 100))) : 0;
   el.innerHTML = `<span class="tlProg"><span class="tlProgFill" style="width:${pct}%"></span></span>${label} ${done}/${total} · ${pct}%`;
 }
+// 렌더 중 스테이지 가리개 — 프레임마다 라이브 SVG를 갱신해 깜빡이므로 덮어 둔다(추출 결과엔 영향 없음).
+function showExportMask(on) {
+  let m = document.getElementById('exportMask');
+  if (on) {
+    const stage = document.getElementById('stage') || document.querySelector('#cg')?.parentNode || document.body;
+    if (!m) {
+      m = document.createElement('div'); m.id = 'exportMask';
+      m.innerHTML = '<div class="emCard">렌더 중…<div class="emSub">미리보기는 잠시 멈춥니다 · 결과물엔 영향 없어요</div></div>';
+    }
+    if (stage && getComputedStyle(stage).position === 'static') stage.style.position = 'relative';
+    if (m.parentNode !== stage) (stage || document.body).appendChild(m);
+    m.style.display = 'flex';
+  } else if (m) { m.style.display = 'none'; }
+}
 
 // 토스 카드 스타일 확인 모달. confirm()의 예쁜 버전. Promise<boolean> 반환.
 // opts: { title, message, ok, cancel, danger }. 실수로 누르면 곤란한 버튼에 쓴다.
@@ -8270,6 +8465,14 @@ async function ensureSuiteFontsLoaded() {
       const ff = new FontFace('SUITE CG', buf, { weight: String(wt), style: 'normal' });
       await ff.load(); document.fonts.add(ff);
     }));
+    // <img> 안 SVG의 base64 폰트 캐시를 미리 데운다 — 첫 export/MP4 프레임이 폴백 폰트로 새는 레이스 방지.
+    try {
+      const warm = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><style>${_suiteFontCss}</style><text x='0' y='12' font-family='"SUITE CG"' font-weight='700' font-size='12'>가</text></svg>`;
+      const u = URL.createObjectURL(new Blob([warm], { type: 'image/svg+xml;charset=utf-8' }));
+      const im = new Image(); im.src = u; await im.decode().catch(() => {});
+      const cc = document.createElement('canvas'); cc.width = 16; cc.height = 16; cc.getContext('2d').drawImage(im, 0, 0);
+      setTimeout(() => URL.revokeObjectURL(u), 500);
+    } catch (e) { /* noop */ }
     _suiteFontsReady = true;
   } catch (e) { /* 실패해도 base64 임베드가 있으니 계속 진행 */ }
 }
@@ -8293,13 +8496,12 @@ async function svgToImage(W, H, keep, viewBox) {
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   const xml = new XMLSerializer().serializeToString(clone);
-  const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    return img;
-  } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  // data: URL로 렌더 — blob: URL은 브라우저에 따라 <img> 안 SVG의 base64 @font-face(SUITE)가 첫 렌더에 안 먹어 폴백 폰트로 새는 일이 있다. data:는 자체완결이라 폰트까지 확실히 적용된다.
+  const img = new Image();
+  img.decoding = 'sync';
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+  await img.decode();
+  return img;
 }
 
 // 텍스처 삼각형 — src 삼각형을 dst 삼각형으로 어파인 매핑해 이미지 조각을 그린다(메시 워프용).
@@ -8472,7 +8674,7 @@ async function bakeMp4() {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha: false });
   const t0 = performance.now();
-  _exportingFrames = true;
+  _exportingFrames = true; showExportMask(true);
   try {
     for (let i = 0; i < n; i++) {
       if (encErr) throw encErr;
@@ -8518,7 +8720,7 @@ async function exportPngSeq() {
   if (!out) return;
 
   animStop();
-  _exportingFrames = true;
+  _exportingFrames = true; showExportMask(true);
   const btn = $('#tlExportPng');
   btn.disabled = true;
   const c = document.createElement('canvas');
@@ -8634,7 +8836,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const mv = alpha ? $('#wnsMov') : $('#wnsMxf');
   animStop();
   if (mv) mv.disabled = true;
-  _exportingFrames = true;
+  _exportingFrames = true; showExportMask(true);
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha });
   // MXF·MOV 모두 PNG(무손실·풀 크로마) 프레임으로 굽는다. JPEG는 4:2:0 크로마 서브샘플링이라
@@ -8723,16 +8925,14 @@ async function svgBlob(mutate) {
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   mutate(clone);
   const xml = new XMLSerializer().serializeToString(clone);
-  const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    c.getContext('2d').drawImage(img, 0, 0, W, H);
-    return await new Promise((r) => c.toBlob(r, 'image/png'));
-  } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  const img = new Image();   // data: URL — blob보다 <img> 안 SVG의 base64 폰트가 확실히 적용됨(폴백 폰트 방지)
+  img.decoding = 'sync';
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  c.getContext('2d').drawImage(img, 0, 0, W, H);
+  return await new Promise((r) => c.toBlob(r, 'image/png'));
 }
 const keepLayers = (clone, keep) => { for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove(); };
 
@@ -8746,13 +8946,10 @@ async function previewPng(maxW) {
   for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(id)?.remove();
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   const xml = new XMLSerializer().serializeToString(clone);
-  const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
-  try {
-    const img = new Image(); img.src = url; await img.decode();
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    c.getContext('2d').drawImage(img, 0, 0, w, h);
-    return await new Promise((r) => c.toBlob(r, 'image/png'));
-  } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml); await img.decode();   // data: URL — 폰트 확실 적용
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  return await new Promise((r) => c.toBlob(r, 'image/png'));
 }
 const _b64enc = (s) => { const u = new TextEncoder().encode(s); let b = ''; for (const x of u) b += String.fromCharCode(x); return btoa(b); };
 const _b64dec = (b) => { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new TextDecoder().decode(u); };
@@ -9010,9 +9207,8 @@ async function aeLabelBgBlob(ld) {
   const W = Math.max(1, Math.round(vfScaledSize(box.w))), H = Math.max(1, Math.round(vfScaledSize(box.h)));
   clone.setAttribute('width', W); clone.setAttribute('height', H);
   const fs = clone.querySelector('#fontStyle'); if (fs) fs.textContent = await suiteFontCss();
-  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
-  try { const img = new Image(); img.src = url; await img.decode(); const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(img, 0, 0, W, H); return await new Promise((r) => c.toBlob(r, 'image/png')); }
-  finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone)); await img.decode();
+  const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(img, 0, 0, W, H); return await new Promise((r) => c.toBlob(r, 'image/png'));
 }
 // 각 라벨의 프리컴프 정보(크기·중심위치·안쪽 텍스트들) — 화면에 그려진 DOM에서 실측
 function aeLabelCompData() {
@@ -10463,12 +10659,13 @@ function renderAnimFrame(t) {
     const T = Math.max(0, (t - hold)) * 1000;       // 태풍 애니 경과(ms)
     const pts = curTyphoonPoints();
     const N = Math.max(2, pts.length);
+    const { lo, hi } = typhoonRangeWindow(pts); const span = Math.max(1, hi - lo);   // '표시 날짜 범위' 구간만
     const PATH = 2000, LINE = 800, SCALE = 800;
     const pathK = Math.min(1, T / PATH);
-    typhoonProg = pathK >= 1 ? null : easeInOutC(pathK) * (N - 1);
-    const starts = {};                              // 라벨별 '그 지점이 나타나는 시각'을 역산(프레임 무관)
-    for (const b of labelList()) if (!b.off && b.idx != null) {
-      const frac = (N > 1) ? Math.min(1, b.idx / (N - 1)) : 0;
+    typhoonProg = pathK >= 1 ? null : lo + easeInOutC(pathK) * span;
+    const starts = {};                              // 라벨별 '그 지점이 나타나는 시각'을 역산(프레임 무관, 범위 안 지점만)
+    for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
+      const frac = span > 0 ? Math.min(1, Math.max(0, (b.idx - lo) / span)) : 0;
       starts[b.id] = easeInOutCInv(frac) * PATH;
     }
     typhoonLabelAnim = { at: T, starts, LINE, SCALE };
@@ -10608,7 +10805,7 @@ function clearVfEnter() {
 // 애니메이션 상태를 걷어내고 평소 화면으로
 function animOff() {
   animT = null;
-  _exportingFrames = false;   // 추출 종료 — 미리보기 캔버스 갱신 재개
+  _exportingFrames = false; showExportMask(false);   // 추출 종료 — 미리보기 캔버스 갱신 재개, 가리개 제거
   clearExportCache();          // 추출 정적 레이어 캐시 비움(다음 추출은 새로 굽는다)
   typhoonProg = null; typhoonLabelAnim = null;   // 태풍 애니 상태 초기화(정지 시 완전표시로 복구)
   teardownBlind();   // 블라인드 복제·클립을 먼저 걷어낸다
@@ -10629,7 +10826,8 @@ function animSeek(t) {
 function animPlay() {
   if (animPlaying) return animStop();
   const A = anim();
-  if (!A.tracks.length) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
+  // 태풍 지도는 경로 애니가 내재적(renderAnimFrame이 시각으로 계산)이라 트랙/카메라 키가 없어도 재생된다.
+  if (!A.tracks.length && !isTyphoon()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   animPlaying = true;
   $('#tlPlay').textContent = '멈춤';
   // 재생헤드가 끝(또는 거의 끝)에 있으면 처음부터 재생 — 카메라 키를 편집하면 헤드가 마지막 키에 가 있어
@@ -10704,7 +10902,7 @@ function buildTimeline() {
   const A = anim();
   if (!A.tracks.length && A.dur < 6) A.dur = 6;   // 빈 타임라인은 기본 6초
   const tl = $('#timeline');
-  tl.classList.toggle('empty', !A.tracks.length && !camKeys().length);   // 카메라 키만 있어도 타임라인 본문(카메라 행)은 보인다
+  tl.classList.toggle('empty', !A.tracks.length && !camKeys().length && !isTyphoon());   // 카메라 키만 있어도, 태풍(경로 애니 내재)이어도 타임라인 본문은 보인다
   $('#tlDur').value = A.dur;
   // 저장된 fps가 목록에 없으면(옛 파일 등) 29.97로 맞춘다
   const fpsSel = $('#tlFps');
@@ -11462,6 +11660,8 @@ function tourStepList() {
       target: () => { const b = document.getElementById('mPaint'); return b ? b.closest('.mode') : null; }, setup: () => tourMenuClose(), delay: 280 },
     { title: '밝기 전환 (다크 · 라이트)', body: '사이드바를 어둡게/밝게 바꿉니다. 편한 쪽으로 쓰면 되고, 작업물(방송에 나가는 지도)에는 영향이 없습니다.',
       target: () => $('#theme'), setup: () => tourMenuClose(), delay: 260 },
+    { title: '둘러보기 · 공지 · 도우미', body: '오른쪽 위 세 버튼이에요. <b>둘러보기</b>는 지금 이 설명을 다시 봅니다. <b>공지사항</b>은 업데이트·안내를 모아 보고, 빨간 점이 있으면 새 소식이 있다는 뜻이에요. <b>도우미</b>는 특보 “기상청에서 불러오기”와 MXF/MOV 렌더에 필요한 도우미를 켜는 방법을 알려줍니다(빨간 점이 뜨면 도우미를 새로 켜라는 안내).',
+      target: () => $('#tbInfoGroup'), setup: () => tourMenuClose(), delay: 260 },
     { title: '왼쪽 사이드바 — 지도 조정', body: '이 카드들로 지도의 색 · 글자 · 경계선 · 산 표시 같은 세부를 조정합니다. 카드를 누르면 펼쳐져 세부 설정이 나와요.',
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
     { title: '카드 떼어내기 (포토샵처럼)', body: '자주 쓰는 카드는 <b>제목을 잡고 사이드바 밖으로 끌어내면</b> 별도 창으로 떠서 원하는 자리에 놓고 쓸 수 있어요. 다시 다 모으려면 상단바의 <b>기본 배치</b>를 누르면 됩니다. 사이드바 위치는 <b>사이드바 ←/→</b>로 좌우를 바꿔요.',
@@ -11470,6 +11670,8 @@ function tourStepList() {
       target: () => secNode('wrn'), setup: () => { tourMenuClose(); tourShowSec('wrn'); }, delay: 540 },
     { title: '기상예보 자동 색칠', body: '기상청 예보를 붙여넣으면 강수 · 기온 등을 지역별로 자동으로 색칠합니다. 단기 · 중기 예보 중 골라 쓸 수 있어요. 이 카드는 예보(시도·시군) 지도에서 나와요.',
       target: () => secNode('fct'), setup: () => { tourMenuClose(); tourShowSec('fct'); }, delay: 540 },
+    { title: '배치 지정하기', body: '구워 둔 배치 파일(default-presets.js)을 슬롯에 끌어다 놓아 <b>기본값</b>으로 지정합니다. <b>개인 배치</b>는 이 브라우저에만 적용(비번 없음), <b>완전 기본 배치</b>는 모두의 기본값이라 바꿀 때 비밀번호가 필요해요. “지금 배치로 채우기”를 누르면 현재 화면 배치를 바로 슬롯에 담습니다.',
+      target: () => $('#slotBtn'), setup: () => { updateAutoPaintSecs(); tourMenuClose(); }, delay: 320 },
     { title: '새로 시작 (작업 비우기)', body: '지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작합니다. 사이드바 맨 아래에 있어요.',
       target: () => $('#newWork'), setup: () => { updateAutoPaintSecs(); tourMenuClose(); }, delay: 320 },
   ];
@@ -11517,7 +11719,7 @@ function tourGo(i) {
   try { step.setup && step.setup(); } catch (e) {}
   $('#tourStepNo').textContent = `${tourI + 1} / ${TOUR.length}`;
   $('#tourTitle').textContent = step.title;
-  $('#tourBody').textContent = step.body;
+  $('#tourBody').innerHTML = step.body;   // 본문에 <b> 등 서식 허용 (내용은 전부 코드 내 정적 문자열)
   $('#tourPrev').disabled = tourI === 0;
   $('#tourNext').textContent = tourI === TOUR.length - 1 ? '끝내기' : '다음 →';
   clearTimeout(tourTimer);
@@ -11530,6 +11732,13 @@ function tourOpen(manual) {
   TOUR = tourStepList();
   document.documentElement.classList.add('anim-ready');
   tourSnap = [...document.querySelectorAll('#panel .sec.toolSec')].map((n) => [n, n.classList.contains('closed')]);
+  // 닫기·다시보지않기 바는 '사이드바가 없는 쪽'에 둔다 (사이드바 왼쪽=바 오른쪽, 오른쪽 도킹이면 반대)
+  const bar = document.querySelector('.tourBar');
+  if (bar) {
+    const dockRight = document.querySelector('.app')?.classList.contains('dockR');
+    bar.style.left = dockRight ? '16px' : 'auto';
+    bar.style.right = dockRight ? 'auto' : '16px';
+  }
   $('#tourWrap').classList.add('on');
   tourGo(0);
 }
@@ -11576,12 +11785,24 @@ function setupDropOpen() {
     e.preventDefault(); over = 0; hint.classList.remove('on');
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
     if (!f) return;
+    // JTWC 통보문 파일(.tcw 등 텍스트) — 태풍 지도로 그린다.
+    if (/\.(tcw|txt|dat)$/i.test(f.name) || !/\.(png|json|wcg)/i.test(f.name)) {
+      try {
+        const txt = await f.text();
+        if (/\bPGTW\b|\bWTPN|^\s*T\d{3}\s+\d+[NS]\s+\d+[EW]\s/m.test(txt)) {
+          if (!isTyphoon()) { setStyle('typhoon'); markStyleBtns(); }
+          const tp = $('#typPaste'); if (tp) tp.value = txt.slice(0, 100000);
+          pushUndo(); applyTyphoonText(txt);
+          return;
+        }
+      } catch (e2) { /* 텍스트로 못 읽으면 아래 작업파일 경로로 */ }
+    }
     try {
       const { data } = await readProjectFile(f);
       loadProjectData(data, null);
       addRecent(f.name, null, data);
       status('불러옴: ' + f.name);
-    } catch (err) { status('이 파일은 열 수 없어요 — 날씨 CG 작업 파일(.wcg.png / .json)이어야 합니다', true); }
+    } catch (err) { status('이 파일은 열 수 없어요 — 날씨 CG 작업 파일(.wcg.png / .json) 또는 JTWC 통보문(.tcw)이어야 합니다', true); }
   });
 }
 
