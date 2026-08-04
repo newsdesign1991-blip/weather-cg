@@ -6333,6 +6333,9 @@ function showWrnAsOf(fc, announce) {
   for (const r of rows) if (!S.wrnColors[r.wrn] && r.wrn) { S.wrnColors[r.wrn] = ['#C4C4C4', '#8C8C8C']; added.push(r.wrn); }
   if (added.length) buildWrnCols();
   wrnRows = rows;
+  // 활성 특보 집합을 프로젝트(S)에 저장 — wrnRows는 런타임 변수라 저장/리로드 때 사라진다.
+  // 이게 없으면 프로젝트를 다시 열었을 때 겹쳐 가려진 특보(예: 폭염 밑 열대야)가 AE 내보내기에서 빠진다.
+  S.wrnActive = rows.map((r) => ({ id: r.id, wrn: r.wrn, lvl: r.lvl, tmfc: r.tmfc, tmef: r.tmef }));
   wrnOrder = defaultWrnOrder(wrnRows, Object.keys(S.wrnColors));
   S.wrnOff = S.wrnOff || {};
   // 예비특보는 기본으로 꺼둔다(한 번도 안 건드린 것만).
@@ -8881,8 +8884,10 @@ async function aeMtnBlob(base) {
 // AE는 bottom→top으로 쌓으므로 낮은 우선순위부터 정렬한다. 사용자가 바꾼 wrnOrder도 그대로 반영된다.
 function aeWarningFillDefs() {
   if (S.style !== 'warn' && S.style !== 'warnsea') return [];
+  // wrnRows는 런타임 변수 — 프로젝트를 다시 열면 비어 있다. 그때는 저장해둔 S.wrnActive를 쓴다(가려진 특보까지 전부 보존).
+  const src = (wrnRows && wrnRows.length) ? wrnRows : (S.wrnActive || []);
   const groups = new Map();
-  for (const r of wrnRows) {
+  for (const r of src) {
     const key = wrnKeyOf(r);
     if (S.wrnOff[key]) continue;
     const col = wrnColorOf(r.wrn, r.lvl);
