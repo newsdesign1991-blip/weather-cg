@@ -9420,7 +9420,7 @@ async function exportPngSeq() {
 const WNS_HELPER = 'http://127.0.0.1:3720';
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260804;
+const HELPER_VER_MIN = 20260805;
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
@@ -9952,6 +9952,25 @@ function aeLegendCompData() {
   });
   return { w: bb.width * k, h: bb.height * k, x: center.x, y: center.y, items };
 }
+// 태풍 아이콘을 단독 PNG로 래스터화(AE 리깅용). past=회색, 아니면 iconCol 틴트. {blob,w,h,cx,cy} 반환(중심=cx,cy).
+async function aeIconBlob(color, past) {
+  const IC = window.TYPHOON_ICON;
+  const R = 90, w = Math.round(R * 3), h = Math.round(R * 3);
+  let inner;
+  if (IC && IC.img) {
+    const ih = R * 2.5, iw = ih * (IC.w / IC.h);
+    const filt = past
+      ? `<filter id="gi" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/><feColorMatrix type="matrix" values="1 0 0 0 0.15  0 1 0 0 0.15  0 0 1 0 0.15  0 0 0 1 0"/></filter>`
+      : `<filter id="ti" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${iconTintValues(color)}"/></filter>`;
+    inner = `<defs>${filt}</defs><image href="${IC.img}" x="${(w - iw) / 2}" y="${(h - ih) / 2}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid meet" filter="url(#${past ? 'gi' : 'ti'})"/>`;
+  } else {
+    inner = `<circle cx="${w / 2}" cy="${h / 2}" r="${R}" fill="${past ? '#9AA3AD' : color}"/>`;
+  }
+  const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${inner}</svg>`;
+  const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s); await img.decode();
+  const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+  return { blob: await new Promise((r) => c.toBlob(r, 'image/png')), w, h, iconH: R * 2.5 };   // iconH=아이콘 실제 높이(px) — AE 스케일 계산용
+}
 async function sendToAE() {
   const A = anim();
   let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
@@ -9977,14 +9996,32 @@ async function sendToAE() {
     // bottom→top 순서로 레이어 구성. 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
     const uploads = [], specLayers = [];
     const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
+    const addFile = (blob) => { const fi = uploads.length; uploads.push(blob); return 'f_' + String(fi).padStart(5, '0') + '.png'; };   // 레이어 없이 파일만 업로드(리깅에서 표현식으로 참조)
     const addText = (name, t) => {
       const p = vfScaledPoint(t.x, t.y);
       specLayers.push({ text: { content: aeArrow(t.txt || ''), x: p.x, y: p.y, size: vfScaledSize(t.size), col: t.col, align: t.align || 'start', track: vfScaledSize(t.track || 0), weight: t.w || 400 }, name });
     };
     if (isTyphoon()) {
-      // 태풍: 경로 애니는 AE 키프레임으로 재현하지 않고(영상 추출로 대체), 지도는 정적 한 장으로.
-      // 지도(태풍 오버레이 포함, 제목·범례 제외) + 편집 가능한 제목 + 범례 컴프.
-      addImg('지도(태풍)', await svgBlob((c) => { const a = c.querySelector('#L_title'); if (a) a.remove(); const b = c.querySelector('#L_legend'); if (b) b.remove(); }));
+      if (isTyphoonCompare()) {
+        // 비교 지도: 정적 한 장(제목·범례 제외) — 여러 예보선 리깅은 추후.
+        addImg('지도(비교)', await svgBlob((c) => { c.querySelector('#L_title')?.remove(); c.querySelector('#L_legend')?.remove(); }));
+      } else {
+        // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
+        const T = S.typhoon, pts = curTyphoonPoints(), nowIdx = typhoonNowIdx(pts);
+        const sp = typhoonScreenPts(pts).filter((p) => !p.head);
+        const iconCol = T.iconCol || '#E5231E';
+        const bg = addFile(await svgBlob((c) => { for (const id of ['#L_typhoon', '#L_typhoonLabels', '#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove(); }));
+        const icC = await aeIconBlob(iconCol, false), icG = await aeIconBlob(iconCol, true);
+        const iconColFile = addFile(icC.blob), iconGrayFile = addFile(icG.blob);
+        const bands = {};
+        for (const k of ['r70', 'r15', 'r25']) { const st = Object.assign({}, TYPHOON_BAND_DEF[k], (T.bands && T.bands[k]) || {}); if (!st.off) bands[k] = { fill: st.fill, fillOp: st.fillOp, stroke: st.stroke, strokeW: st.strokeW, dash: st.dash ? 1 : 0 }; }
+        const points = sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1), r15: Math.round(p.r15 || 0), r25: Math.round(p.r25 || 0), r70: Math.round(p.r70 || 0), past: p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 0 }));
+        const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
+        const labels = [];
+        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; labels.push({ idx: b.idx, px: +p.x.toFixed(1), py: +p.y.toFixed(1), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: b.x, by: b.y, size: b.size || 40, weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', stroke: b.stroke || '#3F6BD8', strokeW: b.strokeW || 0, radius: b.radius || 14 }); }
+        const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5;   // 화면상 아이콘 높이(px) — AE 스케일 계산용
+        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, labels }, name: '태풍 리깅' });
+      }
       for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);
       if (S.legend && S.legend.on) { const lc = aeLegendCompData(); if (lc) specLayers.push({ legendComp: lc, name: '범례' }); }
     } else {
