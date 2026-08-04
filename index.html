@@ -8486,9 +8486,57 @@ const CAM_BLEED = 1.0;   // 3D 기울임 시 프레임 밖(특히 북쪽)까지 
 const CAM_EDGE_FADE = 26;   // 틸트 지도 가장자리 페이드 폭(캔버스 %). 바깥 블리드가 이 폭만큼 바다색으로 부드럽게 사라진다(하드컷 방지). 프레임(가운데)은 안 건드림.
 const CAM_VOID_COL = '#0e2a4e';   // 3D 회전 시 지도 밖(먼 거리)을 채우는 색 = 바다 그라디언트 '가장 북쪽' 색과 동일 → 이음새 안 보임
 const camBleedViewBox = () => `${-1920 * CAM_BLEED} ${-1080 * CAM_BLEED} ${1920 * (1 + 2 * CAM_BLEED)} ${1080 * (1 + 2 * CAM_BLEED)}`;
+// 추출 글자를 '캔버스에 직접' SUITE로 그린다 — 크롬에서 <img> 안 SVG의 임베드 폰트가 안 먹는 문제를 확실히 우회.
+// 라이브 SVG의 각 <text>의 실제 위치(getCTM)를 읽어 그대로 캔버스에 옮긴다. 폰트는 document.fonts에 올려둔 SUITE.
+function solidFill(f) { if (!f || f === 'none') return '#FFFFFF'; if (String(f).indexOf('url') === 0) return '#FFFFFF'; return f; }
+function drawExportTextOverlay(cx, keep, W, H) {
+  const vb = (svg.viewBox && svg.viewBox.baseVal) || null;
+  const vbw = (vb && vb.width) || 1920, vbh = (vb && vb.height) || 1080;
+  const sx = W / vbw, sy = H / vbh;
+  const sel = (keep && keep.length) ? keep.map((k) => '#' + k + ' text').join(',') : 'text';
+  let els; try { els = svg.querySelectorAll(sel); } catch (e) { return; }
+  // getCTM()은 브라우저에 따라 '화면 표시 스케일'을 포함해 어긋난다 → 루트 화면행렬의 역행렬로 정규화해 '뷰박스 유저단위' 좌표로.
+  let rootInv = null; try { rootInv = svg.getScreenCTM().inverse(); } catch (e) { rootInv = null; }
+  for (const t of els) {
+    const txt = t.textContent; if (!txt || !txt.trim()) continue;
+    // 숨김(레이어/요소) 스킵
+    let hide = false; for (let n = t; n && n !== svg; n = n.parentNode) { if (n.getAttribute) { if (n.getAttribute('display') === 'none') { hide = true; break; } const st = n.style; if (st && (st.display === 'none' || st.visibility === 'hidden')) { hide = true; break; } } }
+    if (hide) continue;
+    let m; try { m = rootInv ? rootInv.multiply(t.getScreenCTM()) : t.getCTM(); } catch (e) { m = null; } if (!m) continue;
+    const cs = getComputedStyle(t);
+    const fs = parseFloat(t.getAttribute('font-size')) || parseFloat(cs.fontSize) || 40;
+    const fw = t.getAttribute('font-weight') || cs.fontWeight || '400';
+    const anchor = t.getAttribute('text-anchor') || cs.textAnchor || 'start';
+    const ls = parseFloat(t.getAttribute('letter-spacing')) || parseFloat(cs.letterSpacing) || 0;
+    const domB = t.getAttribute('dominant-baseline') || cs.dominantBaseline || '';
+    const x = parseFloat(t.getAttribute('x')) || 0, y = parseFloat(t.getAttribute('y')) || 0;
+    cx.save();
+    cx.setTransform(sx * m.a, sy * m.b, sx * m.c, sy * m.d, sx * m.e, sy * m.f);   // local → canvas
+    cx.font = `${fw} ${fs}px "SUITE CG", "Malgun Gothic", sans-serif`;
+    cx.textAlign = anchor === 'middle' ? 'center' : (anchor === 'end' ? 'right' : 'left');
+    cx.textBaseline = /central|middle/.test(domB) ? 'middle' : 'alphabetic';
+    try { cx.letterSpacing = ls + 'px'; } catch (e) {}
+    const tspans = t.querySelectorAll('tspan');
+    if (tspans.length) {   // 부분 색/굵기 — 각 tspan을 이어서 그린다
+      const segs = []; let total = 0;
+      for (const ts of tspans) { const s = ts.textContent || ''; cx.font = `${ts.getAttribute('font-weight') || fw} ${fs}px "SUITE CG","Malgun Gothic",sans-serif`; const w = cx.measureText(s).width; segs.push({ s, w, fill: ts.getAttribute('fill') || t.getAttribute('fill'), fw: ts.getAttribute('font-weight') || fw }); total += w; }
+      let startX = x; if (cx.textAlign === 'center') startX = x - total / 2; else if (cx.textAlign === 'right') startX = x - total;
+      cx.textAlign = 'left';
+      let px = startX;
+      for (const seg of segs) { cx.font = `${seg.fw} ${fs}px "SUITE CG","Malgun Gothic",sans-serif`; cx.fillStyle = solidFill(seg.fill); cx.fillText(seg.s, px, y); px += seg.w; }
+    } else {
+      cx.fillStyle = solidFill(t.getAttribute('fill') || cs.fill);
+      cx.fillText(txt, x, y);
+    }
+    cx.restore();
+  }
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+}
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
-async function svgToImage(W, H, keep, viewBox) {
+// stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
+async function svgToImage(W, H, keep, viewBox, stripText) {
   const clone = svg.cloneNode(true);
+  if (stripText) clone.querySelectorAll('text').forEach((n) => n.remove());
   clone.setAttribute('width', W);
   clone.setAttribute('height', H);
   if (viewBox) clone.setAttribute('viewBox', viewBox);
@@ -8564,9 +8612,11 @@ function warpTilt3D(cx, img, W, H) {
 let _expBaseBelow = null, _expBaseAbove = null;
 function clearExportCache() { _expBaseBelow = _expBaseAbove = null; }
 async function _rasterCanvasLayers(W, H, layers) {
-  const img = await svgToImage(W, H, layers);
+  const img = await svgToImage(W, H, layers, null, true);   // 글자 빼고 래스터
   const c = document.createElement('canvas'); c.width = W; c.height = H;
-  c.getContext('2d').drawImage(img, 0, 0, W, H);
+  const cx = c.getContext('2d');
+  cx.drawImage(img, 0, 0, W, H);
+  drawExportTextOverlay(cx, layers, W, H);   // 글자는 캔버스에 SUITE로 직접
   return c;
 }
 // 추출 한 프레임을 캔버스에 그린다. 카메라 3D 회전이 있으면 '지도 레이어만'(블리드 포함) 워프하고 오버레이(제목·범례)는 평면으로 덮는다.
@@ -8578,19 +8628,22 @@ async function drawExportFrame(cx, W, H) {
       if (!_expBaseBelow) _expBaseBelow = await _rasterCanvasLayers(W, H, ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn']);
       if (!_expBaseAbove) _expBaseAbove = await _rasterCanvasLayers(W, H, ['L_vfBar', 'L_labels', 'L_title', 'L_legend']);
       cx.drawImage(_expBaseBelow, 0, 0);
-      const typh = await svgToImage(W, H, ['L_typhoon', 'L_typhoonLabels']);
+      const typh = await svgToImage(W, H, ['L_typhoon', 'L_typhoonLabels'], null, true);   // 글자 빼고
       cx.drawImage(typh, 0, 0, W, H);
       cx.drawImage(_expBaseAbove, 0, 0);
+      drawExportTextOverlay(cx, ['L_typhoonLabels'], W, H);   // 태풍 라벨 글자는 캔버스에 SUITE로 (제목·범례는 _expBaseAbove에 이미 그려짐)
       return;
     }
-    const img = await svgToImage(W, H); cx.drawImage(img, 0, 0, W, H); return;
+    const img = await svgToImage(W, H, null, null, true); cx.drawImage(img, 0, 0, W, H);   // 글자 빼고
+    drawExportTextOverlay(cx, null, W, H); return;   // 모든 글자 캔버스에 SUITE로
   }
   cx.fillStyle = CAM_VOID_COL; cx.fillRect(0, 0, W, H);   // 회전 시 지도 밖은 바다색으로(투명 방지 · 미리보기와 동일)
   const exW = Math.round(W * (1 + 2 * CAM_BLEED)), exH = Math.round(H * (1 + 2 * CAM_BLEED));
-  const mapImg = await svgToImage(exW, exH, CAM_MAP_LAYERS, camBleedViewBox());   // 프레임 밖 여백까지 렌더
+  const mapImg = await svgToImage(exW, exH, CAM_MAP_LAYERS, camBleedViewBox());   // 프레임 밖 여백까지 렌더(지도만 — 글자 없음)
   warpTilt3D(cx, mapImg, W, H);                        // 지도(+태풍)만 3D 회전(밖 여백은 CAM_VOID_COL=바다 북쪽색으로 이어짐)
-  const ov = await svgToImage(W, H, CAM_OVERLAY_LAYERS);
+  const ov = await svgToImage(W, H, CAM_OVERLAY_LAYERS, null, true);   // 오버레이(글자 빼고)
   cx.drawImage(ov, 0, 0, W, H);                          // 제목·범례·가이드는 평면으로 위에
+  drawExportTextOverlay(cx, CAM_OVERLAY_LAYERS, W, H);   // 오버레이 글자 캔버스에 SUITE로
 }
 
 // ===== 정확 MP4 (베이킹) =====
@@ -8917,21 +8970,26 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
 const ALL_LAYERS = ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn', 'L_typhoon', 'L_typhoonLabels', 'L_vfBar', 'L_labels', 'L_title', 'L_legend'];
 
 // SVG 한 장을 PNG blob으로. mutate(clone)로 레이어/요소를 손봐서 원하는 그림만 남긴다.
-async function svgBlob(mutate) {
+// overlayText=true면 글자를 빼고 래스터한 뒤 캔버스에 SUITE로 직접(크롬 폰트 문제 우회). 남은 레이어 기준으로만 글자를 그린다.
+async function svgBlob(mutate, overlayText) {
   const [W, H] = RES[S.res].size;
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', W); clone.setAttribute('height', H);
   for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(id)?.remove();
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   mutate(clone);
+  const remain = overlayText ? ALL_LAYERS.filter((l) => clone.querySelector('#' + l)) : null;   // mutate 후 남은(글자 그릴) 레이어
+  if (overlayText) clone.querySelectorAll('text').forEach((n) => n.remove());   // 글자는 캔버스에 직접 그린다
   const xml = new XMLSerializer().serializeToString(clone);
-  const img = new Image();   // data: URL — blob보다 <img> 안 SVG의 base64 폰트가 확실히 적용됨(폴백 폰트 방지)
+  const img = new Image();   // data: URL — blob보다 <img> 안 SVG 렌더가 안정적
   img.decoding = 'sync';
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
   await img.decode();
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
-  c.getContext('2d').drawImage(img, 0, 0, W, H);
+  const cx = c.getContext('2d');
+  cx.drawImage(img, 0, 0, W, H);
+  if (overlayText) drawExportTextOverlay(cx, remain, W, H);   // 글자 SUITE로 직접
   return await new Promise((r) => c.toBlob(r, 'image/png'));
 }
 const keepLayers = (clone, keep) => { for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove(); };
@@ -9019,11 +9077,11 @@ let exportPick = new Set(['full']);
 
 async function exportBlobs(key) {
   const F = fills();
-  if (key === 'full') return [{ name: '전체', blob: await svgBlob((c) => keepLayers(c, ALL_LAYERS)) }];
+  if (key === 'full') return [{ name: '전체', blob: await svgBlob((c) => keepLayers(c, ALL_LAYERS), true) }];   // 글자 SUITE 직접
   if (key === 'bgtext') return [{ name: '배경글자', blob: await svgBlob((c) => {
     keepLayers(c, ['L_bg', 'L_title']);
     c.querySelector('#bgMapT')?.remove();   // 배경글자엔 지도 요소(북한·일본 실루엣 등) 빼고 배경+제목만
-  }) }];
+  }, true) }];
   if (key === 'map') return [{ name: '지도', blob: await svgBlob((c) => {
     keepLayers(c, ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn']);
     c.querySelector('#bgImg')?.remove();   // 배경 이미지만 빼고 실루엣(bgMapT)은 남긴다 -> 투명 + 북한
