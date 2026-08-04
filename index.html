@@ -9482,6 +9482,23 @@ function wnsHelperOffNotice(mode) {
     setTimeout(() => { cp.textContent = '폴더 경로 복사'; cp.style.background = ''; }, 2600);
   };
 }
+// 도우미 버튼(렌치) — 지금 도우미 상태를 확인해서 알려준다(WNS_START가 조용히 실행돼 적용됐는지 알기 위함).
+async function showHelperStatus() {
+  status('도우미 확인 중…', true);
+  const st = await pingHelper();
+  const b = $('#helperBtn'); if (b) b.classList.toggle('hasNew', st.up && st.old);
+  if (!st.up) { status('도우미 꺼져 있음', true); wnsHelperOffNotice('off'); return; }
+  if (st.old) { status('도우미 구버전', true); wnsHelperOffNotice('old'); return; }
+  status('도우미 실행 중 · 최신', true);
+  const m = tossModal({
+    title: '도우미 실행 중 · 최신이에요 ✓',
+    sub: 'AE로 보내기 · MXF/MOV · 기상청 불러오기 준비됨',
+    accent: 'linear-gradient(135deg,#16A34A,#0E9E6E)',
+    bodyHTML: '도우미가 <b>정상 실행 중</b>이고 <b>최신 버전</b>입니다.<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b><br><br>이제 <b>AE로 보내기</b>를 눌러 리깅을 확인하세요. (버전이 여기 보이면 WNS_START로 교체가 <b>적용된 것</b>입니다.)',
+    footHTML: '<button class="tossBtn pri" data-ok>확인</button>',
+  });
+  m.foot.querySelector('[data-ok]').onclick = m.close;
+}
 async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const A = anim();
   if (!A.tracks.length) { status('트랙이 없습니다 — “지금 화면으로 자동 구성”을 먼저 누르세요', true); return; }
@@ -12474,7 +12491,7 @@ function wireTour() {
   $('#tourNext').onclick = tourNextOrEnd;
   $('#tourBtn').onclick = () => tourOpen(true);         // 상단바 i 버튼
   if ($('#noticeBtn')) { $('#noticeBtn').onclick = openNoticeHistory; updateNoticeDot(); }   // 상단바 공지 버튼
-  if ($('#helperBtn')) $('#helperBtn').onclick = () => { if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice(); };   // 도우미 켜는 방법 언제든 보기
+  if ($('#helperBtn')) $('#helperBtn').onclick = () => { if (typeof showHelperStatus === 'function') showHelperStatus(); };   // 도우미 상태(실행중·버전·최신) 확인
   // 투어 UI 클릭이 메뉴 '바깥 클릭 닫기'를 건드리지 않게 + 어두운 영역 클릭 무효
   $('#tourWrap').addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target.closest('#tourBlock')) e.preventDefault(); });
   window.addEventListener('keydown', (e) => {
