@@ -9609,7 +9609,7 @@ async function exportPngSeq() {
 const WNS_HELPER = 'http://127.0.0.1:3720';
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260820;
+const HELPER_VER_MIN = 20260821;
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
@@ -10190,6 +10190,25 @@ async function aeIconBlob(color, past, td, forceDot) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
   return { blob: await new Promise((r) => c.toBlob(r, 'image/png')), w, h, iconH: R * 2.5 };   // iconH=아이콘 실제 높이(px) — AE 스케일 계산용
 }
+// AE가 안 켜져 있고 설치 버전이 여러 개일 때 — 버전 선택창(토스 모달). 고른 exe 경로(또는 null=취소) 반환.
+function pickAeVersion(versions) {
+  return new Promise((resolve) => {
+    let done = false;
+    const rows = versions.map((v, i) => `<button class="aeVerBtn" data-i="${i}" style="display:block;width:100%;box-sizing:border-box;text-align:left;margin:7px 0;padding:12px 15px;border:1px solid var(--outline-var,#d1d5db);border-radius:12px;background:var(--surface,#fff);color:var(--on-surface,#111);font-size:14px;font-weight:700;cursor:pointer"></button>`).join('');
+    const m = tossModal({
+      title: 'After Effects 버전 선택',
+      sub: '켜져 있는 AE가 없어요 — 어느 버전으로 열까요?',
+      bodyHTML: '<p style="margin:0 0 6px;font-size:12.5px;line-height:1.5;color:var(--on-surface-var,#667)">설치된 AE가 여러 개입니다. 하나를 고르면 그 버전으로 리깅을 엽니다. (AE를 미리 켜두면 다음부턴 그 버전으로 바로 갑니다.)</p>' + rows,
+      onClose: () => { if (!done) { done = true; resolve(null); } },
+    });
+    m.body.querySelectorAll('.aeVerBtn').forEach((b) => {
+      b.textContent = versions[+b.dataset.i].name || versions[+b.dataset.i].path;   // textContent = 주입 안전
+      b.onmouseenter = () => { b.style.background = 'color-mix(in srgb, var(--primary,#5B8CFF) 12%, var(--surface,#fff))'; };
+      b.onmouseleave = () => { b.style.background = 'var(--surface,#fff)'; };
+      b.onclick = () => { done = true; const v = versions[+b.dataset.i]; m.close(); resolve((v && v.path) || null); };
+    });
+  });
+}
 async function sendToAE() {
   const A = anim();
   let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
@@ -10340,8 +10359,13 @@ async function sendToAE() {
       layers: specLayers,
     };
     exportProgress(uploads.length + 1, uploads.length + 1, 'AE 여는 중');
-    const rr = await fetch(WNS_HELPER + '/api/ae', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(spec) });
-    const jr = await rr.json().catch(() => ({}));
+    const postAe = async (s) => { const r = await fetch(WNS_HELPER + '/api/ae', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) }); return { r, j: await r.json().catch(() => ({})) }; };
+    let { r: rr, j: jr } = await postAe(spec);
+    if (rr.ok && jr && jr.choose && Array.isArray(jr.versions) && jr.versions.length) {   // 켜진 AE 없음 + 설치 버전 여러 개 → 선택창
+      const chosen = await pickAeVersion(jr.versions);
+      if (!chosen) { status('AE 보내기 취소', true); return; }
+      ({ r: rr, j: jr } = await postAe(Object.assign({}, spec, { aePath: chosen })));
+    }
     if (!rr.ok || !jr.ok) throw new Error(jr.error || ('AE 실행 실패 ' + rr.status));
     status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다'); flashDone('AE로 보냄');
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 열림'; }
