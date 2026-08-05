@@ -789,7 +789,10 @@
   .tlProgFill { display: block; height: 100%; width: 0; background: var(--accent-grad, var(--primary)); transition: width .12s linear; }
   .tlNum { display: flex; align-items: center; gap: 4px; color: var(--on-surface-var); }
   .tlNum input { width: 54px; flex: none; padding: 4px 6px; }
-  .tlClose { margin-left: auto; background: none; border: none; color: var(--on-surface-var); }
+  .tlResetBtn { margin-left: auto; background: #E5301F; border: none; color: #fff; font-weight: 700; border-radius: 9px; padding: 5px 12px; cursor: pointer; }
+  .tlResetBtn:hover { background: #cf2a1a; }
+  .tlResetBtn:active { transform: scale(.96); }
+  .tlClose { margin-left: 4px; background: none; border: none; color: var(--on-surface-var); }
   .tlClose:hover { background: var(--state-hover); color: var(--on-surface); }
   .tlEmpty { display: none; color: var(--on-surface-var); padding: 14px; margin: 0; }
   #timeline.empty .tlEmpty { display: block; }
@@ -886,6 +889,22 @@
   .tlCamRow.tlCamProp .tlCamKey { width: 10px; height: 10px; margin: -5px 0 0 -5px; }
   .tlCamKey:hover { background: #BEE7FF; }
   .tlCamKey.sel { background: #FFD36B; box-shadow: 0 0 0 2px rgba(255,211,107,.3); }
+  /* 카메라 키 사이 연결 바 (첫~끝 키) */
+  .tlCamBar { position: absolute; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; background: linear-gradient(90deg,#7FD0FF,#4aa8e6); opacity: .8; cursor: grab; z-index: 1; }
+  .tlCamBar:active { cursor: grabbing; }
+  .tlCamRow.tlCamProp .tlCamBar { height: 5px; margin-top: -2.5px; opacity: .6; }
+  /* 태풍 트랙: 경로/라벨마다 하위 행 = 범위 바 + 시작·끝 다이아 키 */
+  .tlTypBar { position: absolute; top: 50%; height: 7px; margin-top: -3.5px; border-radius: 4px; opacity: .9; pointer-events: none; z-index: 1; }
+  .tlTypBarGrab { pointer-events: auto; cursor: grab; }
+  .tlTypBarGrab:active { cursor: grabbing; }
+  .tlTypBar.path { background: linear-gradient(90deg,#2BD37A,#22b061); }
+  .tlTypBar.label { background: linear-gradient(90deg,#7FD0FF,#4aa8e6); }
+  .tlTypKey { position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border: 1.5px solid #10131a; border-radius: 3px; transform: rotate(45deg); cursor: grab; z-index: 3; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  .tlTypKey.path { background: #2BD37A; }
+  .tlTypKey.label { background: #7FD0FF; }
+  .tlTypKey.kEnd { border-radius: 50% 3px 3px 3px; }
+  .tlTypKey:hover { filter: brightness(1.25); }
+  .tlTypSub .tlName, .tlTypSub { min-height: 20px; }
   .tlCamKey:active { cursor: grabbing; }
   /* 카메라 키 값 편집 팝오버 (토스 카드: 상단 컬러헤더 + 내용) — 별도 도킹창 없이 다이아몬드 클릭 시 뜬다 */
   .camKeyPop { position: fixed; z-index: 60; width: 320px; max-width: calc(100vw - 16px); background: #0e1626; border: 1px solid rgba(120,160,220,.35); border-radius: 12px; box-shadow: 0 12px 34px rgba(0,0,0,.5); overflow: hidden; font-size: 11px; box-sizing: border-box; }
@@ -1945,6 +1964,7 @@
          <button class="tintBtn" id="wnsMov" style="border-radius:11px" title="투명(알파) MOV (QuickTime Animation) — 저장 위치 선택">알파MOV로 추출</button>
        </div>
        <span class="tlTime" id="tlInfo"></span>
+       <button id="tlReset" class="tlResetBtn" title="타임라인의 모든 키·트랙·효과·길이 설정을 지워 처음 상태로 되돌립니다 (되돌리기 Ctrl+Z)">초기화</button>
        <button class="tlClose" id="tlClose" title="닫기">✕</button>
      </div>
      <p class="tlNote" id="tlNote"></p>
@@ -3051,12 +3071,17 @@ function updateMapboxTiles() {
   const [W, H] = RES[S.res].size;
   const cs = [xyToLonLat(0, 0), xyToLonLat(W, 0), xyToLonLat(0, H), xyToLonLat(W, H)];
   let lo0 = Math.min(...cs.map((c) => c.lon)), lo1 = Math.max(...cs.map((c) => c.lon));
-  let la0 = Math.max(-85, Math.min(...cs.map((c) => c.lat))), la1 = Math.min(85, Math.max(...cs.map((c) => c.lat)));
+  let la0 = Math.min(...cs.map((c) => c.lat)), la1 = Math.max(...cs.map((c) => c.lat));
+  // 여백 — 3D 틸트/추출은 원근으로 뷰포트보다 훨씬 넓은 영역이 보이므로 넉넉히(그 만큼 타일 미리 로드 → '탁탁' 방지).
+  const mgn = (camActive3d() || _exportingFrames) ? CAM_BLEED : 0.3;
+  const dlo = (lo1 - lo0) * mgn, dla = (la1 - la0) * mgn;
+  lo0 -= dlo; lo1 += dlo; la0 = Math.max(-85, la0 - dla); la1 = Math.min(85, la1 + dla);
+  const cap = (camActive3d() || _exportingFrames) ? 300 : 140;   // 3D/추출은 커버 우선(상한 크게)
   let z = Math.max(2, Math.min(9, Math.round(Math.log2(2 * Math.PI * MAP.proj.scale * (S.map.s || 1) / 512))));
   let n = Math.pow(2, z);
   let x0 = Math.floor(_lon2xt(lo0, n)), x1 = Math.floor(_lon2xt(lo1, n));
   let y0 = Math.floor(_lat2yt(la1, n)), y1 = Math.floor(_lat2yt(la0, n));
-  while ((x1 - x0 + 1) * (y1 - y0 + 1) > 140 && z > 2) {   // 타일 과다 방지
+  while ((x1 - x0 + 1) * (y1 - y0 + 1) > cap && z > 2) {   // 타일 과다 방지
     z--; n = Math.pow(2, z);
     x0 = Math.floor(_lon2xt(lo0, n)); x1 = Math.floor(_lon2xt(lo1, n));
     y0 = Math.floor(_lat2yt(la1, n)); y1 = Math.floor(_lat2yt(la0, n));
@@ -4305,9 +4330,9 @@ const easeInOutCInv = (y) => (y <= 0 ? 0 : y >= 1 ? 1 : (y < 0.5 ? Math.cbrt(y /
 // 라벨 한 개의 현재 진행 → { reveal:선 그리기 0..1, scale:박스 크기 0..1 }
 function typhoonLabelProg(id) {
   if (!typhoonLabelAnim) return { reveal: 1, scale: 1 };
-  const st = typhoonLabelAnim.starts[id];
-  if (st == null) return { reveal: 0, scale: 0 };   // 아직 그 지점이 안 나타남
-  const local = typhoonLabelAnim.at - st, { LINE, SCALE } = typhoonLabelAnim;
+  const info = typhoonLabelAnim.map[id];
+  if (!info) return { reveal: 0, scale: 0 };   // 아직 등장 전 / 애니 대상 아님
+  const local = typhoonLabelAnim.at - info.st, { LINE, SCALE } = info;
   return { reveal: easeInOutC(local / LINE), scale: easeInOutC((local - LINE * 0.5) / SCALE) };
 }
 
@@ -4720,7 +4745,14 @@ function drawTyphoonTrack(L, pts) {
   const idxXY = {}; for (const p of sp) if (!p.head) idxXY[p.idx] = p;
   if (LB) for (const b of labelList()) {
     if (b.off) continue;
-    const p = idxXY[b.idx]; if (!p) continue;   // 이 지점이 현재 트랙에 없으면(발표시각 변경 등) 스킵
+    let p = idxXY[b.idx];
+    if (!p) {   // 경로 head가 아직 이 지점에 도달 전 — 그래도 라벨은 자기 키 타이밍대로 뜨게(지점 좌표 직접 계산). 안 그러면 경로 도달 시 '탁' 하고 팝인.
+      const pt = pts[b.idx];
+      if (!pt) continue;                                         // 유효하지 않은 지점(발표시각 변경 등)만 스킵
+      if (T && T.rangeOn && !typhoonIdxInRange(pts, b.idx)) continue;   // 표시 날짜 범위 밖은 스킵
+      const [ax, ay] = typhoonXY(pt.lon, pt.lat);
+      p = { x: ax, y: ay, idx: b.idx };
+    }
     const [prx, pry] = camProjectXY(p.x, p.y);
     const parts = typhoonLabelParts(b, prx, pry, labK());
     if (parts.line) LB.appendChild(parts.line);
@@ -4754,32 +4786,37 @@ function playTyphoon() {
   if (pts.length < 2) { typhoonProg = null; renderTyphoon(); return; }
   const N = pts.length;
   const { lo, hi } = typhoonRangeWindow(pts); const span = Math.max(1, hi - lo);   // '표시 날짜 범위'가 켜지면 그 구간만 애니
-  const PATH = 2000, LINE = 800, SCALE = 800;   // 경로 2초(고정) · 라벨: 선 그려지고(선 절반쯤에서 박스 시작) 총 ~1.2초
-  const LABEL_TOTAL = LINE * 0.5 + SCALE;        // 한 라벨 애니 총 길이 = 1200ms
-  const hasLabels = labelList().some((b) => !b.off && b.idx != null);
+  const _tt = anim().tracks.find((x) => x.kind === 'typhoon');   // 경로 키 + 라벨별 키(미리보기도 타임라인과 동일)
+  ensureTyphoonKeys(_tt);
+  const ps = _tt ? +_tt.ps : 0, pe = _tt ? +_tt.pe : ps + 2.0;
+  const psM = ps * 1000, peM = pe * 1000;
+  const lab = (_tt && _tt.lab) || {};
+  const map = {}; let labEnd = 0;   // 라벨별 등장 절대시각(ms) + 리더/스케일 시간
+  for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
+    const e = lab[b.id]; if (!e) continue;
+    const dur = Math.max(0.05, e.e - e.s) * 1000;
+    map[b.id] = { st: e.s * 1000, LINE: dur * 0.6, SCALE: dur * 0.7 };
+    labEnd = Math.max(labEnd, e.e * 1000);
+  }
   const hasCam = camKeys().length >= 2;   // 카메라 키가 2개 이상이면 애니 확인에서 카메라도 보간해 보여준다
   const camEnd = hasCam ? Math.max(...camKeys().map((k) => k.t)) * 1000 : 0;
-  const END = Math.max(PATH + (hasLabels ? LABEL_TOTAL + 150 : 0), camEnd);   // 라벨·카메라 중 늦게 끝나는 것까지
+  const END = Math.max(peM, labEnd, camEnd) + 120;   // 경로·라벨·카메라 중 늦게 끝나는 것까지
   const easeCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);   // easeInOutCubic
-  const starts = {};   // 라벨별 '그 지점이 나타난' 시각(ms)
   let t0 = null;
   const step = (ts) => {
     if (t0 == null) t0 = ts;
     const t = ts - t0;
-    const pathK = Math.min(1, t / PATH);
-    typhoonProg = pathK >= 1 ? null : lo + easeCubic(pathK) * span;        // 범위 구간 [lo,hi]만 스으윽 이동(2초)
+    const pathK = clamp01((t - psM) / Math.max(1, peM - psM));
+    typhoonProg = pathK >= 1 ? null : lo + easeCubic(pathK) * span;        // 범위 구간 [lo,hi]만 [ps,pe] 동안 스으윽
     { const cmp = (S.typhoon && S.typhoon.compare) || []; if (cmp.length) { typhoonCmpProg = {}; for (const c of cmp) typhoonCmpProg[c.id] = pathK >= 1 ? null : easeCubic(pathK); } else typhoonCmpProg = null; }   // 0..1 비율(호길이 등속). 미리보기에선 비교선도 함께 진행(정밀 타이밍은 타임라인 재생)
-    typhoonHeadFade = 1;   // 선두 아이콘은 끝까지 보이다가 마지막 정적 아이콘으로 자연스럽게 넘어감(예전엔 90%에서 페이드아웃돼 탁 사라져 보였음)
-    const revealed = pathK >= 1 ? hi : Math.floor(lo + easeCubic(pathK) * span + 1e-6);
-    // 지점이 나타나는 순간 그 라벨 애니 시작 (범위 안 지점만)
-    for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= revealed && starts[b.id] == null) starts[b.id] = t;
-    typhoonLabelAnim = { at: t, starts, LINE, SCALE };
+    typhoonHeadFade = 1;   // 선두 아이콘은 끝까지 보이다가 마지막 정적 아이콘으로 자연스럽게 넘어감
+    typhoonLabelAnim = { at: t, map };   // t=경과 ms, st=절대 ms (t0=0이므로 일치)
     if (hasCam) applyCam(t / 1000);   // 카메라 키가 있으면 '애니메이션 확인'에서도 카메라 이동을 같이 보여준다(초 단위 = 타임라인 시각)
     renderTyphoon();
     if (t < END) typhoonRaf = requestAnimationFrame(step);
     else { typhoonProg = null; typhoonCmpProg = null; typhoonLabelAnim = null; typhoonHeadFade = 1; if (hasCam) restoreCamMap(); renderTyphoon(); }
   };
-  typhoonProg = lo; typhoonCmpProg = null; typhoonHeadFade = 1; typhoonLabelAnim = { at: 0, starts, LINE, SCALE }; renderTyphoon();
+  typhoonProg = lo; typhoonCmpProg = null; typhoonHeadFade = 1; typhoonLabelAnim = { at: 0, map }; renderTyphoon();
   typhoonRaf = requestAnimationFrame(step);
 }
 
@@ -9422,7 +9459,22 @@ async function _rasterCanvasLayers(W, H, layers) {
   return c;
 }
 // 추출 한 프레임을 캔버스에 그린다. 카메라 3D 회전이 있으면 '지도 레이어만'(블리드 포함) 워프하고 오버레이(제목·범례)는 평면으로 덮는다.
+// 렌더 전 Mapbox 실시간 타일을 data URI로 확보(현재 뷰). 준비될 때까지 대기 → 타일 미로딩 채로 렌더되는 것 방지.
+async function awaitMapboxTilesReady(timeout = 8000) {
+  const T = S.typhoon;
+  if (!(isTyphoon() && T && T.basemap === 'mapbox' && mapboxTileTemplate())) return;
+  updateMapboxTiles();   // 디바운스 우회 — 현재 뷰 타일 즉시 채움
+  const g = $('#typhoonTiles'); if (!g) return;
+  const urls = [...g.querySelectorAll('image[data-url]')].map((im) => im.getAttribute('data-url'));
+  urls.forEach((u) => fetchTileData(u));
+  const t0 = performance.now();
+  while (urls.some((u) => _tileData[u] == null)) {   // null(진행중)·undefined(미시작) 둘 다
+    if (performance.now() - t0 > timeout) break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
 async function drawExportFrame(cx, W, H) {
+  await awaitMapboxTilesReady();   // 실시간 타일이면 그 프레임 뷰의 타일이 로드된 뒤 캡처
   cx.clearRect(0, 0, W, H);
   if (!camActive3d()) {
     // 카메라 애니(지도 이동)가 없으면 지도·제목·범례는 매 프레임 동일 → 1회만 굽고, 변하는 태풍 레이어만 프레임마다 합성(전체 재래스터 ~100ms → ~40ms).
@@ -10769,7 +10821,7 @@ function wire() {
   $('#tlAuto').onclick = autoTracks;
   // 카메라 키 — 현재 시각(플레이헤드)에 지금 지도 위치·확대를 저장(같은 시각이면 갱신)
   $('#tlCamKey').onclick = () => {
-    const t = +(animT || 0);
+    const t = +(tlHeadT || 0);   // 재생헤드 위치(지도 이동으로 animT가 null 돼도 유지)
     pushUndo();
     const ks = camKeys();
     const R = camRot();
@@ -10782,11 +10834,20 @@ function wire() {
     status(`카메라 키 ${snap.t}s 저장 · 위치(${snap.x},${snap.y}) 확대 ×${snap.s.toFixed(2)}` + (ks.length < 2 ? ' — 다른 시각에 하나 더 찍으면 사이가 애니메이션됩니다' : ''));
   };
   $('#tlCamDel').onclick = () => {
-    const t = +(animT || 0), ks = camKeys();
+    const t = +(tlHeadT || 0), ks = camKeys();
     if (!ks.length) { status('카메라 키가 없습니다', true); return; }
     let bi = -1, bd = 1e9; ks.forEach((k, i) => { const d = Math.abs(k.t - t); if (d < bd) { bd = d; bi = i; } });
     if (bi >= 0 && bd < 0.3) { pushUndo(); ks.splice(bi, 1); buildTimeline(); animSeek(t); status('카메라 키 삭제'); }
     else status('현재 시각 근처에 카메라 키가 없습니다 (키를 클릭해 이동 후 삭제)', true);
+  };
+  $('#tlReset').onclick = () => {
+    pushUndo();
+    animStop();
+    S.anim = { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] };   // 모든 키·트랙·설정 초기화(카메라 키=anim.cam도 함께 사라짐)
+    camKeyEditorSel = null; const p = document.querySelector('#camKeyPop'); if (p) p.remove();
+    tlHeadT = 0; animOff();   // 재생헤드·애니 상태 리셋 → 평소 화면
+    buildTimeline(); tlNote();
+    status('타임라인 초기화됨 — 키·트랙·설정 모두 지움 (되돌리기 Ctrl+Z)');
   };
   $('#tlBake').onclick = bakeMp4;
   $('#tlExportPng').onclick = exportPngSeq;
@@ -10804,7 +10865,15 @@ function wire() {
   const scrub = (e) => {
     const r = $('#tlRuler').getBoundingClientRect();
     animStop();
-    animSeek((e.clientX - r.left + $('#tlGrid').scrollLeft) / tlPxPerSec());
+    const pps = tlPxPerSec();
+    let t = (e.clientX - r.left + $('#tlGrid').scrollLeft) / pps;
+    if (e.shiftKey) {   // Shift = 모든 키(카메라·경로·라벨·클립)와 0초·끝에 스냅
+      const snapTs = timelineSnapTimes();
+      const thr = 10 / pps; let best = null, bd = thr;
+      for (const st of snapTs) { const d = Math.abs(st - t); if (d < bd) { bd = d; best = st; } }
+      if (best != null) t = best;
+    }
+    animSeek(t);
   };
   $('#tlRuler').addEventListener('pointerdown', (e) => {
     scrub(e);
@@ -11406,7 +11475,41 @@ function refreshToolGroup() {
 // 원칙: 애니메이션은 '지금 만들어 둔 CG'를 시간에 따라 드러내는 것일 뿐,
 // 작업 내용(칠한 색·라벨 위치)을 바꾸지 않는다. 재생을 멈추면 renderAll()로 원상복구한다.
 const anim = () => (S.anim ||= { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] });
+// 태풍 경로 트랙 = 경로(ps 시작/pe 끝) + 라벨마다 개별 키(tr.lab[labelId]={s,e}). 카메라처럼 하위 행으로 표시.
+function typhoonTrack() { return anim().tracks.find((x) => x.kind === 'typhoon'); }
+// 애니 대상 라벨 = 숨김 아니고 지점(idx)에 붙은 것
+function typhoonLabels() { return labelList().filter((b) => !b.off && b.idx != null); }
+// 트랙 start/len 을 경로키+라벨키의 최소~최대로 동기화(기존 저장/로직 호환)
+function syncTyphoonSpan(tr) {
+  let mn = tr.ps, mx = tr.pe;
+  for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (!e) continue; mn = Math.min(mn, e.s); mx = Math.max(mx, e.e); }
+  tr.start = +Math.max(0, mn).toFixed(2);
+  tr.len = +Math.max(0.05, mx - tr.start).toFixed(2);
+}
+function ensureTyphoonKeys(tr) {
+  if (!tr) return null;
+  const s = +tr.start || 0, l = +tr.len || 3.2;
+  if (tr.ps == null) tr.ps = +s.toFixed(2);
+  if (tr.pe == null) tr.pe = +(s + Math.min(l, 2.0)).toFixed(2);   // 경로 그리기 기본 2초
+  tr.lab = tr.lab || {};
+  const labs = typhoonLabels();
+  const pts = curTyphoonPoints();
+  const { lo, hi } = typhoonRangeWindow(pts); const span = Math.max(1, hi - lo);
+  const ids = {};
+  for (const b of labs) {
+    ids[b.id] = 1;
+    if (!tr.lab[b.id]) {   // 새로 붙은 라벨: 경로가 그 지점을 지나는 시각에 등장하도록 기본값
+      const frac = span > 0 ? Math.min(1, Math.max(0, (b.idx - lo) / span)) : 0;
+      const st = tr.ps + easeInOutCInv(frac) * Math.max(0.001, tr.pe - tr.ps);
+      tr.lab[b.id] = { s: +st.toFixed(2), e: +(st + 0.9).toFixed(2) };
+    }
+  }
+  for (const id in tr.lab) if (!ids[id]) delete tr.lab[id];   // 삭제·숨김된 라벨 정리
+  syncTyphoonSpan(tr);
+  return tr;
+}
 let animT = null;      // 재생/미리보기 중인 시각(초). null 이면 평소 상태.
+let tlHeadT = 0;       // 타임라인 재생헤드 위치(초) — animT와 달리 지도 이동/정지로 null 되지 않고 유지(카메라 키 찍는 시각 기준).
 let animRAF = 0;
 let animPlaying = false;
 let tlH = 280;         // 타임라인 높이
@@ -11432,8 +11535,8 @@ const EASE_BEZIER = [0.34, 0, 0.15, 1];
 const easeOut = cubicBezier(...EASE_BEZIER);
 // 노말 VF 진입 전용 — 부드러운 가속·감속(ease-in-out)으로 천천히 미끄러져 들어온다.
 const easeVf = cubicBezier(0.4, 0, 0.2, 1);
-// 카메라 키프레임 텐션 — 대칭 벨(가운데서 가장 빠름), 양쪽 50/50 (cubic-bezier .5,0,.5,1)
-const easeCam = cubicBezier(0.5, 0, 0.5, 1);
+// 카메라 키프레임 텐션 — 앱 공통 커브(빠른 가속 → 이른 피크 → 긴 정착, 사용자 지정). 예전 대칭 벨에서 변경.
+const easeCam = cubicBezier(...EASE_BEZIER);
 // 뽕 튀어나오는 느낌 — 1을 살짝 넘었다 돌아온다
 const easePop = (p) => {
   const c = 1.70158 + 1;
@@ -11525,7 +11628,7 @@ function autoTracks() {
     // 태풍은 칠/라벨 트랙 대신 '경로 애니메이션' 트랙 하나. 길이 = 홀드 + 경로2초 + 라벨1.2초 + 꼬리1초.
     const hold = animStart(), PATHs = 2.0, LABELs = 1.2, tail = 1.0;
     pushUndo();
-    A.tracks = [{ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: +hold.toFixed(2), len: +(PATHs + LABELs).toFixed(2) }];
+    A.tracks = [{ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: +hold.toFixed(2), len: +(PATHs + LABELs).toFixed(2), ps: +hold.toFixed(2), pe: +(hold + PATHs).toFixed(2) }];   // 라벨별 키(lab)는 ensureTyphoonKeys가 채움
     for (const c of ((S.typhoon && S.typhoon.compare) || [])) A.tracks.push({ id: 'k' + seq++, kind: 'typcmp', key: c.id, start: +hold.toFixed(2), len: +PATHs.toFixed(2) });   // 비교 예보마다 타임라인 트랙(끌어서 타이밍 조정)
     A.dur = Math.max(4, Math.ceil((hold + PATHs + LABELs + tail) * 2) / 2);
     buildTimeline(); animSeek(0);
@@ -11646,20 +11749,25 @@ function renderAnimFrame(t) {
   // 태풍 지도: 경로가 스으윽 이동(2초) → 각 지점 등장 시 라벨이 개별 생성. 프레임(t)마다 결정적으로 계산.
   if (isTyphoon()) {
     animT = t;
-    const hold = animStart();                       // 시작 홀드(터치 0 · CG 1초 · VF 진입 후)
-    const T = Math.max(0, (t - hold)) * 1000;       // 태풍 애니 경과(ms)
+    // 태풍 트랙: 경로는 [ps,pe], 라벨은 각자 자기 키 [s,e]로 등장(타임라인 하위 행에서 개별 조정).
+    const _tt = anim().tracks.find((x) => x.kind === 'typhoon');
+    ensureTyphoonKeys(_tt);
     const pts = curTyphoonPoints();
     const N = Math.max(2, pts.length);
     const { lo, hi } = typhoonRangeWindow(pts); const span = Math.max(1, hi - lo);   // '표시 날짜 범위' 구간만
-    const PATH = 2000, LINE = 800, SCALE = 800;
-    const pathK = Math.min(1, T / PATH);
+    if (!_tt) { typhoonProg = null; typhoonCmpProg = null; typhoonLabelAnim = null; renderTyphoon(); applyVfEnter(t); return; }   // 트랙 없으면 정적 전체 표시
+    const ps = +_tt.ps, pe = +_tt.pe, lab = _tt.lab || {};
+    // 경로: [ps,pe] 동안 등속(이징) 진행
+    const pathK = clamp01((t - ps) / Math.max(0.001, pe - ps));
     typhoonProg = pathK >= 1 ? null : lo + easeInOutC(pathK) * span;
-    const starts = {};                              // 라벨별 '그 지점이 나타나는 시각'을 역산(프레임 무관, 범위 안 지점만)
+    // 라벨: 각 라벨의 [s,e] 키로 등장(리더+스케일 시간은 그 길이에 비례). 절대시각(ms) 기준.
+    const map = {};
     for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
-      const frac = span > 0 ? Math.min(1, Math.max(0, (b.idx - lo) / span)) : 0;
-      starts[b.id] = easeInOutCInv(frac) * PATH;
+      const e = lab[b.id]; if (!e) continue;
+      const dur = Math.max(0.05, e.e - e.s) * 1000;
+      map[b.id] = { st: e.s * 1000, LINE: dur * 0.6, SCALE: dur * 0.7 };
     }
-    typhoonLabelAnim = { at: T, starts, LINE, SCALE };
+    typhoonLabelAnim = { at: t * 1000, map };
     // 비교 예보선 진행도 — 타임라인 트랙(typcmp)이 있으면 그 시작·길이(초)로, 없으면 메인과 같은 타이밍.
     const cmp = (S.typhoon && S.typhoon.compare) || [];
     if (cmp.length) { const trk = anim().tracks; typhoonCmpProg = {}; for (const c of cmp) { const tr = trk.find((x) => x.kind === 'typcmp' && x.key === c.id); const ck = tr ? clamp01((t - tr.start) / Math.max(tr.len, 0.001)) : pathK; typhoonCmpProg[c.id] = ck >= 1 ? null : easeInOutC(ck); } }   // 0..1 비율(호길이 등속)
@@ -11812,6 +11920,7 @@ function animOff() {
 function animSeek(t) {
   const A = anim();
   t = Math.max(0, Math.min(t, A.dur));
+  tlHeadT = t;   // 재생헤드 위치 기억(카메라 키 찍는 시각 기준 — 지도 이동/정지로 animT가 null 돼도 유지)
   renderAnimFrame(t);
   $('#tlTime').textContent = t.toFixed(2) + 's';
   const head = $('#tlHead');
@@ -11820,6 +11929,7 @@ function animSeek(t) {
 
 function animPlay() {
   if (animPlaying) return animStop();
+  if (typeof typhoonRaf !== 'undefined' && typhoonRaf) { cancelAnimationFrame(typhoonRaf); typhoonRaf = 0; }   // '애니메이션 확인' 미리보기 루프가 살아 있으면 정리(겹쳐 재생돼 번쩍이는 것 방지)
   const A = anim();
   // 태풍 지도는 경로 애니가 내재적(renderAnimFrame이 시각으로 계산)이라 트랙/카메라 키가 없어도 재생된다.
   if (!A.tracks.length && !isTyphoon()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
@@ -11845,6 +11955,17 @@ function animStop() {
 }
 
 // ===================== 타임라인 UI =====================
+// Shift 스크럽·드래그가 붙을 모든 키 시각(초): 0·끝 + 카메라 키 + 태풍 경로/라벨 키 + 일반 클립 시작·끝.
+function timelineSnapTimes() {
+  const A = anim();
+  const out = [0, +A.dur];
+  for (const k of camKeys()) out.push(+k.t);
+  for (const tr of A.tracks) {
+    if (tr.kind === 'typhoon') { ensureTyphoonKeys(tr); out.push(+tr.ps, +tr.pe); for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (e) out.push(+e.s, +e.e); } }
+    else { out.push(+tr.start, +(tr.start + tr.len)); }
+  }
+  return out;
+}
 const TL_PAD = 24;
 const tlPxPerSec = () => {
   const g = $('#tlGrid');
@@ -11937,6 +12058,31 @@ function buildTimeline() {
 
     const row = document.createElement('div');
     row.className = 'tlRow';
+    if (tr.kind === 'typhoon') {   // 태풍: 카메라처럼 부모 '태풍 경로' + 하위 행(경로 / 라벨마다) 각각 시작·끝 키
+      ensureTyphoonKeys(tr);
+      row.classList.add('tlTypHead');
+      const headBar = document.createElement('div'); headBar.className = 'tlTypBar path'; headBar.style.opacity = '.28';   // 부모 행엔 전체 범위 얇은 바(정보용)
+      const layoutHead = () => { headBar.style.left = (tr.start * pps) + 'px'; headBar.style.width = Math.max(2, tr.len * pps) + 'px'; };
+      layoutHead(); row.append(headBar); rows.append(row);
+      // 하위 행 하나(라벨/경로) = 이름칸 + [시작 다이아] ─바─ [끝 다이아]. aKey/bKey = {get,set}.
+      const addSub = (label, cls, aKey, bKey) => {
+        const snm = document.createElement('div'); snm.className = 'tlName tlCamSubName';
+        snm.innerHTML = '<div class="nm"></div>'; snm.querySelector('.nm').textContent = label; snm.title = '태풍 · ' + label; names.append(snm);
+        const srow = document.createElement('div'); srow.className = 'tlRow tlCamRow tlCamProp tlTypSub';
+        const bar = document.createElement('div'); bar.className = 'tlTypBar tlTypBarGrab ' + cls;   // 바를 잡으면 전체 이동
+        const kA = document.createElement('div'); kA.className = 'tlTypKey ' + cls + ' kStart';
+        const kB = document.createElement('div'); kB.className = 'tlTypKey ' + cls + ' kEnd';
+        const layout = () => { const a = aKey.get(), b = bKey.get(); bar.style.left = (a * pps) + 'px'; bar.style.width = Math.max(2, (b - a) * pps) + 'px'; kA.style.left = (a * pps) + 'px'; kB.style.left = (b * pps) + 'px'; bar.title = label + ' 전체 이동 (' + a.toFixed(2) + '~' + b.toFixed(2) + 's)'; kA.title = label + ' 시작 ' + a.toFixed(2) + 's'; kB.title = label + ' 끝 ' + b.toFixed(2) + 's'; layoutHead(); };
+        layout();
+        kA.addEventListener('pointerdown', (e) => startTypKeyDrag(e, tr, { get: aKey.get, set: aKey.set, min: () => 0, max: () => bKey.get() - 0.05 }, layout));
+        kB.addEventListener('pointerdown', (e) => startTypKeyDrag(e, tr, { get: bKey.get, set: bKey.set, min: () => aKey.get() + 0.05, max: () => Infinity }, layout));
+        bar.addEventListener('pointerdown', (e) => startTypBarDrag(e, tr, aKey, bKey, layout));
+        srow.append(bar, kA, kB); rows.append(srow);
+      };
+      addSub('경로', 'path', { get: () => tr.ps, set: (v) => tr.ps = v }, { get: () => tr.pe, set: (v) => tr.pe = v });
+      for (const b of typhoonLabels()) { const id = b.id; if (!tr.lab[id]) continue; addSub(b.txt || '라벨', 'label', { get: () => tr.lab[id].s, set: (v) => tr.lab[id].s = v }, { get: () => tr.lab[id].e, set: (v) => tr.lab[id].e = v }); }
+      return;
+    }
     const clip = document.createElement('div');
     clip.className = 'tlClip';
     clip.style.left = (tr.start * pps) + 'px';
@@ -11963,6 +12109,14 @@ function buildTimeline() {
     const addRow = (cls) => {
       const row = document.createElement('div');
       row.className = 'tlRow tlCamRow ' + cls;
+      if (ks.length >= 2) {   // 키가 2개 이상이면 첫~끝 키를 잇는 연결 바(태풍 키처럼). 바를 잡으면 전체 이동.
+        const ts = ks.map((k) => +k.t), a = Math.min(...ts), b = Math.max(...ts);
+        const bar = document.createElement('div'); bar.className = 'tlCamBar';
+        bar.style.left = (a * pps) + 'px'; bar.style.width = Math.max(2, (b - a) * pps) + 'px';
+        bar.title = '카메라 키 전체 이동 (' + a.toFixed(2) + '~' + b.toFixed(2) + 's)';
+        bar.addEventListener('pointerdown', (e) => startCamBarDrag(e));
+        row.append(bar);
+      }
       for (const k of ks) {
         const mk = document.createElement('div');
         mk.className = 'tlCamKey' + (k.id === camKeyEditorSel ? ' sel' : '');
@@ -11979,11 +12133,41 @@ function buildTimeline() {
     addName('확대', true); addRow('tlCamProp');
     addName('회전', true); addRow('tlCamProp');
   }
-  $('#tlHead').style.left = ((animT || 0) * pps) + 'px';
+  $('#tlHead').style.left = ((animT != null ? animT : tlHeadT) * pps) + 'px';
   hideCamKeyPanel();   // 옛 도킹 패널은 숨긴다(이제 타임라인 안 + 팝오버로 편집)
   if (camKeyEditorSel && !camKeys().some((k) => k.id === camKeyEditorSel)) { camKeyEditorSel = null; const p = document.querySelector('#camKeyPop'); if (p) p.remove(); }
 }
 
+// 카메라 연결 바 드래그 — 모든 카메라 키를 함께(전체) 이동. 키 사이 간격은 유지.
+function startCamBarDrag(e) {
+  const A = anim();
+  const pps = tlPxPerSec();
+  const ks = camKeys();
+  if (ks.length < 2) return;
+  const x0 = e.clientX, t0s = ks.map((k) => +k.t), minT = Math.min(...t0s);
+  pushUndo();
+  const p0 = document.querySelector('#camKeyPop'); if (p0) p0.remove();
+  const mv = (ev) => {
+    let d = (ev.clientX - x0) / pps;
+    d = Math.max(d, -minT);   // 가장 이른 키가 0 밑으로 안 내려가게
+    ks.forEach((k, i) => { k.t = +(t0s[i] + d).toFixed(2); });
+    ks.forEach((k) => document.querySelectorAll(`.tlCamKey[data-id="${k.id}"]`).forEach((el) => el.style.left = (k.t * pps) + 'px'));
+    const ts = ks.map((k) => +k.t), a = Math.min(...ts), b = Math.max(...ts);
+    document.querySelectorAll('.tlCamRow .tlCamBar').forEach((bar) => { bar.style.left = (a * pps) + 'px'; bar.style.width = Math.max(2, (b - a) * pps) + 'px'; });
+    renderAnimFrame(+tlHeadT || 0);   // 재생헤드 고정, 미리보기만 갱신
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv);
+    window.removeEventListener('pointerup', up);
+    const end = Math.max(A.dur, ...camKeys().map((x) => x.t));
+    if (end > A.dur) A.dur = Math.ceil((end + 0.4) * 2) / 2;
+    buildTimeline();
+  };
+  window.addEventListener('pointermove', mv);
+  window.addEventListener('pointerup', up);
+  e.preventDefault();
+  e.stopPropagation();
+}
 // 카메라 키는 이제 '기존 타임라인' 안(카메라+위치/확대/회전 행)에 표시하고, 값은 다이아몬드 클릭 팝오버로 편집.
 let camKeyEditorSel = null;   // 선택된 카메라 키 id
 function hideCamKeyPanel() { const box = document.querySelector('#camKeyEditor'); if (box) { box.style.display = 'none'; box.innerHTML = ''; } }
@@ -12041,7 +12225,7 @@ function startCamKeyDrag(e, k, mk) {
   const sameKey = () => document.querySelectorAll(`.tlCamKey[data-id="${k.id}"]`);   // 카메라+위치/확대/회전 4행의 같은 키
   sameKey().forEach((d) => d.classList.add('sel'));
   pushUndo();
-  const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; const d = (ev.clientX - x0) / pps; k.t = Math.max(0, +(t0 + d).toFixed(2)); sameKey().forEach((d2) => d2.style.left = (k.t * pps) + 'px'); if (moved) { animSeek(k.t); const p = document.querySelector('#camKeyPop'); if (p) p.remove(); } };
+  const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; const d = (ev.clientX - x0) / pps; k.t = Math.max(0, +(t0 + d).toFixed(2)); sameKey().forEach((d2) => d2.style.left = (k.t * pps) + 'px'); const ts = camKeys().map((x) => +x.t), a = Math.min(...ts), b = Math.max(...ts); document.querySelectorAll('.tlCamRow .tlCamBar').forEach((bar) => { bar.style.left = (a * pps) + 'px'; bar.style.width = Math.max(2, (b - a) * pps) + 'px'; });   if (moved) { renderAnimFrame(+tlHeadT || 0); const p = document.querySelector('#camKeyPop'); if (p) p.remove(); } };   // 재생헤드 고정, 미리보기만 갱신
   const up = () => {
     window.removeEventListener('pointermove', mv);
     window.removeEventListener('pointerup', up);
@@ -12074,6 +12258,58 @@ function startClipDrag(e, tr, clip) {
     window.removeEventListener('pointermove', mv);
     window.removeEventListener('pointerup', up);
     // 길이를 넘겼으면 전체 길이를 늘린다 — 클립이 눈금자 밖으로 나가면 손댈 수가 없다
+    const end = Math.max(...A.tracks.map((x) => x.start + x.len));
+    if (end > A.dur) A.dur = Math.ceil((end + 0.4) * 2) / 2;
+    buildTimeline();
+  };
+  window.addEventListener('pointermove', mv);
+  window.addEventListener('pointerup', up);
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+// 태풍 트랙 세부 키 드래그 — spec={get,set,min,max}로 경로/라벨 각각의 시작·끝 시각을 바꾼다. layout()=그 하위 행만 즉시 갱신.
+function startTypKeyDrag(e, tr, spec, layout) {
+  const A = anim();
+  const pps = tlPxPerSec();
+  const x0 = e.clientX, v0 = spec.get();
+  pushUndo();
+  const mv = (ev) => {
+    const d = (ev.clientX - x0) / pps;
+    const v = Math.max(spec.min(), Math.min(spec.max(), +(v0 + d).toFixed(2)));
+    spec.set(v);
+    syncTyphoonSpan(tr);   // start/len = 경로키+라벨키의 최소~최대 (다른 로직·저장 호환)
+    layout();
+    renderAnimFrame(+tlHeadT || 0);   // 재생헤드는 고정, 그 시점 미리보기만 갱신
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv);
+    window.removeEventListener('pointerup', up);
+    const end = Math.max(...A.tracks.map((x) => x.start + x.len));
+    if (end > A.dur) A.dur = Math.ceil((end + 0.4) * 2) / 2;
+    buildTimeline();
+  };
+  window.addEventListener('pointermove', mv);
+  window.addEventListener('pointerup', up);
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+// 태풍 하위 행의 바 드래그 — 시작·끝 키를 함께(전체) 이동. layout()=그 행만 즉시 갱신.
+function startTypBarDrag(e, tr, aKey, bKey, layout) {
+  const A = anim();
+  const pps = tlPxPerSec();
+  const x0 = e.clientX, a0 = aKey.get(), b0 = bKey.get();
+  pushUndo();
+  const mv = (ev) => {
+    let d = (ev.clientX - x0) / pps;
+    d = Math.max(d, -a0);   // 시작이 0 밑으로 안 내려가게
+    aKey.set(+(a0 + d).toFixed(2)); bKey.set(+(b0 + d).toFixed(2));
+    syncTyphoonSpan(tr); layout(); renderAnimFrame(+tlHeadT || 0);   // 재생헤드 고정, 미리보기만 갱신
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv);
+    window.removeEventListener('pointerup', up);
     const end = Math.max(...A.tracks.map((x) => x.start + x.len));
     if (end > A.dur) A.dur = Math.ceil((end + 0.4) * 2) / 2;
     buildTimeline();
