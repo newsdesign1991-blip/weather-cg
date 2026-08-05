@@ -1209,6 +1209,21 @@
   .mapLockBtn:hover { background: color-mix(in srgb, var(--surface-c, #0e1626) 82%, transparent); color: var(--on-surface, #eef); }
   .mapLockBtn:active { transform: scale(.94); }
   .mapLockBtn.locked { background: #E5301F; color: #fff; box-shadow: 0 2px 10px rgba(229,48,31,.45); }   /* 잠김 = 틴트 레드 */
+  /* 지도 배경(위성/파랑) 선택 버튼 — 아트보드 오른쪽 바깥 위에 붙어 있음 */
+  .basemapBtn { position: absolute; top: 12px; right: -48px; z-index: 40; width: 36px; height: 36px; border-radius: 10px; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; color: var(--on-surface-var, #9fb0c8);
+    background: color-mix(in srgb, var(--surface-c, #0e1626) 62%, transparent); backdrop-filter: blur(3px); transition: background .16s, color .16s, transform .1s; }
+  .basemapBtn:hover { background: color-mix(in srgb, var(--surface-c, #0e1626) 82%, transparent); color: var(--on-surface, #eef); }
+  .basemapBtn:active { transform: scale(.94); }
+  .basemapBtn.sat { background: #1f7a52; color: #fff; box-shadow: 0 2px 10px rgba(31,122,82,.45); }   /* 위성모드 = 초록 틴트 */
+  .basemapPop { position: absolute; top: 54px; right: -56px; z-index: 45; min-width: 150px; padding: 8px; border-radius: 14px;
+    background: color-mix(in srgb, var(--surface-c, #12203a) 96%, #000); box-shadow: 0 10px 30px rgba(0,0,0,.4); border: 1px solid color-mix(in srgb, var(--on-surface,#fff) 10%, transparent); }
+  .basemapPop .bmHead { font-size: 11px; font-weight: 700; color: var(--on-surface-var, #9fb0c8); padding: 2px 6px 6px; }
+  .basemapPop .bmOpt { display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 9px; border: none; border-radius: 9px;
+    background: transparent; color: var(--on-surface, #eef); font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .basemapPop .bmOpt:hover { background: color-mix(in srgb, var(--on-surface,#fff) 10%, transparent); }
+  .basemapPop .bmOpt.on { background: color-mix(in srgb, var(--primary,#5B8CFF) 22%, transparent); }
+  .basemapPop .bmSw { width: 20px; height: 20px; border-radius: 6px; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
   #exportMask { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--surface-c, #0e1626) 88%, #000);
     opacity: 0; pointer-events: none; transition: opacity .32s cubic-bezier(.4,0,.2,1); }
   #exportMask.on { opacity: 1; pointer-events: auto; }
@@ -1991,6 +2006,14 @@
     <button id="mapLockBtn" class="mapLockBtn" title="지도 잠금/해제 — 잠그면 지도 위치가 안 움직입니다" aria-label="지도 잠금">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 0 1 6 0v3z"/></svg>
     </button>
+    <button id="basemapBtn" class="basemapBtn" title="지도 배경 — 파란 지도 / 위성 지도" aria-label="지도 배경 선택" style="display:none">
+      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 3a9 9 0 100 18 9 9 0 000-18z"/><path fill="none" stroke="currentColor" stroke-width="1.6" d="M3.5 12h17M12 3c2.6 2.4 2.6 15.6 0 18M12 3c-2.6 2.4-2.6 15.6 0 18"/></svg>
+    </button>
+    <div id="basemapPop" class="basemapPop" style="display:none">
+      <div class="bmHead">지도 배경</div>
+      <button data-bm="blue" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#173a6b,#0e2547)"></span>파란 지도</button>
+      <button data-bm="satellite" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a3a,#26506a)"></span>위성 지도</button>
+    </div>
     <canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas>
     <svg id="cg" class="paintmode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
       <defs>
@@ -2060,7 +2083,7 @@
         <rect id="typhoonOcean" x="-1920" y="-1080" width="5760" height="3240" fill="url(#typhoonOceanGrad)" style="display:none"/>
         <image id="bgImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>
         <!-- 태풍 광역 해안선(일본·중국·필리핀 등). 지도 변환(bgMapT)을 그대로 탄다. -->
-        <g id="bgMapT"><path id="typhoonGrid" style="display:none" fill="none"/><path id="typhoonLand" style="display:none"/><path id="typhoonKrBase" style="display:none"/><image id="typhoonRelief" filter="url(#typhoonReliefDark)" clip-path="url(#typhoonLandClip)" preserveAspectRatio="none" style="display:none"/><path id="typhoonKr" style="display:none"/><path id="typhoonSido" style="display:none" fill="none"/><path id="nbrNW"/><path id="nbrJP"/></g>
+        <g id="bgMapT"><image id="typhoonSat" preserveAspectRatio="none" style="display:none"/><path id="typhoonGrid" style="display:none" fill="none"/><path id="typhoonLand" style="display:none"/><path id="typhoonKrBase" style="display:none"/><image id="typhoonRelief" filter="url(#typhoonReliefDark)" clip-path="url(#typhoonLandClip)" preserveAspectRatio="none" style="display:none"/><path id="typhoonKr" style="display:none"/><path id="typhoonSido" style="display:none" fill="none"/><path id="nbrNW"/><path id="nbrJP"/></g>
       </g>
 
       <!-- 해상 특보구역. 육상 아래에 깔아야 해안선이 육지에 먹히지 않는다. -->
@@ -2175,6 +2198,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="map-data.js"></script>
 <script src="typhoon-map-data.js" onerror="window.TYPHOON_MAP=null"></script>
 <script src="typhoon-relief.js" onerror="window.TYPHOON_RELIEF=null"></script>
+<script src="typhoon-satellite.js" onerror="window.TYPHOON_SATELLITE=null"></script>
 <script src="typhoon-icon.js" onerror="window.TYPHOON_ICON=null"></script>
 <script src="fct-data.js"></script>
 <script src="img-data.js"></script>
@@ -2969,6 +2993,27 @@ function wireMapPos() {
   };
   const lk = document.getElementById('mapLock'); if (lk) lk.onchange = () => setMapLock(lk.checked);
   const btn = document.getElementById('mapLockBtn'); if (btn) btn.onclick = () => setMapLock(!S.mapLock);
+  wireBasemap();
+}
+
+// 지도 배경(파란/위성) 선택 버튼 + 팝오버
+let _basemapWired = false;
+function wireBasemap() {
+  if (_basemapWired) return;   // renderInsets가 여러 번 불려도 1회만 바인딩(리스너 중복 방지)
+  const btn = $('#basemapBtn'), pop = $('#basemapPop');
+  if (!btn || !pop) return;
+  _basemapWired = true;
+  const syncOpts = () => { const cur = (S.typhoon && S.typhoon.basemap) || 'blue'; pop.querySelectorAll('.bmOpt').forEach((b) => b.classList.toggle('on', b.dataset.bm === cur)); };
+  btn.onclick = (e) => { e.stopPropagation(); const open = pop.style.display !== 'none'; pop.style.display = open ? 'none' : ''; if (!open) syncOpts(); };
+  pop.querySelectorAll('.bmOpt').forEach((b) => { b.onclick = (e) => {
+    e.stopPropagation();
+    if (!S.typhoon) return;
+    pushUndo(); S.typhoon.basemap = b.dataset.bm;
+    pop.style.display = 'none'; renderTyphoon();
+    status(b.dataset.bm === 'satellite' ? '위성 지도' : '파란 지도', true);
+  }; });
+  // 바깥 클릭하면 팝오버 닫기
+  document.addEventListener('pointerdown', (e) => { if (pop.style.display !== 'none' && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) pop.style.display = 'none'; });
 }
 
 function renderInsets() {
@@ -3987,7 +4032,7 @@ function camUnprojectXY(sx, sy) {
 }
 
 // 태풍 데이터 시드(샘플: 6호 '장미'). 실제 연동 시 기상청 API가 issues를 채운다.
-const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', nowIdx: null, labelSel: null,
+const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'blue', nowIdx: null, labelSel: null,
   iconMode: 'image', iconScale: 0.75,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 75%)
   glowOn: 1, glowStr: 0.5, glowCol: '',   // 아이콘 글로우: 켜기 / 강도(0~1) / 색('' 이면 아이콘색 따라감)
   sidoShow: 1, sidoCol: '', sidoW: 0.8, sidoOp: 0.55,   // 남한 시도 구분선: 켜기 / 색('' 이면 강조 선색 따라감) / 굵기 / 투명도
@@ -4031,7 +4076,7 @@ function typhoonRangeWindow(pts) {
 }
 // 굽힌 배포 기본값(WCG_DEFAULTS.typhoonStyle)이 있으면 그걸 우선한 태풍 스타일 기본값.
 function typhoonStyleDefaults() { return Object.assign({}, TYPHOON_DEFAULTS, (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {}); }
-const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'bands', 'iconMode', 'iconScale', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
+const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'bands', 'iconMode', 'iconScale', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
 // 34노트(=r15) 위험구역 여유(버퍼) km — JTWC의 '34 KNOT WIND DANGER AREA'는 풍역+오차버퍼라 실제 풍역보다 크다. 이 값을 r15에 더해 크게 그린다.
 // 태풍 스타일(색·반경·지형·남한강조)을 굽힌 기본값으로 맞춘다 — 모든 해상도가 같은 색을 쓰게(진입·부팅 시).
 function applyTyphoonStyle() {
@@ -4713,6 +4758,26 @@ function _renderTyphoon() {
       relief.setAttribute('opacity', amt);
     }
   }
+  // 위성 basemap — projLL 정렬(relief와 동일). 켜지면 파란 지도(바다·육지·지형) 숨김.
+  const sat = $('#typhoonSat'); const SAT = window.TYPHOON_SATELLITE;
+  const isSat = !!(on && T && T.basemap === 'satellite' && SAT && SAT.img);
+  if (sat) {
+    if (isSat) {
+      if (sat.getAttribute('href') !== SAT.img) sat.setAttribute('href', SAT.img);
+      const [lo0, la0, lo1, la1] = SAT.bbox;
+      const tl = projLL(lo0, la1), br = projLL(lo1, la0);
+      sat.setAttribute('x', tl[0]); sat.setAttribute('y', tl[1]);
+      sat.setAttribute('width', br[0] - tl[0]); sat.setAttribute('height', br[1] - tl[1]);
+      sat.style.display = '';
+    } else sat.style.display = 'none';
+  }
+  if (isSat) {   // 위성모드: 파란 육지/바다/지형 감춤(위성이 대신 깔림)
+    if (ocean) ocean.style.display = 'none';
+    if (land) land.style.display = 'none';
+    if (krBase) krBase.style.display = 'none';
+    if (relief) relief.style.display = 'none';
+  }
+  { const bmb = $('#basemapBtn'); if (bmb) { bmb.style.display = on ? '' : 'none'; bmb.classList.toggle('sat', isSat); } if (!on) { const bp = $('#basemapPop'); if (bp) bp.style.display = 'none'; } }
   // 줌아웃하면 남한이 작아져 상세 외곽선/시도선이 겹쳐 뭉친다 → 많이 축소할수록 선을 가늘게(화면폭 축소).
   const lineZf = Math.max(0.28, Math.min(1, (S.map.s || 1) / 0.6));
   // 남한 강조 — 상세 외곽선(MAP.outline, 고해상도) + 반투명 오버레이로 뒤 음영기복이 비쳐 보이게
@@ -8901,7 +8966,7 @@ function buildCurrentPresets() {
     const T = S.typhoon;
     presets.typhoonStyle = {
       landFill: T.landFill, landStroke: T.landStroke, krShow: T.krShow, krFill: T.krFill, krStroke: T.krStroke, krStrokeW: T.krStrokeW, krOpacity: T.krOpacity, krStrokeOp: T.krStrokeOp,
-      terrain: T.terrain, iconCol: T.iconCol, iconMode: T.iconMode, iconScale: T.iconScale, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      terrain: T.terrain, iconCol: T.iconCol, basemap: T.basemap, iconMode: T.iconMode, iconScale: T.iconScale, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
       sidoShow: T.sidoShow, sidoCol: T.sidoCol, sidoW: T.sidoW, sidoOp: T.sidoOp,
       gridShow: T.gridShow, gridCol: T.gridCol, gridW: T.gridW, gridOp: T.gridOp,
       legendOrder: T.legendOrder ? T.legendOrder.slice() : undefined, legendHidden: T.legendHidden ? JSON.parse(JSON.stringify(T.legendHidden)) : undefined,
@@ -10349,7 +10414,7 @@ async function bakeDefaults() {
     const T = S.typhoon;
     presets.typhoonStyle = {
       landFill: T.landFill, landStroke: T.landStroke, krShow: T.krShow, krFill: T.krFill, krStroke: T.krStroke, krStrokeW: T.krStrokeW, krOpacity: T.krOpacity, krStrokeOp: T.krStrokeOp,
-      terrain: T.terrain, iconCol: T.iconCol, iconMode: T.iconMode, iconScale: T.iconScale, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      terrain: T.terrain, iconCol: T.iconCol, basemap: T.basemap, iconMode: T.iconMode, iconScale: T.iconScale, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
       sidoShow: T.sidoShow, sidoCol: T.sidoCol, sidoW: T.sidoW, sidoOp: T.sidoOp,
       gridShow: T.gridShow, gridCol: T.gridCol, gridW: T.gridW, gridOp: T.gridOp,
       legendOrder: T.legendOrder ? T.legendOrder.slice() : undefined, legendHidden: T.legendHidden ? JSON.parse(JSON.stringify(T.legendHidden)) : undefined,
