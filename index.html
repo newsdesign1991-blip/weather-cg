@@ -4322,7 +4322,8 @@ function typhoonScreenPts(pts) {
   for (let i = 0; i <= fl; i++) out.push(toS(pts[i], i));
   if (frac > 1e-4 && fl + 1 < pts.length) {
     const a = pts[fl], b = pts[fl + 1];
-    const ip = { lon: lerp(a.lon, b.lon, frac), lat: lerp(a.lat, b.lat, frac), r15: lerp(a.r15 || 0, b.r15 || 0, frac), r25: lerp(a.r25 || 0, b.r25 || 0, frac), r70: lerp(a.r70 || 0, b.r70 || 0, frac), label: '' };
+    // 목적지 지점(b)에 그 반경이 없으면(0) head도 0으로 — 마지막이 0인 반경을 향해 lerp하다 '유령 반경'을 그렸다 정지프레임서 사라지는 어색함 제거.
+    const ip = { lon: lerp(a.lon, b.lon, frac), lat: lerp(a.lat, b.lat, frac), r15: (b.r15 || 0) ? lerp(a.r15 || 0, b.r15 || 0, frac) : 0, r25: (b.r25 || 0) ? lerp(a.r25 || 0, b.r25 || 0, frac) : 0, r70: (b.r70 || 0) ? lerp(a.r70 || 0, b.r70 || 0, frac) : 0, label: '' };
     const s = toS(ip, fl + frac); s.head = true; out.push(s);
   }
   return out;
@@ -4768,7 +4769,7 @@ function playTyphoon() {
     const pathK = Math.min(1, t / PATH);
     typhoonProg = pathK >= 1 ? null : lo + easeCubic(pathK) * span;        // 범위 구간 [lo,hi]만 스으윽 이동(2초)
     { const cmp = (S.typhoon && S.typhoon.compare) || []; if (cmp.length) { typhoonCmpProg = {}; for (const c of cmp) typhoonCmpProg[c.id] = pathK >= 1 ? null : easeCubic(pathK); } else typhoonCmpProg = null; }   // 0..1 비율(호길이 등속). 미리보기에선 비교선도 함께 진행(정밀 타이밍은 타임라인 재생)
-    { const fk = Math.max(0, Math.min(1, (pathK - 0.55) / 0.35)); typhoonHeadFade = 1 - (fk < 0.5 ? 2 * fk * fk : 1 - Math.pow(-2 * fk + 2, 2) / 2); }   // 0.55~0.90에서 ease로 사라져(0.90엔 이미 0) 끝에 뚝 안 끊김
+    typhoonHeadFade = 1;   // 선두 아이콘은 끝까지 보이다가 마지막 정적 아이콘으로 자연스럽게 넘어감(예전엔 90%에서 페이드아웃돼 탁 사라져 보였음)
     const revealed = pathK >= 1 ? hi : Math.floor(lo + easeCubic(pathK) * span + 1e-6);
     // 지점이 나타나는 순간 그 라벨 애니 시작 (범위 안 지점만)
     for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= revealed && starts[b.id] == null) starts[b.id] = t;
