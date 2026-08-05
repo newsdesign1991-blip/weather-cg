@@ -1346,7 +1346,7 @@
         <div id="typBands"></div>
         <div class="subhead">태풍 아이콘</div>
         <div class="fieldGroup">
-          <div class="row"><label>종류</label><div class="mode" id="typIconMode" style="flex:1;display:flex"><button data-im="image" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">태풍 아이콘</button><button data-im="grade" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">강도 숫자</button></div></div>
+          <div class="row"><label>종류</label><div class="mode" id="typIconMode" style="flex:1;display:flex"><button data-im="image" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">태풍 아이콘</button><button data-im="grade" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">강도 숫자</button><button data-im="dot" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">작은 원</button></div></div>
           <div class="row"><label>전체 크기</label><input type="range" id="typIconScale" min="0.4" max="2.5" step="0.05"><span class="v" id="typIconScaleV"></span></div>
           <div class="row" id="typIconColRow"><label>색</label><input type="color" id="typIconFill"><input type="text" id="typIconHex"></div>
           <div class="row"><label>글로우</label><label class="chk" style="flex:1"><input type="checkbox" id="typGlowOn">아이콘 뒤 은은한 빛</label></div>
@@ -1846,7 +1846,7 @@
      <button id="noticeBtn" class="tourInfoBtn" title="공지사항 — 업데이트·안내 모아보기" aria-label="공지사항">
        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 002.4-2.2H9.6A2.4 2.4 0 0012 22zm6.3-6.1V11a6.3 6.3 0 00-4.8-6.12V4.2a1.5 1.5 0 10-3 0v.68A6.3 6.3 0 005.7 11v4.8L4 17.6v.9h16v-.9l-1.7-1.7z"/></svg>
      </button>
-     <button id="helperBtn" class="tourInfoBtn" title="렌더·불러오기 도우미 — 켜는 방법 보기" aria-label="도우미 안내">
+     <button id="helperBtn" class="tourInfoBtn" title="렌더·불러오기 기능 확장팩 — 켜는 방법 보기" aria-label="기능 확장팩 안내">
        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
      </button>
      </span>
@@ -2799,7 +2799,7 @@ function setStyle(name) {
   const after = presetKey(S.res, name);
   const enteringTyphoon = isTyphoon(name) && !isTyphoon(S.style);
   S.style = name;
-  if (isTyphoon(name)) { initTyphoonData(); applyTyphoonStyle(); (S.legend ||= {}).on = 1; }   // 태풍: 굽힌 스타일 강제 + 범례 기본 표시
+  if (isTyphoon(name)) { initTyphoonData(); applyTyphoonStyle(); (S.legend ||= {}).on = (MAP.styles[name] && MAP.styles[name].compare) ? 0 : 1; }   // 단일 태풍은 범례 기본 표시, 비교 지도는 기본 숨김(토글로 켬)
   updateAutoPaintSecs();
   buildZones();
   renderInsets(); // 지도 종류마다 박스를 쓰기도 안 쓰기도 한다
@@ -4069,11 +4069,17 @@ const curTyphoonPoints = () => { const it = curTyphoonIssue(); return it ? it.po
 // 화면 맞춤 — 로드된 태풍 경로 + 한반도가 다 들어오도록 자동 계산. 경로 없으면 광역 기본.
 function setTyphoonDefaultView() {
   let lo0 = 124, lo1 = 132, la0 = 33, la1 = 39;   // 한반도는 항상 포함
+  const acc = [];
   const pts = curTyphoonPoints();
-  if (pts && pts.length) {
-    for (const p of pts) { lo0 = Math.min(lo0, p.lon); lo1 = Math.max(lo1, p.lon); la0 = Math.min(la0, p.lat); la1 = Math.max(la1, p.lat); }
+  if (pts && pts.length) acc.push(...pts);
+  // 비교 지도: 모든 비교 예보선 지점도 프레임에 포함(안 그러면 라인이 화면 밖으로 잘림)
+  if (isTyphoonCompare() && S.typhoon && Array.isArray(S.typhoon.compare)) {
+    for (const c of S.typhoon.compare) { if (c && c.show && Array.isArray(c.points)) acc.push(...c.points); }
+  }
+  if (acc.length) {
+    for (const p of acc) { if (p.lon == null || p.lat == null) continue; lo0 = Math.min(lo0, p.lon); lo1 = Math.max(lo1, p.lon); la0 = Math.min(la0, p.lat); la1 = Math.max(la1, p.lat); }
   } else { lo0 = 100; lo1 = 150; la0 = 8; la1 = 47; }
-  const mlon = (lo1 - lo0) * 0.6 + 8, mlat = (la1 - la0) * 0.6 + 8;   // 여백(아주 넓게 — 주변 지역까지)
+  const mlon = (lo1 - lo0) * 0.3 + 5, mlat = (la1 - la0) * 0.3 + 5;   // 여백(라인 전체가 여유있게 보이도록)
   lo0 -= mlon; lo1 += mlon; la0 -= mlat; la1 += mlat;
   const box = [[lo0, la1], [lo1, la1], [lo0, la0], [lo1, la0]].map(([lo, la]) => projLL(lo, la));
   const xs = box.map((p) => p[0]), ys = box.map((p) => p[1]);
@@ -4201,6 +4207,11 @@ function typhoonIconEl(x, y, r, color, td, past, ws, forceImage) {
     g.appendChild(_te('circle', { r: rr, fill: faceCol, stroke: lineCol, 'stroke-width': Math.max(1.6, rr * 0.15), 'stroke-opacity': op, 'fill-opacity': op }));
     const x = rr * 0.46;
     g.appendChild(_te('path', { d: `M${-x} ${-x}L${x} ${x}M${x} ${-x}L${-x} ${x}`, fill: 'none', stroke: lineCol, 'stroke-width': Math.max(1.6, rr * 0.2), 'stroke-linecap': 'round', 'stroke-opacity': op }));   // X
+    return g;
+  }
+  if (!forceImage && (T.iconMode || 'image') === 'dot') {   // 작은 원 — 색 채움 + 흰 링 한 겹 (지난 날짜=회색)
+    const rr = r * 0.62;
+    g.appendChild(_te('circle', { r: rr, fill: past ? '#9AA3AD' : color, stroke: past ? '#C8D0DA' : '#FFFFFF', 'stroke-width': Math.max(1.6, rr * 0.32), 'stroke-opacity': past ? 0.7 : 1, 'fill-opacity': past ? 0.9 : 1 }));
     return g;
   }
   if (!forceImage && (T.iconMode || 'image') === 'grade') {   // 기상청 강도(1~5) 숫자 원 (forceImage면 건너뛰고 일러스트)
@@ -4359,10 +4370,11 @@ function ensureCmpTintFilter(hex) {
   return id;
 }
 // 비교용 '아주 작은' 태풍 아이콘(색 틴트). 선두(head)만 살짝 크게.
-function compareIconEl(x, y, color, isHead) {
+function compareIconEl(x, y, color, isHead, dot) {
   const IC = window.TYPHOON_ICON, r = isHead ? 10 : 6;
   const g = _te('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` });
-  if (IC && IC.img) { const fid = ensureCmpTintFilter(color); const h = r * 2.5, w = h * (IC.w / IC.h); g.appendChild(_te('image', { href: IC.img, x: -w / 2, y: -h / 2, width: w, height: h, preserveAspectRatio: 'xMidYMid meet', filter: 'url(#' + fid + ')' })); }
+  if (dot) { const rr = r * 1.05; g.appendChild(_te('circle', { r: rr, fill: color, stroke: '#FFFFFF', 'stroke-width': Math.max(1.4, rr * 0.34) })); }   // 작은 원 모드
+  else if (IC && IC.img) { const fid = ensureCmpTintFilter(color); const h = r * 2.5, w = h * (IC.w / IC.h); g.appendChild(_te('image', { href: IC.img, x: -w / 2, y: -h / 2, width: w, height: h, preserveAspectRatio: 'xMidYMid meet', filter: 'url(#' + fid + ')' })); }
   else g.appendChild(_te('circle', { r, fill: color, stroke: '#FFFFFF', 'stroke-width': 1.2 }));
   return g;
 }
@@ -4421,9 +4433,9 @@ function drawCompareTracks(L) {
     if (c.showIcons !== 0) {   // 아이콘 표시 눈 토글
       const total = cpts.length, iconStep = Math.max(1, Math.round(total / 10));   // ≈10개만 아이콘(과밀 방지)
       for (const p of sp) {
-        if (p.head) { g.appendChild(compareIconEl(p.x, p.y, c.color, true)); continue; }
+        if (p.head) { g.appendChild(compareIconEl(p.x, p.y, c.color, true, c.dotIcon)); continue; }
         if (Math.round(p.idx) % iconStep !== 0 && Math.round(p.idx) !== total - 1) continue;
-        g.appendChild(compareIconEl(p.x, p.y, c.color, false));
+        g.appendChild(compareIconEl(p.x, p.y, c.color, false, c.dotIcon));
       }
     }
     L.appendChild(g);
@@ -4814,7 +4826,7 @@ function addCompareForecast(auto) {
   if (!auto) pushUndo();   // 자동추가는 불러오기 쪽에서 이미 pushUndo 함
   const ex = cmp.find((c) => c.name === nm);   // 같은 이름이면 갱신(재불러오기·중복 방지)
   if (ex) ex.points = JSON.parse(JSON.stringify(pts));
-  else cmp.push({ id: 'cmp' + (seq++), name: nm, color: CMP_PALETTE[cmp.length % CMP_PALETTE.length], show: 1, showIcons: 1, points: JSON.parse(JSON.stringify(pts)) });
+  else cmp.push({ id: 'cmp' + (seq++), name: nm, color: CMP_PALETTE[cmp.length % CMP_PALETTE.length], show: 1, showIcons: 1, showName: 0, showLegend: 0, points: JSON.parse(JSON.stringify(pts)) });   // 이름표·범례 기본 꺼짐(원하면 탭에서 켬)
   buildCompareSection(); renderTyphoon(); renderLegend();
   status((ex ? '비교 갱신: ' : '비교에 추가: ') + nm + ' (' + cmp.length + '개)', true);
 }
@@ -4839,6 +4851,7 @@ function compareCardBodyHTML(c, i) {
     + `<button data-i="${i}" data-cmpdel="1" class="ghost" title="이 태풍 비교 삭제" style="flex:0 0 auto;padding:2px 8px">삭제</button></div>`
     + `<div class="subhead" style="margin:4px 0 3px">표시</div>`
     + `<label class="swtch"><span>태풍 아이콘</span><input type="checkbox" data-i="${i}" data-cmpicons="1" ${c.showIcons !== 0 ? 'checked' : ''}></label>`
+    + `<label class="swtch"><span>아이콘 대신 작은 원</span><input type="checkbox" data-i="${i}" data-cmpdot="1" ${c.dotIcon ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>이름</span><input type="checkbox" data-i="${i}" data-cmpname2="1" ${c.showName !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>범례</span><input type="checkbox" data-i="${i}" data-cmplegend="1" ${c.showLegend !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>표시 날짜범위</span><input type="checkbox" data-i="${i}" data-cmprange="1" ${c.rangeOn ? 'checked' : ''}></label>`
@@ -4863,6 +4876,7 @@ function wireCompareCard(root, cmp, i) {
   q('[data-cmpcol]').forEach((n) => { n.oninput = () => { const c = cmp[i]; if (!c) return; pushUndo('cmpcol'); c.color = n.value.toUpperCase(); const dot = root.querySelector('h3 .cmpDot'); if (dot) dot.style.background = c.color; RL(); }; });
   q('[data-cmpname]').forEach((n) => wireImeText(n, (v) => { const c = cmp[i]; if (!c) return; pushUndo('cmpname'); c.name = v; const nm = root.querySelector('h3 .cmpNm'); if (nm) nm.textContent = c.name; RL(); buildTimeline(); }));
   q('[data-cmpicons]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.showIcons = n.checked ? 1 : 0; R(); }; });
+  q('[data-cmpdot]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.dotIcon = n.checked ? 1 : 0; R(); }; });
   q('[data-cmpname2]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.showName = n.checked ? 1 : 0; R(); }; });
   q('[data-cmplegend]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.showLegend = n.checked ? 1 : 0; RL(); }; });
   q('[data-cmprange]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.rangeOn = n.checked ? 1 : 0; const box = root.querySelector('[data-rangebox]'); if (box) box.style.display = c.rangeOn ? '' : 'none'; if (c.rangeOn) { const f = root.querySelector('[data-cmpfrom]'), t = root.querySelector('[data-cmpto]'); if (f && !c.rangeFrom) c.rangeFrom = f.value; if (t && !c.rangeTo) c.rangeTo = t.value; } R(); }; });
@@ -4911,6 +4925,8 @@ function buildCompareTyphoonSections() {
 function buildCompareSection() {
   if (!isTyphoonCompare()) return;
   if (!S.typhoon) initTyphoonData();
+  const _sc = $('#panel'), _st = _sc ? _sc.scrollTop : 0;   // 재빌드 후 스크롤 위치 복원(수치라벨 체크 시 맨 위로 튀는 것 방지)
+  if (_sc) requestAnimationFrame(() => { _sc.scrollTop = _st; });
   const T = S.typhoon;
   const which = $('#tycWhichSel');
   if (which) {
@@ -5014,7 +5030,7 @@ function buildTyphoonPanel() {
   // 아이콘 종류/전체 크기
   const mode = T.iconMode || 'image';
   document.querySelectorAll('#typIconMode button').forEach((b) => b.classList.toggle('on', b.dataset.im === mode));
-  const colRow = $('#typIconColRow'); if (colRow) colRow.style.display = (mode === 'image') ? '' : 'none';   // 색은 이미지 모드만
+  const colRow = $('#typIconColRow'); if (colRow) colRow.style.display = (mode === 'image' || mode === 'dot') ? '' : 'none';   // 색은 이미지·작은원 모드
   const isc = $('#typIconScale'), iscV = $('#typIconScaleV'); const sv = (T.iconScale == null ? 1 : T.iconScale);
   if (isc) isc.value = sv; if (iscV) iscV.textContent = Math.round(sv * 100) + '%';
   // 글로우
@@ -5294,7 +5310,7 @@ function wireTyphoonPanel() {
   document.querySelectorAll('#typIconMode button').forEach((b) => { b.onclick = () => {
     pushUndo(); T().iconMode = b.dataset.im;
     document.querySelectorAll('#typIconMode button').forEach((x) => x.classList.toggle('on', x === b));
-    const cr = $('#typIconColRow'); if (cr) cr.style.display = (b.dataset.im === 'image') ? '' : 'none';
+    const cr = $('#typIconColRow'); if (cr) cr.style.display = (b.dataset.im === 'image' || b.dataset.im === 'dot') ? '' : 'none';
     renderTyphoon();
   }; });
   const isc = $('#typIconScale'); if (isc) isc.oninput = () => { pushUndo('typiconsc'); T().iconScale = +isc.value; const v = $('#typIconScaleV'); if (v) v.textContent = Math.round(isc.value * 100) + '%'; renderTyphoon(); };
@@ -5405,7 +5421,7 @@ async function fetchJma() {
       let fc; try { fc = await (await fetch(B + id + '/forecast.json', { cache: 'no-store' })).json(); } catch (e) { continue; }
       if (!Array.isArray(fc)) continue;
       const title = fc.find((p) => p.part === 'title') || {};
-      const nm = (title.name && (title.name.jp || title.name.en)) || id;
+      const nm = (title.name && (title.name.en || title.name.jp)) || id;   // 영어 이름 우선(일본어 못 읽는 경우 대비)
       const num = title.typhoonNumber || '';
       const ws = catWs[tc.category] || 25;
       const anal = fc.find((p) => p.part === 'Analysis' || (p.part && p.part.en === 'Analysis'));
@@ -8066,7 +8082,7 @@ async function fetchWrn(keepSel) {
     if (!up) {
       status('');
       if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice();   // MXF와 같은 친절한 안내 모달
-      else alert('자동 불러오기 도우미(WNS 헬퍼)가 꺼져 있습니다.');
+      else alert('자동 불러오기 기능 확장팩(WNS 헬퍼)가 꺼져 있습니다.');
       return;
     }
   }
@@ -8584,7 +8600,7 @@ const SEED_NOTICES = [{
     + '<ul>'
     + '<li><b>AE로 보내기 버튼</b> — 상단 <b>‘영상으로 추출’ 옆</b>에 <b>‘AE로 보내기’</b> 버튼이 생겼습니다.</li>'
     + '<li><b>레이어별로 자동 구성</b> — 배경·지도, 색칠(색별), 산, 경계선, 라벨(배경+글자), 제목이 각각 <b>편집 가능한 레이어</b>로 들어가고, <b>타임라인과 같은 애니메이션</b>(색별로 1초, 라벨 올라오기, VF 진입)이 자동으로 걸립니다.</li>'
-    + '<li><b>쓰는 법</b> — 버튼을 누르면 <b>‘렌더 도우미’</b>가 알아서 처리합니다(제목 폰트도 자동 설치). 도우미가 꺼져 있으면 안내창이 뜨니 처음 한 번만 켜 주세요. <b>AE가 꺼진 상태</b>에서 누르는 게 가장 깔끔합니다.</li>'
+    + '<li><b>쓰는 법</b> — 버튼을 누르면 <b>‘렌더 기능 확장팩’</b>이 알아서 처리합니다(제목 폰트도 자동 설치). 기능 확장팩이 꺼져 있으면 안내창이 뜨니 처음 한 번만 켜 주세요. <b>AE가 꺼진 상태</b>에서 누르는 게 가장 깔끔합니다.</li>'
     + '</ul>'
 }, {
   id: '2026-07-23-newfeatures', date: '2026.07.23', title: '새 기능 업데이트',
@@ -8593,7 +8609,7 @@ const SEED_NOTICES = [{
     + '<ul>'
     + '<li><b>VF 출력 기능 추가</b> — 상단 <b>‘출력 화면’</b>에서 <b>노말 VF</b>를 고르면 투명(알파) 오버레이용 화면으로 작업할 수 있습니다.</li>'
     + '<li><b>MXF · MOV 렌더 추가</b> — <b>‘영상으로 추출’</b> 창에서 <b>노말 CG는 MXF</b>, <b>노말 VF는 알파 MOV</b> 버튼으로 방송용 파일을 바로 뽑습니다.</li>'
-    + '<li><b>쓰는 법</b> — <b>MXF / MOV 버튼을 누르면 안내창</b>이 뜹니다. 처음 한 번만 그 안내대로 <b>‘렌더 도우미’</b>를 켜 두면, 이후로는 버튼만 누르면 자동으로 됩니다.</li>'
+    + '<li><b>쓰는 법</b> — <b>MXF / MOV 버튼을 누르면 안내창</b>이 뜹니다. 처음 한 번만 그 안내대로 <b>‘렌더 기능 확장팩’</b>을 켜 두면, 이후로는 버튼만 누르면 자동으로 됩니다.</li>'
     + '</ul>'
 }];
 function noticeSeenSet() { try { return new Set(JSON.parse(localStorage.getItem(NOTICE_SEEN_KEY) || '[]')); } catch (e) { return new Set(); } }
@@ -9420,7 +9436,7 @@ async function exportPngSeq() {
 const WNS_HELPER = 'http://127.0.0.1:3720';
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260806;
+const HELPER_VER_MIN = 20260820;
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
@@ -9431,7 +9447,7 @@ async function pingHelper() {
     return { up: true, ver, old: ver < HELPER_VER_MIN };
   } catch (e) { return { up: false, ver: 0, old: false }; }
 }
-// 부팅 때 한 번 확인 — 구버전 헬퍼가 켜져 있으면 상단바 도우미 버튼에 빨간 점 + (세션당 1회) 안내 팝업.
+// 부팅 때 한 번 확인 — 구버전 헬퍼가 켜져 있으면 상단바 기능 확장팩 버튼에 빨간 점 + (세션당 1회) 안내 팝업.
 async function checkHelperFreshOnBoot() {
   const st = await pingHelper();
   const b = $('#helperBtn');
@@ -9453,13 +9469,13 @@ function updateWnsButtons() {
 }
 // 헬퍼가 꺼져 있을 때 크게 보여주는 안내 (토스 카드)
 function wnsHelperOffNotice(mode) {
-  const old = mode === 'old';   // old=도우미가 켜져 있지만 구버전 → '다시 실행' 안내
+  const old = mode === 'old';   // old=기능 확장팩이 켜져 있지만 구버전 → '다시 실행' 안내
   const PATH = 'R:\\[F]_Util\\WNS\\자동시작';
   const step = (n, html) => `<div class="tossStep"><span class="n">${n}</span><div>${html}</div></div>`;
   const bodyHTML =
     (old
-      ? '도우미가 <b>구버전</b>으로 켜져 있어요. 아래대로 <b>다시 실행</b>하면 최신으로 바뀝니다. (지금도 쓸 수는 있어요.)<br><br>'
-      : '<b>기상청 불러오기</b>·<b>MXF/MOV 렌더</b> 같은 자동 기능을 쓰려면 <b>도우미</b>를 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>')
+      ? '기능 확장팩이 <b>구버전</b>으로 켜져 있어요. 아래대로 <b>다시 실행</b>하면 최신으로 바뀝니다. (지금도 쓸 수는 있어요.)<br><br>'
+      : '<b>기상청 불러오기</b>·<b>MXF/MOV 렌더</b> 같은 자동 기능을 쓰려면 <b>기능 확장팩</b>을 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>')
     + step(1, '아래 <b>[폴더 경로 복사]</b> 버튼을 누르세요.')
     + step(2, '키보드 <b>⊞Win + E</b> 로 <b>내 컴퓨터(파일 탐색기)</b>를 열고, 맨 위 <b>주소칸을 클릭</b>한 뒤 <b>Ctrl+V</b> 붙여넣고 <b>Enter</b>.')
     + step(3, '열린 폴더의 <b>WNS_START</b> 파일을 <b>더블클릭</b>. (검은 창이 잠깐 떴다 사라짐 — 켜기·다시켜기를 한 번에 합니다)')
@@ -9467,7 +9483,7 @@ function wnsHelperOffNotice(mode) {
     + `<div class="tossPath">${PATH}</div>`
     + '<div style="margin-top:10px;color:var(--on-surface-var,#778);font-size:12.5px">한 번 하면 다음부턴 PC를 켤 때 자동으로 준비됩니다 — 다시 안 해도 돼요.</div>';
   const m = tossModal({
-    title: old ? '도우미 업데이트 — 다시 실행만 하면 끝나요' : '도우미 준비 — 딱 한 번만 하면 끝나요',
+    title: old ? '기능 확장팩 업데이트 — 다시 실행만 하면 끝나요' : '기능 확장팩 준비 — 딱 한 번만 하면 끝나요',
     sub: '기상청 불러오기 · MXF/MOV 렌더',
     accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)', bodyHTML,
     footHTML: '<button class="tossBtn pri" data-copy>폴더 경로 복사</button><button class="tossBtn ghost" data-ok>닫기</button>',
@@ -9482,19 +9498,19 @@ function wnsHelperOffNotice(mode) {
     setTimeout(() => { cp.textContent = '폴더 경로 복사'; cp.style.background = ''; }, 2600);
   };
 }
-// 도우미 버튼(렌치) — 지금 도우미 상태를 확인해서 알려준다(WNS_START가 조용히 실행돼 적용됐는지 알기 위함).
+// 기능 확장팩 버튼(렌치) — 지금 기능 확장팩 상태를 확인해서 알려준다(WNS_START가 조용히 실행돼 적용됐는지 알기 위함).
 async function showHelperStatus() {
-  status('도우미 확인 중…', true);
+  status('기능 확장팩 확인 중…', true);
   const st = await pingHelper();
   const b = $('#helperBtn'); if (b) b.classList.toggle('hasNew', st.up && st.old);
-  if (!st.up) { status('도우미 꺼져 있음', true); wnsHelperOffNotice('off'); return; }
-  if (st.old) { status('도우미 구버전', true); wnsHelperOffNotice('old'); return; }
-  status('도우미 실행 중 · 최신', true);
+  if (!st.up) { status('기능 확장팩 꺼져 있음', true); wnsHelperOffNotice('off'); return; }
+  if (st.old) { status('기능 확장팩 구버전', true); wnsHelperOffNotice('old'); return; }
+  status('기능 확장팩 실행 중 · 최신', true);
   const m = tossModal({
-    title: '도우미 실행 중 · 최신이에요 ✓',
+    title: '기능 확장팩 실행 중 · 최신이에요 ✓',
     sub: 'AE로 보내기 · MXF/MOV · 기상청 불러오기 준비됨',
     accent: 'linear-gradient(135deg,#16A34A,#0E9E6E)',
-    bodyHTML: '도우미가 <b>정상 실행 중</b>이고 <b>최신 버전</b>입니다.<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b><br><br>이제 <b>AE로 보내기</b>를 눌러 리깅을 확인하세요. (버전이 여기 보이면 WNS_START로 교체가 <b>적용된 것</b>입니다.)',
+    bodyHTML: '기능 확장팩이 <b>정상 실행 중</b>이고 <b>최신 버전</b>입니다.<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b><br><br>이제 <b>AE로 보내기</b>를 눌러 리깅을 확인하세요. (버전이 여기 보이면 WNS_START로 교체가 <b>적용된 것</b>입니다.)',
     footHTML: '<button class="tossBtn pri" data-ok>확인</button>',
   });
   m.foot.querySelector('[data-ok]').onclick = m.close;
@@ -9970,11 +9986,24 @@ function aeLegendCompData() {
   return { w: bb.width * k, h: bb.height * k, x: center.x, y: center.y, items };
 }
 // 태풍 아이콘을 단독 PNG로 래스터화(AE 리깅용). past=회색, 아니면 iconCol 틴트. {blob,w,h,cx,cy} 반환(중심=cx,cy).
-async function aeIconBlob(color, past) {
+async function aeIconBlob(color, past, td, forceDot) {
   const IC = window.TYPHOON_ICON;
   const R = 90, w = Math.round(R * 3), h = Math.round(R * 3);
   let inner;
-  if (IC && IC.img) {
+  if (td) {   // 열대저압부(TD) = 원 + X (아이콘 대신). typhoonIconEl의 TD 그리기를 r=R로 재현.
+    const rr = R * 1.15, cx = w / 2, cy = h / 2;
+    const lineCol = past ? '#79828E' : '#E24C4C';
+    const faceCol = past ? '#AEB6C0' : '#FFFFFF';
+    const op = past ? 0.85 : 1;
+    const halo = rr + Math.max(1.6, rr * 0.18), xx = rr * 0.46;
+    inner = `<circle cx="${cx}" cy="${cy}" r="${halo}" fill="none" stroke="${past ? '#5A626C' : '#FFFFFF'}" stroke-width="${Math.max(1.6, rr * 0.22)}" stroke-opacity="${past ? 0.35 : 0.9}"/>`
+      + `<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${faceCol}" stroke="${lineCol}" stroke-width="${Math.max(1.6, rr * 0.15)}" stroke-opacity="${op}" fill-opacity="${op}"/>`
+      + `<path d="M${cx - xx} ${cy - xx}L${cx + xx} ${cy + xx}M${cx + xx} ${cy - xx}L${cx - xx} ${cy + xx}" fill="none" stroke="${lineCol}" stroke-width="${Math.max(1.6, rr * 0.2)}" stroke-linecap="round" stroke-opacity="${op}"/>`;
+  } else if (forceDot || ((S.typhoon || {}).iconMode || 'image') === 'dot') {   // 작은 원 모드 — 색 채움 + 흰 링 한 겹
+    const cx = w / 2, cy = h / 2, rr = R * 0.62;
+    const face = past ? '#9AA3AD' : color;
+    inner = `<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${face}" stroke="${past ? '#C8D0DA' : '#FFFFFF'}" stroke-width="${Math.max(1.6, rr * 0.32)}" stroke-opacity="${past ? 0.7 : 1}" fill-opacity="${past ? 0.9 : 1}"/>`;
+  } else if (IC && IC.img) {
     const ih = R * 2.5, iw = ih * (IC.w / IC.h);
     const filt = past
       ? `<filter id="gi" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/><feColorMatrix type="matrix" values="1 0 0 0 0.15  0 1 0 0 0.15  0 0 1 0 0.15  0 0 0 1 0"/></filter>`
@@ -10020,24 +10049,62 @@ async function sendToAE() {
     };
     if (isTyphoon()) {
       if (isTyphoonCompare()) {
-        // 비교 지도: 정적 한 장(제목·범례 제외) — 여러 예보선 리깅은 추후.
-        addImg('지도(비교)', await svgBlob((c) => { c.querySelector('#L_title')?.remove(); c.querySelector('#L_legend')?.remove(); }));
+        // 비교 지도: 리깅 — 예보선별 (색 선 + 작은 틴트 아이콘 + 이름표 + 수치라벨). 널 옮기면 선·아이콘 따라옴.
+        const T = S.typhoon;
+        const bg = addFile(await svgBlob((c) => { for (const id of ['#L_typhoon', '#L_typhoonLabels', '#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove(); }));
+        const ls = (typhoonStyleDefaults().labelStyle) || {};
+        const typhoons = [];
+        for (const c of (T.compare || [])) {
+          if (!c.show) continue;
+          const cpts = compareVisiblePoints(c);
+          if (cpts.length < 1) continue;
+          const sp = compareScreenPts(cpts, null).filter((p) => !p.head);
+          if (sp.length < 1) continue;
+          const ic = await aeIconBlob(c.color, false, false, c.dotIcon);   // 그 예보 색 아이콘(작은 원 옵션이면 원)
+          const iconFile = addFile(ic.blob);
+          const total = cpts.length, iconStep = Math.max(1, Math.round(total / 10));
+          const iconAt = [];
+          if (c.showIcons !== 0) sp.forEach((p) => { const ri = Math.round(p.idx); if (p.noIcon) return; if (ri % iconStep === 0 || ri === total - 1) iconAt.push(p.idx); });
+          const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
+          // 이름표
+          let nameLabel = null;
+          if (c.showName !== 0) {
+            let pos = c.labelPos;
+            if (!pos) { const last = sp[sp.length - 1]; const [x, y] = camProjectXY(last.x, last.y); pos = { x: x + 13, y: y - 4 }; }
+            nameLabel = { txt: aeArrow(c.name || ''), x: +pos.x, y: +pos.y, size: (c.labelSize || 34), weight: (c.labelWeight || 800), col: (c.labelCol || c.color) };
+          }
+          // 수치라벨(리치 박스)
+          const labels = [];
+          for (const lb of (c.labels || [])) {
+            if (lb.off) continue;
+            const pt = idxXY[lb.idx]; if (!pt) continue;
+            const txt = aeArrow((lb.txt != null && lb.txt !== '') ? lb.txt : ((cpts[lb.idx] && cpts[lb.idx].label) || ''));
+            const size = c.numSize || ls.size || 40;
+            const bxv = (lb.x != null ? lb.x : Math.round(pt.x + 150)), byv = (lb.y != null ? lb.y : Math.round(pt.y - 92));
+            const est = Math.max(120, ((String(txt).length) || 4) * size * 0.62 + 56);   // 박스 폭 추정(지시선 모서리용, AE에서 auto-grow)
+            labels.push({ idx: lb.idx, px: +pt.x.toFixed(1), py: +pt.y.toFixed(1), txt, bx: bxv, by: byv, bw: est, bh: size + 34, size, weight: ls.w || 600, col: (c.numCol || ls.txtCol || '#FFFFFF'), fill: c.color, fillOp: (ls.fillOp == null ? 1 : ls.fillOp), stroke: mixHex(c.color, '#FFFFFF', 0.42), strokeW: (ls.strokeW || 0), radius: (ls.radius || 14) });
+          }
+          typhoons.push({ color: c.color, lineW: (c.lineW || 2.2), iconFile, iconH: ic.h, iconRenderH: ic.iconH, iconScreenH: 15, points: sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1) })), iconAt, nameLabel, labels });
+        }
+        specLayers.push({ compareRig: { bg, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, typhoons }, name: '태풍 비교 리깅' });
       } else {
         // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
         const T = S.typhoon, pts = curTyphoonPoints(), nowIdx = typhoonNowIdx(pts);
-        const sp = typhoonScreenPts(pts).filter((p) => !p.head);
+        const sp = typhoonScreenPts(pts).filter((p) => !p.head && typhoonIdxInRange(pts, p.idx));   // '표시 날짜 범위'만 내보냄
         const iconCol = T.iconCol || '#E5231E';
         const bg = addFile(await svgBlob((c) => { for (const id of ['#L_typhoon', '#L_typhoonLabels', '#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove(); }));
-        const icC = await aeIconBlob(iconCol, false), icG = await aeIconBlob(iconCol, true);
+        const icC = await aeIconBlob(iconCol, false, false), icG = await aeIconBlob(iconCol, true, false);
+        const icTC = await aeIconBlob(iconCol, false, true), icTG = await aeIconBlob(iconCol, true, true);
         const iconColFile = addFile(icC.blob), iconGrayFile = addFile(icG.blob);
+        const iconTdColFile = addFile(icTC.blob), iconTdGrayFile = addFile(icTG.blob);
         const bands = {};
         for (const k of ['r70', 'r15', 'r25']) { const st = Object.assign({}, TYPHOON_BAND_DEF[k], (T.bands && T.bands[k]) || {}); if (!st.off) bands[k] = { fill: st.fill, fillOp: st.fillOp, stroke: st.stroke, strokeW: st.strokeW, dash: st.dash ? 1 : 0 }; }
         const points = sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1), r15: Math.round(p.r15 || 0), r25: Math.round(p.r25 || 0), r70: Math.round(p.r70 || 0), past: p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 0 }));
         const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
         const labels = [];
-        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; labels.push({ idx: b.idx, px: +p.x.toFixed(1), py: +p.y.toFixed(1), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: b.x, by: b.y, size: b.size || 40, weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', stroke: b.stroke || '#3F6BD8', strokeW: b.strokeW || 0, radius: b.radius || 14 }); }
+        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; labels.push({ idx: b.idx, px: +p.x.toFixed(1), py: +p.y.toFixed(1), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: b.x, by: b.y, bw: b._w || 120, bh: b._h || 60, size: Math.round((b.size || 40) * labK()), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK(), radius: (b.radius || 14) * labK() }); }
         const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5;   // 화면상 아이콘 높이(px) — AE 스케일 계산용
-        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, labels }, name: '태풍 리깅' });
+        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, labels }, name: '태풍 리깅' });
       }
       for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);
       if (S.legend && S.legend.on) { const lc = aeLegendCompData(); if (lc) specLayers.push({ legendComp: lc, name: '범례' }); }
@@ -12391,7 +12458,7 @@ function tourStepList() {
       target: () => { const b = document.getElementById('mPaint'); return b ? b.closest('.mode') : null; }, setup: () => tourMenuClose(), delay: 280 },
     { title: '밝기 전환 (다크 · 라이트)', body: '사이드바를 어둡게/밝게 바꿉니다. 편한 쪽으로 쓰면 되고, 작업물(방송에 나가는 지도)에는 영향이 없습니다.',
       target: () => $('#theme'), setup: () => tourMenuClose(), delay: 260 },
-    { title: '둘러보기 · 공지 · 도우미', body: '오른쪽 위 세 버튼이에요. <b>둘러보기</b>는 지금 이 설명을 다시 봅니다. <b>공지사항</b>은 업데이트·안내를 모아 보고, 빨간 점이 있으면 새 소식이 있다는 뜻이에요. <b>도우미</b>는 특보 “기상청에서 불러오기”와 MXF/MOV 렌더에 필요한 도우미를 켜는 방법을 알려줍니다(빨간 점이 뜨면 도우미를 새로 켜라는 안내).',
+    { title: '둘러보기 · 공지 · 기능 확장팩', body: '오른쪽 위 세 버튼이에요. <b>둘러보기</b>는 지금 이 설명을 다시 봅니다. <b>공지사항</b>은 업데이트·안내를 모아 보고, 빨간 점이 있으면 새 소식이 있다는 뜻이에요. <b>기능 확장팩</b>은 특보 “기상청에서 불러오기”와 MXF/MOV 렌더에 필요한 기능 확장팩을 켜는 방법을 알려줍니다(빨간 점이 뜨면 기능 확장팩을 새로 켜라는 안내).',
       target: () => $('#tbInfoGroup'), setup: () => tourMenuClose(), delay: 260 },
     { title: '왼쪽 사이드바 — 지도 조정', body: '이 카드들로 지도의 색 · 글자 · 경계선 · 산 표시 같은 세부를 조정합니다. 카드를 누르면 펼쳐져 세부 설정이 나와요.',
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
@@ -12491,7 +12558,7 @@ function wireTour() {
   $('#tourNext').onclick = tourNextOrEnd;
   $('#tourBtn').onclick = () => tourOpen(true);         // 상단바 i 버튼
   if ($('#noticeBtn')) { $('#noticeBtn').onclick = openNoticeHistory; updateNoticeDot(); }   // 상단바 공지 버튼
-  if ($('#helperBtn')) $('#helperBtn').onclick = () => { if (typeof showHelperStatus === 'function') showHelperStatus(); };   // 도우미 상태(실행중·버전·최신) 확인
+  if ($('#helperBtn')) $('#helperBtn').onclick = () => { if (typeof showHelperStatus === 'function') showHelperStatus(); };   // 기능 확장팩 상태(실행중·버전·최신) 확인
   // 투어 UI 클릭이 메뉴 '바깥 클릭 닫기'를 건드리지 않게 + 어두운 영역 클릭 무효
   $('#tourWrap').addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target.closest('#tourBlock')) e.preventDefault(); });
   window.addEventListener('keydown', (e) => {
@@ -12597,7 +12664,7 @@ if (tourWillOpen) setTimeout(() => tourOpen(false), 650);
 // 안 읽은 공지가 있으면 팝업 — 새로고침·새 접속 어느 쪽이든 매번 확인(닫으면 읽음처리돼 다신 안 뜸).
 // 투어가 뜨는 첫 방문이면 투어 뒤에 겹쳐 뜨도록 조금 늦춘다.
 setTimeout(checkNoticeOnBoot, tourWillOpen ? 1500 : 600);
-// 구버전 헬퍼가 켜져 있으면 도우미 버튼에 빨간 점 + 세션 첫 회 안내(공지 팝업 뒤에 오도록 조금 더 늦춤)
+// 구버전 헬퍼가 켜져 있으면 기능 확장팩 버튼에 빨간 점 + 세션 첫 회 안내(공지 팝업 뒤에 오도록 조금 더 늦춤)
 setTimeout(checkHelperFreshOnBoot, tourWillOpen ? 2400 : 1300);
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
