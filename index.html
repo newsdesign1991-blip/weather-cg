@@ -1224,6 +1224,12 @@
   .basemapPop .bmOpt:hover { background: color-mix(in srgb, var(--on-surface,#fff) 10%, transparent); }
   .basemapPop .bmOpt.on { background: color-mix(in srgb, var(--primary,#5B8CFF) 22%, transparent); }
   .basemapPop .bmSw { width: 20px; height: 20px; border-radius: 6px; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+  .basemapPop .bmMbx { padding: 2px 4px 4px; }
+  .basemapPop .bmMbx textarea { width: 100%; box-sizing: border-box; resize: vertical; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--on-surface,#fff) 16%, transparent);
+    background: color-mix(in srgb, #000 30%, transparent); color: var(--on-surface, #eef); font-size: 11px; font-family: inherit; padding: 6px 8px; margin: 2px 0 6px; }
+  .basemapPop .bmApply { width: 100%; border: none; border-radius: 8px; padding: 7px; background: var(--primary, #5B8CFF); color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
+  .basemapPop .bmApply:hover { filter: brightness(1.06); }
+  .basemapPop .bmMbxHint { margin: 7px 2px 0; font-size: 10.5px; line-height: 1.4; color: var(--on-surface-var, #9fb0c8); }
   #exportMask { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--surface-c, #0e1626) 88%, #000);
     opacity: 0; pointer-events: none; transition: opacity .32s cubic-bezier(.4,0,.2,1); }
   #exportMask.on { opacity: 1; pointer-events: auto; }
@@ -2012,7 +2018,15 @@
     <div id="basemapPop" class="basemapPop" style="display:none">
       <div class="bmHead">지도 배경</div>
       <button data-bm="blue" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#173a6b,#0e2547)"></span>파란 지도</button>
-      <button data-bm="satellite" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a3a,#26506a)"></span>위성 지도</button>
+      <button data-bm="satellite" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a3a,#26506a)"></span>밝은 위성지도</button>
+      <button data-bm="satdark" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#1c2b22,#14202e)"></span>어두운 위성지도</button>
+      <button data-bm="mapbox" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#2b7a5b,#1c4a6e)"></span>Mapbox 실시간 타일</button>
+      <div class="bmMbx" id="bmMbxBox" style="display:none">
+        <div class="bmHead" style="padding-top:4px">내 Mapbox 타일 URL <span style="font-weight:500;opacity:.6">· 이 브라우저에만 저장</span></div>
+        <textarea id="bmMbxUrl" rows="3" placeholder="Mapbox 스타일 URL(WMTS 포함) 또는 {z}/{x}/{y} 타일 템플릿을 붙여넣기"></textarea>
+        <button id="bmMbxApply" class="bmApply">적용</button>
+        <p class="bmMbxHint">확대/이동 시 그 영역·배율의 타일을 실시간으로 불러옵니다. 토큰이 포함되니 Mapbox에서 <b>URL 제한</b>을 걸어두는 걸 권장.</p>
+      </div>
     </div>
     <canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas>
     <svg id="cg" class="paintmode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
@@ -2083,7 +2097,7 @@
         <rect id="typhoonOcean" x="-1920" y="-1080" width="5760" height="3240" fill="url(#typhoonOceanGrad)" style="display:none"/>
         <image id="bgImg" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>
         <!-- 태풍 광역 해안선(일본·중국·필리핀 등). 지도 변환(bgMapT)을 그대로 탄다. -->
-        <g id="bgMapT"><image id="typhoonSat" preserveAspectRatio="none" style="display:none"/><path id="typhoonGrid" style="display:none" fill="none"/><path id="typhoonLand" style="display:none"/><path id="typhoonKrBase" style="display:none"/><image id="typhoonRelief" filter="url(#typhoonReliefDark)" clip-path="url(#typhoonLandClip)" preserveAspectRatio="none" style="display:none"/><path id="typhoonKr" style="display:none"/><path id="typhoonSido" style="display:none" fill="none"/><path id="nbrNW"/><path id="nbrJP"/></g>
+        <g id="bgMapT"><g id="typhoonTiles" style="display:none"></g><image id="typhoonSat" preserveAspectRatio="none" style="display:none"/><path id="typhoonGrid" style="display:none" fill="none"/><path id="typhoonLand" style="display:none"/><path id="typhoonKrBase" style="display:none"/><image id="typhoonRelief" filter="url(#typhoonReliefDark)" clip-path="url(#typhoonLandClip)" preserveAspectRatio="none" style="display:none"/><path id="typhoonKr" style="display:none"/><path id="typhoonSido" style="display:none" fill="none"/><path id="nbrNW"/><path id="nbrJP"/></g>
       </g>
 
       <!-- 해상 특보구역. 육상 아래에 깔아야 해안선이 육지에 먹히지 않는다. -->
@@ -2199,6 +2213,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="typhoon-map-data.js" onerror="window.TYPHOON_MAP=null"></script>
 <script src="typhoon-relief.js" onerror="window.TYPHOON_RELIEF=null"></script>
 <script src="typhoon-satellite.js" onerror="window.TYPHOON_SATELLITE=null"></script>
+<script src="typhoon-satellite-dark.js" onerror="window.TYPHOON_SATELLITE_DARK=null"></script>
 <script src="typhoon-icon.js" onerror="window.TYPHOON_ICON=null"></script>
 <script src="fct-data.js"></script>
 <script src="img-data.js"></script>
@@ -2996,23 +3011,104 @@ function wireMapPos() {
   wireBasemap();
 }
 
-// 지도 배경(파란/위성) 선택 버튼 + 팝오버
+// ── Mapbox 실시간 타일 (개인 URL, 브라우저 로컬에만 저장 — 프로젝트/깃 미포함) ──
+const MBX_KEY = 'wcg_mapbox_url';
+function mapboxUrlRaw() { try { return localStorage.getItem(MBX_KEY) || ''; } catch (e) { return ''; } }
+function setMapboxUrl(v) { try { if (v) localStorage.setItem(MBX_KEY, v); else localStorage.removeItem(MBX_KEY); } catch (e) {} }
+// 붙여넣은 URL을 {z}/{x}/{y} 타일 템플릿으로 정규화. 스타일/WMTS URL이면 tiles 템플릿으로 변환.
+function mapboxTileTemplate() {
+  let u = mapboxUrlRaw().trim(); if (!u) return '';
+  if (u.indexOf('{z}') >= 0) return u;   // 이미 타일 템플릿
+  const tok = (u.match(/access_token=([^&\s]+)/) || [])[1] || '';
+  const m = u.match(/styles\/v1\/([^\/]+)\/([^\/?]+)/);   // mapbox 스타일/WMTS URL
+  if (m && tok) return 'https://api.mapbox.com/styles/v1/' + m[1] + '/' + m[2] + '/tiles/256/{z}/{x}/{y}@2x?access_token=' + tok;
+  const r = u.match(/\/v4\/([^\/?]+)/);   // raster(mapbox.satellite 등)
+  if (r && tok) return 'https://api.mapbox.com/v4/' + r[1] + '/{z}/{x}/{y}@2x.jpg90?access_token=' + tok;
+  return u;   // 알 수 없으면 그대로(사용자가 직접 템플릿을 준 것으로 간주)
+}
+const _lon2xt = (lon, n) => (lon + 180) / 360 * n;
+const _lat2yt = (lat, n) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n; };
+const _yt2lat = (y, n) => { const t = Math.PI * (1 - 2 * y / n); return Math.atan(Math.sinh(t)) * 180 / Math.PI; };
+// 타일 data URI 캐시 — 실시간 타일은 외부 URL이라 SVG 래스터(3D·추출)엔 안 들어감. 로드 때 data URI로도 받아 캐시하고,
+// svgToImage(래스터)에서 href를 이 data URI로 바꿔 끼워 넣는다 → 3D 회전·영상/이미지 추출에도 타일이 나온다.
+const _tileData = {};
+function fetchTileData(url) {
+  if (_tileData[url] !== undefined) return;   // 진행중/완료
+  _tileData[url] = null;
+  fetch(url, { mode: 'cors' }).then((r) => r.blob()).then((b) => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); }))
+    .then((durl) => { _tileData[url] = durl; if (camActive3d && camActive3d()) { _tiltRasterSig = null; if (typeof applyTilt === 'function') applyTilt(); } })
+    .catch(() => { delete _tileData[url]; });
+}
+let _mbxT = 0;
+function scheduleMapboxTiles() { clearTimeout(_mbxT); _mbxT = setTimeout(updateMapboxTiles, 120); }
+function updateMapboxTiles() {
+  const g = $('#typhoonTiles'); if (!g) return;
+  const T = S.typhoon;
+  const on = isTyphoon() && T && T.basemap === 'mapbox';
+  const tmpl = on ? mapboxTileTemplate() : '';
+  if (!on || !tmpl) { g.style.display = 'none'; if (!on) g.textContent = ''; return; }
+  g.style.display = '';
+  const [W, H] = RES[S.res].size;
+  const cs = [xyToLonLat(0, 0), xyToLonLat(W, 0), xyToLonLat(0, H), xyToLonLat(W, H)];
+  let lo0 = Math.min(...cs.map((c) => c.lon)), lo1 = Math.max(...cs.map((c) => c.lon));
+  let la0 = Math.max(-85, Math.min(...cs.map((c) => c.lat))), la1 = Math.min(85, Math.max(...cs.map((c) => c.lat)));
+  let z = Math.max(2, Math.min(9, Math.round(Math.log2(2 * Math.PI * MAP.proj.scale * (S.map.s || 1) / 512))));
+  let n = Math.pow(2, z);
+  let x0 = Math.floor(_lon2xt(lo0, n)), x1 = Math.floor(_lon2xt(lo1, n));
+  let y0 = Math.floor(_lat2yt(la1, n)), y1 = Math.floor(_lat2yt(la0, n));
+  while ((x1 - x0 + 1) * (y1 - y0 + 1) > 140 && z > 2) {   // 타일 과다 방지
+    z--; n = Math.pow(2, z);
+    x0 = Math.floor(_lon2xt(lo0, n)); x1 = Math.floor(_lon2xt(lo1, n));
+    y0 = Math.floor(_lat2yt(la1, n)); y1 = Math.floor(_lat2yt(la0, n));
+  }
+  const need = {};
+  for (let ty = y0; ty <= y1; ty++) {
+    if (ty < 0 || ty >= n) continue;
+    for (let tx = x0; tx <= x1; tx++) {
+      const key = z + '/' + tx + '/' + ty; need[key] = 1;
+      if (g.querySelector('image[data-k="' + key + '"]')) continue;
+      const X = ((tx % n) + n) % n;
+      const tl = projLL(tx / n * 360 - 180, _yt2lat(ty, n)), br = projLL((tx + 1) / n * 360 - 180, _yt2lat(ty + 1, n));
+      const url = tmpl.replace('{z}', z).replace('{x}', X).replace('{y}', ty);
+      const im = _te('image', { 'data-k': key, 'data-url': url, x: tl[0], y: tl[1], width: (br[0] - tl[0]), height: (br[1] - tl[1]), preserveAspectRatio: 'none' });
+      im.setAttribute('crossorigin', 'anonymous');
+      im.setAttribute('href', url);
+      g.appendChild(im);
+      fetchTileData(url);   // 래스터(3D·추출)용 data URI도 미리 받아 캐시
+    }
+  }
+  [...g.children].forEach((ch) => { if (!need[ch.getAttribute('data-k')]) ch.remove(); });
+}
+
+// 지도 배경(파란/위성/Mapbox) 선택 버튼 + 팝오버
 let _basemapWired = false;
 function wireBasemap() {
   if (_basemapWired) return;   // renderInsets가 여러 번 불려도 1회만 바인딩(리스너 중복 방지)
-  const btn = $('#basemapBtn'), pop = $('#basemapPop');
+  const btn = $('#basemapBtn'), pop = $('#basemapPop'), box = $('#bmMbxBox'), urlIn = $('#bmMbxUrl'), applyBtn = $('#bmMbxApply');
   if (!btn || !pop) return;
   _basemapWired = true;
-  const syncOpts = () => { const cur = (S.typhoon && S.typhoon.basemap) || 'blue'; pop.querySelectorAll('.bmOpt').forEach((b) => b.classList.toggle('on', b.dataset.bm === cur)); };
+  const syncOpts = () => {
+    const cur = (S.typhoon && S.typhoon.basemap) || 'blue';
+    pop.querySelectorAll('.bmOpt').forEach((b) => b.classList.toggle('on', b.dataset.bm === cur));
+    if (box) box.style.display = cur === 'mapbox' ? '' : 'none';
+    if (urlIn && document.activeElement !== urlIn) urlIn.value = mapboxUrlRaw();
+  };
   btn.onclick = (e) => { e.stopPropagation(); const open = pop.style.display !== 'none'; pop.style.display = open ? 'none' : ''; if (!open) syncOpts(); };
   pop.querySelectorAll('.bmOpt').forEach((b) => { b.onclick = (e) => {
     e.stopPropagation();
     if (!S.typhoon) return;
     pushUndo(); S.typhoon.basemap = b.dataset.bm;
-    pop.style.display = 'none'; renderTyphoon();
-    status(b.dataset.bm === 'satellite' ? '위성 지도' : '파란 지도', true);
+    renderTyphoon();
+    if (b.dataset.bm === 'mapbox') { syncOpts(); updateMapboxTiles(); status('Mapbox 실시간 타일' + (mapboxTileTemplate() ? '' : ' — URL을 붙여넣으세요'), true); }
+    else { pop.style.display = 'none'; status({ satellite: '밝은 위성지도', satdark: '어두운 위성지도' }[b.dataset.bm] || '파란 지도', true); }
   }; });
-  // 바깥 클릭하면 팝오버 닫기
+  if (applyBtn) applyBtn.onclick = (e) => {
+    e.stopPropagation();
+    setMapboxUrl((urlIn && urlIn.value || '').trim());
+    if (S.typhoon) S.typhoon.basemap = 'mapbox';
+    renderTyphoon(); updateMapboxTiles();
+    status(mapboxTileTemplate() ? 'Mapbox 타일 적용됨' : 'URL을 확인하세요', true);
+  };
   document.addEventListener('pointerdown', (e) => { if (pop.style.display !== 'none' && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) pop.style.display = 'none'; });
 }
 
@@ -4758,9 +4854,11 @@ function _renderTyphoon() {
       relief.setAttribute('opacity', amt);
     }
   }
-  // 위성 basemap — projLL 정렬(relief와 동일). 켜지면 파란 지도(바다·육지·지형) 숨김.
-  const sat = $('#typhoonSat'); const SAT = window.TYPHOON_SATELLITE;
-  const isSat = !!(on && T && T.basemap === 'satellite' && SAT && SAT.img);
+  // 위성 basemap(밝은/어두운) — projLL 정렬(relief와 동일). 켜지면 파란 지도(바다·육지·지형) 숨김.
+  const sat = $('#typhoonSat');
+  const bmMode = (on && T) ? T.basemap : '';
+  const SAT = bmMode === 'satdark' ? window.TYPHOON_SATELLITE_DARK : window.TYPHOON_SATELLITE;
+  const isSat = !!((bmMode === 'satellite' || bmMode === 'satdark') && SAT && SAT.img);
   if (sat) {
     if (isSat) {
       if (sat.getAttribute('href') !== SAT.img) sat.setAttribute('href', SAT.img);
@@ -4771,13 +4869,16 @@ function _renderTyphoon() {
       sat.style.display = '';
     } else sat.style.display = 'none';
   }
-  if (isSat) {   // 위성모드: 파란 육지/바다/지형 감춤(위성이 대신 깔림)
+  const isMbx = !!(on && T && T.basemap === 'mapbox' && mapboxTileTemplate());   // Mapbox 실시간 타일(URL 있을 때만; 없으면 파란 지도 유지)
+  if (isSat || isMbx) {   // 위성/타일모드: 파란 육지/바다/지형 + 격자/경계선 감춤(위성이 실제 지형·해안선을 보여줌)
     if (ocean) ocean.style.display = 'none';
     if (land) land.style.display = 'none';
     if (krBase) krBase.style.display = 'none';
     if (relief) relief.style.display = 'none';
+    for (const id of ['#typhoonGrid', '#typhoonSido', '#nbrNW', '#nbrJP']) { const nn = $(id); if (nn) nn.style.display = 'none'; }
   }
-  { const bmb = $('#basemapBtn'); if (bmb) { bmb.style.display = on ? '' : 'none'; bmb.classList.toggle('sat', isSat); } if (!on) { const bp = $('#basemapPop'); if (bp) bp.style.display = 'none'; } }
+  scheduleMapboxTiles();   // 타일 그룹 표시/갱신(모드 아니면 숨김 처리)
+  { const bmb = $('#basemapBtn'); if (bmb) { bmb.style.display = on ? '' : 'none'; bmb.classList.toggle('sat', isSat || isMbx); } if (!on) { const bp = $('#basemapPop'); if (bp) bp.style.display = 'none'; } }
   // 줌아웃하면 남한이 작아져 상세 외곽선/시도선이 겹쳐 뭉친다 → 많이 축소할수록 선을 가늘게(화면폭 축소).
   const lineZf = Math.max(0.28, Math.min(1, (S.map.s || 1) / 0.6));
   // 남한 강조 — 상세 외곽선(MAP.outline, 고해상도) + 반투명 오버레이로 뒤 음영기복이 비쳐 보이게
@@ -9236,6 +9337,12 @@ async function svgToImage(W, H, keep, viewBox, stripText) {
   if (viewBox) clone.setAttribute('viewBox', viewBox);
   for (const s of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(s)?.remove();
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
+  // 실시간 Mapbox 타일: 외부 URL은 래스터에서 안 뜨므로 캐시된 data URI로 바꿔 끼운다. 없으면 제거(빈 참조 방지).
+  clone.querySelectorAll('#typhoonTiles image[data-url]').forEach((im) => {
+    const durl = _tileData[im.getAttribute('data-url')];
+    if (durl) { im.setAttribute('href', durl); try { im.removeAttribute('crossorigin'); } catch (e) {} }
+    else im.remove();
+  });
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   const xml = new XMLSerializer().serializeToString(clone);
   // data: URL로 렌더 — blob: URL은 브라우저에 따라 <img> 안 SVG의 base64 @font-face(SUITE)가 첫 렌더에 안 먹어 폴백 폰트로 새는 일이 있다. data:는 자체완결이라 폰트까지 확실히 적용된다.
