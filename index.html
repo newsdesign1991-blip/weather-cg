@@ -4603,6 +4603,13 @@ function shiftCompareLabelsBy(tx, ty, r) {
   for (const ri of imgs) { ri.x = Math.round(tx + ri.x * r); ri.y = Math.round(ty + ri.y * r); ri.w = Math.round(ri.w * r); ri.h = Math.round(ri.h * r); if (ri.px != null) { ri.px = Math.round(tx + ri.px * r); ri.py = Math.round(ty + ri.py * r); } }
 }
 // 비교 예보선들을 그린다(비교 지도 전용). 얇은 색선 + 솎은 작은 아이콘(아이콘 표시 토글·날짜범위 반영).
+// 비교 예보 아이콘을 어느 지점에 찍을지 index 집합. iconMode: 'even'(등간격 약10개)|'all'(실제 날짜별=전 지점)|'daily'(하루 하나).
+function compareIconIdxSet(c, cpts) {
+  const total = cpts.length, mode = c.iconMode || 'even', s = new Set();
+  if (mode === 'all') { for (let k = 0; k < total; k++) s.add(k); return s; }
+  if (mode === 'daily') { const seen = {}; for (let k = 0; k < total; k++) { const d = typhoonDateKST(cpts[k].tmef); const key = d || ('_' + k); if (!seen[key]) { seen[key] = 1; s.add(k); } } s.add(total - 1); return s; }
+  const step = Math.max(1, Math.round(total / 10)); for (let k = 0; k < total; k++) if (k % step === 0 || k === total - 1) s.add(k); return s;
+}
 function drawCompareTracks(L) {
   const T = S.typhoon; if (!isTyphoonCompare() || !T || !Array.isArray(T.compare) || !T.compare.length) return;
   for (const c of T.compare) {
@@ -4623,11 +4630,11 @@ function drawCompareTracks(L) {
     };
     mkLine(sp.filter((p) => p.idx <= cn), false);   // 실황 실선
     mkLine(sp.filter((p) => p.idx >= cn), true);     // 예상경로 점선(경계점 공유해 이어짐)
-    if (c.showIcons !== 0) {   // 아이콘 표시 눈 토글
-      const total = cpts.length, iconStep = Math.max(1, Math.round(total / 10));   // ≈10개만 아이콘(과밀 방지)
+    if (c.showIcons !== 0) {   // 아이콘 표시 눈 토글 — 배치는 iconMode(등간격/실제 날짜별/하루 하나)
+      const idxSet = compareIconIdxSet(c, cpts);
       for (const p of sp) {
         if (p.head) { g.appendChild(compareIconEl(p.x, p.y, c.color, true, c.dotIcon)); continue; }
-        if (Math.round(p.idx) % iconStep !== 0 && Math.round(p.idx) !== total - 1) continue;
+        if (!idxSet.has(Math.round(p.idx))) continue;
         g.appendChild(compareIconEl(p.x, p.y, c.color, false, c.dotIcon));
       }
     }
@@ -5092,7 +5099,7 @@ function compareCardBodyHTML(c, i) {
     const def = p.label || (p.tmef ? (typhoonDateKST(p.tmef) || '') : ('지점 ' + (pi + 1)));
     return `<div class="row" style="gap:5px;margin:2px 0"><label class="chk" style="flex:0 0 auto"><input type="checkbox" data-i="${i}" data-lblchk="${pi}" ${on ? 'checked' : ''}></label>`
       + `<input type="text" data-i="${i}" data-lbltxt="${pi}" value="${_cmpEsc(lb ? (lb.txt || '') : '')}" placeholder="${_cmpEsc(def)}" style="flex:1;font-size:11px${on ? '' : ';opacity:.45'}" ${on ? '' : 'disabled'}></div>`;
-  }).join('');
+  }).reverse().join('');   // 목록을 거꾸로(최신 시각이 위) — pi는 원래 지점 인덱스 유지
   const fontOpts = CMP_FONTS.map(([v, t]) => `<option value="${v}" ${(c.labelFont || '') === v ? 'selected' : ''}>${t}</option>`).join('');
   return `<div class="row" style="gap:6px;margin:0 0 6px">`
     + `<button class="eye${c.show ? '' : ' off'}" data-i="${i}" data-cmpeye="1" title="이 태풍 전체 표시/숨기기" style="flex:0 0 auto"></button>`
@@ -5102,6 +5109,7 @@ function compareCardBodyHTML(c, i) {
     + `<div class="subhead" style="margin:4px 0 3px">표시</div>`
     + `<label class="swtch"><span>태풍 아이콘</span><input type="checkbox" data-i="${i}" data-cmpicons="1" ${c.showIcons !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>아이콘 대신 작은 원</span><input type="checkbox" data-i="${i}" data-cmpdot="1" ${c.dotIcon ? 'checked' : ''}></label>`
+    + `<div class="row" style="gap:6px;margin:2px 0"><label style="flex:0 0 auto;font-size:11px">아이콘 위치</label><select data-i="${i}" data-cmpiconmode="1" style="flex:1;font-size:11px"><option value="even" ${(c.iconMode || 'even') === 'even' ? 'selected' : ''}>등간격(약 10개)</option><option value="all" ${c.iconMode === 'all' ? 'selected' : ''}>실제 날짜별(전부)</option><option value="daily" ${c.iconMode === 'daily' ? 'selected' : ''}>하루에 하나</option></select></div>`
     + `<label class="swtch"><span>이름</span><input type="checkbox" data-i="${i}" data-cmpname2="1" ${c.showName !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>범례</span><input type="checkbox" data-i="${i}" data-cmplegend="1" ${c.showLegend !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>표시 날짜범위</span><input type="checkbox" data-i="${i}" data-cmprange="1" ${c.rangeOn ? 'checked' : ''}></label>`
@@ -5127,12 +5135,13 @@ function wireCompareCard(root, cmp, i) {
   q('[data-cmpname]').forEach((n) => wireImeText(n, (v) => { const c = cmp[i]; if (!c) return; pushUndo('cmpname'); c.name = v; const nm = root.querySelector('h3 .cmpNm'); if (nm) nm.textContent = c.name; RL(); buildTimeline(); }));
   q('[data-cmpicons]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.showIcons = n.checked ? 1 : 0; R(); }; });
   q('[data-cmpdot]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.dotIcon = n.checked ? 1 : 0; R(); }; });
+  q('[data-cmpiconmode]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.iconMode = n.value; R(); }; });
   q('[data-cmpname2]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.showName = n.checked ? 1 : 0; R(); }; });
   q('[data-cmplegend]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.showLegend = n.checked ? 1 : 0; RL(); }; });
   q('[data-cmprange]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.rangeOn = n.checked ? 1 : 0; const box = root.querySelector('[data-rangebox]'); if (box) box.style.display = c.rangeOn ? '' : 'none'; if (c.rangeOn) { const f = root.querySelector('[data-cmpfrom]'), t = root.querySelector('[data-cmpto]'); if (f && !c.rangeFrom) c.rangeFrom = f.value; if (t && !c.rangeTo) c.rangeTo = t.value; } R(); }; });
   q('[data-cmpfrom]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.rangeFrom = n.value; R(); }; });
   q('[data-cmpto]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.rangeTo = n.value; R(); }; });
-  q('[data-lblchk]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; const pi = +n.dataset.lblchk; pushUndo(); c.labels = c.labels || []; const ex = c.labels.find((l) => l.idx === pi); if (n.checked) { if (!ex) c.labels.push({ idx: pi, txt: '' }); else ex.off = 0; } else if (ex) c.labels = c.labels.filter((l) => l.idx !== pi); buildCompareSection(); R(); }; });
+  q('[data-lblchk]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; const pi = +n.dataset.lblchk; pushUndo(); c.labels = c.labels || []; const ex = c.labels.find((l) => l.idx === pi); if (n.checked) { if (!ex) c.labels.push({ idx: pi, txt: '' }); else ex.off = 0; } else if (ex) c.labels = c.labels.filter((l) => l.idx !== pi); const tx = root.querySelector(`[data-lbltxt="${pi}"]`); if (tx) { tx.disabled = !n.checked; tx.style.opacity = n.checked ? '' : '.45'; if (!n.checked) tx.value = ''; } R(); }; });   // 전체 재빌드 대신 인접 입력만 갱신 → 목록 스크롤 유지(맨 위로 안 튐)
   q('[data-lbltxt]').forEach((n) => wireImeText(n, (v) => { const c = cmp[i]; if (!c) return; const pi = +n.dataset.lbltxt; const lb = (c.labels || []).find((l) => l.idx === pi); if (lb) { pushUndo('cmplbltxt'); lb.txt = v; R(); } }));
   q('[data-numsize]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.numSize = +n.value; R(); }; });
   q('[data-numcol]').forEach((n) => { n.oninput = () => { const c = cmp[i]; if (!c) return; pushUndo('cmpnumcol'); c.numCol = n.value.toUpperCase(); R(); }; });
@@ -10445,9 +10454,9 @@ async function sendToAE() {
           if (sp.length < 1) continue;
           const ic = await aeIconBlob(c.color, false, false, c.dotIcon);   // 그 예보 색 아이콘(작은 원 옵션이면 원)
           const iconFile = addFile(ic.blob);
-          const total = cpts.length, iconStep = Math.max(1, Math.round(total / 10));
+          const idxSet = compareIconIdxSet(c, cpts);   // 화면과 동일한 아이콘 배치(등간격/실제날짜별/하루하나)
           const iconAt = [];
-          if (c.showIcons !== 0) sp.forEach((p) => { const ri = Math.round(p.idx); if (p.noIcon) return; if (ri % iconStep === 0 || ri === total - 1) iconAt.push(p.idx); });
+          if (c.showIcons !== 0) sp.forEach((p) => { const ri = Math.round(p.idx); if (p.noIcon) return; if (idxSet.has(ri)) iconAt.push(p.idx); });
           const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
           // 이름표
           let nameLabel = null;
