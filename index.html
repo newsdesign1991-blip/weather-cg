@@ -4698,6 +4698,7 @@ function drawCompareLabels(LB) {
       if (S.labShadow == null ? true : S.labShadow) g.setAttribute('filter', 'url(#typhoonLabelShadow)');
       LB.appendChild(g);   // getBBox 측정 위해 먼저 부착
       const box = fillLabelBox(g, b, labK());
+      lb._w = box.w; lb._h = box.h;   // 실측 박스 크기 저장 — AE 리깅이 추정 대신 이 값을 써야 박스·지시선이 안 어긋남
       const geom = typhoonLeaderGeom(prx, pry, bx, by, box.w, box.h);
       if (_sc < 1) {   // 박스 스케일 인 — 지시선 끝(앵커) 기준으로 커진다
         const aLx = geom.useLeft ? -box.w / 2 : box.w / 2;
@@ -9804,7 +9805,7 @@ async function exportPngSeq() {
 const WNS_HELPER = 'http://127.0.0.1:3720';
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260821;
+const HELPER_VER_MIN = 20260822;
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
@@ -10474,8 +10475,8 @@ async function sendToAE() {
             const txt = aeArrow((lb.txt != null && lb.txt !== '') ? lb.txt : ((cpts[lb.idx] && cpts[lb.idx].label) || ''));
             const size = c.numSize || ls.size || 40;
             const bxv = (lb.x != null ? lb.x : Math.round(pt.x + 150)), byv = (lb.y != null ? lb.y : Math.round(pt.y - 92));
-            const est = Math.max(120, ((String(txt).length) || 4) * size * 0.62 + 56);   // 박스 폭 추정(지시선 모서리용, AE에서 auto-grow)
-            labels.push({ idx: lb.idx, px: +pt.x.toFixed(1), py: +pt.y.toFixed(1), txt, bx: bxv, by: byv, bw: est, bh: size + 34, size, weight: ls.w || 600, col: (c.numCol || ls.txtCol || '#FFFFFF'), fill: c.color, fillOp: (ls.fillOp == null ? 1 : ls.fillOp), stroke: mixHex(c.color, '#FFFFFF', 0.42), strokeW: (ls.strokeW || 0), radius: (ls.radius || 14) });
+            const est = Math.max(120, ((String(txt).length) || 4) * size * 0.62 + 56);   // 추정(화면에서 아직 안 그려져 실측이 없을 때만 폴백)
+            labels.push({ idx: lb.idx, px: +pt.x.toFixed(1), py: +pt.y.toFixed(1), txt, bx: bxv, by: byv, bw: (lb._w || est), bh: (lb._h || (size + 34)), size, weight: ls.w || 600, col: (c.numCol || ls.txtCol || '#FFFFFF'), fill: c.color, fillOp: (ls.fillOp == null ? 1 : ls.fillOp), stroke: mixHex(c.color, '#FFFFFF', 0.42), strokeW: (ls.strokeW || 0), radius: (ls.radius || 14) });
           }
           typhoons.push({ color: c.color, lineW: (c.lineW || 2.2), iconFile, iconH: ic.h, iconRenderH: ic.iconH, iconScreenH: 15, points: sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1) })), iconAt, nameLabel, labels });
         }
