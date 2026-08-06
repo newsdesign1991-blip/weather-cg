@@ -1359,6 +1359,7 @@
           <p class="hint" style="margin:4px 0 0">JTWC는 위 링크에서 통보문(.tcw)을 받아 <b>창에 끌어다 놓거나</b> 아래 <b>수동 붙여넣기</b>에 붙이면 그려집니다.</p>
         </details>
         <div class="row"><label>태풍</label><select id="typWhichSel" style="flex:1"></select></div>
+        <div class="row"><label>이름</label><input id="typName" type="text" placeholder="예: 개미 (기상청 API엔 이름이 없어 직접 입력·저장)" style="flex:1"></div>
         <div class="row"><label>발표 시각</label><select id="typIssueSel" style="flex:1"></select></div>
         <div class="btns" style="margin:6px 0"><button id="typPlay" style="flex:1">애니메이션 확인</button></div>
         <p class="hint" id="typInfo"></p>
@@ -5158,12 +5159,22 @@ function buildTyphoonPanel() {
   if (!isTyphoon()) return;
   if (!S.typhoon) initTyphoonData();
   const T = S.typhoon;
+  for (const w of (T.whichList || [])) if (!w.td && w.year) w.name = typhoonDisplayName(w.year, w.tno, false);   // 저장된 이름을 라벨에 항상 반영(파일 로드 후에도)
+  { const cur = (T.whichList || [])[T.whichSel || 0]; if (cur && !cur.td && cur.year) T.name = cur.name; }
   const which = $('#typWhichSel');
   if (which) {
     which.innerHTML = '';
     const list = T.whichList || [];
     if (list.length) { list.forEach((w, i) => { const o = document.createElement('option'); o.value = i; o.textContent = w.name; which.appendChild(o); }); which.value = String(T.whichSel || 0); which.disabled = false; }
     else { const o = document.createElement('option'); o.textContent = '(불러오기 전 · 샘플)'; which.appendChild(o); which.disabled = true; }
+  }
+  const nmeIn = $('#typName');   // 이름칸 = 현재 선택 태풍(기상청)일 때만 활성, 저장된 이름 표시
+  if (nmeIn) {
+    const cur = (T.whichList || [])[T.whichSel || 0];
+    const ok = !!(cur && !cur.td && cur.year);
+    nmeIn.disabled = !ok;
+    nmeIn.value = ok ? typNameGet(cur.year, cur.tno) : '';
+    nmeIn.placeholder = ok ? '예: 개미 (제' + cur.tno + '호에 저장)' : '기상청 태풍을 불러오면 입력';
   }
   const issueSel = $('#typIssueSel');   // ⚠ 전역 선택배열 sel을 가리지 않게 이름 분리(라벨 체크박스 핸들러가 전역 sel을 씀)
   if (issueSel) {
@@ -5529,6 +5540,14 @@ function wireTyphoonPanel() {
   const rT = $('#typRangeTo'); if (rT) rT.onchange = () => { pushUndo(); T().rangeTo = rT.value; renderTyphoon(); };
   const kin = $('#typKey'); if (kin) { kin.value = typKey(); kin.oninput = (e) => localStorage.setItem(TYP_KEY_STORE, e.target.value.trim()); }
   const which = $('#typWhichSel'); if (which) which.onchange = () => selectTyphoonFromApi(+which.value, { fromSwitch: true });
+  const nmeIn = $('#typName');   // 이름 입력 → 번호별 저장 + 라벨/제목/드롭다운 즉시 반영
+  if (nmeIn) nmeIn.oninput = (e) => {
+    const T = S.typhoon; if (!T) return;
+    const cur = (T.whichList || [])[T.whichSel || 0];
+    if (!cur || cur.td || !cur.year) return;
+    typNameSet(cur.year, cur.tno, e.target.value);
+    refreshTyphoonNames();
+  };
 }
 
 // ── 기상청 태풍정보 API (apihub typ_now.php — 특보와 같은 authKey, WNS 헬퍼 프록시) ──
@@ -5590,7 +5609,7 @@ function selectTyphoonFromApi(idx, opts) {
   S.typhoon = Object.assign({
     name: w.name, issues: [{ tmfc: '', label: '실황 + 예상경로', points: pts }], sel: 0, fromApi: true,
     src: (typhoonRaw && typhoonRaw.src === 'apihub') ? 'kma' : ((typhoonRaw && typhoonRaw.src) || 'kma'),   // 반경 이름을 나라별로 바꾸는 데 씀
-    whichList: typhoonRaw.whichList.map((x) => ({ tno: x.tno, name: x.name })), whichSel: idx, nowIdx: null, labelSel: null,
+    whichList: typhoonRaw.whichList.map((x) => ({ tno: x.tno, year: x.year, td: x.td, name: x.name })), whichSel: idx, nowIdx: null, labelSel: null,
     compare: prev.compare || [],   // 비교 목록은 불러오기(트랙 교체)에도 보존 — 여러 기관 누적 비교 가능
     refImgs: prev.refImgs || (prev.refImg ? [prev.refImg] : []), refSel: prev.refSel,   // 대고 그리는 참고 이미지는 통보문/예보 불러와도 보존(간섭 방지)
   }, style);
@@ -5688,6 +5707,29 @@ function parseJtwcTcw(text) {
   const isTD = Math.max(...points.map((p) => p.ws)) < 17;
   return [{ tno: stormNum || 'JTWC', name: (name ? name + ' ' : '') + '(JTWC' + (stormNum ? ' ' + stormNum + 'W' : '') + ')', td: isTD, points }];
 }
+// ── 태풍 번호별 이름 (기상청 typ_now API엔 이름이 없어 여기 표에 직접 저장 → 라벨/제목에 자동 부착) ──
+// 키 = "년도-번호"(예: "2026-13"). 브라우저 localStorage에 저장(개인·비동기화). 한 번 입력하면 다음 불러오기에도 유지.
+const TYP_NAME_STORE = 'wcg_typ_names';
+function typNameMap() { try { return JSON.parse(localStorage.getItem(TYP_NAME_STORE) || '{}'); } catch (e) { return {}; } }
+function typNameGet(year, tno) { if (!year || !tno) return ''; return (typNameMap()[year + '-' + tno] || '').trim(); }
+function typNameSet(year, tno, nm) { const m = typNameMap(); const k = year + '-' + tno; if (nm && nm.trim()) m[k] = nm.trim(); else delete m[k]; localStorage.setItem(TYP_NAME_STORE, JSON.stringify(m)); }
+// 드롭다운/제목에 쓸 표시명 = "제N호 태풍" + (저장된 이름이 있으면 " 개미"). TD는 이름 안 붙임.
+function typhoonDisplayName(year, tno, isTD) {
+  if (isTD) return '열대저압부(TD)';
+  const nm = typNameGet(year, tno);
+  return '제' + tno + '호 태풍' + (nm ? ' ' + nm : '');
+}
+// 이름을 바꾼 뒤 whichList 라벨·드롭다운·제목을 다시 반영(불러오기 다시 안 해도 됨).
+function refreshTyphoonNames() {
+  const T = S.typhoon; if (!T) return;
+  const fix = (arr) => { if (!arr) return; for (const w of arr) if (!w.td && w.year) w.name = typhoonDisplayName(w.year, w.tno, false); };
+  fix(T.whichList); fix(typhoonRaw && typhoonRaw.whichList);
+  const cur = (T.whichList || [])[T.whichSel || 0];
+  if (cur && !cur.td && cur.year) T.name = cur.name;   // 제목(태풍명 예상경로)도 갱신
+  const which = $('#typWhichSel'); if (which) [...which.options].forEach((o, i) => { if (T.whichList && T.whichList[i]) o.textContent = T.whichList[i].name; });
+  renderTyphoon();
+}
+
 // apihub typ_now(태풍) + td_now(TD) 파싱 → S.typhoon. TD는 연결된 태풍(TYP) 앞에 붙여 하나의 트랙(TD→태풍)으로.
 function applyTyphoonText(rawTyp, rawTd) {
   rawTyp = (rawTyp || '').trim();
@@ -5727,7 +5769,8 @@ function applyTyphoonText(rawTyp, rawTd) {
     }
     const maxWs = Math.max(0, ...typPts.map((p) => p.ws));
     const isTD = !tno || +tno === 0 || maxWs < 17;
-    whichList.push({ tno, name: isTD ? '열대저압부(TD)' : ('제' + tno + '호 태풍'), td: isTD, points: tdMerge.concat(typPts) });
+    const yr = ((byTyp[tno][0] || [])[1] || '').trim();   // c[1] = YY(년도) — 이름 표 키에 사용
+    whichList.push({ tno, year: yr, name: typhoonDisplayName(yr, tno, isTD), td: isTD, points: tdMerge.concat(typPts) });
   }
   // 연결 안 된 독립 TD
   for (const tdno of Object.keys(byTd)) {
