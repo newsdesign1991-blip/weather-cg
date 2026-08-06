@@ -4671,6 +4671,7 @@ function drawCompareLabels(LB) {
     for (let i = 0; i + 1 < full.length; i++) { _tot += Math.hypot(full[i + 1].x - full[i].x, full[i + 1].y - full[i].y); _cum.push(_tot); }
     const _fracAt = (idx) => (_tot > 0 && _cum[idx] != null) ? _cum[idx] / _tot : (full.length > 1 ? idx / (full.length - 1) : 0);
     const _cmpP = (typhoonCmpProg && typhoonCmpProg[c.id] != null) ? typhoonCmpProg[c.id] : null;   // 이 예보선 진행도(0..1), null=정지=완전표시
+    const _iconSet = (c.showIcons !== 0) ? compareIconIdxSet(c, cpts) : null;   // 그 지점에 태풍 아이콘이 이미 있으면 앵커 원 생략
     for (const lb of (c.labels || [])) {
       if (lb.off) continue;
       const pt = idxXY[lb.idx]; if (!pt) continue;
@@ -4703,8 +4704,8 @@ function drawCompareLabels(LB) {
         g.setAttribute('transform', `translate(${bx} ${by}) translate(${aLx} 0) scale(${_sc}) translate(${-aLx} 0)`);
         g.setAttribute('opacity', clamp01(_sc * 2).toFixed(3));
       }
-      // 앵커 원 — 아이콘 없는 빈 지점에 라벨이 '둥둥' 떠 보이지 않게, 그 지점에 같은 색 작은 원(지시선이 여기서 나옴).
-      LB.appendChild(_te('circle', { cx: prx.toFixed(1), cy: pry.toFixed(1), r: 6, fill: c.color, stroke: '#FFFFFF', 'stroke-width': 1.6, opacity: clamp01(_rv * 3).toFixed(3) }));
+      // 앵커 원 — 아이콘 없는 빈 지점에만 그린다(그 지점에 태풍 아이콘이 이미 있으면 생략, 겹쳐 지저분하지 않게).
+      if (!(_iconSet && _iconSet.has(lb.idx))) LB.appendChild(_te('circle', { cx: prx.toFixed(1), cy: pry.toFixed(1), r: 6, fill: c.color, stroke: '#FFFFFF', 'stroke-width': 1.6, opacity: clamp01(_rv * 3).toFixed(3) }));
       const line = _te('path', { d: geom.d, stroke: '#DCE8F7', 'stroke-width': 2.6, fill: 'none', 'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
       if (_rv < 1) { line.setAttribute('stroke-dasharray', geom.len); line.setAttribute('stroke-dashoffset', (geom.len * (1 - _rv)).toFixed(1)); }
       LB.insertBefore(line, g);   // 지시선은 박스 아래
