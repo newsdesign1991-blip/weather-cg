@@ -4169,7 +4169,7 @@ function camUnprojectXY(sx, sy) {
 }
 
 // 태풍 데이터 시드(샘플: 6호 '장미'). 실제 연동 시 기상청 API가 issues를 채운다.
-const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'blue', nowIdx: null, labelSel: null,
+const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'satdark', nowIdx: null, labelSel: null,
   iconMode: 'image', iconScale: 0.75,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 75%)
   glowOn: 1, glowStr: 0.5, glowCol: '',   // 아이콘 글로우: 켜기 / 강도(0~1) / 색('' 이면 아이콘색 따라감)
   sidoShow: 1, sidoCol: '', sidoW: 0.8, sidoOp: 0.55,   // 남한 시도 구분선: 켜기 / 색('' 이면 강조 선색 따라감) / 굵기 / 투명도
@@ -4612,7 +4612,17 @@ function drawCompareTracks(L) {
     const sp = compareScreenPts(cpts, compareProg(c.id));
     if (sp.length < 1) continue;
     const g = _te('g', { 'data-cmp': c.id });
-    if (sp.length > 1) g.appendChild(_te('path', { d: 'M' + sp.map((p) => p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join('L'), fill: 'none', stroke: c.color, 'stroke-width': (c.lineW || 2.2), 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-opacity': 0.95 }));
+    // 경로선: 실황(분석) 구간은 실선, 예상경로(예측) 구간은 점선 — 단일 태풍과 동일. 예보가 전부 예측이면 전 구간 점선.
+    const cn = typhoonDefaultNowIdx(cpts);   // 마지막 실황 지점 idx (이 뒤가 예상경로)
+    const lw = c.lineW || 2.2;
+    const mkLine = (arr, dashed) => {
+      if (arr.length < 2) return;
+      const a = { d: 'M' + arr.map((p) => p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join('L'), fill: 'none', stroke: c.color, 'stroke-width': lw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-opacity': 0.95 };
+      if (dashed) a['stroke-dasharray'] = (lw * 4).toFixed(1) + ' ' + (lw * 3.5).toFixed(1);
+      g.appendChild(_te('path', a));
+    };
+    mkLine(sp.filter((p) => p.idx <= cn), false);   // 실황 실선
+    mkLine(sp.filter((p) => p.idx >= cn), true);     // 예상경로 점선(경계점 공유해 이어짐)
     if (c.showIcons !== 0) {   // 아이콘 표시 눈 토글
       const total = cpts.length, iconStep = Math.max(1, Math.round(total / 10));   // ≈10개만 아이콘(과밀 방지)
       for (const p of sp) {
@@ -4649,6 +4659,11 @@ function drawCompareLabels(LB) {
     }
     // (2) 수치라벨 — 원래 리치 라벨 박스(fillLabelBox) 그대로 + 배경색 = 그 태풍 색. 지시선까지 단일 태풍과 동일.
     const ls = (typhoonStyleDefaults().labelStyle) || {};
+    // 비교선은 호길이(arc-length)로 그려지므로, 라벨 등장도 호길이 비율로 맞춰야 선이 그 지점에 닿는 순간과 일치한다(index 비율이면 어긋나 툭 생김).
+    const _cum = [0]; let _tot = 0;
+    for (let i = 0; i + 1 < full.length; i++) { _tot += Math.hypot(full[i + 1].x - full[i].x, full[i + 1].y - full[i].y); _cum.push(_tot); }
+    const _fracAt = (idx) => (_tot > 0 && _cum[idx] != null) ? _cum[idx] / _tot : (full.length > 1 ? idx / (full.length - 1) : 0);
+    const _cmpP = (typhoonCmpProg && typhoonCmpProg[c.id] != null) ? typhoonCmpProg[c.id] : null;   // 이 예보선 진행도(0..1), null=정지=완전표시
     for (const lb of (c.labels || [])) {
       if (lb.off) continue;
       const pt = idxXY[lb.idx]; if (!pt) continue;
@@ -4661,15 +4676,30 @@ function drawCompareLabels(LB) {
         fill: c.color, fill2: mixHex(c.color, '#000000', 0.5), stroke: mixHex(c.color, '#FFFFFF', 0.42), stroke2: mixHex(c.color, '#FFFFFF', 0.6),
         txtCol: c.numCol || ls.txtCol || '#FFFFFF', size: c.numSize || ls.size || 40,
       });
+      // 등장 애니 — 선이 이 지점(호길이 _fA)에 '닿는 순간' 라벨이 딱 완성되도록(선 도달 전 창구간에 걸쳐 스으륵).
+      // 이러면 마지막 지점도 선이 끝나며 진행도가 null이 되는 순간 이미 완성 상태라 툭 튀지 않는다.
+      let _rv = 1, _sc = 1;
+      if (typhoonCmpProg && _cmpP != null) {
+        const _fA = _fracAt(lb.idx);
+        const _wR = 0.10, _wS = 0.16;                       // 지시선(짧게)·박스(조금 먼저·천천히) 창
+        _rv = clamp01((_cmpP - _fA + _wR) / _wR);           // 선 도달 시 1
+        _sc = clamp01((_cmpP - _fA + _wS) / _wS);           // 선 도달 시 1(박스는 더 일찍 시작)
+      }
       const [bx, by] = camProjectXY(b.x, b.y);
       const g = _te('g', { transform: `translate(${bx} ${by})`, style: 'cursor:move' }); g.style.pointerEvents = 'auto';
       if (S.labShadow == null ? true : S.labShadow) g.setAttribute('filter', 'url(#typhoonLabelShadow)');
       LB.appendChild(g);   // getBBox 측정 위해 먼저 부착
       const box = fillLabelBox(g, b, labK());
       const geom = typhoonLeaderGeom(prx, pry, bx, by, box.w, box.h);
+      if (_sc < 1) {   // 박스 스케일 인 — 지시선 끝(앵커) 기준으로 커진다
+        const aLx = geom.useLeft ? -box.w / 2 : box.w / 2;
+        g.setAttribute('transform', `translate(${bx} ${by}) translate(${aLx} 0) scale(${_sc}) translate(${-aLx} 0)`);
+        g.setAttribute('opacity', clamp01(_sc * 2).toFixed(3));
+      }
       // 앵커 원 — 아이콘 없는 빈 지점에 라벨이 '둥둥' 떠 보이지 않게, 그 지점에 같은 색 작은 원(지시선이 여기서 나옴).
-      LB.appendChild(_te('circle', { cx: prx.toFixed(1), cy: pry.toFixed(1), r: 6, fill: c.color, stroke: '#FFFFFF', 'stroke-width': 1.6 }));
+      LB.appendChild(_te('circle', { cx: prx.toFixed(1), cy: pry.toFixed(1), r: 6, fill: c.color, stroke: '#FFFFFF', 'stroke-width': 1.6, opacity: clamp01(_rv * 3).toFixed(3) }));
       const line = _te('path', { d: geom.d, stroke: '#DCE8F7', 'stroke-width': 2.6, fill: 'none', 'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+      if (_rv < 1) { line.setAttribute('stroke-dasharray', geom.len); line.setAttribute('stroke-dashoffset', (geom.len * (1 - _rv)).toFixed(1)); }
       LB.insertBefore(line, g);   // 지시선은 박스 아래
       g.addEventListener('pointerdown', (e) => { e.stopPropagation(); const o = { x: lb.x, y: lb.y }; pushUndo(); dragLoop(e, (dx, dy) => { lb.x = Math.round(o.x + dx); lb.y = Math.round(o.y + dy); renderTyphoon(); }); });
       g.addEventListener('dblclick', (e) => { e.stopPropagation(); const nv = prompt('라벨 내용', b.txt); if (nv != null) { pushUndo(); lb.txt = nv; buildCompareSection(); renderTyphoon(); } });
@@ -7379,8 +7409,21 @@ function wrnRank(r) {
   return wrnOrder.length + (ti < 0 ? 999 : ti) * 10 + (/경보/.test(r.lvl) ? 0 : 1);
 }
 
+// 특보 지도 재오픈 복원 — wrnRows/wrnOrder는 런타임 변수라 저장/로드 때 사라져, 재오픈하면 특보 목록이 비고
+// 색·on/off 편집이 안 먹었다. 저장된 S.wrnActive(+S.wrnOrder)로 목록·순서만 재구성한다.
+// (지도에 칠해진 색은 이미 저장된 S.fillsByStyle로 renderFills가 그렸으므로 여기선 다시 칠하지 않는다 — 수동 클릭 색 보존)
+function restoreWrnRuntime() {
+  if (S.style !== 'warn' && S.style !== 'warnsea') return;
+  if (wrnRows.length) return;                            // 이미 불러온 특보가 있으면 건드리지 않음
+  const saved = S.wrnActive;
+  if (!Array.isArray(saved) || !saved.length) return;
+  wrnRows = saved.map((r) => ({ id: r.id, wrn: r.wrn, lvl: r.lvl, tmfc: r.tmfc, tmef: r.tmef }));
+  wrnOrder = (Array.isArray(S.wrnOrder) && S.wrnOrder.length) ? S.wrnOrder.slice() : defaultWrnOrder(wrnRows, Object.keys(S.wrnColors));
+  buildWrnList();   // 목록만 다시 그린다(색칠은 그대로)
+}
+
 let wrnAllEvents = [];   // 불러온 모든 특보 이벤트(발표/해제 등) — 통보문 드롭다운·발표시각 재생에 쓴다
-let wrnSelFc = '';       // 지금 지도에 표출 중인 '발표시각(통보문)'
+let wrnSelFc = '';       // 지금 지도에 표출 중인 '발효시각(통보문)'
 function applyWrn(txt, keepSel) {
   const parsed = parseWrn(txt);
   if (!parsed.length) { alert('특보 데이터를 못 읽었습니다. apihub 응답을 그대로 붙여넣었는지 확인해 주세요.'); return; }
@@ -7414,6 +7457,7 @@ function showWrnAsOf(fc, announce) {
   // 이게 없으면 프로젝트를 다시 열었을 때 겹쳐 가려진 특보(예: 폭염 밑 열대야)가 AE 내보내기에서 빠진다.
   S.wrnActive = rows.map((r) => ({ id: r.id, wrn: r.wrn, lvl: r.lvl, tmfc: r.tmfc, tmef: r.tmef }));
   wrnOrder = defaultWrnOrder(wrnRows, Object.keys(S.wrnColors));
+  S.wrnOrder = wrnOrder.slice();   // 겹침 우선순위를 프로젝트에 저장(재오픈·AE 쌓임순서 보존)
   S.wrnOff = S.wrnOff || {};
   // 예비특보는 기본으로 꺼둔다(한 번도 안 건드린 것만).
   let pre = 0;
@@ -7585,6 +7629,7 @@ function buildWrnList() {
         if (!Number.isInteger(from) || from === to) return;
         pushUndo();
         wrnOrder = moveWrnOrder(list.map(wrnKeyOf), from, to);
+        S.wrnOrder = wrnOrder.slice();   // 바꾼 우선순위를 저장(재오픈·AE 순서 보존)
         buildWrnList(); paintWrn();
       };
     }
@@ -10054,6 +10099,7 @@ async function exportBlobs(key) {
   if (key === 'sidoline') return [{ name: '시도선', blob: await svgBlob((c) => {
     keepLayers(c, ['L_map']);
     c.querySelector('#L_map')?.removeAttribute('filter');   // 그림자(#shadowF)는 베이스 지도에만 — 선 레이어엔 없앤다
+    c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());   // 브러쉬는 '색칠만'에만 — 시도선(투명)엔 빼기
     c.querySelector('#gMainSoft')?.remove();   // 부드러운 경계 오버레이도 제거 — 시도선만 남긴다
     // 시도 경계선(sidoMain)만 남긴다 — 존 색·시군 경계선·실루엣은 전부 없앤다.
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
@@ -10135,6 +10181,7 @@ async function aeBrushBlob(col) {
 async function aeLinesBlob() {
   return svgBlob((c) => {
     keepLayers(c, ['L_map']);
+    c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());   // 브러쉬는 전용 aeBrushBlob에만 — 경계선 레이어엔 빼기
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
   });
@@ -10173,6 +10220,7 @@ async function aeWarningFillBlob(def) {
   return svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
     c.querySelector('#L_map')?.removeAttribute('filter');
+    c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());   // 브러쉬는 전용 레이어에만 — 특보색 레이어엔 빼기
     c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());   // 본토+인셋 시도선·시군선 전부 제거(인셋 sidoLine이 남아 색/특보색 레이어에 지도라인이 새던 문제)
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
@@ -10191,6 +10239,7 @@ async function aeFillBlob(col) {
   return svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
     c.querySelector('#L_map')?.removeAttribute('filter');   // 색칠 레이어엔 지도 그림자(#shadowF) 빼기
+    c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());   // 브러쉬는 전용 aeBrushBlob에만 — 색별 존 레이어에 남으면 이중 렌더
     c.querySelectorAll('.zoneLine, .sidoLine').forEach((n) => n.remove());   // 본토+인셋 시도선·시군선 전부 제거(인셋 sidoLine이 남아 색/특보색 레이어에 지도라인이 새던 문제)
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
@@ -10788,6 +10837,7 @@ function loadProjectData(data, handle) {
   buildZones(); markStyleBtns(); markResBtns();
   buildBgBtns(); markCgMode();
   syncPanelFromState(); renderAll();
+  restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게)
   buildTimeline();
   showPresetInfo();
   projFileHandle = handle || null;   // 핸들 있으면 이후 Ctrl+S가 같은 파일로
@@ -11748,6 +11798,7 @@ function autoTracks() {
     const key = c.toUpperCase();
     const bs = startOf[key] != null ? Math.max(start0, startOf[key] - ANIM_FILL_LEN) : (start0 + (cols.length + i) * step);
     push('brush', key, bs, ANIM_FILL_LEN);
+    if (startOf[key] == null) startOf[key] = bs + ANIM_FILL_LEN;   // 브러쉬만인 색도 라벨이 그 색 등장에 맞춰지게(존 색칠 없을 때 라벨이 0초로 튀던 것 방지)
   });
   // 라벨은 자기 지역 색과 같은 타이밍에 (그 색의 시작 시각). 색을 못 찾으면 첫 시작.
   const startForFill = (col) => (col && startOf[col.toUpperCase()] != null ? startOf[col.toUpperCase()] : start0);
@@ -13172,6 +13223,7 @@ if (work) {
   // (안 그러면 저장된 옛 제목 위치가 남아, 특보/예보 갔다와야 제대로 바뀌는 경로 의존 버그가 생김)
   if (typeof isTyphoon === 'function' && isTyphoon()) { const ap = applyPreset(); applyTyphoonStyle(); if (!ap) setTyphoonDefaultView(); }   // 구운 태풍 뷰가 있으면 그대로, 없으면 자동맞춤
   syncPanelFromState(); renderAll();
+  restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게)
   showPresetInfo();
   flash('하던 작업 이어서 열었습니다');
 } else {
