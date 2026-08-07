@@ -9805,7 +9805,7 @@ async function exportPngSeq() {
 const WNS_HELPER = 'http://127.0.0.1:3720';
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260822;
+const HELPER_VER_MIN = 20260823;
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
@@ -10476,7 +10476,7 @@ async function sendToAE() {
             const size = c.numSize || ls.size || 40;
             const bxv = (lb.x != null ? lb.x : Math.round(pt.x + 150)), byv = (lb.y != null ? lb.y : Math.round(pt.y - 92));
             const est = Math.max(120, ((String(txt).length) || 4) * size * 0.62 + 56);   // 추정(화면에서 아직 안 그려져 실측이 없을 때만 폴백)
-            labels.push({ idx: lb.idx, px: +pt.x.toFixed(1), py: +pt.y.toFixed(1), txt, bx: bxv, by: byv, bw: (lb._w || est), bh: (lb._h || (size + 34)), size, weight: ls.w || 600, col: (c.numCol || ls.txtCol || '#FFFFFF'), fill: c.color, fillOp: (ls.fillOp == null ? 1 : ls.fillOp), stroke: mixHex(c.color, '#FFFFFF', 0.42), strokeW: (ls.strokeW || 0), radius: (ls.radius || 14) });
+            labels.push({ idx: lb.idx, px: +pt.x.toFixed(1), py: +pt.y.toFixed(1), txt, bx: bxv, by: byv, bw: (lb._w || est), bh: (lb._h || (size + 34)), size, track: Math.round(((ls.track == null ? -1 : ls.track) / (c.numSize || ls.size || 40)) * 1000), weight: ls.w || 600, col: (c.numCol || ls.txtCol || '#FFFFFF'), fill: c.color, fillOp: (ls.fillOp == null ? 1 : ls.fillOp), stroke: mixHex(c.color, '#FFFFFF', 0.42), strokeW: (ls.strokeW || 0), radius: (ls.radius || 14) });
           }
           typhoons.push({ color: c.color, lineW: (c.lineW || 2.2), iconFile, iconH: ic.h, iconRenderH: ic.iconH, iconScreenH: 15, points: sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1) })), iconAt, nameLabel, labels });
         }
@@ -10496,7 +10496,7 @@ async function sendToAE() {
         const points = sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1), r15: Math.round(p.r15 || 0), r25: Math.round(p.r25 || 0), r70: Math.round(p.r70 || 0), past: p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 0 }));
         const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
         const labels = [];
-        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; labels.push({ idx: b.idx, px: +p.x.toFixed(1), py: +p.y.toFixed(1), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: b.x, by: b.y, bw: b._w || 120, bh: b._h || 60, size: Math.round((b.size || 40) * labK()), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK(), radius: (b.radius || 14) * labK() }); }
+        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; labels.push({ idx: b.idx, px: +p.x.toFixed(1), py: +p.y.toFixed(1), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: b.x, by: b.y, bw: b._w || 120, bh: b._h || 60, size: Math.round((b.size || 40) * labK()), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK(), radius: (b.radius || 14) * labK() }); }
         const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5;   // 화면상 아이콘 높이(px) — AE 스케일 계산용
         specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, labels }, name: '태풍 리깅' });
       }
