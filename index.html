@@ -1405,6 +1405,16 @@
       </div>
     </div>
 
+    <div class="sec special" data-sec="typhoonPlaces">
+      <h3>지명표시</h3>
+      <div class="body">
+        <div class="row wide"><input type="text" id="placeInput" placeholder="지명 입력 (예: 서울, 제주, 오키나와)" style="flex:1"><button id="placeAdd" style="flex:0 0 auto">추가</button></div>
+        <p class="hint" style="margin:2px 0 6px">지명을 넣으면 그 위치에 <b>원+이름표(같은 색)</b>가 붙습니다. 이름표는 드래그로 옮기고, 색은 목록에서 바꾸면 원도 같이 바뀝니다.</p>
+        <div class="row"><label>이름표 크기</label><input type="range" id="placeSize" min="16" max="80" step="1"><span class="v" id="placeSizeV"></span></div>
+        <div id="placeList"></div>
+      </div>
+    </div>
+
     <div class="sec special" data-sec="typhoonCompare">
       <h3>태풍 비교</h3>
       <div class="body">
@@ -2266,6 +2276,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="typhoon-satellite.js" onerror="window.TYPHOON_SATELLITE=null"></script>
 <script src="typhoon-satellite-dark.js" onerror="window.TYPHOON_SATELLITE_DARK=null"></script>
 <script src="typhoon-icon.js" onerror="window.TYPHOON_ICON=null"></script>
+<script src="place-data.js" onerror="window.PLACE_GAZ=null"></script>
 <script src="fct-data.js"></script>
 <script src="img-data.js"></script>
 <script>
@@ -2922,6 +2933,7 @@ function updateAutoPaintSecs() {
   const lg = $('[data-sec="legend"]'); if (lg) lg.style.display = ((isWarn || isTy) && !isTyCmp) ? '' : 'none';   // 범례 탭: 특보용·단일 태풍. 비교 지도에선 숨김(각 태풍 탭 안에 범례 토글)
   const lb = $('[data-sec="label"]'); if (lb) lb.style.display = isTyCmp ? 'none' : '';   // 기본 수치라벨 탭: 비교 지도에선 숨김(각 태풍 탭 안에 수치라벨)
   const ty = $('[data-sec="typhoon"]'); if (ty) ty.style.display = (isTy && !isTyCmp) ? '' : 'none';   // 단일 태풍 메뉴는 비교 지도에선 숨김
+  const tp = $('[data-sec="typhoonPlaces"]'); if (tp) tp.style.display = (isTy && !isTyCmp) ? '' : 'none';   // 지명표시: 단일 태풍 지도에서만
   const tyc = $('[data-sec="typhoonCompare"]'); if (tyc) tyc.style.display = isTyCmp ? '' : 'none';
   if (!isTyCmp) { const panel = document.querySelector('#panel'); if (panel) panel.querySelectorAll('.sec[data-cmpsec]').forEach((n) => n.remove()); if (typeof clearRefImgLayer === 'function') clearRefImgLayer(); }   // 비교 지도 벗어나면 동적 태풍 탭·참고이미지 제거
   const mt = $('[data-sec="mtn"]'); if (mt) mt.style.display = isTy ? 'none' : '';   // 태풍 지도에선 산 표시 메뉴 숨김
@@ -2931,6 +2943,7 @@ function updateAutoPaintSecs() {
   swap('[data-sec="label"]', '.korLabel', '.tyLabel');
   swap('[data-sec="legend"]', '.lgWarnOnly', '.lgTyOnly');   // 범례: 특보용 목록 ↔ 태풍 강도/반경 선택 목록
   if (isTy) { buildTyphoonPanel(); buildTyphoonLegendList(); }
+  if (isTy && !isTyCmp) buildTyphoonPlacesPanel();   // 지명표시 목록/입력 배선
   if (isTyCmp) buildCompareSection();
   if (typeof syncFctMapBtn === 'function') syncFctMapBtn();   // 시도군↔서울 지도종류 아이콘 버튼 표시/틴트
 }
@@ -4390,6 +4403,7 @@ function initTyphoonData() {
   const DEF = typhoonStyleDefaults();
   if (S.typhoon && S.typhoon.issues && S.typhoon.issues.length) {
     for (const k in DEF) if (S.typhoon[k] == null) S.typhoon[k] = DEF[k];   // 옛 데이터에 스타일 기본값 보강
+    if (!S.typhoon.places) S.typhoon.places = [];   // 지명표시(옛 저장 보강)
     return;
   }
   const mk = (shift) => ([
@@ -4407,6 +4421,7 @@ function initTyphoonData() {
       { tmfc: '', label: '27일 22시 발표', points: mk(0.6) },
     ],
     sel: 0,
+    places: [],   // 지명표시(원+이름표)
     ...DEF,   // 지도 색·반경 스타일·지형·남한 강조 기본값(굽힌 배포 기본값 우선)
   };
 }
@@ -4540,21 +4555,27 @@ const typhoonNowIdx = (pts) => clamp(S.typhoon && S.typhoon.nowIdx != null ? S.t
 
 // 태풍 아이콘 — 두 종류: 'image'(사용자 이미지) / 'grade'(기상청 강도 숫자 원). 전체 크기는 iconScale 배율.
 // td=true(열대저압부, 17m/s 미만)면 아이콘 대신 '그냥 점'. r = 반지름 기준. ws = 최대풍속(등급 판정용).
-function typhoonIconEl(x, y, r, color, td, past, ws, forceImage) {
+function typhoonIconEl(x, y, r, color, td, past, ws, forceImage, ex) {
   const T = S.typhoon || {};
   const scale = (T.iconScale == null ? 1 : +T.iconScale) || 1;
   r = r * scale;
   const g = _te('g', { transform: `translate(${x} ${y})` });
   if (!past && (T.glowOn == null ? 1 : T.glowOn)) g.setAttribute('filter', 'url(#typhoonIconGlow)');   // 현재/미래 아이콘에 살짝 글로우
-  if (td && !forceImage) {   // 열대저압부(TD) = 원 + X. 현재/미래=흰 배경+빨간, 지난 날짜=회색으로 확실히 어둡게(+작게는 호출부 r로).
+  if ((td || ex) && !forceImage) {   // 열대저압부(TD)=원+X / 온대저압부(ex)=원+'저'. 현재·미래=흰 배경+빨강, 지난 날짜=회색.
     const rr = r * 1.15;
     const lineCol = past ? '#79828E' : '#E24C4C';       // 지난 것: 회색 / 현재·미래: 빨강
     const faceCol = past ? '#AEB6C0' : '#FFFFFF';        // 지난 것: 회색 면(어둡게) / 현재·미래: 흰 면
     const op = past ? 0.85 : 1;
     g.appendChild(_te('circle', { r: rr + Math.max(1.6, rr * 0.18), fill: 'none', stroke: past ? '#5A626C' : '#FFFFFF', 'stroke-width': Math.max(1.6, rr * 0.22), 'stroke-opacity': past ? 0.35 : 0.9 }));   // 바깥 할로(지난 것은 어두운 회색·연하게)
     g.appendChild(_te('circle', { r: rr, fill: faceCol, stroke: lineCol, 'stroke-width': Math.max(1.6, rr * 0.15), 'stroke-opacity': op, 'fill-opacity': op }));
-    const x = rr * 0.46;
-    g.appendChild(_te('path', { d: `M${-x} ${-x}L${x} ${x}M${x} ${-x}L${-x} ${x}`, fill: 'none', stroke: lineCol, 'stroke-width': Math.max(1.6, rr * 0.2), 'stroke-linecap': 'round', 'stroke-opacity': op }));   // X
+    if (ex) {   // 온대저압부 = 가운데 '저'(열대저압부와 같은 원, X 대신 저)
+      const t = _te('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: lineCol, 'font-family': '"SUITE CG","Malgun Gothic",sans-serif', 'font-weight': 800, 'font-size': rr * 1.12, 'fill-opacity': op });
+      t.textContent = '저';
+      g.appendChild(t);
+    } else {
+      const xx = rr * 0.46;
+      g.appendChild(_te('path', { d: `M${-xx} ${-xx}L${xx} ${xx}M${xx} ${-xx}L${-xx} ${xx}`, fill: 'none', stroke: lineCol, 'stroke-width': Math.max(1.6, rr * 0.2), 'stroke-linecap': 'round', 'stroke-opacity': op }));   // X
+    }
     return g;
   }
   if (!forceImage && (T.iconMode || 'image') === 'dot') {   // 작은 원 — 색 채움 + 흰 링 한 겹 (지난 날짜=회색)
@@ -4646,6 +4667,25 @@ function updateTyphoonLeaders() {
   for (const b of labelList()) {
     const path = LB.querySelector(`[data-leader-id="${b.id}"]`), p = idxXY[b.idx];
     if (path && p) { const [prx, pry] = camProjectXY(p.x, p.y); const [bx, by] = camProjectXY(b.x, b.y); path.setAttribute('d', typhoonLeaderGeom(prx, pry, bx, by, b._w || 100, b._h || 60).d); }
+  }
+  updatePlaceMarkers();   // 지명(원+라벨)도 회전/이동에 맞춰 갱신
+}
+// 지명표시를 현재 카메라(3D 회전·틸트)에 맞춰 다시 배치. 원은 경위도 고정(래스터에서 이동)이라
+// 라벨 박스는 원의 현재 투영위치+오프셋으로, 지시선도 그에 맞춰 갱신 → 회전해도 원에 붙어 따라온다.
+function updatePlaceMarkers() {
+  const places = (S.typhoon && S.typhoon.places) || [];
+  if (!places.length) return;
+  const LB = $('#L_typhoonLabels'); if (!LB) return;
+  for (const pl of places) {
+    if (pl.off) continue;
+    const g = LB.querySelector(`[data-place-label="${pl.id}"]`);
+    const line = LB.querySelector(`[data-place-leader="${pl.id}"]`);
+    if (!g && !line) continue;
+    const [fx, fy] = typhoonXY(pl.lon, pl.lat);
+    const [sx, sy] = camProjectXY(fx, fy);
+    const lx = sx + (pl.ox == null ? 0 : pl.ox), ly = sy + (pl.oy == null ? -52 : pl.oy);
+    if (g) g.setAttribute('transform', `translate(${lx} ${ly})`);
+    if (line) line.setAttribute('d', typhoonLeaderGeom(sx, sy, lx, ly, pl._w || 100, pl._h || 44).d);
   }
 }
 // fillLabelBox는 g가 DOM에 있어야 getBBox가 되므로, 측정용으로 잠깐 태풍 레이어에 붙였다 뗀다.
@@ -4947,14 +4987,15 @@ function drawTyphoonTrack(L, pts) {
     }
     if (p.noIcon) continue;   // 아이콘 숨김 지점(예: JMA 과거 경로·촘촘한 근접예보) — 선만 남기고 아이콘은 생략
     const past = p.idx < nowIdx;
-    const ws = (pts[p.idx] && pts[p.idx].ws) || 99;
-    const baseR = 17;   // 현재시각도 다른 지점과 같은 크기(예전엔 현재만 24로 살짝 키웠음 — 제거)
-    const icon = typhoonIconEl(p.x, p.y, past ? baseR * 0.5 : baseR, iconCol, ws < 17, past, ws);   // 지나간 날짜는 50% 작게
     const dp = pts[p.idx];   // 호버 툴팁 — 그 지점의 날짜·시각(+실황/예상·강도)
+    const ws = (dp && dp.ws) || 99;
+    const ex = !!(dp && dp.ex);   // 온대저압부(수동 지정)
+    const baseR = 17;   // 현재시각도 다른 지점과 같은 크기(예전엔 현재만 24로 살짝 키웠음 — 제거)
+    const icon = typhoonIconEl(p.x, p.y, past ? baseR * 0.5 : baseR, iconCol, (ws < 17) || ex, past, ws, false, ex);   // 지나간 날짜는 50% 작게 / ex=온대저압부(저)
     if (dp) {
       const when = dp.label || (dp.tmef ? fmtKST(dp.tmef) : ('지점 ' + (p.idx + 1)));
       const kind = dp.fcst ? '예상' : '실황';
-      const str = (dp.td || (dp.ws != null && dp.ws < 17)) ? '열대저압부' : (dp.ws != null ? Math.round(dp.ws) + 'm/s' : '');
+      const str = dp.ex ? '온대저압부' : ((dp.td || (dp.ws != null && dp.ws < 17)) ? '열대저압부' : (dp.ws != null ? Math.round(dp.ws) + 'm/s' : ''));
       const tt = _te('title'); tt.textContent = when + ' · ' + kind + (str ? ' · ' + str : '');
       icon.appendChild(tt);
       icon.style.pointerEvents = 'auto';   // 호버가 잡히도록(레이어가 pointer-events:none여도)
@@ -4982,6 +5023,110 @@ function drawTyphoonTrack(L, pts) {
     const parts = typhoonLabelParts(b, prx, pry, labK());
     if (parts.line) LB.appendChild(parts.line);
     LB.appendChild(parts.box);
+  }
+  drawTyphoonPlaces(L, LB);   // 지명표시(원+이름표)
+}
+
+// 지명→[경도,위도]. 정확일치→접미사 제거→접두 매칭 순. window.PLACE_GAZ(place-data.js) 사용.
+function geocodePlace(q) {
+  const G = window.PLACE_GAZ; if (!G) return null;
+  q = (q || '').trim(); if (!q) return null;
+  if (G[q]) return G[q];
+  const strip = (s) => s.replace(/\s+/g, '').replace(/(특별자치도|특별자치시|특별시|광역시|자치도|자치시|도|시|군|구)$/, '');
+  const qn = strip(q);
+  if (G[qn]) return G[qn];
+  for (const key of Object.keys(G)) if (strip(key) === qn) return G[key];
+  for (const key of Object.keys(G)) if (key.indexOf(q) === 0 || q.indexOf(key) === 0) return G[key];
+  return null;
+}
+// 태풍 지도 지명표시: 각 지명에 원(#L_typhoon, 경위도 고정) + 이름표(#L_typhoonLabels, 같은 색) + 지시선.
+function drawTyphoonPlaces(L, LB) {
+  const places = (S.typhoon && S.typhoon.places) || [];
+  if (!places.length) return;
+  const k = labK();
+  const szBase = (S.typhoon && S.typhoon.placeSize) || 34;
+  for (const pl of places) {
+    if (pl.off) continue;
+    const [fx, fy] = typhoonXY(pl.lon, pl.lat);
+    const col = pl.color || '#009afa';
+    const dot = _te('circle', { cx: fx.toFixed(1), cy: fy.toFixed(1), r: 7, fill: col, stroke: '#FFFFFF', 'stroke-width': 2, 'data-place-dot': pl.id, style: 'cursor:move' });
+    L.appendChild(dot);
+    if (!LB) continue;
+    const [sx, sy] = camProjectXY(fx, fy);
+    const lx = sx + (pl.ox == null ? 0 : pl.ox);
+    const ly = sy + (pl.oy == null ? -52 : pl.oy);
+    const b = newLabel({ id: 'plb_' + pl.id, txt: pl.name, fill: col, size: pl.size || szBase, x: lx, y: ly });
+    const g = _te('g', { class: 'drag', transform: `translate(${lx} ${ly})`, 'data-place-label': pl.id });
+    if (S.labShadow == null ? true : S.labShadow) g.setAttribute('filter', 'url(#typhoonLabelShadow)');
+    LB.appendChild(g);
+    const { w, h } = fillLabelBox(g, b, k);
+    pl._w = w; pl._h = h;   // 회전/틸트 때 지시선 재계산에 사용
+    const geom = typhoonLeaderGeom(sx, sy, lx, ly, w, h);
+    const line = _te('path', { d: geom.d, stroke: col, 'stroke-width': 2.4, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-opacity': 0.92, 'data-place-leader': pl.id });
+    LB.insertBefore(line, g);
+    g.addEventListener('pointerdown', (e) => startPlaceLabelDrag(e, pl, g, line, sx, sy, w, h));
+    dot.addEventListener('pointerdown', (e) => startPlaceDotDrag(e, pl, dot, g, line, w, h));   // 원 드래그 = 위치 이동
+  }
+}
+// 지명 원 드래그 = 실제 위치(경위도) 이동. 이름표·지시선도 따라온다. (사전에 없는 지명 수동배치에 필수)
+function startPlaceDotDrag(e, pl, dot, g, line, w, h) {
+  e.stopPropagation();
+  if (e.button != null && e.button !== 0) return;
+  pushUndo('place');
+  const [fx0, fy0] = typhoonXY(pl.lon, pl.lat);
+  dragLoop(e, (dx, dy) => {
+    const nfx = fx0 + dx, nfy = fy0 + dy;
+    const ll = xyToLonLat(nfx, nfy);
+    pl.lon = ll[0]; pl.lat = ll[1];
+    dot.setAttribute('cx', nfx.toFixed(1)); dot.setAttribute('cy', nfy.toFixed(1));
+    const [nsx, nsy] = camProjectXY(nfx, nfy);
+    const lx = nsx + (pl.ox || 0), ly = nsy + (pl.oy == null ? -52 : pl.oy);
+    g.setAttribute('transform', `translate(${lx} ${ly})`);
+    if (line) line.setAttribute('d', typhoonLeaderGeom(nsx, nsy, lx, ly, w, h).d);
+  });
+}
+// 지명 이름표 드래그(원은 경위도 고정, 이름표만 오프셋 이동). 지시선도 따라 갱신.
+function startPlaceLabelDrag(e, pl, g, line, sx, sy, w, h) {
+  e.stopPropagation();
+  if (e.button != null && e.button !== 0) return;
+  pushUndo('place');
+  const ox0 = pl.ox == null ? 0 : pl.ox, oy0 = pl.oy == null ? -52 : pl.oy;
+  dragLoop(e, (dx, dy) => {
+    pl.ox = Math.round(ox0 + dx); pl.oy = Math.round(oy0 + dy);
+    const lx = sx + pl.ox, ly = sy + pl.oy;
+    g.setAttribute('transform', `translate(${lx} ${ly})`);
+    if (line) line.setAttribute('d', typhoonLeaderGeom(sx, sy, lx, ly, w, h).d);
+  });
+}
+// 지명표시 사이드바 — 입력/추가/목록(색·삭제)/크기.
+function buildTyphoonPlacesPanel() {
+  const inp = $('#placeInput'), addB = $('#placeAdd'), list = $('#placeList'), sz = $('#placeSize'), szV = $('#placeSizeV');
+  if (!list) return;
+  if (S.typhoon && !S.typhoon.places) S.typhoon.places = [];
+  const doAdd = () => {
+    const q = (inp && inp.value || '').trim(); if (!q) return;
+    const ll = geocodePlace(q);
+    let lon, lat, manual = false;
+    if (ll) { lon = ll[0]; lat = ll[1]; }
+    else { const c = xyToLonLat(960, 540); lon = c[0]; lat = c[1]; manual = true; }   // 사전에 없으면 화면 중앙에 두고 드래그로 배치
+    pushUndo('place');
+    (S.typhoon.places ||= []).push({ id: 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000), name: q, lon, lat, color: '#009afa' });
+    if (inp) inp.value = '';
+    renderTyphoon(); buildTyphoonPlacesPanel();
+    status(manual ? `'${q}' 사전에 없어 지도 중앙에 추가 — 원을 드래그해 위치를 맞추세요` : `'${q}' 추가`, true);
+  };
+  if (addB) addB.onclick = doAdd;
+  if (inp) inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } };
+  if (sz) { sz.value = (S.typhoon && S.typhoon.placeSize) || 34; if (szV) szV.textContent = sz.value; sz.oninput = () => { pushUndo('place'); S.typhoon.placeSize = +sz.value; if (szV) szV.textContent = sz.value; renderTyphoon(); }; }
+  list.textContent = '';
+  for (const pl of (S.typhoon.places || [])) {
+    const row = document.createElement('div'); row.className = 'row'; row.style.gap = '6px';
+    const c = document.createElement('input'); c.type = 'color'; c.value = pl.color || '#E5301F'; c.style.flex = '0 0 auto';
+    c.oninput = () => { pl.color = c.value; renderTyphoon(); };
+    const nm = document.createElement('span'); nm.textContent = pl.name; nm.style.flex = '1'; nm.style.fontSize = '13px';
+    const del = document.createElement('button'); del.textContent = '✕'; del.style.flex = '0 0 auto';
+    del.onclick = () => { pushUndo('place'); S.typhoon.places = S.typhoon.places.filter((x) => x !== pl); renderTyphoon(); buildTyphoonPlacesPanel(); };
+    row.append(c, nm, del); list.append(row);
   }
 }
 
@@ -5432,7 +5577,7 @@ function buildTyphoonPanel() {
       const b = byIdx[i], on = !!b;
       const def = p.label || ('지점 ' + (i + 1));
       const val = on ? (b.txt || '') : '';
-      return `<div class="row" style="gap:6px;margin:2px 0"><label class="chk" style="flex:0 0 auto;gap:5px"><input type="checkbox" class="typLblChk" data-i="${i}" ${on ? 'checked' : ''}></label><input type="text" class="typLblTxt" data-i="${i}" value="${esc(val)}" placeholder="${esc(def)}" style="flex:1;font-size:12px${on ? '' : ';opacity:.45'}" ${on ? '' : 'disabled'}></div>`;
+      return `<div class="row" style="gap:6px;margin:2px 0"><label class="chk" style="flex:0 0 auto;gap:5px"><input type="checkbox" class="typLblChk" data-i="${i}" ${on ? 'checked' : ''}></label><input type="text" class="typLblTxt" data-i="${i}" value="${esc(val)}" placeholder="${esc(def)}" style="flex:1;font-size:12px${on ? '' : ';opacity:.45'}" ${on ? '' : 'disabled'}><label class="chk" title="온대저압부(저)로 표시" style="flex:0 0 auto;gap:3px;font-size:11px;white-space:nowrap"><input type="checkbox" class="typExChk" data-i="${i}" ${p.ex ? 'checked' : ''}>저</label></div>`;
     }).join('');
     list.querySelectorAll('.typLblChk').forEach((n) => { n.onchange = () => {
       const i = +n.dataset.i, pts2 = curTyphoonPoints(), p = pts2[i]; if (!p) return;
@@ -5447,6 +5592,10 @@ function buildTyphoonPanel() {
       pushUndo('tyltxt'); b.txt = v; renderTyphoon();
       const s1 = one(); if (s1 && s1.kind === 'label' && s1.id === b.id) $('#lTxt').value = b.txt;
     }));
+    list.querySelectorAll('.typExChk').forEach((n) => { n.onchange = () => {   // 온대저압부(저) 표시 토글
+      const i = +n.dataset.i, p = curTyphoonPoints()[i]; if (!p) return;
+      pushUndo(); p.ex = n.checked ? 1 : 0; renderTyphoon();
+    }; });
   }
   const terr = $('#typTerrain'), terrV = $('#typTerrainV');
   if (terr) terr.value = (T.terrain == null ? 0.85 : T.terrain);
@@ -6672,6 +6821,7 @@ function applyTilt() {
   const cg = document.querySelector('#cg'), cv = document.querySelector('#camCanvas');
   if (cg) cg.style.transform = '';                 // 전체 SVG는 절대 안 기울인다
   fit.classList.toggle('mapTilt', on);
+  if (typeof updatePlaceMarkers === 'function') updatePlaceMarkers();   // 지명표시를 현재 틸트/회전에 맞춤(토글·각도변경 포함)
   if (!on) { fit.style.perspective = ''; if (cv) { cv.style.display = 'none'; cv.style.transform = ''; cv.style.maskImage = cv.style.webkitMaskImage = ''; } _tiltRasterSig = null; return; }
   const P = (m.persp == null ? 2.2 : +m.persp) * (cg ? cg.clientWidth || 1920 : 1920);
   fit.style.perspective = P + 'px';
@@ -11729,7 +11879,7 @@ const SEC_GRP = {
   res: ['map', '지도'], map: ['map', '지도'],
   pal: ['paint', '칠하기'],
   text: ['text', '글자'], label: ['text', '글자'], mtn: ['text', '글자'],
-  sea: ['special', '특수'], wrn: ['special', '특수'], fct: ['special', '특수'], legend: ['special', '특수'], typhoon: ['special', '특수'],
+  sea: ['special', '특수'], wrn: ['special', '특수'], fct: ['special', '특수'], legend: ['special', '특수'], typhoon: ['special', '특수'], typhoonPlaces: ['special', '특수'],
   proj: ['proj', '파일'],
 };
 // 항목 제목의 아이콘. 채워진(filled) 모양으로 통일한다 — 24x24 기준 path.
@@ -11751,6 +11901,7 @@ const SEC_ICON = {
   proj: 'M3 4h6l2 2h10v13H3zm2 5v8h14V9z',                                  // 폴더
   anim: 'M4 4h16v3H4zm0 5h16v11H4zm3 2v7l6-3.5z',                           // 타임라인/재생
   typhoon: 'M12 3c3.9 0 6.5 2.1 6.5 4.9 0 2.1-1.5 3.5-3.6 3.5-1.5 0-2.5-.8-2.5-2 0-.9.6-1.5 1.5-1.5.6 0 1 .3 1 .8-.6 0-.9.3-.9.8 0 .6.5 1 1.3 1 1.2 0 2-.8 2-2.1 0-1.9-1.8-3.2-4.3-3.2-3.3 0-5.7 1.9-6.4 5.1M12 21c-3.9 0-6.5-2.1-6.5-4.9 0-2.1 1.5-3.5 3.6-3.5 1.5 0 2.5.8 2.5 2 0 .9-.6 1.5-1.5 1.5-.6 0-1-.3-1-.8.6 0 .9-.3.9-.8 0-.6-.5-1-1.3-1-1.2 0-2 .8-2 2.1 0 1.9 1.8 3.2 4.3 3.2 3.3 0 5.7-1.9 6.4-5.1M12 10a2 2 0 100 4 2 2 0 000-4z', // 태풍(소용돌이)
+  typhoonPlaces: 'M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z', // 지명(위치 핀)
 };
 
 for (const [sec, [grp, tag]] of Object.entries(SEC_GRP)) {
