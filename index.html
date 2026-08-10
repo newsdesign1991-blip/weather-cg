@@ -1766,6 +1766,12 @@
           <div class="row wide"><label>여백</label><input type="number" id="lPadX" step="1"><input type="number" id="lPadY" step="1"></div>
           <div class="row wide"><label>모서리</label><input type="number" id="lRadius" step="1"></div>
           <div class="row wide"><label>X / Y</label><input type="number" id="lX" step="1"><input type="number" id="lY" step="1"></div>
+          <div class="row wide"><label>표시 방식</label>
+            <select id="lLabelStyle">
+              <option value="plain">기본(박스만)</option>
+              <option value="leader">지시선(태풍식 · 앵커원)</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -2055,6 +2061,14 @@
         <p class="bmMbxHint">확대/이동 시 그 영역·배율의 타일을 실시간으로 불러옵니다. 토큰이 포함되니 Mapbox에서 <b>URL 제한</b>을 걸어두는 걸 권장.</p>
       </div>
     </div>
+    <button id="fctMapBtn" class="basemapBtn" title="지도 종류 — 전국 지도 / 서울 지도" aria-label="지도 종류 선택" style="display:none">
+      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" d="M9 4 3.5 5.9v13.6L9 17.6l6 1.9 5.5-1.9V4L15 5.9 9 4z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M9 4v13.6M15 5.9v13.6"/></svg>
+    </button>
+    <div id="fctMapPop" class="basemapPop" style="display:none">
+      <div class="bmHead">지도 종류</div>
+      <button data-mt="nationwide" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#2b4a6e,#1c3350)"></span>전국 지도</button>
+      <button data-mt="seoul" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a8a,#2b7a5b)"></span>서울 지도</button>
+    </div>
     <canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas>
     <svg id="cg" class="paintmode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
       <defs>
@@ -2089,6 +2103,7 @@
         </filter>
         <!-- 블러가 바다로 번지지 않게 육지 실루엣으로 자른다. d는 buildZones에서 채운다(#zoneLineMain 재사용 금지 — 추출 때 지워짐). -->
         <clipPath id="landClipMain" clipPathUnits="userSpaceOnUse"><path id="landClipMainP"/></clipPath>
+        <clipPath id="seoulClip" clipPathUnits="userSpaceOnUse"><path id="seoulClipP"/></clipPath>
         <!-- 노말 VF — 지도·실루엣을 배경 패널 사각형 안으로만 자른다(패널 불투명영역의 사각 범위). -->
         <clipPath id="vfClip" clipPathUnits="userSpaceOnUse"><rect id="vfClipRect" x="0" y="0" width="0" height="0"/></clipPath>
         <!-- 노말 VF 제목 바 — 배경을 이 사각형만큼 잘라 위에 올린다 -->
@@ -2142,6 +2157,10 @@
           <g id="gMain"/>
           <!-- 브러쉬 덧칠 레이어 (지도 좌표계 안, 경계선 아래). 본토 브러쉬 이미지가 여기 들어간다. 인셋은 각 인셋 그룹 안. -->
           <g id="L_brush"/>
+          <!-- 서울 지도 전용 한강(파란 물). 서울 실루엣으로 클립, 경계선 아래. 다른 지도에선 숨김. -->
+          <path id="seoulRiver" clip-path="url(#seoulClip)" style="display:none" pointer-events="none"/>
+          <!-- 서울 지도: 칠한 동 색을 한강 위로 올리는 오버레이(강이 뒤에 살짝 비침). -->
+          <g id="seoulPaintTop" style="display:none" pointer-events="none"/>
           <!-- 실제 방송용 구역선 (베이스색). 작업용 선과 별개로 켜고 끈다. -->
           <path id="zoneLineMain" class="zoneLine"/>
           <path id="sidoMain" class="sidoLine"/>
@@ -2241,6 +2260,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 </script>
 
 <script src="map-data.js"></script>
+<script src="seoul-map-data.js" onerror="window.SEOUL_MAP=null"></script>
 <script src="typhoon-map-data.js" onerror="window.TYPHOON_MAP=null"></script>
 <script src="typhoon-relief.js" onerror="window.TYPHOON_RELIEF=null"></script>
 <script src="typhoon-satellite.js" onerror="window.TYPHOON_SATELLITE=null"></script>
@@ -2409,10 +2429,28 @@ const isTyphoon = (st) => !!(MAP.styles[st || S.style] && MAP.styles[st || S.sty
 // 태풍 '비교' 지도인지 — 태풍 지도 렌더 인프라를 공유하되 비교 전용 UI/렌더로 분기.
 const isTyphoonCompare = (st) => !!(MAP.styles[st || S.style] && MAP.styles[st || S.style].compare);
 
-const curZones = () => MAP.styles[S.style].zones;
+// 서울 지도 — 시도군 지도의 '지도 종류' 변형. 서울 25개 자치구를 427개 행정동으로 세분(색칠 단위=동).
+// 구 경계선(guLines)은 시도선 레이어에 두껍게, 동 경계선은 각 zone 윤곽으로 얇게. 자체 좌표계라 noInsets.
+// #styleBtns 목록엔 숨기고(hidden), 아트보드의 지도종류 아이콘 버튼으로만 진입(태풍 basemap과 동일 컨셉).
+if (window.SEOUL_MAP && MAP.styles && !MAP.styles.seoul) {
+  MAP.styles.seoul = { label: '서울 지도', zones: window.SEOUL_MAP.zones || [],
+    sidoLines: { main: window.SEOUL_MAP.guLines || '' }, noInsets: true, hidden: true, seoul: true };
+}
+const isSeoul = (st) => !!(MAP.styles[st || S.style] && MAP.styles[st || S.style].seoul);
+// 서울 지도 첫 진입(저장된 배치 없음) 시 서울이 화면에 꽉 차게 기본 뷰를 잡는다. 이후 사용자가 배치·저장하면 그 값 우선.
+function setSeoulDefaultView() {
+  const bb = (window.SEOUL_MAP && window.SEOUL_MAP.bbox) || [-549, -450, 549, 450];
+  const w = bb[2] - bb[0], h = bb[3] - bb[1], cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
+  const s = Math.max(0.02, Math.min(4, Math.min(1920 * 0.62 / w, 1080 * 0.74 / h)));
+  S.map.x = Math.round(960 - s * cx); S.map.y = Math.round(540 - s * cy); S.map.s = +s.toFixed(3);
+}
+
+// S.style이 없는 스타일을 가리키면(예: seoul-map-data.js 로드 실패 + 저장값이 seoul) 시도군으로 폴백.
+const curStyle = () => MAP.styles[S.style] || MAP.styles.sgg;
+const curZones = () => curStyle().zones;
 // 시도선은 지도 종류마다 다르다 — 특보 지도는 기상청 데이터에서, 나머지는 행정동 데이터에서 뽑았다.
 // 출처가 다른 시도선을 얹으면 경계가 0.2~0.6km 어긋난다.
-const curSidoLines = () => MAP.styles[S.style].sidoLines || {};
+const curSidoLines = () => curStyle().sidoLines || {};
 // 칠한 색은 지도 종류별로 따로 (시도군 지도의 '경기/파주시'와 시도 지도의 '경기'는 다른 단위)
 const fills = () => (S.fillsByStyle[S.style] ||= {});
 const brushStrokes = () => ((S.brushByStyle ||= {})[S.style] ||= []);
@@ -2828,7 +2866,8 @@ function buildZones() {
   }
 
   for (const z of curZones()) {
-    const label = z.sido === z.zone ? z.zone : z.sido + ' ' + z.zone;
+    // 서울 지도(동 단위)는 '구 이름 + 동 이름'(예: 관악구 대학동). 그 외는 '시도 + 구역'.
+    const label = z.gu ? z.gu + ' ' + z.zone : (z.sido === z.zone ? z.zone : z.sido + ' ' + z.zone);
     if (!z.inset) {
       const p = tip(el('path', { class: 'zone', d: z.d, 'data-id': z.id }), label);
       gMain.append(p);
@@ -2840,6 +2879,34 @@ function buildZones() {
       inner.insertBefore(p, inner.firstChild); // 시도 경계선보다 아래
       addZoneEl(z.id, p, z.inset);
     }
+  }
+  // 서울 지도: 한강(파란 물)을 서울 실루엣으로 클립해 경계선 아래에 그린다.
+  const rv = $('#seoulRiver'), rc = $('#seoulClipP');
+  if (rv) {
+    if (isSeoul() && window.SEOUL_MAP && SEOUL_MAP.river) {
+      rv.setAttribute('d', SEOUL_MAP.river);
+      rv.setAttribute('fill', '#2E6FB0');
+      rv.setAttribute('fill-rule', 'evenodd');
+      rv.setAttribute('fill-opacity', '0.92');   // 한강 자체는 진하게(안 칠한 동 위로 선명)
+      if (rc) rc.setAttribute('d', ZL.main || '');   // 서울 밖으로 새지 않게 도시 실루엣으로 클립
+      rv.style.display = '';
+    } else {
+      rv.style.display = 'none';
+    }
+  }
+  syncSeoulPaintTop();   // 칠한 동 색을 한강 위로 올리는 오버레이 갱신
+}
+// 서울 지도: 칠한 동의 색을 '한강 위'로 다시 그리는 오버레이(강이 뒤에 살짝 비치게 약간 반투명).
+function syncSeoulPaintTop() {
+  const layer = $('#seoulPaintTop'); if (!layer) return;
+  layer.textContent = '';
+  if (!isSeoul()) { layer.style.display = 'none'; return; }
+  layer.style.display = '';
+  const F = fills();
+  for (const z of curZones()) {
+    const c = F[z.id];
+    if (!c) continue;
+    layer.append(el('path', { d: z.d, 'data-id': z.id, fill: c, 'fill-opacity': 0.85, 'pointer-events': 'none' }));
   }
 }
 
@@ -2865,6 +2932,15 @@ function updateAutoPaintSecs() {
   swap('[data-sec="legend"]', '.lgWarnOnly', '.lgTyOnly');   // 범례: 특보용 목록 ↔ 태풍 강도/반경 선택 목록
   if (isTy) { buildTyphoonPanel(); buildTyphoonLegendList(); }
   if (isTyCmp) buildCompareSection();
+  if (typeof syncFctMapBtn === 'function') syncFctMapBtn();   // 시도군↔서울 지도종류 아이콘 버튼 표시/틴트
+}
+// 아트보드의 '지도 종류'(전국/서울) 아이콘 버튼 — 시도군(sgg)·서울(seoul) 지도일 때만 표시.
+function syncFctMapBtn() {
+  const btn = $('#fctMapBtn'); if (!btn) return;
+  const show = S.style === 'sgg' || S.style === 'seoul';
+  btn.style.display = show ? '' : 'none';
+  btn.classList.toggle('sat', S.style === 'seoul');   // 서울일 때 초록 틴트(basemap 버튼과 동일 상태색)
+  if (!show) { const p = $('#fctMapPop'); if (p) p.style.display = 'none'; }
 }
 
 // VF 화면 기본 크기: 라벨 92% · 산 70%. 내가 직접 저장한 배치가 없을 때만 강제한다
@@ -2904,6 +2980,7 @@ function setStyle(name) {
   if (before !== after && !applied) {
     // 새 그룹에 저장된 게 없으면 지금 배치를 그대로 이어 쓴다
     if (enteringTyphoon) setTyphoonDefaultView();   // 태풍 첫 진입 — 광역이 화면에 들어오게
+    if (name === 'seoul') setSeoulDefaultView();     // 서울 첫 진입 — 서울이 화면에 꽉 차게
     applyVfDefaults();   // VF면 라벨·산 기본크기(92%·70%)
     renderAll();
     status(`${MAP.styles[name].label} — 이 배치는 아직 저장 안 됨`);
@@ -2971,6 +3048,7 @@ function buildStyleBtns() {
   const w = $('#styleBtns');
   w.textContent = '';
   for (const [k, v] of Object.entries(MAP.styles)) {
+    if (v.hidden) continue;   // 서울 지도 등 — 아트보드의 지도종류 아이콘 버튼으로만 진입
     const b = document.createElement('button');
     b.append(document.createTextNode(v.label));
     const s = document.createElement('span');
@@ -3060,6 +3138,26 @@ function wireMapPos() {
   const lk = document.getElementById('mapLock'); if (lk) lk.onchange = () => setMapLock(lk.checked);
   const btn = document.getElementById('mapLockBtn'); if (btn) btn.onclick = () => setMapLock(!S.mapLock);
   wireBasemap();
+  wireFctMap();
+}
+// 지도 종류(전국/서울) 아이콘 버튼 배선(1회). setStyle('sgg'|'seoul')로 전환.
+let _fctMapWired = false;
+function wireFctMap() {
+  if (_fctMapWired) return;
+  const btn = $('#fctMapBtn'), pop = $('#fctMapPop');
+  if (!btn || !pop) return;
+  _fctMapWired = true;
+  const syncOpts = () => pop.querySelectorAll('.bmOpt').forEach((b) => b.classList.toggle('on', b.dataset.mt === (S.style === 'seoul' ? 'seoul' : 'nationwide')));
+  btn.onclick = (e) => { e.stopPropagation(); const open = pop.style.display !== 'none'; pop.style.display = open ? 'none' : ''; if (!open) syncOpts(); };
+  pop.querySelectorAll('.bmOpt').forEach((b) => { b.onclick = (e) => {
+    e.stopPropagation();
+    pop.style.display = 'none';
+    const mt = b.dataset.mt;
+    if (mt === 'seoul') { if (S.style !== 'seoul') setStyle('seoul'); }
+    else { if (S.style === 'seoul') setStyle('sgg'); }
+  }; });
+  document.addEventListener('pointerdown', (e) => { if (pop.style.display !== 'none' && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) pop.style.display = 'none'; });
+  syncFctMapBtn();
 }
 
 // ── Mapbox 실시간 타일 (개인 URL, 브라우저 로컬에만 저장 — 프로젝트/깃 미포함) ──
@@ -3267,6 +3365,7 @@ function renderFills() {
   renderZoneLines();
   renderSidoLines();
   renderSea();
+  if (typeof syncSeoulPaintTop === 'function') syncSeoulPaintTop();   // 서울: 칠한 색을 한강 위로
 }
 
 // 실제 방송용 구역선 (베이스색). 작업용 선과 독립적으로 켜고 끈다.
@@ -3365,7 +3464,7 @@ function renderBg() {
     n.setAttribute('stroke', S.nbrCol);
     n.setAttribute('stroke-width', S.nbrGrow);
     n.setAttribute('stroke-linejoin', 'round');
-    n.style.display = (on && !typh) ? '' : 'none';
+    n.style.display = (on && !typh && !isSeoul()) ? '' : 'none';   // 서울 지도에선 북한/이웃 실루엣 숨김
   }
 
   const g = $('#guideImg');
@@ -3766,6 +3865,7 @@ const newLabel = (o) => Object.assign({
   fill: activeColor, txtCol: '#FFFFFF', stroke: '#FFFFFF', strokeW: 1.5,
   size: 40, w: 500, track: -1, padX: 20, padY: 12, radius: 0,
   fillGrad: 0, fill2: '', strokeGrad: 0, stroke2: '', gradAngle: 90, fillOp: 1, glass: 0, glassBlur: 6,
+  style: 'plain',   // 'plain'=현재 박스 / 'leader'=태풍식 지시선+앵커원
 }, o);
 
 // 전체 크기 배율. 라벨은 x,y가 '중심'이라 크기만 키우면 제자리에서 커진다.
@@ -3869,10 +3969,46 @@ function renderLabels() {
   const k = labK();
   for (const b of S.labels) {
     if (b.off) continue; // 눈 꺼짐 — 화면에도 추출에도 안 나온다
+    if (b.style === 'leader') { renderLeaderLabel(L, b, k); continue; }
     const g = el('g', { class: 'drag', 'data-kind': 'label', 'data-id': b.id, transform: `translate(${b.x} ${b.y})` });
     L.append(g);
     fillLabelBox(g, b, k);
   }
+}
+// 태풍식 '지시선' 스타일 라벨(시군구 지도용). 박스는 기존과 동일(드래그·편집 공유)하고,
+// 앵커점(드래그 가능한 작은 원, 색=라벨색)에서 박스로 지시선을 뽑는다. typhoonLeaderGeom 재사용.
+function renderLeaderLabel(L, b, k) {
+  if (b.ax == null || b.ay == null) { b.ax = Math.round(b.x); b.ay = Math.round(b.y + 170); }   // 처음엔 박스 아래로
+  const g = el('g', { class: 'drag', 'data-kind': 'label', 'data-id': b.id, transform: `translate(${b.x} ${b.y})` });
+  L.append(g);
+  const { w, h } = fillLabelBox(g, b, k);
+  b._w = w; b._h = h;
+  const geom = typhoonLeaderGeom(b.ax, b.ay, b.x, b.y, w, h);
+  const line = el('path', { 'data-fleader-id': b.id, d: geom.d, stroke: b.stroke || '#FFFFFF', 'stroke-width': 2.4, fill: 'none', 'stroke-opacity': 0.92, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'pointer-events': 'none' });
+  L.insertBefore(line, g);   // 지시선은 박스 아래
+  // 앵커 원 — 선이 빈 곳에서 뽑히지 않게 시작점에 표시. 색은 라벨색(b.fill).
+  const c = el('circle', { 'data-fanchor-id': b.id, cx: b.ax, cy: b.ay, r: 6, fill: b.fill, stroke: '#FFFFFF', 'stroke-width': 1.6, cursor: 'move' });
+  L.append(c);
+  c.addEventListener('pointerdown', (e) => startAnchorDrag(e, b));
+}
+// 지시선 라벨의 지시선/앵커를 가볍게 다시 그린다(박스 드래그·앵커 드래그 중).
+function updateForecastLeaders() {
+  for (const b of S.labels) {
+    if (b.style !== 'leader' || b.off || b.ax == null) continue;
+    const line = svg.querySelector(`[data-fleader-id="${b.id}"]`);
+    const circle = svg.querySelector(`[data-fanchor-id="${b.id}"]`);
+    if (line && b._w) line.setAttribute('d', typhoonLeaderGeom(b.ax, b.ay, b.x, b.y, b._w, b._h).d);
+    if (circle) { circle.setAttribute('cx', b.ax); circle.setAttribute('cy', b.ay); circle.setAttribute('fill', b.fill); }
+  }
+}
+// 앵커점 드래그(박스와 별개). dragLoop의 dx/dy는 라벨 좌표계와 같다.
+function startAnchorDrag(e, b) {
+  e.stopPropagation();
+  if (e.button != null && e.button !== 0) return;
+  select('label', b.id);
+  pushUndo('lanchor');
+  const ax0 = b.ax, ay0 = b.ay;
+  dragLoop(e, (dx, dy) => { b.ax = Math.round(ax0 + dx); b.ay = Math.round(ay0 + dy); updateForecastLeaders(); });
 }
 
 // ===================== 칠한 색 계열 바꾸기 =====================
@@ -5898,11 +6034,13 @@ function _tmBack(tm12, hb) { const s = String(tm12); const d = new Date(Date.UTC
 async function scanTdReal(refPt, refT, dir) {
   const base = String(refPt.tmef).replace(/\D/g, '').slice(0, 12).padEnd(12, '0');
   let best = null;
-  for (let hb = 0; hb <= 48 && !best; hb += 6) {
+  const hbs = []; for (let hb = 0; hb <= 48; hb += 6) hbs.push(hb);
+  const raws = await Promise.all(hbs.map((hb) => {   // 여러 시각을 병렬 조회
     const tm = _tmBack(base, dir === 'back' ? hb : -hb);   // fwd면 미래로
-    let raw = '';
-    try { const r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(`https://apihub.kma.go.kr/api/typ01/url/td_now.php?tm=${tm}&mode=1&disp=0&help=0&authKey=${encodeURIComponent(apiKey())}`)); raw = await r.text(); } catch (e) { continue; }
-    const rows = parseTdRows(raw); if (!rows.length) continue;
+    return kmaGet(`https://apihub.kma.go.kr/api/typ01/url/td_now.php?tm=${tm}&mode=1&disp=0&help=0&authKey=${encodeURIComponent(apiKey())}`);
+  }));
+  for (let i = 0; i < raws.length && !best; i++) {   // 가까운 시각(작은 hb)부터 채택
+    const rows = parseTdRows(raws[i]); if (!rows.length) continue;
     const byTd = {}; for (const c of rows) { (byTd[(c[2] || '').trim()] ||= []).push(c); }
     for (const tdno of Object.keys(byTd)) {
       const pts = byTd[tdno].map(typTdPointFromRow);
@@ -5955,6 +6093,8 @@ async function attachEdgeTD(auto) {
 const prependGenesisTD = () => attachEdgeTD(false);   // 버튼 핸들러(토글)
 // CSV 응답에 실제 데이터 행(주석 # 아닌 숫자 시작)이 있는지
 function typhoonHasRows(t) { return String(t).split(/\r?\n/).some((l) => l && l[0] !== '#' && /^\s*\d/.test(l)); }
+// 헬퍼 프록시로 KMA 한 건 조회 → 본문 텍스트(실패/비ok면 ''). 병렬 조회에 공용으로 쓴다.
+const kmaGet = (u) => fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(u)).then((r) => r.ok ? r.text() : '').catch(() => '');
 async function fetchTyphoon() {
   if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); status('apihub 인증키가 필요합니다 (API 설정)', true); return; }
   const btn = $('#typFetch'); if (btn) btn.disabled = true;
@@ -5963,21 +6103,20 @@ async function fetchTyphoon() {
     // 1) 헬퍼 살아있는지 먼저 확인 — 꺼져 있으면 설치/실행 안내 팝업
     let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
     if (!up) { if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice(); else status('WNS 헬퍼가 꺼져 있습니다 (R:\\[F]_Util\\WNS 실행)', true); return; }
-    // 2) 현재 시각엔 아직 발표가 없을 수 있다 → 최근 발표시각으로 1시간씩 되짚어가며 데이터가 있는 tm을 찾는다.
+    // 2) 현재 시각엔 아직 발표가 없을 수 있다 → 최근 발표시각들을 '병렬로' 한 번에 조회하고
+    //    데이터가 있는 것 중 가장 최근(작은 back) 것을 쓴다. (순차 되짚기보다 훨씬 빠름)
     let raw = '', found = false;
-    for (let back = 0; back <= 12 && !found; back++) {
-      const r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(typhoonApiUrl(back)));
-      const t = await r.text();
-      if (r.ok && typhoonHasRows(t)) { raw = t; found = true; }
+    {
+      const backs = []; for (let b = 0; b <= 12; b++) backs.push(b);
+      const texts = await Promise.all(backs.map((b) => kmaGet(typhoonApiUrl(b))));
+      for (let i = 0; i < texts.length; i++) { if (typhoonHasRows(texts[i])) { raw = texts[i]; found = true; break; } }
     }
-    // 3) 열대저압부(TD) — td_now.php도 같은 방식으로. 있으면 태풍 CSV에 이어붙여 함께 표시(TD 자동 라벨링).
+    // 3) 열대저압부(TD) — td_now.php도 같은 방식으로 병렬 조회. 있으면 태풍 CSV에 이어붙여 함께 표시.
     let tdRaw = '';
-    for (let back = 0; back <= 12 && !tdRaw; back++) {
-      try {
-        const r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(typhoonTdUrl(back)));
-        const t = await r.text();
-        if (r.ok && typhoonHasRows(t)) { tdRaw = t; }
-      } catch (e) { /* TD 없거나 실패해도 태풍만 계속 */ }
+    {
+      const backs = []; for (let b = 0; b <= 12; b++) backs.push(b);
+      const texts = await Promise.all(backs.map((b) => kmaGet(typhoonTdUrl(b))));
+      for (let i = 0; i < texts.length; i++) { if (typhoonHasRows(texts[i])) { tdRaw = texts[i]; break; } }
     }
     if (tdRaw) console.log('[TD raw]', tdRaw.slice(0, 2000));
     if (!found && !tdRaw) { status('현재 활동 중인 태풍·열대저압부 정보가 없습니다 (기상청)', true); return; }
@@ -6303,6 +6442,7 @@ function refreshPanel() {
     $('#lRadius').value = b.radius; $('#lX').value = Math.round(b.x); $('#lY').value = Math.round(b.y);
     $('#lWeight').value = b.w == null ? 500 : b.w;
     $('#lTrack').value = b.track == null ? -1 : b.track;
+    if ($('#lLabelStyle')) $('#lLabelStyle').value = b.style === 'leader' ? 'leader' : 'plain';
   }
   const ls = S.labScale == null ? 100 : S.labScale;
   $('#labScale').value = ls; $('#labScaleV').textContent = ls;
@@ -6457,6 +6597,18 @@ function paint(node, erase) {
   else F[id] = activeColor;
   const f = F[id] || S.base;
   for (const { el: e } of zoneEls.get(id)) e.setAttribute('fill', f);
+  // 서울 지도: 칠한 색을 한강 위 오버레이에도 반영(증분)
+  if (isSeoul()) {
+    const layer = $('#seoulPaintTop');
+    if (layer) {
+      let op = layer.querySelector('[data-id="' + id + '"]');
+      if (erase) { if (op) op.remove(); }
+      else {
+        if (!op) { op = el('path', { d: node.getAttribute('d') || '', 'data-id': id, 'fill-opacity': 0.85, 'pointer-events': 'none' }); layer.append(op); }
+        op.setAttribute('fill', f);
+      }
+    }
+  }
 }
 
 // 화면 좌표 -> SVG 좌표. getScreenCTM이 작업창 줌(.fit의 CSS transform)까지 알아서 반영한다.
@@ -7073,7 +7225,7 @@ function startDragItem(e, node) {
     if (kind === 'text') { node.setAttribute('x', nx); node.setAttribute('y', ny); }
     else node.setAttribute('transform', `translate(${nx} ${ny})`);
     if (kind === 'label') updateLabelGlass(node, nx, ny);
-    if (isTyphoon() && kind === 'label') updateTyphoonLeaders();
+    if (kind === 'label') { if (isTyphoon()) updateTyphoonLeaders(); else updateForecastLeaders(); }
     renderGuides(lines);
     renderSel();
   }, () => renderGuides([]));
@@ -11420,6 +11572,12 @@ function wire() {
   }; };
   lw('#lSize', 'size', Number); lw('#lPadX', 'padX', Number);
   lw('#lPadY', 'padY', Number); lw('#lRadius', 'radius', Number); lw('#lStrokeW', 'strokeW', Number);
+  if ($('#lLabelStyle')) $('#lLabelStyle').onchange = (e) => {
+    const b = curL(); if (!b) return;
+    pushUndo('lstyle'); b.style = e.target.value === 'leader' ? 'leader' : 'plain';
+    if (b.style === 'leader' && b.ax == null) { b.ax = Math.round(b.x); b.ay = Math.round(b.y + 170); }   // 앵커 초기 위치
+    renderLabels(); renderSel();
+  };
   // 내용 편집 — 글자를 바꾸면 부분 서식(runs)은 초기화(혼동 방지)
   wireImeText($('#lTxt'), (v) => { const b = curL(); if (!b) return; pushUndo('ltxt'); b.txt = v; if (b.runs) b.runs = null; renderLabels(); renderSel(); buildLabelList(); });   // IME 안전: 조합 중 buildLabelList 재생성으로 한글 끊기던 것 방지
   // 부분 서식 — 내용칸에서 선택한 구간을 기억했다가 색/굵기 적용
