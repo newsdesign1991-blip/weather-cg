@@ -1385,8 +1385,8 @@
         <div class="subhead">표시 날짜 범위 <span>· 원하는 기간만</span></div>
         <div class="fieldGroup">
           <label class="chk" style="margin-bottom:4px"><input type="checkbox" id="typRangeOn">이 기간만 표시</label>
-          <div class="row"><label>시작</label><input type="date" id="typRangeFrom" style="flex:1"></div>
-          <div class="row"><label>끝</label><input type="date" id="typRangeTo" style="flex:1"></div>
+          <div class="row"><label>시작</label><input type="datetime-local" id="typRangeFrom" step="3600" style="flex:1"></div>
+          <div class="row"><label>끝</label><input type="datetime-local" id="typRangeTo" step="3600" style="flex:1"></div>
           <p class="hint" style="margin:2px 0 0">경로 전체 중 이 날짜(KST) 구간만 지도에 표시합니다. 예: 7/10~7/20.</p>
         </div>
         <div class="subhead">반경 스타일 <span>· 면색 · 외곽 점선 · 굵기</span></div>
@@ -1408,8 +1408,8 @@
     <div class="sec special" data-sec="typhoonPlaces">
       <h3>지명표시</h3>
       <div class="body">
-        <div class="row wide"><input type="text" id="placeInput" placeholder="지명 입력 (예: 서울, 제주, 오키나와)" style="flex:1"><button id="placeAdd" style="flex:0 0 auto">추가</button></div>
-        <p class="hint" style="margin:2px 0 6px">지명을 넣으면 그 위치에 <b>원+이름표(같은 색)</b>가 붙습니다. 이름표는 드래그로 옮기고, 색은 목록에서 바꾸면 원도 같이 바뀝니다.</p>
+        <div class="row wide"><input type="text" id="placeInput" placeholder="지명 입력 (예: 서울, 오키나와)" style="flex:1"><button id="placeAdd" style="flex:0 0 auto">지명</button><button id="placeAddSub" style="flex:0 0 auto" title="흰 점 + 작은 흰 글씨(박스·선 없음)">부지명</button></div>
+        <p class="hint" style="margin:2px 0 6px"><b>지명</b>=원+이름표(같은 색). <b>부지명</b>=작은 흰 점+작은 흰 글씨(박스·선 없음). 이름표는 드래그로 옮기고, 색은 목록에서 변경.</p>
         <div class="row"><label>이름표 크기</label><input type="range" id="placeSize" min="16" max="80" step="1"><span class="v" id="placeSizeV"></span></div>
         <div id="placeList"></div>
       </div>
@@ -3917,6 +3917,9 @@ function mkLabelGrad(id, c1, c2, angle) {
   grad.append(el('stop', { offset: '1', 'stop-color': c2 }));
   return grad;
 }
+// 라벨 텍스트 폭 캐시 — getBBox(강제 레이아웃)는 비싸다. 텍스트/크기/굵기/자간이 같으면 재사용해
+// 재생(매 프레임 재구성) 때 레이아웃 스래싱을 없앤다. 키에 내용 결정요소만 담아 자동 무효화.
+const _labWCache = new Map();
 function fillLabelBox(g, b, k) {
   const size = Math.max(1, b.size * k), padX = b.padX * k, padY = b.padY * k;
   const weight = b.w == null ? 500 : b.w;
@@ -3939,6 +3942,7 @@ function fillLabelBox(g, b, k) {
     g.append(t); return t;
   };
   const title = (b.title || '').trim();
+  const _sig = title + '' + (b.txt || '') + '' + size + '' + weight + '' + track + '' + (b.titleRatio == null ? '' : b.titleRatio) + '' + (b.divider == null ? 1 : b.divider) + '' + (b.runs ? JSON.stringify(b.runs) : '');
   let cw, ch;
   if (title) {
     // 2단 라벨: 윗줄(지역명, 작게) + 아랫줄(내용, 크게) + 그 사이 구분선
@@ -3948,7 +3952,9 @@ function fillLabelBox(g, b, k) {
     const H = tSize + gap + size;
     const tTit = mkText(title, tSize, Math.max(400, weight - 100), -(H / 2) + tSize / 2);
     const tNum = mkText(b.txt, size, weight, (H / 2) - size / 2, b.runs);
-    cw = Math.max(tTit.getBBox().width, tNum.getBBox().width); ch = H;
+    let _cw = _labWCache.get(_sig);
+    if (_cw == null) { _cw = Math.max(tTit.getBBox().width, tNum.getBBox().width); _labWCache.set(_sig, _cw); }
+    cw = _cw; ch = H;
     if (showDiv) {
       const dy = (tSize - size) / 2;
       g.append(el('line', { x1: -cw / 2, x2: cw / 2, y1: dy, y2: dy,
@@ -3956,7 +3962,9 @@ function fillLabelBox(g, b, k) {
     }
   } else {
     const t = mkText(b.txt, size, weight, 0, b.runs);
-    cw = t.getBBox().width; ch = size;
+    let _cw = _labWCache.get(_sig);
+    if (_cw == null) { _cw = t.getBBox().width; _labWCache.set(_sig, _cw); }
+    cw = _cw; ch = size;
   }
   const w = cw + padX * 2, h = ch + padY * 2;
   r.setAttribute('x', -w / 2); r.setAttribute('y', -h / 2);
@@ -4369,13 +4377,22 @@ function typhoonDateKST(tmef) {
   d.setUTCHours(d.getUTCHours() + 9);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
+// 시각까지 포함(YYYY-MM-DDTHH:mm, KST) — 표시 범위를 '일'이 아니라 '발표시각' 단위로 자를 때 사용.
+function typhoonDateTimeKST(tmef) {
+  const s = String(tmef || '').replace(/\D/g, ''); if (s.length < 8) return '';
+  const d = new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +(s.slice(8, 10) || 0), +(s.slice(10, 12) || 0)));
+  d.setUTCHours(d.getUTCHours() + 9);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+// 범위값 정규화 — 날짜만("2026-08-12")이면 시작=00:00, 끝=23:59로 확장(옛 저장값·일 단위 선택 호환).
+const _typRangeNorm = (v, isEnd) => (v && v.indexOf('T') < 0 ? v + (isEnd ? 'T23:59' : 'T00:00') : v);
 // 지점 idx가 '표시 날짜 범위' 안에 드는가 (범위 꺼짐이면 항상 true)
 function typhoonIdxInRange(pts, idx) {
   const T = S.typhoon || {}; if (!T.rangeOn) return true;
   const p = pts[idx]; if (!p) return false;
-  const d = typhoonDateKST(p.tmef); if (!d) return true;
-  if (T.rangeFrom && d < T.rangeFrom) return false;
-  if (T.rangeTo && d > T.rangeTo) return false;
+  const d = typhoonDateTimeKST(p.tmef); if (!d) return true;
+  if (T.rangeFrom && d < _typRangeNorm(T.rangeFrom, false)) return false;
+  if (T.rangeTo && d > _typRangeNorm(T.rangeTo, true)) return false;
   return true;
 }
 // 애니메이션이 훑을 인덱스 구간 [lo,hi] — '표시 날짜 범위'가 켜져 있으면 그 안의 첫/끝 지점.
@@ -4545,7 +4562,10 @@ function typhoonScreenPts(pts) {
     const a = pts[fl], b = pts[fl + 1];
     // 목적지 지점(b)에 그 반경이 없으면(0) head도 0으로 — 마지막이 0인 반경을 향해 lerp하다 '유령 반경'을 그렸다 정지프레임서 사라지는 어색함 제거.
     const ip = { lon: lerp(a.lon, b.lon, frac), lat: lerp(a.lat, b.lat, frac), r15: (b.r15 || 0) ? lerp(a.r15 || 0, b.r15 || 0, frac) : 0, r25: (b.r25 || 0) ? lerp(a.r25 || 0, b.r25 || 0, frac) : 0, r70: (b.r70 || 0) ? lerp(a.r70 || 0, b.r70 || 0, frac) : 0, label: '' };
-    const s = toS(ip, fl + frac); s.head = true; out.push(s);
+    const s = toS(ip, fl + frac); s.head = true;
+    s.ws = lerp((a.ws == null ? 99 : a.ws), (b.ws == null ? 99 : b.ws), frac);   // 선두 강도=보간(약해지면 TD/온대 마커로 자연스럽게 전환)
+    s.ex = frac >= 0.5 ? !!b.ex : !!a.ex;   // 향하는 지점이 온대저압부면 선두도 '저'
+    out.push(s);
   }
   return out;
 }
@@ -4569,7 +4589,7 @@ function typhoonIconEl(x, y, r, color, td, past, ws, forceImage, ex) {
     g.appendChild(_te('circle', { r: rr + Math.max(1.6, rr * 0.18), fill: 'none', stroke: past ? '#5A626C' : '#FFFFFF', 'stroke-width': Math.max(1.6, rr * 0.22), 'stroke-opacity': past ? 0.35 : 0.9 }));   // 바깥 할로(지난 것은 어두운 회색·연하게)
     g.appendChild(_te('circle', { r: rr, fill: faceCol, stroke: lineCol, 'stroke-width': Math.max(1.6, rr * 0.15), 'stroke-opacity': op, 'fill-opacity': op }));
     if (ex) {   // 온대저압부 = 가운데 '저'(열대저압부와 같은 원, X 대신 저)
-      const t = _te('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: lineCol, 'font-family': '"SUITE CG","Malgun Gothic",sans-serif', 'font-weight': 800, 'font-size': rr * 1.12, 'fill-opacity': op });
+      const t = _te('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: lineCol, 'font-family': '"SUITE CG","Malgun Gothic",sans-serif', 'font-weight': 800, 'font-size': rr * 1.42, 'fill-opacity': op });
       t.textContent = '저';
       g.appendChild(t);
     } else {
@@ -4707,18 +4727,33 @@ function typhoonBandInto(parent, sp, key, st) {
   parent.appendChild(fg);
   // 외곽 점선 — 좌/우 오프셋 폴리라인 + 양 끝 둥근 캡을 이은 '하나의 닫힌 튜브' 외곽선.
   if (st.strokeW > 0 && P.length >= 2) {
-    const L = [], R = [];
+    const rawL = [], rawR = [];
     for (let i = 0; i < P.length; i++) {
       const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
       let dx = b.x - a.x, dy = b.y - a.y; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
       const nx = -dy, ny = dx, r = P[i][key];
-      L.push([P[i].x + nx * r, P[i].y + ny * r]); R.push([P[i].x - nx * r, P[i].y - ny * r]);
+      rawL.push([P[i].x + nx * r, P[i].y + ny * r]); rawR.push([P[i].x - nx * r, P[i].y - ny * r]);
     }
-    const last = P.length - 1, rl = P[last][key], rf = P[0][key];
+    // 오목한 급커브에서 안쪽 오프셋이 접혀(자기교차) 외곽선에 이상한 선이 생긴다.
+    // → 진행방향(센터라인)과 반대로 꺾이는 안쪽 점은 건너뛴다(끝점은 캡 위해 항상 유지). 원(채우기)이 코너를 덮는다.
+    const clean = (arr) => {
+      const out = [arr[0]];
+      for (let i = 1; i < arr.length - 1; i++) {
+        const prev = out[out.length - 1];
+        const cdx = P[i].x - P[i - 1].x, cdy = P[i].y - P[i - 1].y;   // 센터라인 진행방향
+        const odx = arr[i][0] - prev[0], ody = arr[i][1] - prev[1];   // 오프셋 진행방향
+        if (odx * cdx + ody * cdy > 0) out.push(arr[i]);   // 같은 방향이면 유지, 접히면 skip
+      }
+      if (arr.length > 1) out.push(arr[arr.length - 1]);
+      return out;
+    };
+    const L = clean(rawL), R = clean(rawR);
+    const rl = P[P.length - 1][key], rf = P[0][key];
+    const RL = R[R.length - 1], RF = R[0];
     let d = 'M' + L[0][0] + ' ' + L[0][1];
-    for (let i = 1; i < P.length; i++) d += 'L' + L[i][0] + ' ' + L[i][1];
-    d += `A${rl} ${rl} 0 0 0 ${R[last][0]} ${R[last][1]}`;    // 예보 끝 둥근 캡(바깥쪽)
-    for (let i = last - 1; i >= 0; i--) d += 'L' + R[i][0] + ' ' + R[i][1];
+    for (let i = 1; i < L.length; i++) d += 'L' + L[i][0] + ' ' + L[i][1];
+    d += `A${rl} ${rl} 0 0 0 ${RL[0]} ${RL[1]}`;    // 예보 끝 둥근 캡(바깥쪽)
+    for (let i = R.length - 2; i >= 0; i--) d += 'L' + R[i][0] + ' ' + R[i][1];
     d += `A${rf} ${rf} 0 0 0 ${L[0][0]} ${L[0][1]}Z`;         // 시작 둥근 캡(바깥쪽)
     const a = { d, fill: 'none', stroke: st.stroke, 'stroke-width': st.strokeW, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' };
     if (st.dash) a['stroke-dasharray'] = (st.strokeW * 4) + ' ' + (st.strokeW * 3.5);
@@ -4980,8 +5015,10 @@ function drawTyphoonTrack(L, pts) {
   const iconCol = T.iconCol || '#E5231E';
   const headWs = (pts[nowIdx] && pts[nowIdx].ws) || 40;
   for (const p of sp) {
-    if (p.head) {   // 이동하는 선두 = 일러스트 아이콘(강도숫자 모드에서도). 애니 끝날 때 부드럽게 사라지도록 페이드.
-      const hi = typhoonIconEl(p.x, p.y, 17, iconCol, false, false, headWs, true);
+    if (p.head) {   // 이동하는 선두 — 강한 구간=일러스트, 향하는 지점이 약하면(TD)·온대면 마커로 자연스럽게 전환(끝에서 탁 사라짐 방지).
+      const hws = (p.ws == null) ? headWs : p.ws;
+      const hex = !!p.ex, htd = hex || hws < 17;
+      const hi = typhoonIconEl(p.x, p.y, 17, iconCol, htd, false, hws, !htd, hex);   // htd면 마커(forceImage=false), 아니면 일러스트
       if (typhoonHeadFade < 1) hi.setAttribute('opacity', Math.max(0, typhoonHeadFade).toFixed(3));
       add(hi); continue;
     }
@@ -5048,6 +5085,7 @@ function drawTyphoonPlaces(L, LB) {
   for (const pl of places) {
     if (pl.off) continue;
     const [fx, fy] = typhoonXY(pl.lon, pl.lat);
+    if (pl.sub) { drawSubPlace(L, LB, pl, fx, fy, szBase); continue; }   // 부지명: 흰 점+작은 흰 글씨(박스·선 없음)
     const col = pl.color || '#009afa';
     const dot = _te('circle', { cx: fx.toFixed(1), cy: fy.toFixed(1), r: 7, fill: col, stroke: '#FFFFFF', 'stroke-width': 2, 'data-place-dot': pl.id, style: 'cursor:move' });
     L.appendChild(dot);
@@ -5068,6 +5106,25 @@ function drawTyphoonPlaces(L, LB) {
     dot.addEventListener('pointerdown', (e) => startPlaceDotDrag(e, pl, dot, g, line, w, h));   // 원 드래그 = 위치 이동
   }
 }
+// 부지명: 작은 흰 점 + 작은 흰 글씨(박스·지시선 없음). 이름표는 점 아래 살짝, 드래그로 이동.
+function drawSubPlace(L, LB, pl, fx, fy, szBase) {
+  const col = pl.color || '#FFFFFF';
+  const dot = _te('circle', { cx: fx.toFixed(1), cy: fy.toFixed(1), r: 4, fill: col, stroke: '#FFFFFF', 'stroke-width': 1, 'stroke-opacity': 0.55, 'data-place-dot': pl.id, style: 'cursor:move' });
+  L.appendChild(dot);
+  if (!LB) return;
+  const [sx, sy] = camProjectXY(fx, fy);
+  const lx = sx + (pl.ox == null ? 0 : pl.ox), ly = sy + (pl.oy == null ? 16 : pl.oy);
+  const sz = Math.round((pl.size || szBase) * 0.62);
+  const g = _te('g', { class: 'drag', transform: `translate(${lx} ${ly})`, 'data-place-label': pl.id });
+  if (S.labShadow == null ? true : S.labShadow) g.setAttribute('filter', 'url(#typhoonLabelShadow)');   // 가독성 그림자
+  const t = _te('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: col, 'font-family': '"SUITE CG","Malgun Gothic",sans-serif', 'font-weight': 700, 'font-size': sz });
+  t.textContent = pl.name;
+  g.appendChild(t);
+  LB.appendChild(g);
+  pl._w = 0; pl._h = 0;
+  g.addEventListener('pointerdown', (e) => startPlaceLabelDrag(e, pl, g, null, sx, sy, 0, 0));   // 지시선 없음(line=null)
+  dot.addEventListener('pointerdown', (e) => startPlaceDotDrag(e, pl, dot, g, null, 0, 0));
+}
 // 지명 원 드래그 = 실제 위치(경위도) 이동. 이름표·지시선도 따라온다. (사전에 없는 지명 수동배치에 필수)
 function startPlaceDotDrag(e, pl, dot, g, line, w, h) {
   e.stopPropagation();
@@ -5077,7 +5134,7 @@ function startPlaceDotDrag(e, pl, dot, g, line, w, h) {
   dragLoop(e, (dx, dy) => {
     const nfx = fx0 + dx, nfy = fy0 + dy;
     const ll = xyToLonLat(nfx, nfy);
-    pl.lon = ll[0]; pl.lat = ll[1];
+    pl.lon = ll.lon; pl.lat = ll.lat;
     dot.setAttribute('cx', nfx.toFixed(1)); dot.setAttribute('cy', nfy.toFixed(1));
     const [nsx, nsy] = camProjectXY(nfx, nfy);
     const lx = nsx + (pl.ox || 0), ly = nsy + (pl.oy == null ? -52 : pl.oy);
@@ -5100,33 +5157,38 @@ function startPlaceLabelDrag(e, pl, g, line, sx, sy, w, h) {
 }
 // 지명표시 사이드바 — 입력/추가/목록(색·삭제)/크기.
 function buildTyphoonPlacesPanel() {
-  const inp = $('#placeInput'), addB = $('#placeAdd'), list = $('#placeList'), sz = $('#placeSize'), szV = $('#placeSizeV');
+  const inp = $('#placeInput'), addB = $('#placeAdd'), addSubB = $('#placeAddSub'), list = $('#placeList'), sz = $('#placeSize'), szV = $('#placeSizeV');
   if (!list) return;
   if (S.typhoon && !S.typhoon.places) S.typhoon.places = [];
-  const doAdd = () => {
+  const doAdd = (sub) => {
     const q = (inp && inp.value || '').trim(); if (!q) return;
     const ll = geocodePlace(q);
     let lon, lat, manual = false;
     if (ll) { lon = ll[0]; lat = ll[1]; }
-    else { const c = xyToLonLat(960, 540); lon = c[0]; lat = c[1]; manual = true; }   // 사전에 없으면 화면 중앙에 두고 드래그로 배치
+    else { const c = xyToLonLat(960, 540); lon = c.lon; lat = c.lat; manual = true; }   // 사전에 없으면 화면 중앙에 두고 드래그로 배치
     pushUndo('place');
-    (S.typhoon.places ||= []).push({ id: 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000), name: q, lon, lat, color: '#009afa' });
+    const pl = { id: 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000), name: q, lon, lat };
+    if (sub) { pl.sub = 1; pl.color = '#FFFFFF'; pl.ox = 0; pl.oy = 16; } else { pl.color = '#009afa'; }   // 부지명=흰색 작은 글씨(점 아래)
+    (S.typhoon.places ||= []).push(pl);
     if (inp) inp.value = '';
     renderTyphoon(); buildTyphoonPlacesPanel();
-    status(manual ? `'${q}' 사전에 없어 지도 중앙에 추가 — 원을 드래그해 위치를 맞추세요` : `'${q}' 추가`, true);
+    status(manual ? `'${q}' 사전에 없어 지도 중앙에 추가 — 점을 드래그해 위치를 맞추세요` : `'${q}' ${sub ? '부지명' : '지명'} 추가`, true);
   };
-  if (addB) addB.onclick = doAdd;
-  if (inp) inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } };
+  if (addB) addB.onclick = () => doAdd(false);
+  if (addSubB) addSubB.onclick = () => doAdd(true);
+  if (inp) inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdd(false); } };
   if (sz) { sz.value = (S.typhoon && S.typhoon.placeSize) || 34; if (szV) szV.textContent = sz.value; sz.oninput = () => { pushUndo('place'); S.typhoon.placeSize = +sz.value; if (szV) szV.textContent = sz.value; renderTyphoon(); }; }
   list.textContent = '';
   for (const pl of (S.typhoon.places || [])) {
     const row = document.createElement('div'); row.className = 'row'; row.style.gap = '6px';
     const c = document.createElement('input'); c.type = 'color'; c.value = pl.color || '#E5301F'; c.style.flex = '0 0 auto';
     c.oninput = () => { pl.color = c.value; renderTyphoon(); };
-    const nm = document.createElement('span'); nm.textContent = pl.name; nm.style.flex = '1'; nm.style.fontSize = '13px';
+    const tag = document.createElement('span'); tag.textContent = pl.sub ? '부' : '지'; tag.style.cssText = 'flex:0 0 auto;font-size:10px;opacity:.55;width:11px;text-align:center';
+    const nm = document.createElement('input'); nm.type = 'text'; nm.value = pl.name; nm.style.cssText = 'flex:1;font-size:12px';   // 이름 편집 가능
+    wireImeText(nm, (v) => { const t = (v || '').trim(); if (!t) return; pl.name = t; renderTyphoon(); });
     const del = document.createElement('button'); del.textContent = '✕'; del.style.flex = '0 0 auto';
     del.onclick = () => { pushUndo('place'); S.typhoon.places = S.typhoon.places.filter((x) => x !== pl); renderTyphoon(); buildTyphoonPlacesPanel(); };
-    row.append(c, nm, del); list.append(row);
+    row.append(c, tag, nm, del); list.append(row);
   }
 }
 
@@ -5639,13 +5701,13 @@ function buildTyphoonPanel() {
   if (gStr) gStr.value = gsv; if (gStrV) gStrV.textContent = Math.round(gsv * 100) + '%';
   const gc = $('#typGlowCol'), gh = $('#typGlowHex');
   if (gc) gc.value = T.glowCol || (T.iconCol || '#E5231E'); if (gh) gh.value = T.glowCol || '';
-  // 표시 날짜 범위 — 입력칸 min/max를 경로 실제 기간으로, 기본값은 전체 범위
-  const dates = pts.map((p) => typhoonDateKST(p.tmef)).filter(Boolean).sort();
-  const dMin = dates[0] || '', dMax = dates[dates.length - 1] || '';
+  // 표시 날짜 범위 — 입력칸(시각 단위 datetime-local) min/max를 경로 실제 기간으로, 기본값은 전체 범위
+  const dts = pts.map((p) => typhoonDateTimeKST(p.tmef)).filter(Boolean).sort();
+  const dMin = dts[0] || '', dMax = dts[dts.length - 1] || '';
   const rOn = $('#typRangeOn'), rF = $('#typRangeFrom'), rT = $('#typRangeTo');
   if (rOn) rOn.checked = !!T.rangeOn;
-  if (rF) { rF.min = dMin; rF.max = dMax; rF.value = T.rangeFrom || dMin; }
-  if (rT) { rT.min = dMin; rT.max = dMax; rT.value = T.rangeTo || dMax; }
+  if (rF) { rF.min = dMin; rF.max = dMax; rF.value = _typRangeNorm(T.rangeFrom, false) || dMin; }
+  if (rT) { rT.min = dMin; rT.max = dMax; rT.value = _typRangeNorm(T.rangeTo, true) || dMax; }
 }
 
 // 반경 밴드 스타일 컨트롤(면색·투명도·외곽선색·굵기·점선) — 3밴드 동적 생성
@@ -6178,33 +6240,43 @@ function applyTyphoonText(rawTyp, rawTd) {
 // 태풍 첫 점 시각을 기준으로 시각을 거슬러(최대 48h) td_now를 조회, 그 위치에 연결되는 TD의 분석 좌표를 붙인다. 다시 누르면 원복(토글).
 const _dtm = (tm) => +String(tm || '').replace(/\D/g, '').slice(0, 12);
 function _tmBack(tm12, hb) { const s = String(tm12); const d = new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +(s.slice(10, 12) || 0))); d.setUTCHours(d.getUTCHours() - hb); const p = (v) => String(v).padStart(2, '0'); return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}`; }
-// td_now에서 기준점(refPt) 근처 TD의 '실제 분석 좌표'를 시각을 거슬러(back=발생)/앞으로(fwd=소멸) 조회.
-// refT 기준으로 back이면 그 이전, fwd면 그 이후 지점만 돌려준다(기존 트랙과 겹치지 않게).
-async function scanTdReal(refPt, refT, dir) {
+// td_now(TD) 또는 typ_now(태풍)에서 기준점(refPt) 근처 스톰의 '실제 분석 좌표'를 시각을 거슬러(back)/앞으로(fwd) 조회.
+// kind='td'면 열대저압부, 'typ'면 태풍. refT 기준 back=그 이전, fwd=그 이후 지점만(기존 트랙과 안 겹치게).
+// ★위치 근접(<8°)으로 '같은 스톰'을 식별 — 번호가 바뀌어도(태풍↔TD 승격/약화) 트랙 연속성으로 이어붙는다.
+async function _scanEdgeReal(refPt, refT, dir, kind) {
   const base = String(refPt.tmef).replace(/\D/g, '').slice(0, 12).padEnd(12, '0');
+  const urlOf = kind === 'typ' ? typhoonApiUrlTm : typhoonTdUrlTm;
+  const parse = kind === 'typ' ? parseTypNow : parseTdRows;
+  const ptOf = kind === 'typ' ? typPointFromRow : typTdPointFromRow;
   let best = null;
   const hbs = []; for (let hb = 0; hb <= 48; hb += 6) hbs.push(hb);
-  const raws = await Promise.all(hbs.map((hb) => {   // 여러 시각을 병렬 조회
-    const tm = _tmBack(base, dir === 'back' ? hb : -hb);   // fwd면 미래로
-    return kmaGet(`https://apihub.kma.go.kr/api/typ01/url/td_now.php?tm=${tm}&mode=1&disp=0&help=0&authKey=${encodeURIComponent(apiKey())}`);
-  }));
+  const raws = await Promise.all(hbs.map((hb) => kmaGet(urlOf(_tmBack(base, dir === 'back' ? hb : -hb)))));   // 병렬 조회(fwd면 미래로)
   for (let i = 0; i < raws.length && !best; i++) {   // 가까운 시각(작은 hb)부터 채택
-    const rows = parseTdRows(raws[i]); if (!rows.length) continue;
-    const byTd = {}; for (const c of rows) { (byTd[(c[2] || '').trim()] ||= []).push(c); }
-    for (const tdno of Object.keys(byTd)) {
-      const pts = byTd[tdno].map(typTdPointFromRow);
+    const rows = parse(raws[i]); if (!rows.length) continue;
+    const by = {}; for (const c of rows) { (by[(c[2] || '').trim()] ||= []).push(c); }
+    for (const id of Object.keys(by)) {
+      const pts = by[id].map(ptOf);
       let dmin = 1e9; for (const q of pts) { if (q.fcst) continue; const d = Math.hypot(q.lon - refPt.lon, q.lat - refPt.lat); if (d < dmin) dmin = d; }
-      if (dmin < 8 && (!best || dmin < best.dmin)) best = { tdno, pts, dmin };
+      if (dmin < 8 && (!best || dmin < best.dmin)) best = { pts, dmin };
     }
   }
   if (!best) return [];
   const seen = {};
   const out = best.pts.filter((q) => !q.fcst && q.tmef && (dir === 'back' ? _dtm(q.tmef) < refT : _dtm(q.tmef) > refT))
-    .filter((q) => { const k = _dtm(q.tmef); if (seen[k]) return false; seen[k] = 1; return true; })
-    .sort((a, b) => _dtm(a.tmef) - _dtm(b.tmef));
-  out.forEach((q) => { q.td = true; q._edgeTD = true; });
+    .filter((q) => { const k = _dtm(q.tmef); if (seen[k]) return false; seen[k] = 1; return true; });
+  out.forEach((q) => { q.td = (kind !== 'typ') && (+q.ws || 99) < 17; q._edgeTD = true; });
   return out;
 }
+// td_now + typ_now를 함께 역조회해 시각순으로 병합(같은 시각이면 태풍 우선). back/fwd 공용.
+async function _scanEdgeBoth(refPt, refT, dir) {
+  const [a, b] = await Promise.all([_scanEdgeReal(refPt, refT, dir, 'td'), _scanEdgeReal(refPt, refT, dir, 'typ')]);
+  const m = new Map();
+  for (const q of a) m.set(_dtm(q.tmef), q);
+  for (const q of b) m.set(_dtm(q.tmef), q);   // 태풍(typ) 우선 — 같은 시각이면 태풍 분류/풍속으로
+  return [...m.values()].sort((x, y) => _dtm(x.tmef) - _dtm(y.tmef));
+}
+// 하위호환 별칭(기존 호출부 유지)
+const scanTdReal = (refPt, refT, dir) => _scanEdgeReal(refPt, refT, dir, 'td');
 // 발생(앞)·소멸(뒤) 열대저압부를 실좌표로 붙인다. auto=true면 불러오기에서 조용히, false면 버튼(토글).
 async function attachEdgeTD(auto) {
   const it = curTyphoonIssue();
@@ -6228,13 +6300,16 @@ async function attachEdgeTD(auto) {
   try {
     let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
     if (!up) { if (!auto && typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice(); return; }
-    const genesis = await scanTdReal(p0, tMin, 'back');
-    const dissip = await scanTdReal(pL, tL, 'fwd');
-    if (!genesis.length && !dissip.length) { if (!auto) status('연결되는 열대저압부를 못 찾았습니다 (그 시기 TD 데이터 없음)', true); return; }
+    // ★td_now(TD)+typ_now(태풍) 둘 다 역/순 조회 → 태풍↔TD가 바뀐 스톰도 트랙 연속성으로 과거/미래를 이어붙인다.
+    //  (예: 지금 열대저압부인데 예전엔 태풍이었던 경우 → 앞에 태풍 트랙이 통보문처럼 이어짐)
+    const genesis = await _scanEdgeBoth(p0, tMin, 'back');
+    const dissip = await _scanEdgeBoth(pL, tL, 'fwd');
+    if (!genesis.length && !dissip.length) { if (!auto) status('연결되는 태풍·열대저압부를 못 찾았습니다 (그 시기 데이터 없음)', true); return; }
     pushUndo();
     it.points = [...genesis, ...core, ...dissip];
+    const gTyp = genesis.filter((p) => !p.td).length, dTyp = dissip.filter((p) => !p.td).length;
     renderTyphoon(); if (typeof buildTyphoonPanel === 'function') buildTyphoonPanel();
-    status(`열대저압부 붙임 — 발생 ${genesis.length}점 · 소멸 ${dissip.length}점 (버튼 다시 누르면 원복)`);
+    status(`과거·미래 트랙 붙임 — 발생 ${genesis.length}점(태풍 ${gTyp}) · 소멸 ${dissip.length}점(태풍 ${dTyp}) (버튼 다시 누르면 원복)`);
   } catch (e) {
     if (!auto) status('열대저압부 불러오기 실패: ' + (e.message || e), true);
   } finally { if (btn) btn.disabled = false; }
@@ -10159,7 +10234,7 @@ async function exportPngSeq() {
 const WNS_HELPER = 'http://127.0.0.1:3720';
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260823;
+const HELPER_VER_MIN = 20260828;
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
@@ -10441,6 +10516,7 @@ const EXPORT_TARGETS = [
   { key: 'sidoline', label: '시·도 선만 (투명)', sub: '시도 경계선만' },
   { key: 'fills', label: '특보·예보 색칠만 (투명)', sub: '칠한 구역만' },
   { key: 'labels', label: '수치 라벨만 (투명)', sub: '여러 개면 각각 한 장씩' },
+  { key: 'typhoon', label: '태풍 라인만 (투명)', sub: '경로·아이콘·반경·라벨·지명 (태풍 지도)' },
 ];
 let exportPick = new Set(['full']);
 
@@ -10488,6 +10564,10 @@ async function exportBlobs(key) {
       p.removeAttribute('mask'); p.removeAttribute('opacity');
     });
   }) }];
+  if (key === 'typhoon') {   // 태풍 라인만 — 경로·아이콘·반경·수치라벨·지명(투명 배경)
+    if (!isTyphoon()) return [];
+    return [{ name: '태풍', blob: await svgBlob((c) => keepLayers(c, ['L_typhoon', 'L_typhoonLabels']), true) }];
+  }
   if (key === 'labels') {
     const labs = S.labels.filter((b) => !b.off);
     if (!labs.length) return [];
@@ -10714,11 +10794,20 @@ function aeLegendCompData() {
   return { w: bb.width * k, h: bb.height * k, x: center.x, y: center.y, items };
 }
 // 태풍 아이콘을 단독 PNG로 래스터화(AE 리깅용). past=회색, 아니면 iconCol 틴트. {blob,w,h,cx,cy} 반환(중심=cx,cy).
-async function aeIconBlob(color, past, td, forceDot) {
+async function aeIconBlob(color, past, td, forceDot, ex) {
   const IC = window.TYPHOON_ICON;
   const R = 90, w = Math.round(R * 3), h = Math.round(R * 3);
   let inner;
-  if (td) {   // 열대저압부(TD) = 원 + X (아이콘 대신). typhoonIconEl의 TD 그리기를 r=R로 재현.
+  if (ex) {   // 온대저압부 = 원 + '저' (typhoonIconEl ex 재현)
+    const rr = R * 1.15, cx = w / 2, cy = h / 2;
+    const lineCol = past ? '#79828E' : '#E24C4C';
+    const faceCol = past ? '#AEB6C0' : '#FFFFFF';
+    const op = past ? 0.85 : 1;
+    const halo = rr + Math.max(1.6, rr * 0.18);
+    inner = `<circle cx="${cx}" cy="${cy}" r="${halo}" fill="none" stroke="${past ? '#5A626C' : '#FFFFFF'}" stroke-width="${Math.max(1.6, rr * 0.22)}" stroke-opacity="${past ? 0.35 : 0.9}"/>`
+      + `<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${faceCol}" stroke="${lineCol}" stroke-width="${Math.max(1.6, rr * 0.15)}" stroke-opacity="${op}" fill-opacity="${op}"/>`
+      + `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" fill="${lineCol}" font-family="'SUITE CG','Malgun Gothic',sans-serif" font-weight="800" font-size="${rr * 1.42}" fill-opacity="${op}">저</text>`;
+  } else if (td) {   // 열대저압부(TD) = 원 + X (아이콘 대신). typhoonIconEl의 TD 그리기를 r=R로 재현.
     const rr = R * 1.15, cx = w / 2, cy = h / 2;
     const lineCol = past ? '#79828E' : '#E24C4C';
     const faceCol = past ? '#AEB6C0' : '#FFFFFF';
@@ -10838,21 +10927,35 @@ async function sendToAE() {
       } else {
         // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
         const T = S.typhoon, pts = curTyphoonPoints(), nowIdx = typhoonNowIdx(pts);
+        // 리깅 좌표는 SVG 뷰박스(1920×1080) 기준이지만 배경/컴포지션은 출력해상도(W×H)라, 좌표를 출력해상도로 스케일해야 어긋나지 않는다.
+        const kx = W / 1920, ky = H / 1080, kk = (kx + ky) / 2;
+        const SX = (v) => +(v * kx).toFixed(1), SY = (v) => +(v * ky).toFixed(1);
         const sp = typhoonScreenPts(pts).filter((p) => !p.head && typhoonIdxInRange(pts, p.idx));   // '표시 날짜 범위'만 내보냄
         const iconCol = T.iconCol || '#E5231E';
-        const bg = addFile(await svgBlob((c) => { for (const id of ['#L_typhoon', '#L_typhoonLabels', '#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove(); }));
+        // 지명표시(원+이름표)는 정적이라 배경에 그대로 구워 넣는다 — 태풍 트랙/라벨만 제거(리깅이 재구성), place 요소는 보존.
+        const bg = addFile(await svgBlob((c) => {
+          for (const id of ['#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove();
+          for (const id of ['#L_typhoon', '#L_typhoonLabels']) { const ly = c.querySelector(id); if (ly) [...ly.children].forEach((ch) => { if (!ch.hasAttribute('data-place-dot') && !ch.hasAttribute('data-place-label') && !ch.hasAttribute('data-place-leader')) ch.remove(); }); }
+        }));
         const icC = await aeIconBlob(iconCol, false, false), icG = await aeIconBlob(iconCol, true, false);
         const icTC = await aeIconBlob(iconCol, false, true), icTG = await aeIconBlob(iconCol, true, true);
+        const icExC = await aeIconBlob(iconCol, false, false, false, true), icExG = await aeIconBlob(iconCol, true, false, false, true);   // 온대저압부('저')
         const iconColFile = addFile(icC.blob), iconGrayFile = addFile(icG.blob);
         const iconTdColFile = addFile(icTC.blob), iconTdGrayFile = addFile(icTG.blob);
+        const iconExColFile = addFile(icExC.blob), iconExGrayFile = addFile(icExG.blob);
         const bands = {};
         for (const k of ['r70', 'r15', 'r25']) { const st = Object.assign({}, TYPHOON_BAND_DEF[k], (T.bands && T.bands[k]) || {}); if (!st.off) bands[k] = { fill: st.fill, fillOp: st.fillOp, stroke: st.stroke, strokeW: st.strokeW, dash: st.dash ? 1 : 0 }; }
-        const points = sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1), r15: Math.round(p.r15 || 0), r25: Math.round(p.r25 || 0), r70: Math.round(p.r70 || 0), past: p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 0 }));
+        const points = sp.map((p) => ({ x: SX(p.x), y: SY(p.y), r15: Math.round((p.r15 || 0) * kk), r25: Math.round((p.r25 || 0) * kk), r70: Math.round((p.r70 || 0) * kk), past: p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 0, ex: !!(pts[p.idx] && pts[p.idx].ex) }));
+        // 타임라인의 태풍 트랙에서 경로·라벨 애니 타이밍을 가져온다(없으면 기본값). #1: AE 리빌을 타임라인과 일치시킴.
+        const _tt = A.tracks.find((x) => x.kind === 'typhoon');
+        const revPathStart = _tt && _tt.ps != null ? +_tt.ps : start0;
+        const revPathLen = _tt && _tt.pe != null ? Math.max(0.1, +_tt.pe - +_tt.ps) : 2.0;
+        const _lab = (_tt && _tt.lab) || {};
         const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
         const labels = [];
-        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; labels.push({ idx: b.idx, px: +p.x.toFixed(1), py: +p.y.toFixed(1), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: b.x, by: b.y, bw: b._w || 120, bh: b._h || 60, size: Math.round((b.size || 40) * labK()), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK(), radius: (b.radius || 14) * labK() }); }
-        const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5;   // 화면상 아이콘 높이(px) — AE 스케일 계산용
-        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, labels }, name: '태풍 리깅' });
+        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : null, revLen: e ? Math.max(0.1, +e.e - +e.s) : null }); }
+        const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5 * kk;   // 화면상 아이콘 높이(px, 출력해상도 스케일) — AE 스케일 계산용
+        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconExColFile, iconExGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: revPathStart, path: revPathLen, labelLen: 1.0 }, labels }, name: '태풍 리깅' });
       }
       for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);
       if (S.legend && S.legend.on) { const lc = aeLegendCompData(); if (lc) specLayers.push({ legendComp: lc, name: '범례' }); }
