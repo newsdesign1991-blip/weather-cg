@@ -27,3 +27,9 @@ test('라인 모드는 선두 아이콘 하나와 조절 가능한 굵기의 선
   assert.match(html, /const tip = sp\[sp\.length - 1\]/);
   assert.match(html, /if \(lineMode\) \{ drawTyphoonPlaces\(L, LB\); return; \}/);
 });
+
+test('일반 모드 경로선에도 같은 굵기 설정을 적용한다', () => {
+  assert.match(html, /const trackW = Math\.max\(1, \+T\.lineWidth \|\| 9\.5\)/);
+  assert.match(html, /'stroke-width': trackW/);
+  assert.match(html, /일반·라인 모드 모두/);
+});
