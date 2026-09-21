@@ -5040,7 +5040,8 @@ function drawTyphoonTrack(L, pts) {
   const pastLine = sp.filter((p) => p.idx <= nowIdx);
   const futLine = sp.filter((p) => p.idx >= nowIdx);
   const trackW = Math.max(1, +T.lineWidth || 9.5);
-  if (pastLine.length > 1) add(_te('path', { d: 'M' + pastLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: '#96A0AD', 'stroke-width': trackW, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+  const pastTrackW = Math.max(1.5, trackW * 0.55);   // 과거 경로는 현재·예상선보다 가늘게 구분
+  if (pastLine.length > 1) add(_te('path', { d: 'M' + pastLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: '#96A0AD', 'stroke-width': pastTrackW, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   if (futLine.length > 1) add(_te('path', { d: 'M' + futLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: '#FFFFFF', 'stroke-width': trackW, 'stroke-dasharray': `${trackW * 3.2} ${trackW * 2.5}`, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   // 지시선 레이어 — 아이콘보다 '먼저' 그려서 아이콘 뒤로 가게(선이 아이콘을 안 가림).
   // 태풍 아이콘 (지난 구간 회색, 현재/미래 색조 필터, 현재 크게, 약하면 열대저압부 점)
@@ -5060,7 +5061,7 @@ function drawTyphoonTrack(L, pts) {
     const ws = (dp && dp.ws) || 99;
     const ex = !!(dp && dp.ex);   // 온대저압부(수동 지정)
     const baseR = 17;   // 현재시각도 다른 지점과 같은 크기(예전엔 현재만 24로 살짝 키웠음 — 제거)
-    const icon = typhoonIconEl(p.x, p.y, past ? baseR * 0.5 : baseR, iconCol, (ws < 17) || ex, past, ws, false, ex);   // 지나간 날짜는 50% 작게 / ex=온대저압부(저)
+    const icon = typhoonIconEl(p.x, p.y, past ? baseR * 0.3 : baseR, iconCol, (ws < 17) || ex, past, ws, false, ex);   // 지나간 날짜는 현재·예상의 30%로 작게 / ex=온대저압부(저)
     if (dp) {
       const when = dp.label || (dp.tmef ? fmtKST(dp.tmef) : ('지점 ' + (p.idx + 1)));
       const kind = dp.fcst ? '예상' : '실황';

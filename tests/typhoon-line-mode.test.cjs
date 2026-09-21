@@ -30,6 +30,11 @@ test('라인 모드는 선두 아이콘 하나와 조절 가능한 굵기의 선
 
 test('일반 모드 경로선에도 같은 굵기 설정을 적용한다', () => {
   assert.match(html, /const trackW = Math\.max\(1, \+T\.lineWidth \|\| 9\.5\)/);
+  assert.match(html, /const pastTrackW = Math\.max\(1\.5, trackW \* 0\.55\)/);
   assert.match(html, /'stroke-width': trackW/);
   assert.match(html, /일반·라인 모드 모두/);
+});
+
+test('일반 모드의 과거 아이콘은 현재와 예상 아이콘보다 훨씬 작다', () => {
+  assert.match(html, /past \? baseR \* 0\.3 : baseR/);
 });
