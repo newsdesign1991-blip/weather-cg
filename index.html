@@ -1371,6 +1371,7 @@
         <div class="subhead">경로 표시 방식</div>
         <div class="fieldGroup">
           <div class="row"><label>모드</label><div class="mode" id="typTrackMode" style="flex:1;display:flex"><button data-tm="full" type="button" style="flex:1">일반 모드</button><button data-tm="line" type="button" style="flex:1">라인 모드</button></div></div>
+          <div class="row"><label>라인 색</label><input type="color" id="typLineColor"><input type="text" id="typLineColorHex"></div>
           <div class="row"><label>라인 두께</label><input type="range" id="typLineWidth" min="1" max="16" step="0.5"><span class="v" id="typLineWidthV"></span></div>
           <p class="hint" style="margin:2px 0 0"><b>라인 모드</b>는 과거 아이콘·예상경로·반경·시각 라벨을 숨기고, 아이콘 하나가 현재 위치까지 선을 그리며 이동합니다. 아이콘 크기는 아래에서 조절합니다.</p>
         </div>
@@ -4362,8 +4363,8 @@ function camUnprojectXY(sx, sy) {
 
 // 태풍 데이터 시드(샘플: 6호 '장미'). 실제 연동 시 기상청 API가 issues를 채운다.
 const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'satdark', nowIdx: null, labelSel: null,
-  trackMode: 'full', lineWidth: 4,
-  iconMode: 'image', iconScale: 0.75,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 75%)
+  trackMode: 'full', lineColor: '#E5231E', lineWidth: 9.5,
+  iconMode: 'image', iconScale: 1.75,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 175%)
   glowOn: 1, glowStr: 0.5, glowCol: '',   // 아이콘 글로우: 켜기 / 강도(0~1) / 색('' 이면 아이콘색 따라감)
   sidoShow: 1, sidoCol: '', sidoW: 0.8, sidoOp: 0.55,   // 남한 시도 구분선: 켜기 / 색('' 이면 강조 선색 따라감) / 굵기 / 투명도
   gridShow: 1, gridCol: '#7FA8CC', gridW: 0.4, gridOp: 0.12,   // 경위도 격자선(바다): 켜기 / 색 / 굵기 / 투명도(아주 살짝)
@@ -4414,8 +4415,14 @@ function typhoonRangeWindow(pts) {
   return { lo, hi };
 }
 // 굽힌 배포 기본값(WCG_DEFAULTS.typhoonStyle)이 있으면 그걸 우선한 태풍 스타일 기본값.
-function typhoonStyleDefaults() { return Object.assign({}, TYPHOON_DEFAULTS, (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {}); }
-const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'bands', 'iconMode', 'iconScale', 'trackMode', 'lineWidth', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
+function typhoonStyleDefaults() {
+  const baked = (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {};
+  const out = Object.assign({}, TYPHOON_DEFAULTS, baked);
+  // 라인 모드가 생기기 전 배포 기본값에는 이 키들이 없다. 그 경우 새 라인 기본 크기를 우선한다.
+  if (baked.lineWidth == null) { out.iconScale = 1.75; out.lineColor = '#E5231E'; out.lineWidth = 9.5; }
+  return out;
+}
+const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'bands', 'iconMode', 'iconScale', 'trackMode', 'lineColor', 'lineWidth', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
 // 34노트(=r15) 위험구역 여유(버퍼) km — JTWC의 '34 KNOT WIND DANGER AREA'는 풍역+오차버퍼라 실제 풍역보다 크다. 이 값을 r15에 더해 크게 그린다.
 // 태풍 스타일(색·반경·지형·남한강조)을 굽힌 기본값으로 맞춘다 — 모든 해상도가 같은 색을 쓰게(진입·부팅 시).
 function applyTyphoonStyle() {
@@ -4426,7 +4433,9 @@ function applyTyphoonStyle() {
 function initTyphoonData() {
   const DEF = typhoonStyleDefaults();
   if (S.typhoon && S.typhoon.issues && S.typhoon.issues.length) {
+    const legacyLineDefaults = S.typhoon.lineWidth == null;
     for (const k in DEF) if (S.typhoon[k] == null) S.typhoon[k] = DEF[k];   // 옛 데이터에 스타일 기본값 보강
+    if (legacyLineDefaults) S.typhoon.iconScale = 1.75;   // 라인 모드 도입 전 저장본도 새 아이콘 기본 크기로 한 번 보강
     if (!S.typhoon.places) S.typhoon.places = [];   // 지명표시(옛 저장 보강)
     return;
   }
@@ -5006,7 +5015,7 @@ function drawTyphoonTrack(L, pts) {
   if (!cmpMode) {
   if (lineMode) {
     const iconCol = T.iconCol || '#E5231E';
-    if (sp.length > 1) add(_te('path', { d: 'M' + sp.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: iconCol, 'stroke-width': Math.max(1, +T.lineWidth || 4), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    if (sp.length > 1) add(_te('path', { d: 'M' + sp.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: T.lineColor || iconCol, 'stroke-width': Math.max(1, +T.lineWidth || 9.5), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
     const tip = sp[sp.length - 1];
     if (tip) {
       const srcIdx = Math.min(nowIdx, Math.max(0, Math.floor(tip.idx)));
@@ -5654,7 +5663,7 @@ function buildTyphoonPanel() {
   const info = $('#typInfo'); if (info) info.textContent = T.fromApi ? '' : '지금은 샘플(6호 장미) 표시 중 — 기존 API 키로 실제 태풍을 불러옵니다.';
   const trackMode = T.trackMode || 'full';
   document.querySelectorAll('#typTrackMode button').forEach((b) => b.classList.toggle('on', b.dataset.tm === trackMode));
-  { const lw = $('#typLineWidth'), lwV = $('#typLineWidthV'), v = (T.lineWidth == null ? 4 : T.lineWidth); if (lw) lw.value = v; if (lwV) lwV.textContent = v + 'px'; }
+  { const lw = $('#typLineWidth'), lwV = $('#typLineWidthV'), v = (T.lineWidth == null ? 9.5 : T.lineWidth); if (lw) lw.value = v; if (lwV) lwV.textContent = v + 'px'; }
   // 현재 시각 슬라이더 + 라벨 목록
   const pts = curTyphoonPoints();
   const now = $('#typNow'), nowV = $('#typNowV');
@@ -5693,6 +5702,7 @@ function buildTyphoonPanel() {
   if (terrV) terrV.textContent = Math.round((T.terrain == null ? 0.85 : T.terrain) * 100) + '%';
   buildTyphoonBands();
   const setPair = (c, h, v) => { const cc = $(c), hh = $(h); if (cc) cc.value = v; if (hh) hh.value = v; };
+  setPair('#typLineColor', '#typLineColorHex', T.lineColor || '#E5231E');
   setPair('#typIconFill', '#typIconHex', T.iconCol || '#E5231E');
   setPair('#typKrFill', '#typKrFillHex', T.krFill || '#1C4E7E');
   setPair('#typKrStroke', '#typKrStrokeHex', T.krStroke || '#9FD0F5');
@@ -6011,6 +6021,7 @@ function wireTyphoonPanel() {
     document.querySelectorAll('#typTrackMode button').forEach((x) => x.classList.toggle('on', x === b));
     renderTyphoon();
   }; });
+  bindCol('#typLineColor', '#typLineColorHex', (v) => T().lineColor = v);
   const lineW = $('#typLineWidth'); if (lineW) lineW.oninput = () => { pushUndo('typlinew'); T().lineWidth = +lineW.value; const v = $('#typLineWidthV'); if (v) v.textContent = lineW.value + 'px'; renderTyphoon(); };
   // 글로우
   const gOn = $('#typGlowOn'); if (gOn) gOn.onchange = () => { pushUndo(); T().glowOn = gOn.checked ? 1 : 0; renderTyphoon(); };
@@ -9704,7 +9715,7 @@ function buildCurrentPresets() {
     const T = S.typhoon;
     presets.typhoonStyle = {
       landFill: T.landFill, landStroke: T.landStroke, krShow: T.krShow, krFill: T.krFill, krStroke: T.krStroke, krStrokeW: T.krStrokeW, krOpacity: T.krOpacity, krStrokeOp: T.krStrokeOp,
-      terrain: T.terrain, iconCol: T.iconCol, basemap: T.basemap, iconMode: T.iconMode, iconScale: T.iconScale, trackMode: T.trackMode, lineWidth: T.lineWidth, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      terrain: T.terrain, iconCol: T.iconCol, basemap: T.basemap, iconMode: T.iconMode, iconScale: T.iconScale, trackMode: T.trackMode, lineColor: T.lineColor, lineWidth: T.lineWidth, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
       sidoShow: T.sidoShow, sidoCol: T.sidoCol, sidoW: T.sidoW, sidoOp: T.sidoOp,
       gridShow: T.gridShow, gridCol: T.gridCol, gridW: T.gridW, gridOp: T.gridOp,
       legendOrder: T.legendOrder ? T.legendOrder.slice() : undefined, legendHidden: T.legendHidden ? JSON.parse(JSON.stringify(T.legendHidden)) : undefined,
@@ -11240,7 +11251,7 @@ async function bakeDefaults() {
     const T = S.typhoon;
     presets.typhoonStyle = {
       landFill: T.landFill, landStroke: T.landStroke, krShow: T.krShow, krFill: T.krFill, krStroke: T.krStroke, krStrokeW: T.krStrokeW, krOpacity: T.krOpacity, krStrokeOp: T.krStrokeOp,
-      terrain: T.terrain, iconCol: T.iconCol, basemap: T.basemap, iconMode: T.iconMode, iconScale: T.iconScale, trackMode: T.trackMode, lineWidth: T.lineWidth, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
+      terrain: T.terrain, iconCol: T.iconCol, basemap: T.basemap, iconMode: T.iconMode, iconScale: T.iconScale, trackMode: T.trackMode, lineColor: T.lineColor, lineWidth: T.lineWidth, glowOn: T.glowOn, glowStr: T.glowStr, glowCol: T.glowCol, bands: T.bands ? JSON.parse(JSON.stringify(T.bands)) : undefined,
       sidoShow: T.sidoShow, sidoCol: T.sidoCol, sidoW: T.sidoW, sidoOp: T.sidoOp,
       gridShow: T.gridShow, gridCol: T.gridCol, gridW: T.gridW, gridOp: T.gridOp,
       legendOrder: T.legendOrder ? T.legendOrder.slice() : undefined, legendHidden: T.legendHidden ? JSON.parse(JSON.stringify(T.legendHidden)) : undefined,
