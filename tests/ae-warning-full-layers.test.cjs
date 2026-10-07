@@ -80,7 +80,8 @@ function emptyFillGuard() {
   assert.notEqual(start, -1, 'missing sendToAE');
   const defsAt = html.indexOf('const warningDefs = aeWarningFillDefs();', start);
   assert.notEqual(defsAt, -1, 'sendToAE must build warning masks');
-  const m = html.slice(defsAt, defsAt + 1500).match(/\n\s*if \((.+?)\) \{ status\('칠한 색이 없습니다/);
+  // 문구는 상황에 따라 갈린다(특보 0건이면 '오류가 아니에요' 안내) — 막는 조건만 잘라 검사한다
+  const m = html.slice(defsAt, defsAt + 1500).match(/\n\s*if \((.+?)\) \{ status\([^\n]*'칠한 색이 없습니다/);
   assert.ok(m, 'missing empty-fill guard after aeWarningFillDefs()');
   return (ctx) => vm.runInNewContext(`(${m[1]})`, { isTyphoon: () => false, hasBrush: false, ...ctx });
 }
