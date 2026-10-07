@@ -241,8 +241,8 @@ test('legacy autosave already on VF resumes with its deployment default scale', 
 });
 
 test('output and map cards require an explicit apply action', () => {
-  assert.match(html, /id="resApply"[^>]*disabled/);
-  assert.match(html, /id="styleApply"[^>]*disabled/);
+  // CG 구성 창: CG 종류·지도 종류 카드는 고르기만 하고, 둘 다 골라 '선택 완료'(처음엔 꺼짐)를 눌러야 적용
+  assert.match(html, /id="cgsDone"[^>]*disabled/);
   assert.match(html, /let pendingRes = null,\s*pendingStyle = null/);
   const buildRes = html.match(/function buildResBtns\(\) \{[\s\S]*?\n\}/)?.[0] || '';
   const buildStyle = html.match(/function buildStyleBtns\(\) \{[\s\S]*?\n\}/)?.[0] || '';
@@ -254,13 +254,16 @@ test('output and map cards require an explicit apply action', () => {
   assert.doesNotMatch(styleClick, /setStyle\(k\)/);
   assert.match(html, /function applyPendingRes\(\)/);
   assert.match(html, /function applyPendingStyle\(\)/);
-  assert.match(html, /applyPendingRes[\s\S]*markStartStep\('res'\)[\s\S]*_closeMenu/);
-  assert.match(html, /applyPendingStyle[\s\S]*markStartStep\('style'\)[\s\S]*_closeMenu/);
+  assert.match(html, /function applyPendingRes\(\) \{[\s\S]*?markStartStep\('res'\)[\s\S]*?\n\}/);
+  assert.match(html, /function applyPendingStyle\(\) \{[\s\S]*?markStartStep\('style'\)[\s\S]*?\n\}/);
+  const applyAll = html.match(/function applyCgSetup\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(applyAll, /if \(!pendingRes \|\| !pendingStyle\) return;/, '둘 다 골라야 적용');
+  assert.match(applyAll, /applyPendingRes\(\);[\s\S]*applyPendingStyle\(\);[\s\S]*closeCgSetup\(\);/);
 });
 
 test('enabled apply buttons keep a high-contrast blue hover state', () => {
   assert.match(
     html,
-    /\.applyChoice:not\(:disabled\):hover\s*\{[^}]*background:\s*var\(--accent-grad,\s*var\(--primary\)\)[^}]*color:\s*var\(--on-primary\)/,
+    /\.cgsDone:not\(:disabled\):hover\s*\{[^}]*background:\s*var\(--accent-grad,\s*var\(--primary\)\)[^}]*color:\s*var\(--on-primary\)/,
   );
 });
