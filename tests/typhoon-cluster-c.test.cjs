@@ -129,7 +129,8 @@ test('C79/C80/C81/C83/P5: 라인 모드 범례·아이콘·재생 범위, JMA �
   assert.match(html, /lineMode && byId\[id\] && byId\[id\]\.kind === 'band'/);
   assert.match(html, /tip\.head \? !td : false, ex\)/);
   assert.match(html, /if \(lineMode\) sp = sp\.filter\(\(p\) => p\.idx <= nowIdx\);/);
-  assert.equal((html.match(/lineMode \? Math\.max\(0, hi - lo\) : Math\.max\(1, hi - lo\)/g) || []).length, 2);
+  assert.match(html, /function typhoonAnimSpan\(lo, hi\) \{ return typhoonLineMode\(\) \? Math\.max\(0, hi - lo\) : Math\.max\(1, hi - lo\); \}/);
+  assert.equal((html.match(/const span = typhoonAnimSpan\(lo, hi\)/g) || []).length, 2);   // playTyphoon·renderAnimFrameBody 같은 구간 길이
   assert.match(html, /tmef: atm, label: atm \? fmtKST\(atm\) : ''/);
   assert.match(html, /scp\.getAttribute\('data-k'\) !== ck/);
 });

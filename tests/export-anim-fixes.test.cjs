@@ -52,10 +52,10 @@ test('블라인드 베이스 지도는 카메라·팬/줌·3D 미리보기에서
 });
 
 test('재생·추출(renderAnimFrame)·애니 확인(playTyphoon)·라벨 기본키가 같은 구간 함수를 쓴다', () => {
-  assert.match(fnSrc('renderAnimFrame'), /typhoonAnimWindow\(pts\)/);
+  assert.match(fnSrc('renderAnimFrameBody'), /typhoonAnimWindow\(pts\)/);   // renderAnimFrame은 본문 뒤 틸트만 굽는다
   assert.match(fnSrc('playTyphoon'), /typhoonAnimWindow\(pts\)/);
   assert.match(fnSrc('ensureTyphoonKeys'), /typhoonAnimWindow\(pts\)/);
-  assert.doesNotMatch(fnSrc('renderAnimFrame'), /typhoonRangeWindow\(pts\)/);
+  assert.doesNotMatch(fnSrc('renderAnimFrameBody'), /typhoonRangeWindow\(pts\)/);
 });
 
 function keysCtx(trackMode) {
@@ -93,7 +93,8 @@ test('라인 모드 타임라인은 라벨 행·스냅·라벨 길이를 쓰지 
 
 test('참고 이미지(L_refImg)는 모든 추출 경로에서 빠진다', () => {
   assert.match(html, /const EXPORT_STRIP = \[[^\]]*'#L_refImg'/);
-  for (const fn of ['svgToImage', 'svgBlob', 'previewPng']) assert.match(html.match(new RegExp(`async function ${fn}\\([\\s\\S]*?\\n\\}`))[0], /EXPORT_STRIP/);
+  assert.match(fnSrc('stripExportUi'), /EXPORT_STRIP/);
+  for (const fn of ['svgToImage', 'svgBlob', 'previewPng']) assert.match(html.match(new RegExp(`async function ${fn}\\([\\s\\S]*?\\n\\}`))[0], /stripExportUi\(clone\)/);
 });
 
 test('노말 VF 영상 추출은 태풍 정적 캐시를 안 쓰고, 3D에서도 알파를 칠하지 않는다', () => {

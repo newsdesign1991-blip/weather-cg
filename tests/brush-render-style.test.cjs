@@ -30,7 +30,7 @@ test('ramp swap recolors brush strokes and animation track keys', () => {
 });
 
 test('Seoul paint overlay follows animation frames and blind base', () => {
-  assert.match(fn('renderAnimFrame'), /#seoulPaintTop/);
+  assert.match(fn('renderAnimFrameBody'), /#seoulPaintTop/);   // renderAnimFrame은 본문(renderAnimFrameBody) 뒤 틸트만 굽는다
   assert.match(fn('ensureBlind'), /data-role="seoulPaintTop"/);
   assert.match(html, /id="seoulPaintTop" data-role="seoulPaintTop"/);
   assert.match(fn('syncSeoulPaintTop'), /#L_brush/);

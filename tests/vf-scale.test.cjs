@@ -170,7 +170,7 @@ test('deployment default change only records its signature and keeps saved work'
   context.window.WCG_DEFAULTS = {};
   assert.equal(context.runSync(), false);
   assert.equal(values.has(SIG), false);
-  assert.match(html, /preferUpdatedDeploymentDefaults\(\);\s*\nconst freshOpen/);
+  assert.match(html, /\npreferUpdatedDeploymentDefaults\(\);[\s\S]{0,800}?\nconst freshOpen/);   // 부팅 때 작업을 열기 전에 한 번
 });
 
 test('legacy passive 100 percent VF scales are removed from autosaved work once', () => {

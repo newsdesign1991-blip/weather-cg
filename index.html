@@ -7421,7 +7421,10 @@ function setFlatPanLOD(on) {
     if (on) { n.style.willChange = 'transform'; n.style.transformBox = 'view-box'; n.style.transformOrigin = '0 0'; }
     else { n.style.willChange = ''; n.style.transformBox = ''; n.style.transformOrigin = ''; n.style.transform = ''; }
   }
-  if (!on) { for (const n of [document.querySelector('#bgMapT'), document.querySelector('#mapT'), document.querySelector('#L_mapBase [data-blindmapt]'), document.querySelector('#seaT')]) if (n) n.style.transform = ''; }
+  if (!on) {
+    const bg = document.querySelector('#bgMapT'), mt = document.querySelector('#mapT'), mb = document.querySelector('#L_mapBase [data-blindmapt]'), se = document.querySelector('#seaT');
+    if (bg) bg.style.transform = ''; if (mt) mt.style.transform = ''; if (mb) mb.style.transform = ''; if (se) se.style.transform = '';
+  }
 }
 // 틸트 팬: 시작 때 얼려둔 #camCanvas 텍스처(블리드 포함, 평면)를 팬량만큼 즉시 옮겨 그린다 — SVG 재래스터가 없어 지연이 사라진다.
 // (평면 텍스처를 옮긴 뒤 CSS가 틸트를 입히므로 결과는 정확한 평면 팬. 놓을 때 up()에서 정확히 다시 굽는다.)
@@ -7439,14 +7442,14 @@ function lightPanZoom(base) {
   const mb = document.querySelector('#L_mapBase [data-blindmapt]');   // 블라인드 베이스 지도도 같이(재생 중 지도 이동 시 어긋남 방지)
   if (camActive3d()) {   // 틸트: 캔버스 렌더 기준이라 속성 transform 유지
     const t = `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`;
-    for (const n of [bg, mt, mb, se]) if (n) n.setAttribute('transform', t);
+    if (bg) bg.setAttribute('transform', t); if (mt) mt.setAttribute('transform', t); if (mb) mb.setAttribute('transform', t); if (se) se.setAttribute('transform', t);
     if (_tiltPanCanvas) tiltPanShift();   // 팬: 얼린 텍스처를 즉시 이동(재래스터 지연 없음)
     else applyTilt();                      // 줌 등: 기존대로 재래스터
     updateTyphoonLeaders(); return;
   }
   // 평면 팬/줌: CSS transform(GPU 합성) — 거대한 path를 매 프레임 리페인트 안 하고 GPU 텍스처를 이동/스케일(초경량·부드러움).
   const t = `translate(${S.map.x}px, ${S.map.y}px) scale(${S.map.s})`;
-  for (const n of [bg, mt, mb, se]) if (n) n.style.transform = t;
+  if (bg) bg.style.transform = t; if (mt) mt.style.transform = t; if (mb) mb.style.transform = t; if (se) se.style.transform = t;
   const r = S.map.s / (base.s || 1), tr = `translate(${S.map.x - base.x * r}px, ${S.map.y - base.y * r}px) scale(${r})`;
   const L = $('#L_typhoon'), LB = $('#L_typhoonLabels'), RI = $('#L_refImg');   // 지도·라벨·참고이미지 모두 지도와 함께 rigid 이동
   if (L) L.style.transform = tr;
