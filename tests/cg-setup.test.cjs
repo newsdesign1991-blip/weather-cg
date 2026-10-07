@@ -90,7 +90,9 @@ test('고르기만 하고, 둘 다 골라 선택 완료를 눌러야 적용 — 
   assert.match(setup, /\$\('#cgsDone'\)\.onclick = applyCgSetup;/);
   assert.match(setup, /\$\('#cgsCancel'\)\.onclick = closeCgSetup;/);
   assert.match(setup, /\$\('#cgsX'\)\.onclick = closeCgSetup;/);
-  assert.match(setup, /if \(e\.target === ov\) closeCgSetup\(\);/, '바깥 클릭 = 취소');
+  // 바깥 클릭 = 취소 — 누른 곳·뗀 곳이 둘 다 막일 때만(카드를 누른 채 막으로 끌고 나가 떼도 안 닫힘)
+  assert.match(setup, /ov\.addEventListener\('pointerdown', \(e\) => \{ downOnOv = e\.target === ov; \}\);/);
+  assert.match(setup, /if \(e\.target === ov && downOnOv\) closeCgSetup\(\);/, '바깥 클릭 = 취소');
   assert.match(setup, /e\.key !== 'Escape'/);
   // 창이 떠 있는 동안 뒤의 지도 단축키는 막는다
   assert.match(html, /if \(cgSetupIsOpen\(\)\) return;   \/\/ CG 구성 창이 떠 있는 동안엔/);
@@ -119,8 +121,98 @@ test('둘러보기 — 출력 화면·지도 종류 두 단계를 CG 구성 한 
   assert.match(html, /function tourMenuClose\(\) \{ if \(_closeMenu\) _closeMenu\(\); closeCgSetup\(\); \}/);
 });
 
+test('시작 화면에선 시도군 구분 = 전국 지도(지난 작업의 서울을 물려받지 않음), 작업 중엔 서울 유지', () => {
+  assert.match(fn('buildStyleBtns'), /if \(k === 'sgg' && isSeoul\(S\.style\) && !startScreenOn\(\)\) pendingStyle = S\.style;/);
+  assert.match(fn('syncStyleUse'), /const seoulNow = k === 'sgg' && isSeoul\(S\.style\) && !startScreenOn\(\);/);
+  // 카드 onclick 로직을 그대로 돌려 본다
+  const body = /b\.onclick = \(\) => \{\n\s*pendingStyle = k;[\s\S]*?\n\s*\};/.exec(fn('buildStyleBtns'))[0];
+  const click = (k, style, start) => new Function('k', 'S', 'isSeoul', 'startScreenOn', 'syncCgSetup', 'cgsShowOtherPane',
+    `let pendingStyle = null; const b = {}; ${body}; b.onclick(); return pendingStyle;`)(k, { style }, (s) => s === 'seoul', () => start, () => {}, () => {});
+  assert.equal(click('sgg', 'seoul', true), 'sgg', '시작 화면: 시도군 구분 → 전국');
+  assert.equal(click('sgg', 'seoul', false), 'seoul', '작업 중: 서울 그대로');
+  assert.equal(click('warn', 'seoul', true), 'warn');
+});
+
+test('좁은 창(위아래로 쌓임) — 안내 방향은 위·아래, 고르면 아직 안 고른 판으로 스크롤', () => {
+  const summary = (stacked, res, style) => {
+    const sum = { textContent: '' }, done = { disabled: false };
+    const ctx = { $: (id) => (id === '#cgsSummary' ? sum : id === '#cgsDone' ? done : null), RES: { r: { label: '노말 CG' } }, MAP: { styles: { s: { label: '시도' } } },
+      S: { res: 'r', style: 's' }, markResBtns() {}, markStyleBtns() {}, startScreenOn: () => false, cgsStacked: () => stacked, document: {} };
+    new Function('ctx', `const { $, RES, MAP, S, markResBtns, markStyleBtns, startScreenOn, cgsStacked, document } = ctx; let pendingRes = ${JSON.stringify(res)}, pendingStyle = ${JSON.stringify(style)}; ${fn('syncCgSetup')}; syncCgSetup();`)(ctx);
+    return sum.textContent;
+  };
+  assert.equal(summary(false, 'r', null), '오른쪽에서 지도 종류도 골라 주세요');
+  assert.equal(summary(false, null, 's'), '왼쪽에서 CG 종류도 골라 주세요');
+  assert.equal(summary(true, 'r', null), '아래에서 지도 종류도 골라 주세요');
+  assert.equal(summary(true, null, 's'), '위에서 CG 종류도 골라 주세요');
+  assert.match(fn('cgsStacked'), /matchMedia\('\(max-width: 900px\)'\)\.matches/);   // CSS @media 와 같은 기준
+  const show = fn('cgsShowOtherPane');
+  assert.match(show, /if \(!cgSetupIsOpen\(\) \|\| !cgsStacked\(\)\) return;/);
+  assert.match(show, /body\.scrollBy\(\{ top: d, behavior: 'smooth' \}\)/);
+  assert.match(html, /syncCgSetup\(\);   \/\/ 카드 표시[^\n]*\n\s*cgsShowOtherPane\('res'\);/);
+  assert.match(fn('buildStyleBtns'), /syncCgSetup\(\);\n\s*cgsShowOtherPane\('style'\);/);
+  assert.match(fn('setupCgSetup'), /matchMedia\('\(max-width: 900px\)'\)\.addEventListener\('change'/);   // 창 크기 넘나들면 문구도 다시
+  // 본문 스크롤바 — 윈도 기본 대신 앱 스크롤바(두 테마 --scrollbar)
+  assert.match(cssRule('.cgsBody::-webkit-scrollbar-thumb'), /background-color: var\(--scrollbar\)/);
+  assert.match(cssRule('.cgsBody::-webkit-scrollbar-track'), /background: transparent/);
+});
+
+test('선택 완료 한 번 = 되돌리기 한 칸(중간 상태 새 CG 종류 + 옛 지도 종류는 버림)', () => {
+  const run = (resChanges, styleChanges, start = []) => {
+    const stack = start.slice();
+    const ctx = { stack, closed: 0 };
+    new Function('ctx', `const undoStack = ctx.stack; let pendingRes = 'r', pendingStyle = 's';
+      const applyPendingRes = () => { if (${resChanges}) undoStack.push({ k: 'beforeRes' }); pendingRes = null; };
+      const applyPendingStyle = () => { if (${styleChanges}) undoStack.push({ k: 'mid' }); pendingStyle = null; };
+      const updateUndoBtns = () => {}, markResBtns = () => {}, markStyleBtns = () => {}, closeCgSetup = () => { ctx.closed++; };
+      ${fn('applyCgSetup')}; applyCgSetup();`)(ctx);
+    return [stack.map((x) => x.k), ctx.closed];
+  };
+  assert.deepEqual(run(true, true, [{ k: 'old' }]), [['old', 'beforeRes'], 1]);
+  assert.deepEqual(run(false, true, [{ k: 'old' }]), [['old', 'mid'], 1]);   // CG 종류 그대로 → 지도 종류 한 칸
+  assert.deepEqual(run(true, false), [['beforeRes'], 1]);
+});
+
+test('바깥 막·포커스·제목줄 — Tab 가두기, 데스크톱 제목줄 끌기 끔, 꺼진 선택 완료는 취소와 다른 모양', () => {
+  const setup = fn('setupCgSetup');
+  assert.match(setup, /if \(e\.key !== 'Tab' \|\| !cgSetupIsOpen\(\) \|\| aboveCgs\(\)\) return;/);
+  assert.match(setup, /\(e\.shiftKey \? last : first\)\.focus\(\);/);
+  assert.match(fn('openCgSetup'), /document\.documentElement\.classList\.add\('cgsOpen'\);/);
+  assert.match(fn('closeCgSetup'), /document\.documentElement\.classList\.remove\('cgsOpen'\);/);
+  assert.match(html, /html\.isDesktop\.cgsOpen \.titlebar \{ -webkit-app-region: no-drag; \}/);
+  // 접힌 개인 배치 묶음의 버튼엔 Tab 이 안 들어가게
+  assert.match(cssRule('.presetMoreBody'), /visibility: hidden/);
+  // 꺼진 '선택 완료' = 옅은 파랑(두 테마) — '취소'(--surface-hi 회색)와 다르게
+  const off = html.slice(html.indexOf('.cgsDone:disabled, .cgsDone:disabled:hover {'), html.indexOf('}', html.indexOf('.cgsDone:disabled, .cgsDone:disabled:hover {')));
+  assert.match(off, /background: var\(--cgs-done-off-bg\)/);
+  assert.doesNotMatch(off, /surface-hi/);
+  assert.match(cssRule('.cgsCancel'), /background: var\(--surface-hi\)/);
+  assert.equal((html.match(/--cgs-done-off-bg: /g) || []).length, 2, '밝은·어두운 테마 둘 다');
+});
+
+test('개인 배치 저장·초기화 결과는 창이 떠 있으면 창 안 토스트로(막 뒤 #status 에 가리지 않게)', () => {
+  assert.match(modal, /<div class="cgsToast" id="cgsToast" role="status" aria-live="polite"><\/div>/);
+  const cs = fn('cgsStatus');
+  assert.match(cs, /if \(!t \|\| !cgSetupIsOpen\(\)\) \{ status\(m\); return; \}/);
+  assert.match(fn('savePreset'), /cgsStatus\(`\$\{presetLabel\(key\)\} 배치로 저장됨/);
+  assert.match(html, /if \(!mine\) \{ if \(cgSetupIsOpen\(\)\) cgsStatus\('이 브라우저엔 따로 저장한 배치가 없습니다/);
+  assert.match(html, /cgsStatus\('모두의 기본 배치로 되돌렸습니다'\);/);
+});
+
+test('시작 화면 부제 줄바꿈·단계 알약(고르는 대로 체크, 누르면 창 열림), 둘러보기 스포트라이트는 열리는 중 변형과 무관', () => {
+  assert.match(cssRule('.startSub'), /word-break: keep-all/);
+  assert.match(fn('syncCgSetup'), /classList\.toggle\('picked', s\.dataset\.step === 'res' \? !!rl : !!sl\)/);
+  assert.match(fn('showStartScreen'), /classList\.remove\('done', 'picked'\)/);
+  assert.match(fn('setupCgSetup'), /#startOverlay \.startStep'\)\.forEach\(\(s\) => \{ s\.title = 'CG 구성 열기'; s\.onclick = openCgSetup; \}\)/);
+  assert.match(fn('tourStepList'), /setup: \(\) => tourCgSetup\(\), delay: 380, rect: cgsCardRect \}/);
+  assert.match(fn('tourPlace'), /const r = step\.rect \? step\.rect\(el\) : el\.getBoundingClientRect\(\);/);
+  // 변형(scale .95)을 빼고 잰다 — 가짜 카드로 확인
+  const rect = new Function(`${fn('cgsCardRect')}; return cgsCardRect;`)()({ offsetParent: { getBoundingClientRect: () => ({ left: 0, top: 0 }) }, offsetLeft: 421, offsetTop: 269, offsetWidth: 1080, offsetHeight: 575 });
+  assert.deepEqual(rect, { left: 421, top: 269, width: 1080, height: 575, right: 1501, bottom: 844 });
+});
+
 test('새 함수는 한 번씩만 정의된다', () => {
-  for (const name of ['openCgSetup', 'closeCgSetup', 'applyCgSetup', 'syncCgSetup', 'setupCgSetup', 'cgSetupIsOpen', 'startScreenOn', 'cgsIconSvg', 'cgsCardBtn', 'tourCgSetup']) {
+  for (const name of ['openCgSetup', 'closeCgSetup', 'applyCgSetup', 'syncCgSetup', 'setupCgSetup', 'cgSetupIsOpen', 'startScreenOn', 'cgsIconSvg', 'cgsCardBtn', 'tourCgSetup', 'cgsStacked', 'cgsShowOtherPane', 'cgsStatus', 'cgsCardRect']) {
     assert.equal(html.split(`function ${name}(`).length - 1, 1, name);
   }
 });
@@ -140,7 +232,12 @@ test('부팅 점검: CG 구성 고르기·완료·취소, 프로젝트 아이콘
   assert.deepEqual(R.afterCancel.work, { res: '1920x1080', style: 'sido' }, '취소하면 그대로');
   assert.deepEqual(R.afterEscOutside.work, { res: '1920x1080', style: 'sido' }, 'Esc·바깥 클릭도 그대로');
   assert.deepEqual(R.afterChange.work, { res: '1920x1080-vf', style: 'warn' });
-  assert.deepEqual(R.afterUndo, { res: '1920x1080', style: 'sido' }, '되돌리기 두 번이면 원래대로');
+  assert.deepEqual(R.afterUndo, { res: '1920x1080', style: 'sido' }, '선택 완료 한 번 = 되돌리기 한 번이면 원래대로');
+  assert.deepEqual([R.dragOut.ov, R.dragOut.res], [true, ['2158x1214']], '카드에서 누르고 막에서 떼면 안 닫힘');
+  assert.equal(R.dragOut.realOutside, false, '막에서 누르고 떼면 닫힘');
+  assert.deepEqual(R.trap, { fromLast: 'cgsX', fromFirstBack: 'cgsDone', fromOutside: 'cgsX' }, 'Tab 은 창 안에서만 돈다');
+  assert.equal(R.cgsOpenClass.open, true); assert.equal(R.cgsOpenClass.closed, false);
+  assert.equal(R.toast.on, true); assert.match(R.toast.text, /따로 저장한 배치가 없습니다/);
   assert.deepEqual([R.proj.drop, R.proj.shown, R.proj.hasSave], [true, ['proj'], true]);
   assert.equal(R.projClosed, true);
   assert.deepEqual([R.outMenu.drop, R.outMenu.shown], [true, ['out']]);

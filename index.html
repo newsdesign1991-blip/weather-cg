@@ -396,8 +396,9 @@
   .presetMoreToggle:hover { background: var(--surface-2, rgba(127,127,127,.10)); color: var(--on-surface); }
   .presetMoreToggle svg { width: 14px; height: 14px; transition: transform .28s ease; }
   .presetMoreToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
-  .presetMoreBody { max-height: 0; overflow: hidden; opacity: .0; transition: max-height .32s ease, opacity .28s ease; }
-  .presetMoreBody.open { max-height: 340px; opacity: 1; }
+  /* 접힌 동안엔 visibility도 숨김 — 안 보이는 저장·초기화 버튼에 Tab 포커스가 들어가지 않게(펼치면 바로, 접히면 애니메이션 뒤) */
+  .presetMoreBody { max-height: 0; overflow: hidden; opacity: .0; visibility: hidden; transition: max-height .32s ease, opacity .28s ease, visibility 0s linear .32s; }
+  .presetMoreBody.open { max-height: 340px; opacity: 1; visibility: visible; transition: max-height .32s ease, opacity .28s ease, visibility 0s; }
   .presetMoreBody .presetManage { margin-top: 4px; border-top: none; padding-top: 4px; }
   /* 잘 안 쓰는 CG 종류 카드(날씨 팀) — 골라지지 않았을 때 흐리게(눈에 덜 띄게) */
   #resBtns button.resDim:not(.choicePending):not(:hover) { opacity: .55; }
@@ -627,6 +628,9 @@
   /* 드롭다운이 열려 있는 동안엔 제목줄 전체를 끌기 영역에서 뺀다 — 끌기 영역 클릭은 페이지에 안 와서
      빈 곳·확대 비율·아이콘을 눌러도 메뉴가 안 닫히기 때문(윈도 메뉴바처럼 닫히게). 닫히면 다시 창 끌기. */
   html.isDesktop.menuOpen .titlebar { -webkit-app-region: no-drag; }
+  /* CG 구성 창(어두운 막이 제목줄까지 덮음)도 같다 — 막 위 제목줄 자리를 눌러 '바깥 클릭 = 취소'가 되게(창 끌기·더블클릭 최대화 대신).
+     드롭다운 close()가 menuOpen 을 지우므로 클래스를 따로 둔다. */
+  html.isDesktop.cgsOpen .titlebar { -webkit-app-region: no-drag; }
   /* 좁은 창 — 글자 메뉴 여백부터 줄여 한 줄에 다 들어가게 (창 버튼·서로 안 겹치게) */
   @media (max-width: 1280px) {
     #titlebar .tbMenu { padding: 0 7px; }
@@ -770,7 +774,7 @@
   }
   .startCard { padding: 30px 44px; max-width: 560px; }
   .startTitle { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.28; color: var(--on-surface); }
-  .startSub { margin-top: 14px; font-size: 15px; color: var(--on-surface-var); }
+  .startSub { margin-top: 14px; font-size: 15px; color: var(--on-surface-var); word-break: keep-all; }   /* 좁은 창에서 '를'처럼 조사만 떨어지지 않게 낱말 단위로 줄바꿈 */
   .startSteps { margin-top: 26px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   /* '또는' 구분선 + 예전 작업 불러오기 버튼 */
   .startAlt { margin: 22px auto 14px; max-width: 320px; display: flex; align-items: center; gap: 10px; color: var(--on-surface-var); font-size: 12.5px; }
@@ -838,8 +842,11 @@
     transition: color .2s, border-color .2s;
   }
   .startStep .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--on-surface-var); flex: none; transition: background .2s, border-color .2s; }
-  .startStep.done { color: var(--on-surface); border-color: var(--primary); }
-  .startStep.done .dot { background: var(--primary); border-color: var(--primary); }
+  /* 단계 알약 — 누르면 CG 구성 창이 열린다. 창에서 고르는 대로(picked) 바로 체크, 적용되면 done */
+  .startStep { cursor: pointer; }
+  .startStep:hover { color: var(--on-surface); border-color: color-mix(in srgb, var(--primary) 55%, var(--outline-var)); }
+  .startStep.done, .startStep.picked { color: var(--on-surface); border-color: var(--primary); }
+  .startStep.done .dot, .startStep.picked .dot { background: var(--primary); border-color: var(--primary); }
   /* 시작 화면의 'CG 구성 열기' — 큰 파란 버튼 */
   .startSetupBtn {
     margin-top: 24px; padding: 15px 34px; font-size: 16px; font-weight: 800; letter-spacing: -.01em;
@@ -857,6 +864,7 @@
     --cgs-map: #22b5a5; --cgs-map-on: #86e0d5;
     --cgs-map-bg: color-mix(in srgb, #14b8a6 9%, var(--surface-c)); --cgs-map-line: color-mix(in srgb, #14b8a6 28%, var(--outline-var));
     --cgs-card: #2a2a2a; --cgs-card-hover: #313131; --cgs-muted: #a3a3a3;
+    --cgs-done-off-bg: color-mix(in srgb, #3182f6 30%, var(--surface-c)); --cgs-done-off-fg: rgba(255,255,255,.5);
   }
   :root[data-theme="light"] {
     --cgs-res: #2f77f6; --cgs-res-on: #1b56d2;
@@ -864,6 +872,7 @@
     --cgs-map: #0e9384; --cgs-map-on: #0b6e63;
     --cgs-map-bg: #eefaf7; --cgs-map-line: #c8ebe5;
     --cgs-card: #ffffff; --cgs-card-hover: #fafcff; --cgs-muted: #64748b;
+    --cgs-done-off-bg: #c4dbfd; --cgs-done-off-fg: #ffffff;
   }
   .cgSetupOv {
     position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center;
@@ -874,7 +883,7 @@
   }
   .cgSetupOv.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity .2s ease; }
   .cgSetupCard {
-    width: min(1080px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
+    position: relative; width: min(1080px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
     background: var(--surface-c); color: var(--on-surface); border-radius: 22px;
     box-shadow: 0 30px 90px -18px rgba(0,0,0,.62), 0 0 0 1px var(--outline-var);
     opacity: 0; transform: scale(.95); filter: blur(8px);
@@ -895,6 +904,11 @@
   }
   .cgsX:hover { background: rgba(255,255,255,.34); }
   .cgsBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 20px 22px; }
+  /* 좁은 창에서 본문이 스크롤될 때 — 윈도 기본 스크롤바(흰 바탕·화살표) 대신 앱 스크롤바(두 테마 모두 --scrollbar) */
+  .cgsBody::-webkit-scrollbar { width: 10px; }
+  .cgsBody::-webkit-scrollbar-track { background: transparent; }
+  .cgsBody::-webkit-scrollbar-thumb { background-color: var(--scrollbar); background-clip: padding-box; border: 2px solid transparent; border-radius: 6px; }
+  .cgsBody::-webkit-scrollbar-thumb:hover { background-color: var(--on-surface-var); }
   .cgsPane { min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 14px; border-radius: 18px; }
   .cgsPaneRes { --acc: var(--cgs-res); --acc-on: var(--cgs-res-on); background: var(--cgs-res-bg); border: 1px solid var(--cgs-res-line); }
   .cgsPaneStyle { --acc: var(--cgs-map); --acc-on: var(--cgs-map-on); background: var(--cgs-map-bg); border: 1px solid var(--cgs-map-line); }
@@ -942,7 +956,18 @@
   .cgsNote b { color: var(--on-surface); font-weight: 700; }
   .cgsPane .presetMoreToggle { margin-top: auto; }
   .presetManageNote { margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--cgs-muted); }
-  .cgsFoot { flex: none; display: flex; align-items: center; gap: 10px; padding: 14px 22px 18px; border-top: 1px solid var(--outline-var); }
+  .cgsFoot { position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 14px 22px 18px; border-top: 1px solid var(--outline-var); }
+  /* 창 안 알림(토스트) — 창이 떠 있으면 작업 화면의 #status·flash가 막 뒤에 가려지므로 개인 배치 저장·초기화 결과는 여기 띄운다.
+     반전 색(밝은 테마=어두운 알약, 어두운 테마=밝은 알약)이라 두 테마 모두 판 위에서 또렷하다. */
+  .cgsToast {
+    position: absolute; left: 50%; bottom: calc(100% + 12px); z-index: 2; max-width: min(520px, calc(100% - 32px)); width: max-content;
+    padding: 11px 18px; border-radius: 14px; font-size: 13.5px; font-weight: 700; line-height: 1.45; text-align: center; word-break: keep-all;
+    color: var(--surface-c); background: color-mix(in srgb, var(--on-surface) 90%, var(--surface-c));
+    box-shadow: 0 12px 30px -10px rgba(0,0,0,.55);
+    opacity: 0; transform: translate(-50%, 8px) scale(.97); pointer-events: none;
+    transition: opacity .2s ease, transform .26s cubic-bezier(.2,.8,.2,1);
+  }
+  .cgsToast.on { opacity: 1; transform: translate(-50%, 0); }
   .cgsSummary { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; line-height: 1.45; color: var(--cgs-muted); }
   .cgsSummary b { color: var(--on-surface); font-weight: 800; }
   .cgsCancel { height: 46px; padding: 0 20px; border: none; border-radius: 12px; font-size: 14.5px; font-weight: 700; background: var(--surface-hi); color: var(--on-surface); }
@@ -955,7 +980,8 @@
   @keyframes cgsDoneOn { from { opacity: .4; transform: translateY(5px); } }
   /* 켜진 버튼 호버도 진한 파랑 유지(일반 button:hover 회색이 덮지 않게) */
   .cgsDone:not(:disabled):hover { background: var(--accent-grad, var(--primary)); color: var(--on-primary); filter: brightness(1.08); }
-  .cgsDone:disabled, .cgsDone:disabled:hover { opacity: 1; cursor: not-allowed; background: var(--surface-hi); color: var(--cgs-muted); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  /* 꺼진 '선택 완료' = 토스식 옅은 파랑(회색 '취소'와 모양이 확실히 다르게 — 둘 다 골라야 진한 파랑으로 켜진다) */
+  .cgsDone:disabled, .cgsDone:disabled:hover { opacity: 1; cursor: not-allowed; filter: none; background: var(--cgs-done-off-bg); color: var(--cgs-done-off-fg); box-shadow: none; }
   /* 좁은 창 — 두 판을 위아래로, 본문만 스크롤 */
   @media (max-width: 900px) {
     .cgSetupOv { padding: calc(var(--tbH, 0px) + 10px) 12px 12px; }
@@ -1663,6 +1689,7 @@
       </section>
     </div>
     <div class="cgsFoot">
+      <div class="cgsToast" id="cgsToast" role="status" aria-live="polite"></div>
       <div class="cgsSummary" id="cgsSummary" aria-live="polite">CG 종류와 지도 종류를 모두 골라 주세요</div>
       <button class="cgsCancel" id="cgsCancel">취소</button>
       <button class="cgsDone" id="cgsDone" disabled>선택 완료</button>
@@ -2349,7 +2376,7 @@
      <div class="startBoard">
        <div class="startCard">
          <div class="startTitle">CG 종류와 지도 종류를 고르세요</div>
-         <div class="startSub">맨 위 <b>CG 구성</b>에서 두 가지를 고르고 <b>선택 완료</b>를 누르면 제작이 시작돼요.</div>
+         <div class="startSub">맨 위 <b>CG&nbsp;구성</b>에서 두 가지를 고르고 <b>선택&nbsp;완료</b>를 누르면 제작이 시작돼요.</div>
          <button id="startSetup" class="startSetupBtn">CG 구성 열기</button>
          <div class="startSteps">
            <div class="startStep" data-step="res"><span class="dot"></span>CG 종류 선택</div>
@@ -3520,9 +3547,11 @@ function buildStyleBtns() {
     b.dataset.style = k;
     b.onclick = () => {
       pendingStyle = k;
-      // 지금 서울 지도면 '시도군 구분'을 눌러도 서울 그대로(전국/서울 전환은 아트보드 지도 아이콘 몫)
-      if (k === 'sgg' && isSeoul(S.style)) pendingStyle = S.style;
+      // 작업 중 지금 서울 지도면 '시도군 구분'을 눌러도 서울 그대로(전국/서울 전환은 아트보드 지도 아이콘 몫).
+      // 시작 화면(새로 시작)에선 지난 작업의 서울을 물려받지 않는다 — 시도군 구분 = 전국 지도로 시작.
+      if (k === 'sgg' && isSeoul(S.style) && !startScreenOn()) pendingStyle = S.style;
       syncCgSetup();
+      cgsShowOtherPane('style');
     };
     w.append(b);
   }
@@ -3538,7 +3567,7 @@ function syncStyleUse() {
     const s = b.querySelector('.styleUse');
     if (!s) continue;
     const acc = fctRows.length ? styleAccuracy(k) : null;
-    const seoulNow = k === 'sgg' && isSeoul(S.style);   // 지금 서울 지도(시도군의 변형)로 작업 중
+    const seoulNow = k === 'sgg' && isSeoul(S.style) && !startScreenOn();   // 지금 서울 지도(시도군의 변형)로 작업 중(시작 화면이면 아님)
     if (acc) {
       s.textContent = (acc[1] ? '✓ ' : '') + acc[0];
       s.style.opacity = acc[1] ? '1' : '.8';
@@ -7357,7 +7386,8 @@ function secForKind(kind, id) {
     case 'label': return cmp ? null : 'label';                  // 수치 라벨(일반·지시선·앵커·태풍 라벨)
     case 'mtn': return 'mtn';                                   // 산 표시
     case 'legend': return cmp ? 'typhoonCompare' : 'legend';    // 범례 — 비교 지도는 범례 토글이 '태풍 비교' 안
-    case 'map': return 'map';                                   // 지도 크기 손잡이
+    case 'map': return 'map';                                   // 지도 크기 손잡이 · 이동 모드 지도/도서 박스 끌기('drag')
+    case 'bg': return 'res';                                    // 이동 모드에서 배경 빈 곳 딱 클릭 → 배경 · 가이드('click')
     case 'paint': return 'pal';                                 // 칠하기·브러쉬·스포이드·산 색칠
     case 'place': return 'typhoonPlaces';                       // 지명 이름표·원
     case 'typhoon': return cmp ? (id ? { cmp: id } : 'typhoonCompare') : 'typhoon';   // 태풍 경로·아이콘·반경
@@ -7367,17 +7397,22 @@ function secForKind(kind, id) {
   return null;
 }
 // how: 'soft' = 연속 작업(칠하기 등) — 접혀 있을 때만 편다. 이미 펴져 있으면 아무것도 안 해서 칠할 때마다 사이드바가 안 튄다.
-//      'click' = 끌지 않고 딱 눌렀다 뗐을 때만(끌어도 아무 동작 없는 태풍 경로 등).
-// 캔버스를 누르고 있는 동안(끌기 중)엔 열지 않고, 손을 뗄 때 마지막 요청 하나만 연다.
-let _canvasPress = null;   // { x, y, moved, pending }
+//      'click' = 끌지 않고 딱 눌렀다 뗐을 때만(끌어도 아무 동작 없는 태풍 경로, 배경 빈 곳 등).
+//      'drag' = 실제로 끌었을 때만 + soft(접혀 있을 때만). 이동 모드 지도·도서 박스 끌기 → 지도 위치(좌표 칸).
+//               그래서 빈 곳 딱 클릭(선택 해제)은 지도 위치를 열지 않는다.
+// 캔버스를 누르고 있는 동안(끌기 중)엔 열지 않고, 손을 뗄 때 조건에 맞는 마지막 요청 하나만 연다
+// (같은 누름에 '클릭이면 배경 · 끌면 지도 위치'처럼 둘을 걸어 둘 수 있다).
+// 연결 안 함(의도): 칠하기 모드의 배경 클릭(칠하다 빗나간 클릭마다 색 팔레트가 접히면 안 됨 — 사이드바는 아코디언),
+//   태풍 지도의 바다·광역 육지 클릭(배경이 아니라 지도), 지도 빈 곳 딱 클릭(선택 해제), Alt 카메라 팬·줌(영상 추출 카메라 키 작업).
+let _canvasPress = null;   // { x, y, moved, pending: [{ target, how }] }
 function revealSecFor(kind, id, how) {
   const target = secForKind(kind, id);
   if (!target) return;
-  if (_canvasPress) { _canvasPress.pending = { target, how }; return; }
+  if (_canvasPress) { (_canvasPress.pending ||= []).push({ target, how }); return; }
   revealSecTarget(target, how);
 }
 function revealSecTarget(target, how) {
-  const soft = how === 'soft';
+  const soft = how === 'soft' || how === 'drag';
   if (typeof target === 'object') {   // 태풍 비교: 태풍별 탭(.sec[data-cmpsec]) — 없으면 '태풍 비교'
     const sec = document.querySelector(`#panel > .sec[data-cmpsec="${target.cmp}"]`);
     if (!sec) { revealSecTarget('typhoonCompare', how); return; }
@@ -7403,8 +7438,10 @@ window.addEventListener('pointermove', (e) => {
   const endPress = () => {
     const p = _canvasPress; _canvasPress = null;
     if (!p || !p.pending) return;
-    if (p.pending.how === 'click' && p.moved) return;   // 끌었으면 '클릭 전용' 연결은 건너뛴다
-    setTimeout(() => revealSecTarget(p.pending.target, p.pending.how), 0);   // 끌기 끝 처리(패널 동기화) 뒤에
+    // 끌었으면 '클릭 전용'은, 안 끌었으면 '끌기 전용'은 건너뛰고 남은 것 중 마지막 하나
+    const q = p.pending.filter((r) => (r.how === 'click' ? !p.moved : r.how === 'drag' ? p.moved : true)).pop();
+    if (!q) return;
+    setTimeout(() => revealSecTarget(q.target, q.how), 0);   // 끌기 끝 처리(패널 동기화) 뒤에
   };
   window.addEventListener('pointerup', endPress, true);
   window.addEventListener('pointercancel', endPress, true);
@@ -7939,7 +7976,8 @@ svg.addEventListener('pointerdown', (e) => {
   // Alt+클릭 = 스포이드: 그 자리 색을 팔레트 색으로 집는다 (색이 있으면 그걸로, 없으면 그냥 진행)
   if (e.altKey) { const col = colorAtPoint(e); if (col) { setActive(col); revealSecFor('paint', null, 'soft'); status('스포이드 · ' + col + ' 선택', true); return; } }
 
-  if (e.target.closest('.selGrip')) { startResizeSel(e); return; }
+  // 선택된 글자·라벨·산 크기 손잡이 — 하나만 잡혀 있으면 그 섹션(놓을 때 열림, select()와 같은 연결)
+  if (e.target.closest('.selGrip')) { if (sel.length === 1) revealSecFor(sel[0].kind === 'text' || sel[0].kind === 'mtn' ? sel[0].kind : 'label'); startResizeSel(e); return; }
   if (e.target.closest('#legendGrip')) { startLegendResize(e); revealSecFor('legend'); return; }   // 범례 크기 핸들 (어느 모드에서나)
 
   // 태풍 경로·아이콘·반경(비교 지도면 그 예보선) — 그 태풍 섹션을 연다. 끌어도 하는 일이 없는 곳이라 '딱 클릭'일 때만.
@@ -7969,14 +8007,18 @@ svg.addEventListener('pointerdown', (e) => {
     if (e.target.closest('#vfBarGrip')) { startVfBarResize(e); revealSecFor('vfBar'); return; }   // 제목 바 크기
     if (e.target.closest('#vfBarHit')) { startVfBarMove(e); revealSecFor('vfBar'); return; }      // 제목 바 이동
     if (e.target.closest('[data-mapgrip]')) { if (S.mapLock) { status('지도가 잠겨 있습니다', true); return; } revealSecFor('map'); startScaleMap(e); return; }
+    // 도서 박스 끌기·크기 / 지도 끌기 → 지도 위치(좌표 칸) — 실제로 끌었을 때만, 접혀 있을 때만('drag')
     const grip = e.target.closest('.insetGrip');
-    if (grip && grip.dataset.inset) { startResizeInset(e, grip.dataset.inset); return; }
+    if (grip && grip.dataset.inset) { revealSecFor('map', null, 'drag'); startResizeInset(e, grip.dataset.inset); return; }
     // 박스든 그 안의 섬이든 집으면 박스째 움직인다
     const box = e.target.closest('.zone[data-inset]') || e.target.closest('.insetHit');
-    if (box) { startDragInset(e, box.dataset.inset); return; }
+    if (box) { revealSecFor('map', null, 'drag'); startDragInset(e, box.dataset.inset); return; }
     if (e.target.closest('.zone') || e.target.closest('#L_bg')) {
       if (sel.length) deselect();   // 빈 곳(지도/배경) 클릭 = 선택 해제
+      // 배경 그림(#bgImg)을 딱 클릭 → 배경 · 가이드. 태풍 지도의 바다·광역 육지(#L_bg 안 #typhoonOcean·#bgMapT)는 '지도'라서 제외
+      if (e.target.id === 'bgImg' && !isTyphoon()) revealSecFor('bg', null, 'click');
       if (S.mapLock) { status('지도가 잠겨 있습니다', true); return; }   // 지도 잠금: 이동 모드 드래그도 차단
+      revealSecFor('map', null, 'drag');   // 끌어서 옮기면 → 지도 위치(놓을 때)
       startDragMap(e);
       return;
     }
@@ -9886,7 +9928,7 @@ function savePreset() {
   localStorage.setItem('wcg_presets', JSON.stringify(mine));
   showPresetInfo();
   if (typeof syncPersonalSlot === 'function') syncPersonalSlot();   // 개인 슬롯이 있으면 방금 저장을 그 슬롯에도 바로 반영
-  status(`${presetLabel(key)} 배치로 저장됨 (위치는 밝은·어두운 공유)`);
+  cgsStatus(`${presetLabel(key)} 배치로 저장됨 (위치는 밝은·어두운 공유)`);   // CG 구성 창에서 눌렀으면 창 안 토스트로
 }
 // 지금 화면 배치를 mine(내 저장 배치 객체)에 합친다 — 저장소에는 안 쓴다(미리보기·취소 가능한 흐름용). 반환: 화면 키.
 function mergeCurrentPreset(mine) {
@@ -10139,6 +10181,7 @@ function buildResBtns() {
     b.onclick = () => {
       pendingRes = k;
       syncCgSetup();   // 카드 표시 + 두 가지 다 골랐으면 '선택 완료' 켜기
+      cgsShowOtherPane('res');
     };
     w.append(b);
   }
@@ -10177,6 +10220,8 @@ function applyPendingStyle() {
 let _cgsOpener = null, _cgsResetT = 0;
 function cgSetupIsOpen() { const ov = document.getElementById('cgSetupOv'); return !!(ov && ov.classList.contains('on')); }
 function startScreenOn() { const ov = document.getElementById('startOverlay'); return !!(ov && ov.classList.contains('on')); }
+// 좁은 창(900px 이하) — 두 판이 좌우가 아니라 위아래로 쌓인다(CSS @media 와 같은 기준)
+function cgsStacked() { return window.matchMedia('(max-width: 900px)').matches; }
 // 카드 표시·판 머리의 '고른 것'·아래 요약·선택 완료 버튼을 지금 pending 값에 맞춘다
 function syncCgSetup() {
   markResBtns(); markStyleBtns();
@@ -10186,9 +10231,13 @@ function syncCgSetup() {
   const done = $('#cgsDone'); if (done) done.disabled = !ok;
   const pick = (id, txt) => { const el = $(id); if (!el) return; el.textContent = txt || '고르세요'; el.classList.toggle('on', !!txt); };
   pick('#cgsResPick', rl); pick('#cgsStylePick', sl);
+  // 시작 화면 단계 알약도 창에서 고르는 대로 체크(적용 전 진행 표시) — 닫으면(고른 것 버림) 다시 비워진다
+  if (startScreenOn()) document.querySelectorAll('#startOverlay .startStep').forEach((s) => s.classList.toggle('picked', s.dataset.step === 'res' ? !!rl : !!sl));
   const sum = $('#cgsSummary'); if (!sum) return;
   sum.textContent = '';
-  if (!ok) { sum.textContent = !rl && !sl ? 'CG 종류와 지도 종류를 모두 골라 주세요' : (!rl ? '왼쪽에서 CG 종류도 골라 주세요' : '오른쪽에서 지도 종류도 골라 주세요'); return; }
+  // 안내 방향은 배치에 맞춘다 — 넓은 창 = 왼쪽(CG 종류)·오른쪽(지도 종류), 좁은 창 = 위·아래
+  const st = cgsStacked();
+  if (!ok) { sum.textContent = !rl && !sl ? 'CG 종류와 지도 종류를 모두 골라 주세요' : (!rl ? `${st ? '위' : '왼쪽'}에서 CG 종류도 골라 주세요` : `${st ? '아래' : '오른쪽'}에서 지도 종류도 골라 주세요`); return; }
   const b = document.createElement('b'); b.textContent = `${rl} · ${sl}`;
   const same = pendingRes === S.res && pendingStyle === S.style;
   sum.append(b, document.createTextNode(startScreenOn() ? ' — 이 구성으로 제작을 시작합니다' : (same ? ' — 지금과 같아요' : ' — 선택 완료를 누르면 바뀝니다')));
@@ -10204,12 +10253,15 @@ function openCgSetup() {
   syncStyleUse(); syncCgSetup();
   if (!ov.classList.contains('on')) _cgsOpener = document.activeElement;
   ov.classList.add('on'); ov.setAttribute('aria-hidden', 'false');
+  document.documentElement.classList.add('cgsOpen');   // 데스크톱: 막 아래 제목줄을 창 끌기 영역에서 뺀다(바깥 클릭 = 취소가 되게)
+  $('#cgsToast')?.classList.remove('on');
   const tb = $('#cgSetupBtn'); if (tb) tb.classList.add('on');
   setTimeout(() => { if (!cgSetupIsOpen()) return; const f = ov.querySelector('.cgsCard.choicePending') || ov.querySelector('.cgSetupCard'); try { f.focus({ preventScroll: true }); } catch (e) {} }, 40);
 }
 function closeCgSetup() {
   const ov = $('#cgSetupOv'); if (!ov || !ov.classList.contains('on')) return;
   ov.classList.remove('on'); ov.setAttribute('aria-hidden', 'true');
+  document.documentElement.classList.remove('cgsOpen');   // 데스크톱: 제목줄 창 끌기 다시 켬
   const tb = $('#cgSetupBtn'); if (tb) tb.classList.remove('on');
   // 고르던 것은 버린다 — 닫히는 애니메이션(블러+스케일) 동안엔 그대로 보이게 끝난 뒤에 비운다
   clearTimeout(_cgsResetT);
@@ -10221,11 +10273,39 @@ function closeCgSetup() {
 function applyCgSetup() {
   if (!pendingRes || !pendingStyle) return;
   const res = pendingRes, style = pendingStyle;
+  const top0 = undoStack[undoStack.length - 1];
   applyPendingRes();
+  const first = undoStack[undoStack.length - 1] !== top0 ? undoStack[undoStack.length - 1] : null;   // CG 종류가 바뀌며 쌓인 '적용 전' 스냅샷
   pendingStyle = style; applyPendingStyle();
+  // 선택 완료 한 번 = 되돌리기 한 칸. 지도 종류 전환(setStyle)이 또 쌓은 중간 상태(새 CG 종류 + 옛 지도 종류)는
+  // 사용자가 고른 적 없는 조합이라 버린다 → Ctrl+Z 한 번이면 창을 열기 전 구성으로 돌아간다. (80칸 넘침 shift 에도 안전하게 참조로 찾는다)
+  if (first) { const i = undoStack.lastIndexOf(first); if (i >= 0 && i < undoStack.length - 1) { undoStack.length = i + 1; updateUndoBtns(); } }
   pendingRes = res; pendingStyle = style;   // 닫히는 동안 고른 카드가 그대로 보이게(닫힌 뒤 비움)
   markResBtns(); markStyleBtns();
   closeCgSetup();
+}
+// 좁은 창(위아래로 쌓임)에서 한쪽 판을 고르면 아직 안 고른 다른 판을 본문 스크롤로 화면 안에 올려 준다(반대 순서도 같게).
+// picked = 방금 고른 판('res' | 'style'). 넓은 창(좌우 2판)은 둘 다 보이므로 아무것도 안 한다.
+function cgsShowOtherPane(picked) {
+  if (!cgSetupIsOpen() || !cgsStacked()) return;
+  if (picked === 'res' ? pendingStyle : pendingRes) return;   // 다른 쪽도 이미 골랐으면 그대로
+  const pane = $(picked === 'res' ? '.cgsPaneStyle' : '.cgsPaneRes'), body = pane && pane.closest('.cgsBody');
+  if (!body) return;
+  const b = body.getBoundingClientRect(), p = pane.getBoundingClientRect(), pad = 14;
+  let d = 0;
+  if (p.bottom > b.bottom + 1) d = (p.height + pad * 2 > b.height) ? p.top - b.top - pad : p.bottom - b.bottom + pad;   // 아래에 걸쳐 있음 — 판 전체(길면 머리부터)가 보이게
+  else if (p.top < b.top - 1) d = p.top - b.top - pad;                                                              // 위로 지나감 — 머리가 보이게
+  if (d) body.scrollBy({ top: d, behavior: 'smooth' });
+}
+// 창 안 알림 — 창이 떠 있으면 작업 화면의 #status 가 막 뒤에 가려지므로 창 아래쪽 토스트로. 닫혀 있으면 평소 status.
+let _cgsToastT = 0;
+function cgsStatus(m) {
+  const t = $('#cgsToast');
+  if (!t || !cgSetupIsOpen()) { status(m); return; }
+  t.textContent = m;
+  t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');   // 연달아 와도 다시 떠오르게
+  clearTimeout(_cgsToastT);
+  _cgsToastT = setTimeout(() => t.classList.remove('on'), 2800);
 }
 function setupCgSetup() {
   const ov = $('#cgSetupOv'); if (!ov) return;
@@ -10233,13 +10313,36 @@ function setupCgSetup() {
   $('#cgsX').onclick = closeCgSetup;
   $('#cgsCancel').onclick = closeCgSetup;
   $('#cgsDone').onclick = applyCgSetup;
-  ov.addEventListener('click', (e) => { if (e.target === ov) closeCgSetup(); });   // 바깥(어두운 막) 클릭 = 취소
+  // 바깥(어두운 막) 클릭 = 취소 — 단, 누른 곳과 뗀 곳이 둘 다 막일 때만. 카드를 누른 채 막으로 미끄러져 떼면
+  // 크로미움이 click 을 공통 조상(막)에 보내는데, 그걸로 고르던 것이 날아가지 않게.
+  let downOnOv = false;
+  ov.addEventListener('pointerdown', (e) => { downOnOv = e.target === ov; });
+  ov.addEventListener('click', (e) => { if (e.target === ov && downOnOv) closeCgSetup(); downOnOv = false; });
+  const aboveCgs = () => $('#tourWrap')?.classList.contains('on') || document.getElementById('tossOv') || $('#confirmOverlay')?.classList.contains('on') || $('#slotOverlay')?.classList.contains('on');
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !cgSetupIsOpen()) return;
     // 위에 뜬 둘러보기·확인창·토스 모달이 먼저 Esc를 받는다
-    if ($('#tourWrap')?.classList.contains('on') || document.getElementById('tossOv') || $('#confirmOverlay')?.classList.contains('on') || $('#slotOverlay')?.classList.contains('on')) return;
+    if (aboveCgs()) return;
     e.preventDefault(); closeCgSetup();
   });
+  // 포커스 가두기 — 창이 떠 있는 동안 Tab / Shift+Tab 은 창 안에서만 돈다(뒤의 사이드바·제목줄 버튼으로 새어 Enter로 눌리지 않게)
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || !cgSetupIsOpen() || aboveCgs()) return;
+    const card = ov.querySelector('.cgSetupCard');
+    const list = [...card.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((n) => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden');
+    const a = document.activeElement;
+    if (!list.length) { e.preventDefault(); card.focus(); return; }
+    const first = list[0], last = list[list.length - 1], inside = card.contains(a) && a !== card;
+    if (e.shiftKey ? (!inside || a === first) : (!inside && a !== card) || a === last) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    }
+  });
+  // 창이 떠 있는 채 창 크기가 900px 를 넘나들면(좌우 ↔ 위아래) 안내 방향도 다시 맞춘다
+  window.matchMedia('(max-width: 900px)').addEventListener('change', () => { if (cgSetupIsOpen()) syncCgSetup(); });
+  // 시작 화면 단계 알약(CG 종류 선택 · 지도 종류 선택)도 누르면 CG 구성 창을 연다(버튼처럼 보이는데 안 눌리지 않게)
+  document.querySelectorAll('#startOverlay .startStep').forEach((s) => { s.title = 'CG 구성 열기'; s.onclick = openCgSetup; });
   syncCgSetup();
 }
 
@@ -12806,7 +12909,7 @@ function wire() {
   // 내가 이 브라우저에 저장한 배치를 전부 지우고 배포 기본배치(default-presets.js=WCG_DEFAULTS)로 복귀.
   $('#restoreDefaults').onclick = async () => {
     const mine = (() => { try { const r = localStorage.getItem('wcg_presets'); return !!(r && r !== '{}'); } catch (e) { return false; } })();
-    if (!mine) { status('이 브라우저엔 따로 저장한 배치가 없습니다 — 이미 모두의 기본 배치입니다', true); return; }
+    if (!mine) { if (cgSetupIsOpen()) cgsStatus('이 브라우저엔 따로 저장한 배치가 없습니다 — 이미 모두의 기본 배치입니다'); else status('이 브라우저엔 따로 저장한 배치가 없습니다 — 이미 모두의 기본 배치입니다', true); return; }
     const ok = await tossConfirm({
       title: '모두의 기본 배치로 되돌리기',
       message: '이 브라우저에 내가 저장한 배치를 모두 지우고, 배포된 기본 배치로 되돌릴까요?\n\n다른 사람 화면에는 영향이 없습니다.',
@@ -12817,7 +12920,7 @@ function wire() {
     localStorage.removeItem('wcg_presets');   // 로컬 덮어쓰기 제거 → loadPresets()가 WCG_DEFAULTS를 쓴다
     S.vfScales = {};                         // 작업 중 공유값도 비워 배포 기본 VF 크기로 복귀
     applyPreset();
-    status('모두의 기본 배치로 되돌렸습니다');
+    cgsStatus('모두의 기본 배치로 되돌렸습니다');   // CG 구성 창 안에서 누른 버튼 — 창이 떠 있으면 창 안 토스트로
   };
   $('#bakeDefaults').onclick = bakeDefaults;
   $('#vfScale').oninput = (e) => {
@@ -14816,7 +14919,7 @@ let startResDone = false, startStyleDone = false;
 function showStartScreen() {
   const ov = $('#startOverlay'); if (!ov) return;
   startResDone = false; startStyleDone = false;
-  ov.querySelectorAll('.startStep').forEach((s) => s.classList.remove('done'));
+  ov.querySelectorAll('.startStep').forEach((s) => s.classList.remove('done', 'picked'));
   // 직전에 자동저장된 작업이 있으면 '이어보기' 버튼을 보여 준다(빈 화면으로 시작해도 작업을 잃지 않게).
   const rb = $('#startResume');
   if (rb) { let has = false; try { const w = localStorage.getItem(WORK_KEY); has = !!(w && JSON.parse(w).map); } catch (e) {} rb.style.display = has ? '' : 'none'; }
@@ -14867,6 +14970,13 @@ function tourMenu(sec) {
 }
 function tourMenuClose() { if (_closeMenu) _closeMenu(); closeCgSetup(); }   // 드롭다운·CG 구성 창 모두 닫기
 function tourCgSetup() { if (_closeMenu) _closeMenu(); if (!cgSetupIsOpen()) openCgSetup(); }   // 투어: 실제 CG 구성 창을 열어 보여준다
+// 투어 스포트라이트용 — CG 구성 창 카드가 '다 열린 뒤' 놓일 자리. 열리는 중(scale .95 → 1)에 재도 작게 잡히지 않게
+// 변형을 빼고 레이아웃 위치(offset*)로 잰다. 카드의 offsetParent 는 고정 막(.cgSetupOv).
+function cgsCardRect(card) {
+  const o = card.offsetParent ? card.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+  const left = o.left + card.offsetLeft, top = o.top + card.offsetTop, width = card.offsetWidth, height = card.offsetHeight;
+  return { left, top, width, height, right: left + width, bottom: top + height };
+}
 function tourExpand(sec, open) { const n = secNode(sec); if (!n) return; n.classList.toggle('closed', !open); if (open) { try { n.scrollIntoView({ block: 'center' }); } catch (e) {} } }
 // 투어 '설명용'으로 이 카드만 보이게 — 기상특보(wrn)는 특보 지도, 기상예보(fct)는 예보 지도에서만 보이므로
 // 지금 지도 모드와 상관없이 대상 카드만 강제로 펼쳐 보여준다(다른 자동색칠 카드는 숨김). 투어 끝나면 tourEnd가 updateAutoPaintSecs로 복원.
@@ -14884,7 +14994,7 @@ function tourAllClosed() { document.querySelectorAll('#panel .sec.toolSec').forE
 function tourStepList() {
   return [
     { title: 'CG 구성', body: '맨 위 <b>CG 구성</b>을 누르면 이 창이 열립니다. 왼쪽 <b>CG 종류</b>(터치 스크린 · 노말 CG · 노말 VF · 날씨 팀)와 오른쪽 <b>지도 종류</b>(시도군 · 시도 · 특보 · 태풍 등)를 <b>둘 다</b> 고르고 <b>선택 완료</b>를 눌러야 적용돼요. CG 종류마다 화면 크기와 지도 · 제목 배치를 따로 기억합니다.',
-      target: () => document.querySelector('#cgSetupOv .cgSetupCard'), setup: () => tourCgSetup(), delay: 380 },
+      target: () => document.querySelector('#cgSetupOv .cgSetupCard'), setup: () => tourCgSetup(), delay: 380, rect: cgsCardRect },
     { title: '지도 종류 선택 · 지도 잠금', body: '<b>태풍 지도</b>에서는 아트보드 <b>오른쪽 위</b>에 버튼 두 개가 나옵니다. <b>접힌 지도 아이콘</b> = <b>지도 종류 선택</b> — 파란 지도 · 밝은/어두운 위성지도 · Mapbox 실시간 타일 중에서 고르고, 개인 Mapbox URL도 붙일 수 있어요. <b>자물쇠 아이콘</b> = <b>지도 잠금</b> — 켜면 지도가 실수로 움직이지 않게 고정됩니다(다시 누르면 해제).',
       target: () => { const b = document.querySelector('.basemapBtn'); return (b && b.offsetParent) ? b : (document.querySelector('.fit') || $('#stage')); }, setup: () => tourMenuClose(), delay: 300 },
     { title: '프로젝트 (플로피 디스크 아이콘)', body: '<b>CG 구성</b> 옆 <b>플로피 디스크 아이콘</b>이에요. 작업을 저장 · 불러오고 최근 파일을 엽니다. 저장 파일은 그림(PNG)이라 파일 탐색기에서 미리보기가 그대로 보여요.',
@@ -14924,7 +15034,7 @@ function tourPlace(step) {
     panel.scrollTop += el.getBoundingClientRect().top - 92;
     panel.style.scrollBehavior = sb;
   }
-  const r = el.getBoundingClientRect();
+  const r = step.rect ? step.rect(el) : el.getBoundingClientRect();   // rect = 열리는 애니메이션(변형)과 상관없는 최종 자리(CG 구성 창)
   const vw = window.innerWidth, vh = window.innerHeight, pad = 8;
   const x = Math.max(4, r.left - pad), y = Math.max(4, r.top - pad);
   const w = Math.min(vw - x - 4, r.width + pad * 2), h = Math.min(vh - y - 4, r.height + pad * 2);

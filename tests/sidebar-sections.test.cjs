@@ -60,6 +60,7 @@ test('화면 요소 → 섹션 연결표 (지도 종류별)', () => {
   assert.equal(n('mtn'), 'mtn');
   assert.equal(n('legend'), 'legend');
   assert.equal(n('map'), 'map');
+  assert.equal(n('bg'), 'res');                           // 배경 그림 → 배경 · 가이드
   assert.equal(n('paint'), 'pal');
   assert.equal(n('place'), 'typhoonPlaces');
   assert.equal(n('typhoon'), 'typhoon');
@@ -83,11 +84,36 @@ test('캔버스 요소 핸들러가 모두 공통 함수(revealSecFor)로 연결
   // 칠하기·브러쉬·스포이드·브러쉬 모드 → 'soft'(이미 펴져 있으면 아무것도 안 함)
   assert.doesNotMatch(html, /revealSec\('pal'\)/);
   assert.ok((html.match(/revealSecFor\('paint', null, 'soft'\)/g) || []).length >= 5);
+  // 선택된 글자·라벨·산의 크기 손잡이(.selGrip)도 그 섹션 — select()와 같은 연결
+  assert.match(html, /closest\('\.selGrip'\)\) \{ if \(sel\.length === 1\) revealSecFor\(sel\[0\]\.kind === 'text' \|\| sel\[0\]\.kind === 'mtn' \? sel\[0\]\.kind : 'label'\); startResizeSel\(e\); return; \}/);
+});
+
+test('이동 모드: 지도·도서 박스를 끌면 지도 위치(끌 때만·접혀 있을 때만), 배경 그림 딱 클릭은 배경 · 가이드', () => {
+  // 'drag' = 끌었을 때만 + soft
+  assert.match(fnSrc('revealSecTarget'), /const soft = how === 'soft' \|\| how === 'drag';/);
+  assert.match(html, /\(r\.how === 'click' \? !p\.moved : r\.how === 'drag' \? p\.moved : true\)/);
+  assert.match(html, /revealSecFor\('map', null, 'drag'\); startResizeInset\(e, grip\.dataset\.inset\)/);
+  assert.match(html, /revealSecFor\('map', null, 'drag'\); startDragInset\(e, box\.dataset\.inset\)/);
+  assert.match(html, /revealSecFor\('map', null, 'drag'\);   \/\/ 끌어서 옮기면 → 지도 위치\(놓을 때\)\r?\n\s*startDragMap\(e\);/);
+  // 배경: 태풍 지도의 바다·광역 육지(지도)는 빼고, 이동 모드에서 딱 클릭만
+  assert.match(html, /if \(e\.target\.id === 'bgImg' && !isTyphoon\(\)\) revealSecFor\('bg', null, 'click'\);/);
+  // 같은 누름에 둘(클릭이면 배경, 끌면 지도 위치)을 걸고 놓을 때 조건 맞는 마지막 하나만 — 실제로 골라 보기
+  const endSrc = /const endPress = \(\) => \{[\s\S]*?\n  \};/.exec(html)[0];
+  const run = (moved, pending) => {
+    const opened = [];
+    const env = { _canvasPress: { moved, pending }, setTimeout: (f) => f(), revealSecTarget: (t, h) => opened.push([t, h]) };
+    new Function('env', `let _canvasPress = env._canvasPress; const setTimeout = env.setTimeout, revealSecTarget = env.revealSecTarget; ${endSrc}; endPress();`)(env);
+    return opened;
+  };
+  const both = [{ target: 'res', how: 'click' }, { target: 'map', how: 'drag' }];
+  assert.deepEqual(run(false, both), [['res', 'click']]);   // 딱 클릭 → 배경 · 가이드
+  assert.deepEqual(run(true, both), [['map', 'drag']]);     // 끌기 → 지도 위치
+  assert.deepEqual(run(false, [{ target: 'map', how: 'drag' }]), []);   // 지도 빈 곳 딱 클릭(선택 해제) → 사이드바 그대로
 });
 
 test('누르는 동안엔 열지 않고 손을 뗄 때 한 번 — 숨긴 섹션은 열지 않음 — 스크롤은 접힘 애니메이션을 따라감', () => {
   assert.match(html, /window\.addEventListener\('pointerdown', \(e\) => \{\s*_canvasPress = /);
-  assert.match(fnSrc('revealSecFor'), /if \(_canvasPress\) \{ _canvasPress\.pending = /);
+  assert.match(fnSrc('revealSecFor'), /if \(_canvasPress\) \{ \(_canvasPress\.pending \|\|= \[\]\)\.push\(\{ target, how \}\); return; \}/);
   assert.match(fnSrc('revealSecTarget'), /if \(secModeHidden\(target\)\) return;/);
   assert.match(fnSrc('revealSecTarget'), /if \(soft && !secClosed\(target\)\) return;/);
   const sp = fnSrc('scrollPanelToSec');

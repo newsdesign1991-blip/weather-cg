@@ -45,9 +45,10 @@ R.afterCancel = { ...state(), work: work() };
 $('#cgSetupBtn').click(); await sleep(350);
 $('#resBtns [data-res="2158x1214"]').click();
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await sleep(450);
-// 바깥 클릭 닫기
+// 바깥 클릭 닫기(막에서 누르고 막에서 뗌)
 $('#cgSetupBtn').click(); await sleep(350);
 $('#styleBtns [data-style="warnsea"]').click();
+$('#cgSetupOv').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 $('#cgSetupOv').dispatchEvent(new MouseEvent('click', { bubbles: true })); await sleep(450);
 await sleep(1700);
 R.afterEscOutside = { ov: ovOn(), work: work() };
@@ -60,9 +61,34 @@ R.afterChange = { ov: ovOn(), work: work(), vfGrip: !!document.getElementById('v
 $('#cgSetupBtn').click(); await sleep(350);
 R.reopen2 = state();
 $('#cgsX').click(); await sleep(400);
-// 7) 되돌리기(Ctrl+Z) 두 번 → 지도 종류·CG 종류가 차례로 되돌아간다
-$('#undo').click(); await sleep(200); $('#undo').click(); await sleep(1800);
+// 7) 되돌리기 한 번 → 선택 완료 한 번에 바뀐 CG 종류·지도 종류가 함께 되돌아간다(중간 상태 없음)
+$('#undo').click(); await sleep(1800);
 R.afterUndo = work();
+// 7-1) 카드에서 누른 채 막으로 끌고 나가 떼기 — 크로미움은 click 을 공통 조상(막)에 보낸다 → 닫히면 안 됨
+$('#cgSetupBtn').click(); await sleep(350);
+R.cgsOpenClass = { open: document.documentElement.classList.contains('cgsOpen') };
+$('#resBtns [data-res="2158x1214"]').click();
+$('#resBtns [data-res="2158x1214"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+$('#cgSetupOv').dispatchEvent(new MouseEvent('click', { bubbles: true })); await sleep(200);
+R.dragOut = { ov: ovOn(), res: picked('#resBtns') };
+// 7-2) Tab 가두기 — 마지막(선택 완료)에서 Tab → 처음(X), 처음에서 Shift+Tab → 마지막, 창 밖에 포커스가 있으면 Tab → 처음
+const tab = (shift) => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: !!shift, bubbles: true, cancelable: true }));
+$('#cgsDone').focus(); tab(); const t1 = document.activeElement.id;
+$('#cgsX').focus(); tab(true); const t2 = document.activeElement.id;
+$('#newWork').focus(); tab(); const t3 = document.activeElement.id;
+R.trap = { fromLast: t1, fromFirstBack: t2, fromOutside: t3 };
+// 7-3) 저장한 배치가 없을 때 '초기화' 결과 안내가 창 안 토스트로 보인다
+const _presets = localStorage.getItem('wcg_presets'); localStorage.removeItem('wcg_presets');
+$('#presetMoreToggle').click(); await sleep(350);
+$('#restoreDefaults').click(); await sleep(350);
+R.toast = { on: $('#cgsToast').classList.contains('on'), text: $('#cgsToast').textContent, opacity: getComputedStyle($('#cgsToast')).opacity };
+if (_presets != null) localStorage.setItem('wcg_presets', _presets);
+$('#presetMoreToggle').click();
+// 진짜 바깥 클릭(막에서 누르고 뗌) → 닫힘
+$('#cgSetupOv').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+$('#cgSetupOv').dispatchEvent(new MouseEvent('click', { bubbles: true })); await sleep(400);
+R.dragOut.realOutside = ovOn();
+R.cgsOpenClass.closed = document.documentElement.classList.contains('cgsOpen');
 // 8) 프로젝트 아이콘 → 프로젝트 드롭다운
 $('#titlebar [data-menu="proj"]').click(); await sleep(350);
 R.proj = { drop: $('#menuDrop').classList.contains('on'), shown: $$('#menuDrop > .sec').filter((n) => n.style.display !== 'none').map((n) => n.dataset.sec), hasSave: !!$('#menuDrop #save') && $('#save').offsetParent !== null, btnOn: $('#titlebar [data-menu="proj"]').classList.contains('on') };
