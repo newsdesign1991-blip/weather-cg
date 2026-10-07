@@ -1,0 +1,142 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": {
+  "start": 0.0078125,
+  "len": 1.0000005,
+  "dx": 2.5
+ },
+ "shadow": {
+  "x": 0.0078125,
+  "y": 2.5,
+  "blur": 0.0078125,
+  "op": 0.0078125
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "A",
+    "x": 0.0078125,
+    "y": -0.0078125,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "t1"
+  },
+  {
+   "text": {
+    "content": "A",
+    "x": 0.0234375,
+    "y": 2.5,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "t2"
+  },
+  {
+   "text": {
+    "content": "A",
+    "x": 1.0000005,
+    "y": 123.0000005,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "t3"
+  },
+  {
+   "text": {
+    "content": "A",
+    "x": 0.5000005,
+    "y": 1.5000005,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "t4"
+  },
+  {
+   "text": {
+    "content": "A",
+    "x": 1048576.0078125,
+    "y": -3.0000005,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "t5"
+  },
+  {
+   "text": {
+    "content": "A",
+    "x": 5e-07,
+    "y": 1.5e-06,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "t6"
+  },
+  {
+   "file": "f_00000.png",
+   "name": "f",
+   "fade": {
+    "start": 0.1015625,
+    "len": 0.8984375
+   }
+  },
+  {
+   "file": "f_00001.png",
+   "name": "g",
+   "fade": {
+    "start": 2.5,
+    "len": 1.0000005
+   }
+  },
+  {
+   "labelComp": {
+    "w": 15,
+    "h": 35,
+    "x": 0.0078125,
+    "y": 0.0390625,
+    "texts": [
+     {
+      "content": "t",
+      "size": 15,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0.0078125,
+      "cx": 7.5,
+      "cy": 17.5
+     }
+    ]
+   },
+   "name": "L",
+   "fade": {
+    "start": 0.0078125,
+    "len": 0.9921875,
+    "rise": 0.0078125
+   }
+  }
+ ]
+}

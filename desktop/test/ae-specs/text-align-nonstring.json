@@ -1,0 +1,189 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "가a0",
+    "x": 10,
+    "y": 0,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": null,
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a0"
+  },
+  {
+   "text": {
+    "content": "가a1",
+    "x": 10,
+    "y": 10,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": 5,
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a1"
+  },
+  {
+   "text": {
+    "content": "가a2",
+    "x": 10,
+    "y": 20,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": 0,
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a2"
+  },
+  {
+   "text": {
+    "content": "가a3",
+    "x": 10,
+    "y": 30,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": true,
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a3"
+  },
+  {
+   "text": {
+    "content": "가a4",
+    "x": 10,
+    "y": 40,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": false,
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a4"
+  },
+  {
+   "text": {
+    "content": "가a5",
+    "x": 10,
+    "y": 50,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": 1.5,
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a5"
+  },
+  {
+   "text": {
+    "content": "가a6",
+    "x": 10,
+    "y": 60,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a6"
+  },
+  {
+   "text": {
+    "content": "가a7",
+    "x": 10,
+    "y": 70,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "START",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a7"
+  },
+  {
+   "text": {
+    "content": "가a8",
+    "x": 10,
+    "y": 80,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "middle ",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a8"
+  },
+  {
+   "text": {
+    "content": "가a9",
+    "x": 10,
+    "y": 90,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "end",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a9"
+  },
+  {
+   "text": {
+    "content": "가a10",
+    "x": 10,
+    "y": 100,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "center",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a10"
+  },
+  {
+   "text": {
+    "content": "가a11",
+    "x": 10,
+    "y": 110,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "LEFT",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a11"
+  },
+  {
+   "text": {
+    "content": "가a12",
+    "x": 10,
+    "y": 120,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "a12"
+  }
+ ]
+}

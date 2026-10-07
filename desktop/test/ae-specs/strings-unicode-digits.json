@@ -1,0 +1,85 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "유니코드",
+  "w": "１９２０",
+  "h": "١٠٨٠",
+  "fps": "２９.９７",
+  "dur": "６"
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "가u0",
+    "x": "１２.５",
+    "y": "３０",
+    "size": "６０",
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": "７００"
+   },
+   "name": "u0"
+  },
+  {
+   "text": {
+    "content": "가u1",
+    "x": "1٢.٥",
+    "y": "٣٠",
+    "size": "٤٨",
+    "col": "#FFFFFF",
+    "align": "middle",
+    "track": 0,
+    "weight": "٨٠٠"
+   },
+   "name": "u1"
+  },
+  {
+   "text": {
+    "content": "가u2",
+    "x": "१०",
+    "y": "　４０　",
+    "size": "３６.５",
+    "col": "#FFFFFF",
+    "align": "end",
+    "track": 0,
+    "weight": " ５００ "
+   },
+   "name": "u2"
+  },
+  {
+   "text": {
+    "content": "가u3",
+    "x": "0",
+    "y": "１e２",
+    "size": "1_2",
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": "３_００"
+   },
+   "name": "u3"
+  },
+  {
+   "text": {
+    "content": "가u4",
+    "x": "𝟙𝟚",
+    "y": "𝟓𝟎",
+    "size": "𝟞𝟘",
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": "𝟗𝟎𝟎"
+   },
+   "name": "u4"
+  }
+ ]
+}

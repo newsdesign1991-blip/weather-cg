@@ -1,0 +1,21 @@
+{
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "배경·지도",
+   "fade": null
+  },
+  {
+   "file": "f_00001.png",
+   "name": "경계선",
+   "fade": null
+  }
+ ]
+}

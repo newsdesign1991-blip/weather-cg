@@ -1,0 +1,57 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "legendComp": {
+    "w": 99.01,
+    "h": 0.2,
+    "items": [
+     {
+      "name": "",
+      "shape": {
+       "fill": "#123456"
+      },
+      "text": {
+       "content": "첫째"
+      }
+     },
+     {
+      "shape": null,
+      "text": null
+     },
+     {
+      "name": "센터없음",
+      "shape": {
+       "x": 1.5,
+       "y": 2.5,
+       "w": 0.01,
+       "h": -4,
+       "radius": -2
+      },
+      "text": {
+       "content": "c",
+       "x": 3,
+       "size": 0.2
+      }
+     },
+     {}
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,144 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "labelComp": {
+    "w": 100,
+    "h": 40,
+    "x": 10,
+    "y": 20,
+    "bg": "f_00000.png",
+    "texts": [
+     {
+      "content": "A",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     }
+    ]
+   },
+   "name": "라벨_1",
+   "fade": {
+    "start": 0,
+    "len": 1.0,
+    "rise": 0
+   }
+  },
+  {
+   "labelComp": {
+    "w": 100,
+    "h": 40,
+    "x": 10,
+    "y": 20,
+    "bg": "f_00001.png",
+    "texts": [
+     {
+      "content": "B",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     }
+    ]
+   },
+   "name": "라벨_2",
+   "fade": {
+    "start": 0.0005,
+    "len": 1.0
+   }
+  },
+  {
+   "labelComp": {
+    "w": 100,
+    "h": 40,
+    "x": 10,
+    "y": 20,
+    "bg": "f_00002.png",
+    "texts": [
+     {
+      "content": "C",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     }
+    ]
+   },
+   "name": "라벨_3",
+   "fade": null
+  },
+  {
+   "labelComp": {
+    "w": 100,
+    "h": 40,
+    "x": 10,
+    "y": 20,
+    "bg": "f_00003.png",
+    "texts": [
+     {
+      "content": "D",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     }
+    ]
+   },
+   "name": "라벨_4",
+   "fade": {
+    "start": 2,
+    "len": 1.0,
+    "rise": -0.0
+   }
+  },
+  {
+   "labelComp": {
+    "w": 100,
+    "h": 40,
+    "x": 10,
+    "y": 20,
+    "bg": "f_00004.png",
+    "texts": [
+     {
+      "content": "E",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     }
+    ]
+   },
+   "name": "라벨_5",
+   "fade": {
+    "start": 2,
+    "rise": -13.5
+   }
+  }
+ ]
+}

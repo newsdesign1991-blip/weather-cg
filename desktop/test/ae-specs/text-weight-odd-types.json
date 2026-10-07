@@ -1,0 +1,189 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 0,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": "700"
+   },
+   "name": "w0"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 10,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": " 800 "
+   },
+   "name": "w1"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 20,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": "abc"
+   },
+   "name": "w2"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 30,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": "700.0"
+   },
+   "name": "w3"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 40,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": ""
+   },
+   "name": "w4"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 50,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": null
+   },
+   "name": "w5"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 60,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": true
+   },
+   "name": "w6"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 70,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 0
+   },
+   "name": "w7"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 80,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": -5
+   },
+   "name": "w8"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 90,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 1e400
+   },
+   "name": "w9"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 100,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 650.9
+   },
+   "name": "w10"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 110,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": "+900"
+   },
+   "name": "w11"
+  },
+  {
+   "text": {
+    "content": "W",
+    "x": 10,
+    "y": 120,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": false
+   },
+   "name": "w12"
+  }
+ ]
+}

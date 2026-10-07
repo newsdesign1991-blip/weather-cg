@@ -1,0 +1,116 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "배경",
+   "fade": null
+  },
+  {
+   "legendComp": {
+    "w": 312.4,
+    "h": 168.25,
+    "x": 1650.5,
+    "y": 920.25,
+    "items": [
+     {
+      "name": "호우경보",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "호우경보",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 12.5
+      }
+     },
+     {
+      "name": "호우주의보",
+      "shape": {
+       "x": 0,
+       "y": 36,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#F5A623"
+      },
+      "text": {
+       "content": "호우주의보",
+       "x": 48,
+       "size": 30,
+       "weight": 700,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 48.5
+      }
+     },
+     {
+      "name": "폭염경보",
+      "shape": {
+       "x": 0,
+       "y": 72,
+       "w": 36,
+       "h": 24,
+       "radius": 0,
+       "fill": "#8B1A1A"
+      },
+      "text": {
+       "content": "폭염경보",
+       "x": 48,
+       "size": 28.5,
+       "weight": 600,
+       "track": -0.5,
+       "fill": "#FFFFFF",
+       "centerY": 84.5
+      }
+     },
+     {
+      "name": "한파",
+      "shape": {
+       "x": 0,
+       "y": 108,
+       "w": 36,
+       "h": 24,
+       "radius": 12.75,
+       "fill": "#3B7DD8"
+      },
+      "text": {
+       "content": "한파 → 주의",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#DDEEFF",
+       "centerY": 120.5
+      }
+     }
+    ]
+   },
+   "name": "범례"
+  }
+ ]
+}

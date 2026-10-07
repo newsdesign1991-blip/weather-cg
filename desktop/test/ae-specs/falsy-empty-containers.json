@@ -1,0 +1,54 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": {},
+ "shadow": {},
+ "layers": [
+  {
+   "text": {},
+   "legendComp": {},
+   "labelComp": {},
+   "typhoonRig": {},
+   "compareRig": {},
+   "fade": {},
+   "file": "f_00000.png",
+   "name": "빈것들"
+  },
+  {
+   "typhoonRig": null,
+   "compareRig": null,
+   "text": null,
+   "legendComp": null,
+   "labelComp": null,
+   "file": "f_00001.png",
+   "name": "널들",
+   "fade": {
+    "start": 0
+   }
+  },
+  {
+   "text": "",
+   "legendComp": 0,
+   "labelComp": false,
+   "typhoonRig": [],
+   "compareRig": "",
+   "file": "f_00002.png",
+   "name": "거짓값들"
+  },
+  {
+   "text": {
+    "content": "빈아님"
+   },
+   "fade": {
+    "start": 1
+   },
+   "name": "텍스트는fade무시"
+  }
+ ]
+}

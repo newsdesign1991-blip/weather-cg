@@ -1,0 +1,215 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "W300",
+    "x": 50,
+    "y": 60,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 300
+   },
+   "name": "w300"
+  },
+  {
+   "text": {
+    "content": "W400",
+    "x": 50,
+    "y": 130,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "w400"
+  },
+  {
+   "text": {
+    "content": "W500",
+    "x": 50,
+    "y": 200,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 500
+   },
+   "name": "w500"
+  },
+  {
+   "text": {
+    "content": "W600",
+    "x": 50,
+    "y": 270,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 600
+   },
+   "name": "w600"
+  },
+  {
+   "text": {
+    "content": "W700",
+    "x": 50,
+    "y": 340,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 700
+   },
+   "name": "w700"
+  },
+  {
+   "text": {
+    "content": "W800",
+    "x": 50,
+    "y": 410,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 800
+   },
+   "name": "w800"
+  },
+  {
+   "text": {
+    "content": "W900",
+    "x": 50,
+    "y": 480,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 900
+   },
+   "name": "w900"
+  },
+  {
+   "text": {
+    "content": "W1000",
+    "x": 50,
+    "y": 550,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 1000
+   },
+   "name": "w1000"
+  },
+  {
+   "text": {
+    "content": "W50",
+    "x": 50,
+    "y": 620,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 50
+   },
+   "name": "w50"
+  },
+  {
+   "text": {
+    "content": "W350",
+    "x": 50,
+    "y": 690,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 350
+   },
+   "name": "w350"
+  },
+  {
+   "text": {
+    "content": "W450",
+    "x": 50,
+    "y": 760,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 450
+   },
+   "name": "w450"
+  },
+  {
+   "text": {
+    "content": "W650",
+    "x": 50,
+    "y": 830,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 650
+   },
+   "name": "w650"
+  },
+  {
+   "text": {
+    "content": "W850",
+    "x": 50,
+    "y": 900,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 850
+   },
+   "name": "w850"
+  },
+  {
+   "text": {
+    "content": "W949",
+    "x": 50,
+    "y": 970,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 949
+   },
+   "name": "w949"
+  },
+  {
+   "text": {
+    "content": "W951",
+    "x": 50,
+    "y": 1040,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 951
+   },
+   "name": "w951"
+  }
+ ]
+}

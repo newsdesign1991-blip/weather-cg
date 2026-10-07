@@ -1,0 +1,178 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "f_00001.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1200.5,
+        "y": 900.2
+       },
+       {
+        "x": 1150.1,
+        "y": 820.7
+       },
+       {
+        "x": 1100.4,
+        "y": 740.3
+       },
+       {
+        "x": 1060.9,
+        "y": 650.6
+       },
+       {
+        "x": 1040.2,
+        "y": 560.1
+       }
+      ],
+      "iconAt": [
+       0,
+       2,
+       4
+      ],
+      "nameLabel": {
+       "txt": "KMA",
+       "x": 1053.2,
+       "y": 556.1,
+       "size": 34,
+       "weight": 800,
+       "col": "#FF5A5A"
+      },
+      "labels": [
+       {
+        "idx": 2,
+        "px": 1100.4,
+        "py": 740.3,
+        "txt": "9일 09시",
+        "bx": 1250,
+        "by": 648,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       }
+      ]
+     },
+     {
+      "color": "#4DA3FF",
+      "lineW": 2.2,
+      "iconFile": "f_00002.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1250.5,
+        "y": 905.2
+       },
+       {
+        "x": 1210.1,
+        "y": 830.7
+       },
+       {
+        "x": 1180.4,
+        "y": 760.3
+       },
+       {
+        "x": 1170.9,
+        "y": 680.6
+       },
+       {
+        "x": 1190.2,
+        "y": 600.1
+       },
+       {
+        "x": 1230.0,
+        "y": 530.5
+       }
+      ],
+      "iconAt": [
+       0,
+       3,
+       5
+      ],
+      "nameLabel": {
+       "txt": "JTWC",
+       "x": 1243,
+       "y": 526.5,
+       "size": 34,
+       "weight": 800,
+       "col": "#4DA3FF"
+      },
+      "labels": [
+       {
+        "idx": 1,
+        "px": 1210.1,
+        "py": 830.7,
+        "txt": "8일 21시",
+        "bx": 1360,
+        "by": 738,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#4DA3FF",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 1.5,
+        "radius": 14
+       }
+      ]
+     }
+    ]
+   },
+   "name": "태풍 비교 리깅"
+  },
+  {
+   "text": {
+    "content": "예보 비교",
+    "x": 80,
+    "y": 110,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 800
+   },
+   "name": "제목_비교"
+  }
+ ]
+}

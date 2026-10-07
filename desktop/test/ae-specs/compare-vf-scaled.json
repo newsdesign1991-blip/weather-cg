@@ -1,0 +1,100 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": {
+  "start": 1.0,
+  "len": 1.0,
+  "dx": 272
+ },
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "f_00001.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 12.75,
+      "points": [
+       {
+        "x": 1020.425,
+        "y": 765.1700000000001
+       },
+       {
+        "x": 977.5849999999999,
+        "y": 697.595
+       },
+       {
+        "x": 935.34,
+        "y": 629.255
+       },
+       {
+        "x": 901.7650000000001,
+        "y": 553.01
+       },
+       {
+        "x": 884.17,
+        "y": 476.085
+       }
+      ],
+      "iconAt": [
+       0,
+       4
+      ],
+      "nameLabel": {
+       "txt": "KMA",
+       "x": 900.33,
+       "y": 470.12,
+       "size": 28.9,
+       "weight": 800,
+       "col": "#FF5A5A"
+      },
+      "labels": [
+       {
+        "idx": 2,
+        "px": 935.3,
+        "py": 629.3,
+        "txt": "x",
+        "bx": 1060,
+        "by": 550,
+        "bw": 136.17,
+        "bh": 62.9,
+        "size": 34,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 11.9
+       }
+      ]
+     }
+    ]
+   },
+   "name": "태풍 비교 리깅"
+  }
+ ]
+}

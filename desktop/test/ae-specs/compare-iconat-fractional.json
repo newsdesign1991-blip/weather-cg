@@ -1,0 +1,211 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "f_00001.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1200.5,
+        "y": 900.2
+       },
+       {
+        "x": 1150.1,
+        "y": 820.7
+       },
+       {
+        "x": 1100.4,
+        "y": 740.3
+       },
+       {
+        "x": 1060.9,
+        "y": 650.6
+       },
+       {
+        "x": 1040.2,
+        "y": 560.1
+       },
+       {
+        "x": 1020.5,
+        "y": 470.0
+       }
+      ],
+      "iconAt": [
+       0,
+       2.5,
+       3.5,
+       -1,
+       99,
+       1.4999
+      ],
+      "nameLabel": null,
+      "labels": [
+       {
+        "idx": 2,
+        "px": 1100.4,
+        "py": 740.3,
+        "txt": "r2",
+        "bx": 1250,
+        "by": 648,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 3,
+        "px": 1060.9,
+        "py": 650.6,
+        "txt": "r3",
+        "bx": 900,
+        "by": 650,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 4,
+        "px": 1040.2,
+        "py": 560.1,
+        "txt": "r4",
+        "bx": 1200,
+        "by": 560,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 1,
+        "px": 1150.1,
+        "py": 820.7,
+        "txt": "r1",
+        "bx": 1300,
+        "by": 820,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": -1,
+        "px": 0,
+        "py": 0,
+        "txt": "neg",
+        "bx": 0,
+        "by": 0,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 6,
+        "px": 0,
+        "py": 0,
+        "txt": "over",
+        "bx": 0,
+        "by": 0,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 5.9,
+        "px": 0,
+        "py": 0,
+        "txt": "frac",
+        "bx": 900,
+        "by": 470,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       }
+      ]
+     }
+    ]
+   },
+   "name": "태풍 비교 리깅"
+  }
+ ]
+}

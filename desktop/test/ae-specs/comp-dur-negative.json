@@ -1,0 +1,25 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "W",
+  "w": 1280,
+  "h": 720,
+  "fps": 25,
+  "dur": -3
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "x",
+   "fade": null
+  }
+ ]
+}

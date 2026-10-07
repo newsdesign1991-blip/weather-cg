@@ -1,0 +1,53 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "f_00001.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1,
+        "y": 2
+       },
+       {
+        "x": 3
+       }
+      ],
+      "iconAt": [],
+      "nameLabel": null,
+      "labels": []
+     }
+    ]
+   },
+   "name": "태풍 비교 리깅"
+  }
+ ]
+}

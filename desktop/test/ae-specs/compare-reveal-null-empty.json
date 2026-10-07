@@ -1,0 +1,98 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": null,
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "a.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1200.5,
+        "y": 900.2
+       },
+       {
+        "x": 1150.1,
+        "y": 820.7
+       },
+       {
+        "x": 1100.4,
+        "y": 740.3
+       }
+      ],
+      "iconAt": [
+       1
+      ],
+      "nameLabel": null,
+      "labels": []
+     }
+    ]
+   },
+   "name": "a"
+  },
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {},
+    "typhoons": [
+     {
+      "color": "#4DA3FF",
+      "lineW": 2.2,
+      "iconFile": "b.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1250.5,
+        "y": 905.2
+       },
+       {
+        "x": 1210.1,
+        "y": 830.7
+       },
+       {
+        "x": 1180.4,
+        "y": 760.3
+       }
+      ],
+      "iconAt": [
+       2
+      ],
+      "nameLabel": null,
+      "labels": []
+     }
+    ]
+   },
+   "name": "b"
+  },
+  {
+   "compareRig": {
+    "bg": "x.png"
+   },
+   "name": "c"
+  }
+ ]
+}

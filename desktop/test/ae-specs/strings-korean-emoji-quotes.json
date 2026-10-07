@@ -1,0 +1,372 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_한글_🌀_\"q\"\\",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "C:\\path\\to\\f.png/x.png",
+   "fade": null
+  },
+  {
+   "text": {
+    "content": "한글 제목",
+    "x": 10,
+    "y": 10,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "한글 제목"
+  },
+  {
+   "text": {
+    "content": "🌀태풍😀",
+    "x": 10,
+    "y": 11,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "🌀태풍😀"
+  },
+  {
+   "text": {
+    "content": "𠀀없는글자",
+    "x": 10,
+    "y": 12,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "𠀀없는글자"
+  },
+  {
+   "text": {
+    "content": "say \"hi\"",
+    "x": 10,
+    "y": 13,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "say \"hi\""
+  },
+  {
+   "text": {
+    "content": "C:\\path\\to\\f.png",
+    "x": 10,
+    "y": 14,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "C:\\path\\to\\f.png"
+  },
+  {
+   "text": {
+    "content": "줄\n바꿈\r\n탭\t끝",
+    "x": 10,
+    "y": 15,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "줄\n바꿈\r\n탭\t끝"
+  },
+  {
+   "text": {
+    "content": "nul\u0000del",
+    "x": 10,
+    "y": 16,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "nul\u0000del"
+  },
+  {
+   "text": {
+    "content": "lone\ud800sur",
+    "x": 10,
+    "y": 17,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "lone\ud800sur"
+  },
+  {
+   "text": {
+    "content": "  ",
+    "x": 10,
+    "y": 18,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "  "
+  },
+  {
+   "text": {
+    "content": "éÿĀ",
+    "x": 10,
+    "y": 19,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "éÿĀ"
+  },
+  {
+   "text": {
+    "content": "~ !#$%&'()*+,-./",
+    "x": 10,
+    "y": 20,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "~ !#$%&'()*+,-./"
+  },
+  {
+   "legendComp": {
+    "w": 200,
+    "h": 100,
+    "items": [
+     {
+      "name": "한글 제목",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "\"#FFF\\"
+      },
+      "text": {
+       "content": "한글 제목",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "🌀태풍😀",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "\"#FFF\\"
+      },
+      "text": {
+       "content": "🌀태풍😀",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "𠀀없는글자",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "\"#FFF\\"
+      },
+      "text": {
+       "content": "𠀀없는글자",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "say \"hi\"",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "\"#FFF\\"
+      },
+      "text": {
+       "content": "say \"hi\"",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     }
+    ]
+   },
+   "name": "🌀태풍😀"
+  },
+  {
+   "labelComp": {
+    "w": 100,
+    "h": 40,
+    "x": 1,
+    "y": 2,
+    "bg": "f_00001.png",
+    "texts": [
+     {
+      "content": "한글 제목",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "🌀태풍😀",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "𠀀없는글자",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "say \"hi\"",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "C:\\path\\to\\f.png",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "줄\n바꿈\r\n탭\t끝",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "nul\u0000del",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "lone\ud800sur",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "  ",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "éÿĀ",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "~ !#$%&'()*+,-./",
+      "size": 30,
+      "weight": 500,
+      "col": "say \"hi\"",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     }
+    ]
+   },
+   "name": "라벨_1",
+   "fade": {
+    "start": 1,
+    "len": 1
+   }
+  }
+ ]
+}

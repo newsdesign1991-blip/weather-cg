@@ -1,0 +1,64 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": null,
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": 7,
+   "name": null,
+   "fade": null
+  },
+  {
+   "file": "f.png",
+   "name": true
+  },
+  {
+   "text": {
+    "content": false,
+    "x": 1,
+    "y": 2,
+    "size": 60,
+    "col": null,
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": 25
+  },
+  {
+   "text": {
+    "content": 0,
+    "x": 1,
+    "y": 2,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": 1.5
+  },
+  {
+   "text": {
+    "content": null,
+    "x": 0,
+    "y": 0,
+    "col": 123
+   },
+   "name": -3
+  }
+ ]
+}

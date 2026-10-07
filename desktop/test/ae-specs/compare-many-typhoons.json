@@ -1,0 +1,218 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {
+     "start": 0.75,
+     "path": 2.5,
+     "labelLen": 1.25
+    },
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "f_00001.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1200.5,
+        "y": 900.2
+       },
+       {
+        "x": 1150.1,
+        "y": 820.7
+       },
+       {
+        "x": 1100.4,
+        "y": 740.3
+       },
+       {
+        "x": 1060.9,
+        "y": 650.6
+       },
+       {
+        "x": 1040.2,
+        "y": 560.1
+       }
+      ],
+      "iconAt": [
+       0,
+       1,
+       2,
+       3,
+       4
+      ],
+      "nameLabel": null,
+      "labels": []
+     },
+     {
+      "color": "#4DA3FF",
+      "lineW": 2.2,
+      "iconFile": "f_00002.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [],
+      "iconAt": [
+       0
+      ],
+      "nameLabel": {
+       "txt": "빈것"
+      },
+      "labels": []
+     },
+     {
+      "color": "#7CFC00",
+      "lineW": 2.2,
+      "iconFile": "f_00003.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 500,
+        "y": 500
+       }
+      ],
+      "iconAt": [
+       0
+      ],
+      "nameLabel": {
+       "txt": "한점",
+       "x": 513,
+       "y": 496
+      },
+      "labels": [
+       {
+        "idx": 0,
+        "px": 500,
+        "py": 500,
+        "txt": "한점",
+        "bx": 650,
+        "by": 408,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#7CFC00",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       }
+      ]
+     },
+     {
+      "color": "#FFD400",
+      "lineW": 3.5,
+      "iconFile": "f_00004.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1250.5,
+        "y": 905.2
+       },
+       {
+        "x": 1210.1,
+        "y": 830.7
+       },
+       {
+        "x": 1180.4,
+        "y": 760.3
+       },
+       {
+        "x": 1170.9,
+        "y": 680.6
+       },
+       {
+        "x": 1190.2,
+        "y": 600.1
+       },
+       {
+        "x": 1230.0,
+        "y": 530.5
+       }
+      ],
+      "iconAt": [],
+      "nameLabel": null,
+      "labels": [
+       {
+        "idx": 5,
+        "px": 1230,
+        "py": 530.5,
+        "txt": "끝",
+        "bx": 1380,
+        "by": 438,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FFD400",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 0,
+        "px": 1250.5,
+        "py": 905.2,
+        "txt": "시작",
+        "bx": 1100,
+        "by": 905,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FFD400",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       }
+      ]
+     },
+     {
+      "color": "#AA00FF",
+      "lineW": 2.2,
+      "iconFile": "f_00001.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "iconAt": [],
+      "nameLabel": null,
+      "labels": []
+     }
+    ]
+   },
+   "name": "태풍 비교 리깅"
+  }
+ ]
+}

@@ -1,0 +1,210 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "legendComp": {
+    "w": 300,
+    "h": 400,
+    "x": 10,
+    "y": 20,
+    "items": [
+     {
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 12
+      },
+      "name": 0
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 36,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 48
+      },
+      "name": ""
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 72,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 84
+      },
+      "name": []
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 108,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 120
+      },
+      "name": {}
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 144,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 156
+      },
+      "name": null
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 180,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 192
+      },
+      "name": false
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 216,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 228
+      },
+      "name": 0.0
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 252,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 264
+      }
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 288,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 300
+      },
+      "name": "정상"
+     }
+    ]
+   },
+   "name": "범례"
+  }
+ ]
+}

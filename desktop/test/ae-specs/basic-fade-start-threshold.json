@@ -1,0 +1,68 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "a",
+   "fade": {
+    "start": 0.001,
+    "len": 1.0
+   }
+  },
+  {
+   "file": "f_00001.png",
+   "name": "b",
+   "fade": {
+    "start": 0.0011,
+    "len": 1.0
+   }
+  },
+  {
+   "file": "f_00002.png",
+   "name": "c",
+   "fade": {
+    "start": 0.0010000001,
+    "len": 1.0
+   }
+  },
+  {
+   "file": "f_00003.png",
+   "name": "d",
+   "fade": {
+    "start": 1.5,
+    "len": 1.0
+   }
+  },
+  {
+   "file": "f_00004.png",
+   "name": "e",
+   "fade": {
+    "start": -0.5,
+    "len": 1.0
+   }
+  },
+  {
+   "file": "f_00005.png",
+   "name": "f",
+   "fade": {
+    "start": 1.0005005005005005,
+    "len": 1.0
+   }
+  }
+ ]
+}

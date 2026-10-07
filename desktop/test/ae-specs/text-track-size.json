@@ -1,0 +1,119 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "A",
+    "x": 1,
+    "y": 1,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": -1.5,
+    "weight": 400
+   },
+   "name": "a"
+  },
+  {
+   "text": {
+    "content": "B",
+    "x": 1,
+    "y": 1,
+    "size": 0,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 3,
+    "weight": 400
+   },
+   "name": "b"
+  },
+  {
+   "text": {
+    "content": "C",
+    "x": 1,
+    "y": 1,
+    "size": -0.0,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 3,
+    "weight": 400
+   },
+   "name": "c"
+  },
+  {
+   "text": {
+    "content": "D",
+    "x": 1,
+    "y": 1,
+    "size": 33.7,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": -25,
+    "weight": 400
+   },
+   "name": "d"
+  },
+  {
+   "text": {
+    "content": "E",
+    "x": 1,
+    "y": 1
+   },
+   "name": "e"
+  },
+  {
+   "text": {
+    "content": "F",
+    "x": 1,
+    "y": 1,
+    "size": -0.5,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 2,
+    "weight": 400
+   },
+   "name": "f"
+  },
+  {
+   "text": {
+    "content": "G",
+    "x": 1,
+    "y": 1,
+    "size": 1e-09,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 1e-09,
+    "weight": 400
+   },
+   "name": "g"
+  },
+  {
+   "text": {
+    "content": "H",
+    "x": 1,
+    "y": 1,
+    "size": 144.99999,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": -7.25,
+    "weight": 400
+   },
+   "name": "h"
+  }
+ ]
+}

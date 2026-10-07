@@ -1,0 +1,33 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 3,
+  "y": 6,
+  "blur": 12.5,
+  "op": 60,
+  "col": "#101820"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "오늘 날씨",
+    "x": 120,
+    "y": 140,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "제목_오늘"
+  }
+ ]
+}

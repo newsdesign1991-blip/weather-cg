@@ -1,0 +1,93 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "왼쪽",
+    "x": 100,
+    "y": 120,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "제목_1"
+  },
+  {
+   "text": {
+    "content": "가운데",
+    "x": 960,
+    "y": 120,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "middle",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "제목_2"
+  },
+  {
+   "text": {
+    "content": "오른쪽",
+    "x": 1800,
+    "y": 120,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "end",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "제목_3"
+  },
+  {
+   "text": {
+    "content": "모름",
+    "x": 10,
+    "y": 10,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "center",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "제목_4"
+  },
+  {
+   "text": {
+    "content": "널",
+    "x": 10,
+    "y": 10,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": null,
+    "track": 0,
+    "weight": 400
+   },
+   "name": "제목_5"
+  },
+  {
+   "text": {
+    "content": "없음",
+    "x": 1,
+    "y": 2
+   },
+   "name": "제목_6"
+  }
+ ]
+}

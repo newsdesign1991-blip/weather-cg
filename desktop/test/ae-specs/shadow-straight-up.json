@@ -1,0 +1,32 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": -8,
+  "blur": 10,
+  "op": 45
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "A",
+    "x": 1,
+    "y": 2,
+    "size": 60,
+    "col": "#FFFFFF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "t1"
+  }
+ ]
+}

@@ -1,0 +1,71 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "legendComp": {
+    "w": 100,
+    "h": 40,
+    "items": [
+     {
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 12
+      },
+      "name": "정상"
+     },
+     {
+      "shape": {
+       "x": 0,
+       "y": 36,
+       "w": 36,
+       "h": 24,
+       "radius": 6,
+       "fill": "#E5231E"
+      },
+      "text": {
+       "content": "항목",
+       "x": 48,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 48
+      },
+      "name": {
+       "a": 1
+      }
+     }
+    ]
+   },
+   "name": "범례"
+  }
+ ]
+}

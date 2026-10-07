@@ -1,0 +1,97 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "typhoonRig": {
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 1,
+      "ws": 21,
+      "ex": false
+     },
+     {
+      "x": 1092.3,
+      "y": 830.1,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 2,
+      "ws": 25,
+      "ex": false
+     },
+     {
+      "x": 1040.5,
+      "y": 742.8,
+      "r15": 112,
+      "r25": 48,
+      "r70": 230,
+      "past": false,
+      "idx": 3,
+      "ws": 33,
+      "ex": false
+     }
+    ],
+    "nowIdx": 2,
+    "iconRenderH": 0,
+    "labels": [
+     {
+      "idx": 2,
+      "px": 0,
+      "py": 0,
+      "txt": "z",
+      "title": "",
+      "bx": 100,
+      "by": 100,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     }
+    ]
+   },
+   "name": "태풍 리깅"
+  }
+ ]
+}
