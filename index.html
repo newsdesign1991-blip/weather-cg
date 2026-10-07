@@ -828,31 +828,49 @@
 
   /* ===== 떼어낸 창 (포토샵식) =====
      .sec 노드를 '그대로 옮겨' 담는다. 다시 만들면 지금까지 연결한 핸들러가 전부 끊어진다. */
-  /* 창 = 사이드바(#panel)와 같은 플로팅 카드 — 반경 20·반사 테두리·카드 그림자(지도 위에 떠 있으니 그림자만 조금 더) */
+  /* 창들을 담는 층. .app 안(맨 끝)에 두고 이 층 하나만 z 30에 둔다 — 창끼리 순서(raiseWin, 1..n)는 이 안에서만 다투고,
+     밖에서는 늘 30층: 상단바·타임라인(22)보다 위, 제목줄 메뉴(40)·카메라 안내(60)·파일 놓기 안내·둘러보기보다 아래.
+     (.app 은 position:fixed 라 그 자체가 쌓임 맥락 — 창을 .app 밖에 두면 그 안의 메뉴·둘러보기를 전부 덮는다)
+     0x0 상자라 자리·클릭을 차지하지 않고, 안의 창은 position:fixed 라 화면 기준 그대로다. */
+  #wins { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 30; }
+  /* 창 = 사이드바(#panel)와 같은 플로팅 카드 — 반경 20·반사 테두리·카드 그림자(지도 위에 떠 있으니 그림자만 조금 더)
+     창 안(머리·내용·크기조절)은 사이드바와 같은 배율(--pz, applyPanelSize가 #wins에 넣는다)로 zoom 한다.
+     창 자체(left/top/width/height)는 화면 px 그대로라 끌기·크기조절 계산은 배율과 무관하다. */
   .win {
     --win-shadow: var(--shadow-card), 0 16px 36px -14px var(--shade);
-    position: fixed; z-index: 30; display: flex; flex-direction: column;
+    position: fixed; z-index: 1; display: flex; flex-direction: column;
     border: 1px solid transparent; border-radius: 20px;
     background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
     box-shadow: var(--win-shadow);
-    min-width: 220px; min-height: 90px; overflow: hidden;
+    min-width: calc(220px * var(--pz, 1)); min-height: calc(90px * var(--pz, 1)); overflow: hidden;
   }
+  #wins .winbar, #wins .winbody, #wins .winsize { zoom: var(--pz, 1); }
   .win.drag { opacity: .92; box-shadow: var(--shadow-card), 0 24px 48px -16px var(--shade); }
   /* 머리줄 — 끌어서 창 이동(빈 곳)·탭 고르기·닫기. 탭이 여럿일 때만 흐름 안에 보인다. */
   .winbar {
     display: flex; align-items: center; gap: 6px; flex: none;
     padding: 8px 8px 0 12px; cursor: move; user-select: none;
   }
-  .wintabs { display: flex; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  /* 탭줄 — 스크롤바는 숨기되 휠로 옆으로 넘긴다(renderWin). position:relative = 탭 offsetLeft 기준(고른 탭 보이게 맞출 때) */
+  .wintabs { position: relative; display: flex; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .wintabs::-webkit-scrollbar { display: none; }
-  /* 탭 = 사이드바 항목 머리처럼: 고른 탭은 파란 틴트 + 파란 글자 */
+  /* 탭 = 사이드바 항목 머리처럼(글자색 아이콘 + 이름): 고른 탭은 파란 틴트 + 파란 글자.
+     자리가 모자라면 고르지 않은 탭이 먼저 줄어 이름이 말줄임(…) → 끝내 아이콘만 남는다.
+     고른 탭은 안 준다. 다른 탭이 다 아이콘만 남아도 모자랄 때만(showActiveTab이 .tabsTight를 단다) 고른 탭도 줄어든다
+     — 줄임 비율 1 : 다른 탭 100 이라 다른 탭이 최소폭에 먼저 멈추고 남는 만큼만 고른 탭이 줄어든다(전체 이름은 툴팁).
+     그래도 넘치면(탭이 아주 많을 때) 휠로 넘기고, 고른 탭은 showActiveTab이 보이게 맞춘다. */
   .wintab {
-    padding: 0 12px; height: 36px; display: flex; align-items: center; border-radius: 12px;
+    flex: 0 100 auto; min-width: 42px; overflow: hidden;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px; height: 36px; border-radius: 12px;
     font-size: 13px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap;
     color: var(--on-surface-var); cursor: pointer; transition: background .13s, color .13s;
   }
+  .wintab .secIcon { flex: none; width: 18px; height: 18px; padding: 0; border-radius: 0; background: none; color: currentColor; }
+  .wintab .wtName { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .wintab:hover { background: var(--surface-hi); color: var(--on-surface); }
-  .wintab.on { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+  .wintab.on { flex-shrink: 0; background: var(--nav-active-bg); color: var(--nav-active-fg); }
+  .win.tabsTight .wintab.on { flex-shrink: 1; }
   /* 닫기(=사이드바로 되돌리기) — 얇은 X 아이콘의 둥근 버튼 */
   .winclose {
     flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
@@ -882,6 +900,8 @@
     background: var(--nav-active-bg); color: var(--nav-active-fg); cursor: move;
   }
   #wins .winbody > .sec > h3 .secIcon { width: 21px; height: 21px; padding: 0; border-radius: 0; background: none; color: currentColor; }
+  /* 창을 좁히면 제목은 닫기(X) 앞에서 말줄임 — 글자는 span.secName(SEC_GRP 루프에서 감쌈)이라 ellipsis가 먹는다 */
+  #wins .winbody > .sec > h3 .secName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #wins .winbody > .sec > h3 .tag { display: none; }
   #wins .winbody > .sec > h3::after { display: none; }   /* 접기 꺾쇠는 창에선 의미 없음(항상 펼침) */
   #wins .win:not(.solo) .winbody > .sec > h3 { display: none; }   /* 탭이 여럿이면 고른 탭이 제목 노릇 */
@@ -894,7 +914,8 @@
   #wins .winbody > .sec > .body > .bodyInner > .bodyPad { padding: 12px 18px 12px; }
   /* 스크롤바 = 사이드바(#panel)와 같게: 얇은 6px·둥근 썸, 평소 투명 → 창에 마우스를 올리면 보임, 화살표 없음 */
   #wins .winbody > .sec > .body::-webkit-scrollbar { width: 6px; }
-  #wins .winbody > .sec > .body::-webkit-scrollbar-track { background: transparent; }
+  /* 트랙 아래 여백 = 오른쪽 아래 크기 조절 손잡이(.winsize 20px)·둥근 모서리(반경 20) 자리를 비운다 — 썸 끝을 잡아도 크기 조절로 안 넘어가게 */
+  #wins .winbody > .sec > .body::-webkit-scrollbar-track { background: transparent; margin-bottom: 16px; }
   #wins .winbody > .sec > .body::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
   #wins .winbody > .sec > .body::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
   #wins .win:hover .winbody > .sec > .body::-webkit-scrollbar-thumb { background: var(--scrollbar); }
@@ -910,14 +931,14 @@
   }
   .win:hover .winsize::after { opacity: .45; }
   .winsize:hover::after { opacity: 1; border-color: var(--primary); }
-  /* 끌어다 놓을 자리 미리보기 */
-  .dropzone {
-    position: fixed; z-index: 29; pointer-events: none; border-radius: 20px;
+  /* 합칠 자리 미리보기 — 대상 창 '안'에 덮는다(showMergeHint). 창 밖 별도 상자로 두면 창 층 순서와 어긋나
+     대상 창 아래에 깔려 안 보인다. 대상 창보다 위에 있는 창(끌고 있는 창 포함)에는 자연히 가려진다. */
+  .win.mergeTarget::after {
+    content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit;
     background: color-mix(in srgb, var(--primary) 22%, transparent);
-    border: 2px solid var(--primary); display: none;
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
-  .dropzone.on { display: block; }
-  /* 사이드바로 돌아갈 때 붙을 자리 */
+  /* 사이드바로 돌아갈 때 붙을 자리 (body 바로 아래 — .app·창 층보다 위) */
   .dockline {
     position: fixed; z-index: 29; pointer-events: none; display: none;
     height: 3px; background: var(--primary); box-shadow: 0 0 8px var(--primary);
@@ -2401,10 +2422,10 @@
     <div id="frameGuide" aria-hidden="true"></div>
    </div>
   </div>
+  <!-- 떼어낸 창 층 — .app 안이라야 메뉴·둘러보기·파일 놓기 안내가 창 위에 온다(#wins CSS 주석 참고) -->
+  <div id="wins"></div>
 </div>
 
-<div id="wins"></div>
-<div class="dropzone" id="dropzone"></div>
 <div class="dockline" id="dockline"></div>
 <div class="brushTag" id="brushTag"></div>
 <div id="flashMsg"></div>
@@ -12863,6 +12884,17 @@ const SEC_ICON = {
   typhoonPlaces: 'M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z', // 지명(위치 핀)
 };
 
+// 항목 제목 글자를 span.secName 으로 감싼다 — 떼어낸 창을 좁히면 닫기(X) 앞에서 말줄임(…)으로 자르려고.
+// (h3 바로 아래 맨 글자 노드엔 text-overflow가 안 먹는다. textContent는 그대로라 secTitle·검색은 영향 없음)
+document.querySelectorAll('.sec[data-sec] > h3').forEach((h) => {
+  for (const t of [...h.childNodes]) {
+    if (t.nodeType !== 3 || !t.textContent.trim()) continue;
+    const sp = document.createElement('span');
+    sp.className = 'secName';
+    t.replaceWith(sp);
+    sp.append(t);
+  }
+});
 for (const [sec, [grp, tag]] of Object.entries(SEC_GRP)) {
   const n = document.querySelector(`.sec[data-sec="${sec}"]`);
   if (!n) continue;
@@ -13885,6 +13917,7 @@ function applyPanelSize() {
   const p = $('#panel');
   if (!p) return;
   p.style.setProperty('--pz', panelZoom);
+  syncWinZoom();       // 떼어낸 창도 같은 배율로 (창 크기도 같은 비율로)
   positionPanelResize();
   // 사이드바 폭이 바뀌면 스테이지 폭도 바뀌므로 상단바가 좁아진 캔버스에 맞춰 '옆으로' 따라오게 한다.
   if (typeof applyToolbarPos === 'function') applyToolbarPos();
@@ -14023,6 +14056,13 @@ function renderWin(w) {
     el.querySelector('.winclose').onclick = () => closeWin(w);
     el.querySelector('.winsize').addEventListener('pointerdown', (e) => startWinResize(e, w));
     el.addEventListener('pointerdown', () => raiseWin(w), true);
+    // 탭줄은 스크롤바를 숨겼으니 휠(세로·가로 모두)로 옆으로 넘긴다 — 넘칠 때만
+    const tb = el.querySelector('.wintabs');
+    tb.addEventListener('wheel', (e) => {
+      if (tb.scrollWidth <= tb.clientWidth + 1) return;
+      tb.scrollLeft += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      e.preventDefault();
+    }, { passive: false });
   }
   el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
   el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
@@ -14034,11 +14074,18 @@ function renderWin(w) {
   for (const s of w.secs) {
     const t = document.createElement('div');
     t.className = 'wintab' + (s === w.active ? ' on' : '');
-    t.textContent = secTitle(s);
+    // 사이드바 머리와 같은 아이콘(복제) + 이름. 좁아져 말줄임이 돼도 툴팁으로 전체 이름
+    const ic = secNode(s)?.querySelector(':scope > h3 > .secIcon');
+    if (ic) t.append(ic.cloneNode(true));
+    const nm = document.createElement('span');
+    nm.className = 'wtName';
+    nm.textContent = t.title = secTitle(s);
+    t.append(nm);
     t.dataset.sec = s;
     t.addEventListener('pointerdown', (e) => startTabDrag(e, w, s));
     tabs.append(t);
   }
+  showActiveTab(el);
   // 탭이 하나뿐이면 탭도 제목 노릇을 하니 그대로 둔다 (닫기 버튼과 균형)
   const body = el.querySelector('.winbody');
   // 비활성 탭도 전부 이 창 body로 옮긴다 — 다른 창에 합쳐질 때 옛 창(.win)과 함께 지워지지 않게
@@ -14051,11 +14098,49 @@ function renderWin(w) {
   return el;
 }
 
+// 고른 탭이 탭줄 밖(합칠 때 맨 뒤에 붙는다·창을 좁혔다)이면 보이게 넘긴다 — 탭이 여럿일 땐 h3를 숨기니 고른 탭이 곧 제목이다.
+// (scrollIntoView는 overflow:hidden 인 창까지 밀어버릴 수 있어 탭줄만 직접 넘긴다)
+function showActiveTab(el) {
+  el.classList.remove('tabsTight');
+  if (el.classList.contains('solo')) return;
+  const tabs = el.querySelector('.wintabs'), on = tabs && tabs.querySelector('.wintab.on');
+  if (!on) return;
+  // 다른 탭이 다 아이콘만 남아도 넘치면 그때만 고른 탭도 줄인다(CSS .tabsTight)
+  if (tabs.scrollWidth > tabs.clientWidth + 1) el.classList.add('tabsTight');
+  const L = on.offsetLeft, R = L + on.offsetWidth;
+  if (L < tabs.scrollLeft) tabs.scrollLeft = L;
+  else if (R > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = R - tabs.clientWidth;
+}
+
+// 창을 맨 앞으로. z를 끝없이 올리지 않고 '지금 순서'대로 1..n 으로 다시 매긴다(창 층 #wins 안에서만 쓰는 번호).
 const raiseWin = (w) => {
-  const top = Math.max(30, ...wins.map((x) => +(document.querySelector(`.win[data-win="${x.id}"]`)?.style.zIndex || 30)));
   const el = document.querySelector(`.win[data-win="${w.id}"]`);
-  if (el) el.style.zIndex = top + 1;
+  if (!el) return;
+  const order = [...document.querySelectorAll('#wins > .win')]
+    .filter((x) => x !== el)
+    .sort((a, b) => (+a.style.zIndex || 0) - (+b.style.zIndex || 0));   // 같은 번호(새 창 등)는 DOM 순서 그대로
+  order.push(el);
+  order.forEach((x, i) => { x.style.zIndex = i + 1; });
 };
+
+// 떼어낸 창 배율 = 사이드바 배율(panelZoom). 창 안만 zoom 하므로(.win CSS) 배율이 바뀌면 창 크기도 같은 비율로 맞춰
+// 안의 배치가 그대로이게 한다. w.wz = 그 창의 w·h를 잰 배율(옛 저장본엔 없음 = 배율을 안 쓰던 때 → 1).
+// 반올림하지 않는다 — 사이드바를 천천히 끌면 한 번에 0.5px도 안 커져서 반올림하면 영영 안 커진다.
+function syncWinZoom() {
+  const box = $('#wins');
+  if (box) box.style.setProperty('--pz', panelZoom);
+  for (const w of wins) {
+    const k = panelZoom / (w.wz || 1);
+    w.wz = panelZoom;
+    if (Math.abs(k - 1) < 1e-6) continue;
+    w.w *= k;
+    const el = document.querySelector(`.win[data-win="${w.id}"]`);
+    if (!el) { w.h = Math.min(w.h * k, Math.max(120, window.innerHeight - w.y - 20)); continue; }   // 아직 안 그린 창(배치 불러오기 중) — 그릴 때 이 크기로
+    el.style.width = w.w + 'px';
+    if (w.sized) { w.h = Math.min(w.h * k, Math.max(120, window.innerHeight - w.y - 20)); el.style.height = w.h + 'px'; }
+    else fitWin(w);   // 손대지 않은 창은 내용 높이에 다시 맞춘다
+  }
+}
 
 function renderWins() {
   for (const w of wins) renderWin(w);
@@ -14111,14 +14196,13 @@ function fitWin(w) {
   const body = el.querySelector('.winbody');
   const sec = [...body.children].find((n) => n.classList.contains('sec') && n.style.display !== 'none');
   if (!sec) return;
-  // 머리는 고정, 내용(.body)만 스크롤하므로 '창 테두리·탭줄 + 본문 위아래 여백 + 머리 + 내용 원래 높이'를 더한다.
-  // (.body 는 창 높이에 맞춰 늘어나 scrollHeight가 줄지 않으니, 늘어나지 않는 .bodyInner 높이를 잰다)
-  const bs = getComputedStyle(body);
-  const h3 = sec.querySelector(':scope > h3');
-  const inner = sec.querySelector(':scope > .body > .bodyInner');
-  const chrome = el.offsetHeight - body.offsetHeight;   // 창 테두리 + (탭이 여럿이면) 탭줄
-  const need = Math.ceil(chrome + parseFloat(bs.paddingTop) + parseFloat(bs.paddingBottom) +
-    (h3 ? h3.offsetHeight : 0) + (inner ? inner.getBoundingClientRect().height : sec.scrollHeight)) + 1;
+  // 머리는 고정, 내용(.body)만 스크롤한다 → 필요한 높이 = 지금 창 높이 - 지금 스크롤 칸(.body) 높이 + 내용 원래 높이.
+  // (.body 는 창 높이에 맞춰 늘고 줄어 scrollHeight로는 못 잰다 — 늘어나지 않는 .bodyInner 높이를 잰다)
+  // 창 안은 zoom(--pz)이라 offsetHeight(배율 전 값)와 섞으면 틀린다 — 모두 화면 기준 getBoundingClientRect로 잰다.
+  const sb = sec.querySelector(':scope > .body');
+  const inner = sb && sb.querySelector(':scope > .bodyInner');
+  if (!inner) return;
+  const need = Math.ceil(el.getBoundingClientRect().height - sb.getBoundingClientRect().height + inner.getBoundingClientRect().height) + 1;
   w.h = Math.round(Math.min(need, window.innerHeight - w.y - 20));
   w.h = Math.max(w.h, 120);
   el.style.height = w.h + 'px';
@@ -14131,13 +14215,13 @@ function popOut(s, x, y) {
     from.secs = from.secs.filter((v) => v !== s);
     if (!from.secs.length) wins = wins.filter((v) => v !== from);
   }
-  const W = 320;
+  const W = Math.round(320 * panelZoom);   // 창 안이 사이드바 배율로 커지니 폭도 같이 (배율 1에서 320px)
   const w = {
     id: 'w' + winSeq++,
     // 화면 밖에 생기면 못 찾는다 — 처음부터 안쪽으로 잡는다
     x: Math.round(Math.max(0, Math.min(x, window.innerWidth - W - 8))),
     y: Math.round(Math.max(titleBarH(), Math.min(y, window.innerHeight - 140))),
-    w: W, h: 380, secs: [s], active: s,
+    w: W, h: 380, wz: panelZoom, secs: [s], active: s,
   };
   wins.push(w);
   renderWins();
@@ -14194,16 +14278,12 @@ function showDockHint(y) {
 }
 const hideHints = () => {
   $('#dockline').classList.remove('on');
-  $('#dropzone').classList.remove('on');
+  document.querySelectorAll('.win.mergeTarget').forEach((n) => n.classList.remove('mergeTarget'));
   $('#panel').classList.remove('dragover');
 };
+// 합칠 창을 파랗게 — 그 창 안에 덮는다(CSS .win.mergeTarget::after). 창 층 순서를 그대로 따라 대상 창 위·끄는 창 아래에 보인다.
 function showMergeHint(w) {
-  const el = document.querySelector(`.win[data-win="${w.id}"]`);
-  const r = el.getBoundingClientRect();
-  const z = $('#dropzone');
-  z.style.left = r.left + 'px'; z.style.top = r.top + 'px';
-  z.style.width = r.width + 'px'; z.style.height = r.height + 'px';
-  z.classList.add('on');
+  document.querySelector(`.win[data-win="${w.id}"]`)?.classList.add('mergeTarget');
 }
 
 // ---- 끌기: 사이드바 제목 -> 떼어내기 ----
@@ -14318,10 +14398,12 @@ function startWinResize(e, w) {
   const x0 = e.clientX, y0 = e.clientY, w0 = w.w, h0 = w.h;
   const el = document.querySelector(`.win[data-win="${w.id}"]`);
   const mv = (ev) => {
-    w.w = Math.max(220, Math.round(w0 + ev.clientX - x0));
-    w.h = Math.max(90, Math.round(h0 + ev.clientY - y0));
+    // 최소 크기 = .win CSS min-width/min-height 와 같게(배율 곱)
+    w.w = Math.max(Math.round(220 * panelZoom), Math.round(w0 + ev.clientX - x0));
+    w.h = Math.max(Math.round(90 * panelZoom), Math.round(h0 + ev.clientY - y0));
     w.sized = 1;   // 손으로 정한 크기 — 이후 자동 조절이 덮어쓰지 않는다
     el.style.width = w.w + 'px'; el.style.height = w.h + 'px';
+    showActiveTab(el);   // 좁혀도 고른 탭(=제목)은 보이게
   };
   const up = () => {
     window.removeEventListener('pointermove', mv);
@@ -14349,6 +14431,7 @@ function loadLayout() {
     .filter((w) => w.secs.length);
   winSeq = wins.length + 1;
   for (const w of wins) { w.id = 'w' + winSeq++; }
+  syncWinZoom();   // 저장 당시 배율(w.wz, 옛 저장본은 1)과 지금 배율이 다르면 창 크기를 그 비율로 (창 안은 지금 배율로 그려진다)
   // 화면 밖으로 나간 창은 끌어올 수가 없으니 들여놓는다 (창 크기를 줄인 채로 열었을 때)
   for (const w of wins) {
     w.x = Math.min(Math.max(0, w.x), Math.max(0, window.innerWidth - 120));
