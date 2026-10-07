@@ -48,6 +48,7 @@ test('non-VF panel sync does not seed a 100 percent live VF scale', () => {
   const context = {
     S: { res: '1920x1080', style: 'sgg', vfScale: 100, vfScales: {} },
     layoutGroup: (style) => style === 'warnsea' ? 'warnsea' : 'common',
+    isTyphoon: () => false,
   };
   vm.runInNewContext(`${block}\nthis.panelScale = vfScaleForPanel;`, context);
 
@@ -65,6 +66,7 @@ test('preset application seeds VF scale only after entering VF', () => {
   const context = {
     S: { res: '1920x1080', style: 'sgg', vfScale: 100, vfScales: {} },
     layoutGroup: (style) => style === 'warnsea' ? 'warnsea' : 'common',
+    isTyphoon: () => false,
   };
   vm.runInNewContext(`${block}\nthis.applyScale = applyPresetVfScale;`, context);
 
@@ -82,6 +84,29 @@ test('preset application seeds VF scale only after entering VF', () => {
   context.S.style = 'sgg';
   context.applyScale({ vfScale: 86 }, 92);
   assert.equal(context.S.vfScales.common, 92);
+});
+
+test('typhoon VF scale is stored apart from common and warnsea groups', () => {
+  const block = html.match(/function clampVfScale\([^]*?function vfScaleTransform\(/)?.[0]
+    ?.replace(/function vfScaleTransform\($/, '') || '';
+  let typhoon = false;
+  const context = {
+    S: { res: '1920x1080-vf', style: 'sgg', vfScale: 100, vfScales: { common: 86, warnsea: 83 } },
+    layoutGroup: (style) => style === 'warnsea' ? 'warnsea' : 'common',
+    isTyphoon: () => typhoon,
+  };
+  vm.runInNewContext(`${block}\nthis.applyScale = applyPresetVfScale;\nthis.scaleValue = vfScaleValue;`, context);
+
+  typhoon = true;
+  context.applyScale({ vfScale: 90 });
+  assert.equal(context.S.vfScales.typhoon, 90);
+  assert.equal(context.S.vfScales.common, 86);
+  assert.equal(context.S.vfScales.warnsea, 83);
+
+  typhoon = false;
+  assert.equal(context.scaleValue(), 86);
+  typhoon = true;
+  assert.equal(context.scaleValue(), 90);
 });
 
 test('baking normalizes VF scale and AE uses scale-aware coordinates', () => {
@@ -108,8 +133,10 @@ test('CG uses local SUITE weights while editor UI keeps Wanted Sans', () => {
   assert.doesNotMatch(bodyRule, /font-family:\s*'SUITE CG'/);
 });
 
-test('a changed deployment default clears saved work and personal presets once', () => {
+// 배포 기본값이 바뀌어도 저장된 작업·배치를 지우지 않는다(강제 초기화는 작업 손실·옛 배치 부활 원인이라 제거됨).
+test('deployment default change only records its signature and keeps saved work', () => {
   const block = html.match(/const DEPLOY_DEFAULTS_KEY[\s\S]*?function preferUpdatedDeploymentDefaults\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+  const SIG = 'wcg_deployment_defaults_signature';
   const values = new Map([['wcg_work', 'old work'], ['wcg_presets', 'old presets']]);
   const context = {
     window: { WCG_DEFAULTS: { screen: { vfScale: 86 } } },
@@ -120,18 +147,29 @@ test('a changed deployment default clears saved work and personal presets once',
     },
   };
   vm.runInNewContext(`const WORK_KEY = 'wcg_work';\n${block}\nthis.runSync = preferUpdatedDeploymentDefaults;`, context);
-  assert.equal(context.runSync(), true);
-  assert.equal(values.has('wcg_work'), false);
-  assert.equal(values.has('wcg_presets'), false);
+  assert.equal(context.runSync(), false);
+  assert.equal(values.get('wcg_work'), 'old work');
+  assert.equal(values.get('wcg_presets'), 'old presets');
+  const firstSig = values.get(SIG);
+  assert.equal(typeof firstSig, 'string');
+  assert.ok(firstSig.length > 0, 'signature must be recorded');
+
   values.set('wcg_work', 'new work');
   values.set('wcg_presets', 'new presets');
   assert.equal(context.runSync(), false);
+  assert.equal(values.get(SIG), firstSig);
+
+  context.window.WCG_DEFAULTS.screen.vfScale = 83;
+  assert.equal(context.runSync(), false);
   assert.equal(values.get('wcg_work'), 'new work');
   assert.equal(values.get('wcg_presets'), 'new presets');
-  context.window.WCG_DEFAULTS.screen.vfScale = 83;
-  assert.equal(context.runSync(), true);
-  assert.equal(values.has('wcg_work'), false);
-  assert.equal(values.has('wcg_presets'), false);
+  assert.notEqual(values.get(SIG), firstSig, 'signature must follow the new defaults');
+
+  // 배포 기본값이 비어 있으면 서명도 쓰지 않음
+  values.delete(SIG);
+  context.window.WCG_DEFAULTS = {};
+  assert.equal(context.runSync(), false);
+  assert.equal(values.has(SIG), false);
   assert.match(html, /preferUpdatedDeploymentDefaults\(\);\s*\nconst freshOpen/);
 });
 

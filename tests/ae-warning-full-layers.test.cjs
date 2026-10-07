@@ -74,9 +74,26 @@ test('AE send path uses full warning masks instead of final visible color fragme
   );
 });
 
+// sendToAE의 '칠한 색이 없습니다' 가드 조건식을 뽑아 실제로 평가한다(문자열 모양 대신 동작 검사)
+function emptyFillGuard() {
+  const start = html.indexOf('async function sendToAE()');
+  assert.notEqual(start, -1, 'missing sendToAE');
+  const defsAt = html.indexOf('const warningDefs = aeWarningFillDefs();', start);
+  assert.notEqual(defsAt, -1, 'sendToAE must build warning masks');
+  const m = html.slice(defsAt, defsAt + 1500).match(/\n\s*if \((.+?)\) \{ status\('칠한 색이 없습니다/);
+  assert.ok(m, 'missing empty-fill guard after aeWarningFillDefs()');
+  return (ctx) => vm.runInNewContext(`(${m[1]})`, { isTyphoon: () => false, hasBrush: false, ...ctx });
+}
+
 test('sea-only warning masks are not rejected by the empty land-fill guard', () => {
-  assert.match(
-    html,
-    /const warningDefs = aeWarningFillDefs\(\);\s*if \(!Object\.keys\(F\)\.length && !warningDefs\.length\)/,
-  );
+  const rejects = emptyFillGuard();
+  // 해상 특보만: 육지 칠 F는 비어도 특보 마스크가 있으면 통과
+  assert.equal(rejects({ F: {}, warningDefs: [{ ids: ['S1'] }] }), false);
+  // 아무것도 안 칠함: 막아야 함
+  assert.equal(rejects({ F: {}, warningDefs: [] }), true);
+  // 육지 칠만 있음: 통과
+  assert.equal(rejects({ F: { A: '#FF0000' }, warningDefs: [] }), false);
+  // 브러쉬로만 칠함 / 태풍 지도(칠 없음): 통과
+  assert.equal(rejects({ F: {}, warningDefs: [], hasBrush: true }), false);
+  assert.equal(rejects({ F: {}, warningDefs: [], isTyphoon: () => true }), false);
 });

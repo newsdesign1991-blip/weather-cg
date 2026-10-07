@@ -16,7 +16,8 @@ function sliceBetween(startText, endText) {
 
 function createWarningContext() {
   const state = sliceBetween('const WRN_COLORS =', 'const listOf =');
-  const hexHelper = sliceBetween('const hex =', '\n');
+  // 헬퍼 시그니처로 찾는다(다른 함수의 지역변수 `const hex =`를 먼저 잡지 않게)
+  const hexHelper = sliceBetween('const hex = (v) =>', '\n');
   const colors = sliceBetween('const wrnColorKey =', '// ===================== API 주소');
   const preset = sliceBetween('const PRESET_KEYS =', 'const presetKey =');
   const context = {};
