@@ -512,6 +512,7 @@
   #frameGuide::after { content: ''; position: absolute; inset: 5%; border: 1px dashed rgba(255,255,255,.3); }   /* 타이틀 세이프(90%) */
   .fit.mapTilt #L_bg, .fit.mapTilt #L_sea, .fit.mapTilt #L_map, .fit.mapTilt #L_boxes, .fit.mapTilt #L_mtn, .fit.mapTilt #L_typhoon { visibility: hidden; }
   .fit.mapTilt #L_vfPreview { visibility: hidden; }   /* 노말 VF 가짜영상이 #cg 안에서 뒤의 기울인 지도(#camCanvas)를 덮지 않게 */
+  .fit.mapTilt #L_mapBase { visibility: hidden; }     /* 블라인드 베이스 지도도 기울인 캔버스(L_map과 함께)에 그려지므로 평면 원본은 숨김 */
 
   /* 사이드바 자동 강조 — 카드 배경(그라디언트)을 안 건드리게 링으로 */
   @keyframes flashSec {
@@ -5051,7 +5052,7 @@ function drawTyphoonTrack(L, pts) {
   const lineMode = !cmpMode && T && T.trackMode === 'line';
   let sp = typhoonScreenPts(pts);
   if (T && T.rangeOn) sp = sp.filter((p) => p.head || typhoonIdxInRange(pts, p.idx));   // 표시 날짜 범위 밖 지점 제외
-  if (lineMode) sp = sp.filter((p) => p.head ? p.idx <= nowIdx + 1 : p.idx <= nowIdx);   // 현재 이후 예상경로는 제외
+  if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 현재 이후 예상경로는 제외(진행 중 선두도 현재 위치를 넘지 않게 — 구간이 한 점뿐이어도 예상 쪽으로 안 뻗음)
   const add = (e) => L.appendChild(e);
   // 독도 — 줌아웃하면 실제로는 안 보이므로 '있는듯 없는듯' 작은 점 하나로 표시(시청자 민감 이슈).
   // 크기는 울릉도 화면 반경의 1/4 정도로 비례, 색은 남한 강조 스트로크색. 남한 강조 끄면 같이 숨김.
@@ -7209,7 +7210,7 @@ function setFlatPanLOD(on) {
     if (on) { n.style.willChange = 'transform'; n.style.transformBox = 'view-box'; n.style.transformOrigin = '0 0'; }
     else { n.style.willChange = ''; n.style.transformBox = ''; n.style.transformOrigin = ''; n.style.transform = ''; }
   }
-  if (!on) { const bg = document.querySelector('#bgMapT'), mt = document.querySelector('#mapT'); if (bg) bg.style.transform = ''; if (mt) mt.style.transform = ''; }
+  if (!on) { const bg = document.querySelector('#bgMapT'), mt = document.querySelector('#mapT'), mb = document.querySelector('#L_mapBase [data-blindmapt]'); if (bg) bg.style.transform = ''; if (mt) mt.style.transform = ''; if (mb) mb.style.transform = ''; }
 }
 // 틸트 팬: 시작 때 얼려둔 #camCanvas 텍스처(블리드 포함, 평면)를 팬량만큼 즉시 옮겨 그린다 — SVG 재래스터가 없어 지연이 사라진다.
 // (평면 텍스처를 옮긴 뒤 CSS가 틸트를 입히므로 결과는 정확한 평면 팬. 놓을 때 up()에서 정확히 다시 굽는다.)
@@ -7224,16 +7225,17 @@ function tiltPanShift() {
 // 드래그 중 초경량 팬/줌 — #bgMapT는 renderMapTransform(속성만), #L_typhoon은 변환으로만 이동(리렌더 없음). 틸트면 캔버스만 갱신.
 function lightPanZoom(base) {
   const bg = $('#bgMapT'), mt = $('#mapT');
+  const mb = document.querySelector('#L_mapBase [data-blindmapt]');   // 블라인드 베이스 지도도 같이(재생 중 지도 이동 시 어긋남 방지)
   if (camActive3d()) {   // 틸트: 캔버스 렌더 기준이라 속성 transform 유지
     const t = `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`;
-    if (bg) bg.setAttribute('transform', t); if (mt) mt.setAttribute('transform', t);
+    if (bg) bg.setAttribute('transform', t); if (mt) mt.setAttribute('transform', t); if (mb) mb.setAttribute('transform', t);
     if (_tiltPanCanvas) tiltPanShift();   // 팬: 얼린 텍스처를 즉시 이동(재래스터 지연 없음)
     else applyTilt();                      // 줌 등: 기존대로 재래스터
     updateTyphoonLeaders(); return;
   }
   // 평면 팬/줌: CSS transform(GPU 합성) — 거대한 path를 매 프레임 리페인트 안 하고 GPU 텍스처를 이동/스케일(초경량·부드러움).
   const t = `translate(${S.map.x}px, ${S.map.y}px) scale(${S.map.s})`;
-  if (bg) bg.style.transform = t; if (mt) mt.style.transform = t;
+  if (bg) bg.style.transform = t; if (mt) mt.style.transform = t; if (mb) mb.style.transform = t;
   const r = S.map.s / (base.s || 1), tr = `translate(${S.map.x - base.x * r}px, ${S.map.y - base.y * r}px) scale(${r})`;
   const L = $('#L_typhoon'), LB = $('#L_typhoonLabels'), RI = $('#L_refImg');   // 지도·라벨·참고이미지 모두 지도와 함께 rigid 이동
   if (L) L.style.transform = tr;

@@ -36,6 +36,21 @@ test('라인 모드 애니 구간은 현재 위치(nowIdx)에서 끝나고, 일�
   assert.deepEqual({ ...c.typhoonAnimWindow(pts) }, { lo: 1, hi: 1 });
 });
 
+test('라인 모드 선두(head)도 현재 위치를 넘지 않는다 — 구간이 한 점뿐(span=1)이어도 예상 쪽으로 안 뻗음', () => {
+  const f = fnSrc('drawTyphoonTrack');
+  assert.match(f, /if \(lineMode\) sp = sp\.filter\(\(p\) => p\.idx <= nowIdx\)/);
+  assert.doesNotMatch(f, /nowIdx \+ 1/);
+});
+
+test('블라인드 베이스 지도는 카메라·팬/줌·3D 미리보기에서 L_map과 같이 움직이고 숨는다', () => {
+  assert.match(html, /\.fit\.mapTilt #L_mapBase \{ visibility: hidden; \}/);
+  assert.match(fnSrc('renderMapTransform'), /#L_mapBase \[data-blindmapt\]/);
+  const lpz = fnSrc('lightPanZoom');
+  assert.match(lpz, /mb\.setAttribute\('transform', t\)/);
+  assert.match(lpz, /mb\.style\.transform = t/);
+  assert.match(fnSrc('setFlatPanLOD'), /mb\.style\.transform = ''/);
+});
+
 test('재생·추출(renderAnimFrame)·애니 확인(playTyphoon)·라벨 기본키가 같은 구간 함수를 쓴다', () => {
   assert.match(fnSrc('renderAnimFrame'), /typhoonAnimWindow\(pts\)/);
   assert.match(fnSrc('playTyphoon'), /typhoonAnimWindow\(pts\)/);
