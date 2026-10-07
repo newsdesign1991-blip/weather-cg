@@ -257,6 +257,58 @@
     white-space: nowrap; flex: none; /* 제목이 길어져도 칩은 한 줄로 (세로로 접히는 것 방지) */
   }
 
+  /* ===== 근무표식 사이드바 (근무표 #side-nav와 같은 디자인 언어) =====
+     납작한 목록: 카드·그림자 없음, 아이콘 단색(글자색을 따라감), 열린 항목 = 파란 틴트 배경 + 파란 글자.
+     #panel 안에서만 적용 — 메뉴 드롭다운·떼어낸 창으로 옮겨진 섹션은 위의 카드 스타일 그대로. */
+  :root, :root[data-theme="dark"] { --nav-active-bg: rgba(106,168,255,.14); --nav-active-fg: #8ab4ff; }
+  :root[data-theme="light"] { --nav-active-bg: rgba(49,130,246,.1); --nav-active-fg: #2f77f6; }
+  .panel { background: var(--surface-c); box-shadow: none; border-right: 1px solid var(--outline-var); gap: 3px; padding: 8px 12px 0; }
+  #panel > .appHeader { background: var(--surface-c); margin: -8px -12px 6px; padding: 16px 16px 12px; top: -8px; }
+  #panel > .appHeader .ahTop { font-size: 16.5px; letter-spacing: -.03em; }
+  #panel > .appHeader .ahSub { font-size: 12px; }
+  #panel > .panelFooter { margin: 0 -12px; padding: 12px; box-shadow: none; }
+  #panel > .sec { border: 0; border-radius: 12px; background: none; box-shadow: none; }
+  #panel > .sec > h3 {
+    padding: 11px 12px; gap: 12px; border-radius: 12px;
+    font-size: 14px; font-weight: 600; color: var(--on-surface-var);
+    transition: background .13s, color .13s;
+  }
+  #panel > .sec > h3:hover { background: var(--surface-hi); color: var(--on-surface); }
+  #panel > .sec:not(.closed) > h3 { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+  #panel > .sec > h3 .secIcon { width: 21px; height: 21px; padding: 0; border-radius: 0; background: none; color: currentColor; }
+  #panel > .sec > h3 .tag { display: none; }   /* 갈래 칩(지도·글자·특수·칠하기)은 사이드바에서 숨김 */
+  /* 접기 표시: 근무표 꺾쇠(›)처럼 얇은 선 — 닫힘=오른쪽, 열림=아래. 칩이 없으니 항상 오른쪽 끝 */
+  #panel > .sec > h3::after {
+    content: ''; flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; font-size: 0;
+    border-right: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor;
+    opacity: .55; transform: translateY(-2px) rotate(45deg);
+  }
+  #panel > .sec.closed > h3::after { transform: rotate(-45deg); }
+  /* 펼친 내용 — 카드 없이 바닥에 바로, 열린 항목 아래로 이어지게 */
+  #panel > .sec > .body > .bodyInner > .bodyPad { padding: 12px 6px 16px; }
+  #panel > .sec:not(.closed) { margin-bottom: 4px; }
+  #panel > .grpHead { margin: 10px 4px 4px; }
+  /* 열 때 깜빡이는 강조 — 납작한 목록이라 카드 그림자 없이 얇은 링만 */
+  @keyframes flashSecFlat {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(49,130,246,0); }
+    30%, 70% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent); }
+  }
+  #panel > .sec.flash { animation-name: flashSecFlat; }
+  /* 플로팅 — 근무표 카드처럼 창 가장자리에서 띄운 둥근 사각형(반경 20, 반사 테두리, 부드러운 그림자) */
+  #panel {
+    margin: 10px 0 10px 10px; border-radius: 20px; border: 1px solid transparent;
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
+    box-shadow: var(--shadow-card);
+  }
+  .app.dockR #panel { margin: 10px 10px 10px 0; box-shadow: var(--shadow-card); }
+  /* 크기 조절 — 손잡이(바·알약) 없이 사이드바 끝선을 잡고 끌면 된다(보이지 않는 잡기 영역 + 좌우 커서) */
+  .panelResize, .panelResize:hover, .panelResize.on { background: transparent; border-left: 0; }
+  .panelResize::after { display: none; }
+  /* 스크롤바도 평소엔 숨기고 사이드바에 마우스를 올렸을 때만 얇게 */
+  #panel::-webkit-scrollbar { width: 6px; }
+  #panel::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+  #panel:hover::-webkit-scrollbar-thumb { background: var(--scrollbar); }
+
   /* 항목 안의 작은 구분 머리 */
   .subhead {
     display: flex; align-items: baseline; gap: 5px;
@@ -1872,6 +1924,9 @@
         <p class="hint">작업 중인 내용은 <b>자동으로 저장</b>됩니다 — 새로고침해도 그대로 이어집니다. 저장/불러오기는 파일(.json)로 주고받을 때 씁니다.</p>
         <div class="btns" style="margin-top:10px"><button id="bakeDefaults" title="지금까지 저장한 모든 화면 기본배치를 default-presets.js 파일로 저장 → WeatherCG 폴더에 두면 새로 받은 사람도 이 배치로 열립니다">저장한 배치들을 모두의 기본값으로 굽기…</button></div>
         <p class="hint">배포용: 저장해 둔 화면별 배치들을 모두의 기본값 파일로 만듭니다.</p>
+        <div class="subhead" style="margin-top:14px">설정 옮기기 <span>웹판 ↔ 데스크톱 앱 · 다른 PC</span></div>
+        <div class="btns"><button id="exportSettings" title="API 키·Mapbox 주소·태풍 이름·배치·슬롯·이어하던 작업을 파일 하나로 저장">설정 내보내기</button><button id="importSettings" title="내보낸 설정 파일을 이 앱에 그대로 넣고 새로고침">설정 가져오기</button></div>
+        <p class="hint">웹판과 데스크톱 앱은 저장 공간이 따로입니다. 한쪽에서 <b>내보내기</b> → 다른 쪽에서 <b>가져오기</b>하면 API 키·배치·이어하던 작업이 그대로 옮겨집니다.</p>
       </div>
     </div>
 
@@ -9589,11 +9644,12 @@ function tossConfirm(opts = {}) {
   const ov = $('#confirmOverlay');
   if (!ov) return Promise.resolve(window.confirm(opts.message || '계속할까요?'));   // 안전망
   { const inp = $('#confirmInput'); if (inp) inp.style.display = 'none'; }   // 확인 모달은 입력칸 숨김
+  const danger = !!(opts.danger || opts.warn);   // 배치 슬롯 쪽은 warn, 나머지는 danger 로 부른다 — 둘 다 경고색
   $('#confirmHead').textContent = opts.title || '확인';
-  $('#confirmHead').classList.toggle('warn', !!opts.danger);
+  $('#confirmHead').classList.toggle('warn', danger);
   $('#confirmMsg').textContent = opts.message || '';
   $('#confirmOk').textContent = opts.ok || '확인';
-  $('#confirmOk').classList.toggle('warn', !!opts.danger);
+  $('#confirmOk').classList.toggle('warn', danger);
   $('#confirmCancel').textContent = opts.cancel || '취소';
   ov.classList.add('on');
   $('#confirmOk').focus();
@@ -9673,24 +9729,7 @@ function presetDiff(nw) {
   const parts = [line('바뀜', changed), line('추가', added), line('빠짐', removed)].filter(Boolean);
   return { text: parts.join('\n') || '기존 기본값과 내용이 같습니다.', total: added.length + changed.length + removed.length };
 }
-// 토스 카드 확인창(입력 없음). Promise<boolean>.
-function tossConfirm(opts = {}) {
-  const ov = $('#confirmOverlay'), inp = $('#confirmInput');
-  if (!ov) return Promise.resolve(window.confirm(opts.message || ''));
-  $('#confirmHead').textContent = opts.title || '확인'; $('#confirmHead').classList.toggle('warn', !!opts.warn);
-  $('#confirmMsg').textContent = opts.message || '';
-  if (inp) inp.style.display = 'none';
-  $('#confirmOk').textContent = opts.ok || '적용'; $('#confirmOk').classList.toggle('warn', !!opts.warn);
-  $('#confirmCancel').textContent = opts.cancel || '취소';
-  ov.classList.add('on');
-  return new Promise((resolve) => {
-    const done = (v) => { ov.classList.remove('on'); $('#confirmOk').onclick = $('#confirmCancel').onclick = ov.onclick = null; document.removeEventListener('keydown', onKey, true); resolve(v); };
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); } };
-    $('#confirmOk').onclick = () => done(true); $('#confirmCancel').onclick = () => done(false);
-    ov.onclick = (e) => { if (e.target === ov) done(false); };
-    document.addEventListener('keydown', onKey, true);
-  });
-}
+// (토스 확인창 tossConfirm 은 위쪽 한 곳에만 정의 — 예전엔 여기 두 번째 정의가 있어 앞의 것을 덮어 danger 경고색·Enter 확인이 안 먹었다)
 function slotReload(msg) { status(msg || '적용되었습니다 — 새로고침합니다'); setTimeout(() => location.reload(), 550); }
 // 저장한 사람 이름 입력(직전 이름 기억). 취소=null, 빈칸 허용=''.
 async function askSaverName(title) {
@@ -10279,7 +10318,9 @@ async function exportPngSeq() {
 // ── WNS 렌더 헬퍼로 MXF / 알파 MOV 추출 ──
 // R:\[F]_Util\WNS 의 WNS_START 로 켜둔 로컬 헬퍼(localhost:3720)에 프레임을 보내 ffmpeg 로 인코딩한다.
 // 파이썬/설치 없이(헬퍼는 컴파일 exe), 저장 위치는 '저장폴더' 칸으로 지정. 헬퍼가 그 PC 기준으로 파일을 만든다.
-const WNS_HELPER = 'http://127.0.0.1:3720';
+// 데스크톱 앱(Electron)이면 앱에 내장된 헬퍼 주소를 쓴다(preload가 알려줌). 웹판은 그대로 WNS_START 헬퍼(3720).
+const WNS_HELPER = (window.wcgDesktop && window.wcgDesktop.helperUrl) || 'http://127.0.0.1:3720';
+const WNS_DESKTOP = !!(window.wcgDesktop && window.wcgDesktop.isDesktop);
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
 const HELPER_VER_MIN = 20260828;
@@ -10315,6 +10356,16 @@ function updateWnsButtons() {
 }
 // 헬퍼가 꺼져 있을 때 크게 보여주는 안내 (토스 카드)
 function wnsHelperOffNotice(mode) {
+  if (WNS_DESKTOP) {   // 데스크톱 앱: 확장팩이 앱에 내장돼 따로 켤 필요가 없다 → 재시작 안내만
+    const dm = tossModal({
+      title: '내장 기능 확장팩이 응답하지 않아요', sub: '데스크톱 앱 · 기상청 불러오기 · MXF/MOV · AE',
+      accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)',
+      bodyHTML: '데스크톱 앱에는 기능 확장팩이 <b>내장</b>돼 있어서 WNS_START를 따로 켤 필요가 없습니다.<br><br>응답이 없으면 앱을 <b>완전히 닫았다가 다시 실행</b>해 주세요.',
+      footHTML: '<button class="tossBtn ghost" data-ok>닫기</button>',
+    });
+    dm.foot.querySelector('[data-ok]').onclick = dm.close;
+    return;
+  }
   const old = mode === 'old';   // old=기능 확장팩이 켜져 있지만 구버전 → '다시 실행' 안내
   const PATH = 'R:\\[F]_Util\\WNS\\자동시작';
   const step = (n, html) => `<div class="tossStep"><span class="n">${n}</span><div>${html}</div></div>`;
@@ -10356,7 +10407,9 @@ async function showHelperStatus() {
     title: '기능 확장팩 실행 중 · 최신이에요 ✓',
     sub: 'AE로 보내기 · MXF/MOV · 기상청 불러오기 준비됨',
     accent: 'linear-gradient(135deg,#16A34A,#0E9E6E)',
-    bodyHTML: '기능 확장팩이 <b>정상 실행 중</b>이고 <b>최신 버전</b>입니다.<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b><br><br>이제 <b>AE로 보내기</b>를 눌러 리깅을 확인하세요. (버전이 여기 보이면 WNS_START로 교체가 <b>적용된 것</b>입니다.)',
+    bodyHTML: WNS_DESKTOP
+      ? '데스크톱 앱에 <b>내장된</b> 기능 확장팩이 <b>정상 실행 중</b>입니다(WNS_START 불필요).<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b>'
+      : '기능 확장팩이 <b>정상 실행 중</b>이고 <b>최신 버전</b>입니다.<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b><br><br>이제 <b>AE로 보내기</b>를 눌러 리깅을 확인하세요. (버전이 여기 보이면 WNS_START로 교체가 <b>적용된 것</b>입니다.)',
     footHTML: '<button class="tossBtn pri" data-ok>확인</button>',
   });
   m.foot.querySelector('[data-ok]').onclick = m.close;
@@ -11145,6 +11198,42 @@ function download(blob, filename) {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ===== 설정 옮기기 — 웹판 ↔ 데스크톱 앱 ↔ 다른 PC =====
+// 주소(출처)마다 localStorage가 따로라 wcg_* 키 전체를 파일 하나로 주고받는다. (최근 파일 목록=폴더 권한이라 못 옮김)
+const SETTINGS_SKIP = new Set(['wcg_pending_start']);   // 일시 상태(새로 시작 대기)는 빼고
+function exportSettings() {
+  const keys = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('wcg_') && !SETTINGS_SKIP.has(k)) keys[k] = localStorage.getItem(k);
+  }
+  saveWork(); keys.wcg_work = localStorage.getItem('wcg_work') || keys.wcg_work;   // 지금 작업까지 최신으로
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  const payload = { kind: 'wcg-settings', v: 1, at: d.toISOString(), from: location.origin, keys };
+  download(new Blob([JSON.stringify(payload)], { type: 'application/json' }), `날씨CG_설정_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.json`);
+  status(`설정 ${Object.keys(keys).length}개를 내보냈습니다 — 옮길 쪽 앱에서 '설정 가져오기'`, true);
+}
+function importSettings() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = async () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    let obj = null; try { obj = JSON.parse(await f.text()); } catch (e) { obj = null; }
+    if (!obj || obj.kind !== 'wcg-settings' || !obj.keys || typeof obj.keys !== 'object') { status('설정 파일이 아닙니다 — "설정 내보내기"로 만든 .json을 넣어 주세요', true); return; }
+    const names = Object.keys(obj.keys).filter((k) => k.startsWith('wcg_') && !SETTINGS_SKIP.has(k) && typeof obj.keys[k] === 'string');
+    const ok = await tossConfirm({
+      title: '설정 가져오기',
+      message: `설정 ${names.length}개를 이 앱에 넣고 새로고침할까요?\n(${obj.from || '?'} · ${String(obj.at || '').slice(0, 10)})\n\n이 앱의 같은 설정과 이어하던 작업은 파일 내용으로 바뀝니다.`,
+      ok: '가져오기', danger: true,
+    });
+    if (!ok) return;
+    window.removeEventListener('beforeunload', saveWork);   // 새로고침 때 지금 작업이 가져온 작업을 덮어쓰지 않게
+    let n = 0; for (const k of names) { try { localStorage.setItem(k, obj.keys[k]); n++; } catch (e) { /* 용량 초과 등 */ } }
+    status(`설정 ${n}개를 가져왔습니다 — 새로고침합니다`, true);
+    setTimeout(() => location.reload(), 600);
+  };
+  inp.click();
 }
 
 // 여러 파일을 압축 없이(store) ZIP 한 개로 묶는다 — 폴더 선택 없이 다운로드 폴더로 바로 받게. file://에서도 됨.
@@ -12013,6 +12102,7 @@ function wire() {
 
   $('#save').onclick = () => saveProject(false);   // 처음엔 위치 선택, 이후 같은 파일에 저장 (Ctrl+S와 동일)
   $('#load').onclick = openProject;
+  { const ex = $('#exportSettings'), im = $('#importSettings'); if (ex) ex.onclick = exportSettings; if (im) im.onclick = importSettings; }
   const startLoadBtn = $('#startLoad'); if (startLoadBtn) startLoadBtn.onclick = openProject;
   $('#recentBtn').onclick = () => {
     const l = $('#recentList');
@@ -13035,8 +13125,8 @@ function positionPanelResize() {
   const h = $('#panelResize'), p = $('#panel');
   if (!h || !p) return;
   const r = p.getBoundingClientRect();   // zoom 반영된 실제 화면 폭
-  // 손잡이는 사이드바의 '안쪽(스테이지 쪽)' 모서리에
-  h.style.left = Math.round((dockSide === 'right' ? r.left : r.right) - 3) + 'px';
+  // 보이지 않는 잡기 영역(12px)을 사이드바의 '안쪽(스테이지 쪽)' 끝선 한가운데에 — 끝선을 잡고 끌면 크기 조절
+  h.style.left = Math.round((dockSide === 'right' ? r.left : r.right) - 6) + 'px';
 }
 function setDockSide(side) {
   dockSide = side === 'right' ? 'right' : 'left';

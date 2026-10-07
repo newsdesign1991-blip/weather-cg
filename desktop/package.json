@@ -1,0 +1,14 @@
+{
+  "name": "weathercg-desktop",
+  "productName": "날씨 CG",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SBS 날씨 CG 메이커 데스크톱(개발판) — 상위 폴더의 최신 웹앱을 Electron 창으로 띄우고 WNS 헬퍼를 함께 켠다",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^44.6.0"
+  }
+}
