@@ -1,0 +1,98 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1092.3,
+      "y": 830.1,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 2,
+      "ws": 25,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1040.5,
+      "y": 742.8,
+      "r15": 112,
+      "r25": 48,
+      "r70": 230,
+      "past": false,
+      "idx": 3,
+      "ws": 33,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 3,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#FF8800",
+    "lineWidth": 23.75,
+    "pastLineWidth": 13.06,
+    "pastIconK": 0.3
+   },
+   "name": "태풍 리깅"
+  }
+ ]
+}

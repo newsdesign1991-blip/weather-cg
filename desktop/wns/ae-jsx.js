@@ -29,17 +29,26 @@ function nearest(table, w) {
   return best;
 }
 
-// ── helper.py 205~214 _js ── 따옴표·역슬래시 이스케이프 + 비ASCII 는 \uXXXX(코드포인트 단위, 0xFFFF 초과는 5~6자리)
+// ── helper.py 205~217 _js ── 따옴표·역슬래시 이스케이프 + 비ASCII 는 \uXXXX(U+10000 이상은 서로게이트 쌍 두 개, 외톨이 서로게이트는 하나)
 function js(s) {
+  const t = pyStr(s);
   let out = '';
-  for (const ch of pyStr(s)) {
-    const o = ch.codePointAt(0);
-    if (ch === '\\') out += '\\\\';
-    else if (ch === '"') out += '\\"';
-    else if (o < 0x20 || o > 0x7e) { let h = o.toString(16); while (h.length < 4) h = '0' + h; out += '\\u' + h; }
-    else out += ch;
+  for (let i = 0; i < t.length; i++) {   // UTF-16 단위로 돌면 파이썬의 '코드포인트→쌍 분해'와 같은 결과
+    const c = t.charCodeAt(i);
+    if (c === 0x5c) out += '\\\\';
+    else if (c === 0x22) out += '\\"';
+    else if (c < 0x20 || c > 0x7e) { let h = c.toString(16); while (h.length < 4) h = '0' + h; out += '\\u' + h; }
+    else out += t[i];
   }
   return out;
+}
+
+// ── helper.py 219~225 _rig_num ── 태풍 리깅 선택 숫자 필드 — 없음/null(앱 JSON의 NaN)·비유한·음수면 기본값(옛 앱 호환)
+function rigNum(d, k, dv) {
+  const v = get(d, k);
+  if (isNone(v)) return dv;
+  const f = float(v);
+  return (Number.isFinite(f) && f >= 0) ? f : dv;
 }
 
 // p["idx"] 로 만든 posOf dict 의 get(idx, def) — 같은 키면 나중 j 가 덮어씀
@@ -59,17 +68,24 @@ function clampIdx(n, j) {
   return Number(max2(0n, min2(BigInt(n - 1), int(j))));
 }
 
-// ── helper.py 217~431 emit_typhoon_rig ──
+// ── helper.py 227~460 emit_typhoon_rig ──
 function emitTyphoonRig(L, rig) {
   const pts = get(rig, 'points', []);
   const nowIdx = int(get(rig, 'nowIdx', 0));
   const iconH = float(get(rig, 'iconH', 270));
   const iconRenderH = or(float(get(rig, 'iconRenderH', 225)), 225.0);
-  let sc = float(get(rig, 'iconScreenH', 42)) / iconRenderH * 100.0;
+  const sc = float(get(rig, 'iconScreenH', 42)) / iconRenderH * 100.0;
   const anc = iconH / 2.0;
   const rv = or(get(rig, 'reveal', {}), {});
   const r_start = float(get(rv, 'start', 1.0)), r_path = float(get(rv, 'path', 2.0)), r_lab = float(get(rv, 'labelLen', 1.0));
   const cam = get(rig, 'camera');
+  // 선 모양 — 라인 모드=현재까지 단색선+선두 아이콘만 / 일반=지난 회색 실선+예상 흰 점선
+  const line_mode = get(rig, 'trackMode', 'full') === 'line';
+  const _lc = get(rig, 'lineColor');
+  const lineColor = (typeof _lc === 'string' && /^#[0-9A-Fa-f]{6}$/.test(_lc)) ? _lc : '#E5231E';
+  const lineWidth = rigNum(rig, 'lineWidth', 2.8);
+  const pastLineWidth = rigNum(rig, 'pastLineWidth', 2.6);
+  const pastIconK = rigNum(rig, 'pastIconK', 0.3);
   const A = iter(pts);
   const n = A.length;
   const _cum = new Array(n).fill(0.0);
@@ -94,8 +110,8 @@ function emitTyphoonRig(L, rig) {
       L.push(fmt('CAM.property("Position").setValueAtTime(%f,[%f,%f]);', [float(get(k, 't', 0)), float(get(k, 'x', 0)), float(get(k, 'y', 0))]));
     }
     for (const k of iter(get(cam, 'keys', []))) {
-      sc = float(get(k, 's', 1)) / sb * 100.0;   // ★원본도 바깥 sc(아이콘 스케일)를 덮어씀 — 그대로 유지
-      L.push(fmt('CAM.property("Scale").setValueAtTime(%f,[%f,%f]);', [float(get(k, 't', 0)), sc, sc]));
+      const csc = float(get(k, 's', 1)) / sb * 100.0;   // 카메라 스케일(아이콘 sc를 덮어쓰지 않게 따로)
+      L.push(fmt('CAM.property("Scale").setValueAtTime(%f,[%f,%f]);', [float(get(k, 't', 0)), csc, csc]));
     }
     L.push('try{ezR(CAM.property("Position"));ezR(CAM.property("Scale"));}catch(e){}');
   }
@@ -111,7 +127,7 @@ function emitTyphoonRig(L, rig) {
       [i, i, i, i, float(sub(p, 'x')), float(sub(p, 'y')), i, i]));
   }
   // 반경 밴드
-  const bands = get(rig, 'bands', {});
+  const bands = line_mode ? {} : get(rig, 'bands', {});   // 라인 모드는 반경 없음(값이 와도 무시)
   for (const key of ['r70', 'r15', 'r25']) {
     const b = get(bands, key);
     if (!truthy(b)) continue;
@@ -171,7 +187,7 @@ function emitTyphoonRig(L, rig) {
     const ts = tapp(idxs[0]); let te = tapp(idxs[idxs.length - 1]);
     if (te <= ts + 0.05) te = ts + 0.3;
     const expr = 'var Q=[' + idxs.map(i => fmt('thisComp.layer("TP%d").position', [i])).join(',') + '];for(var i=0;i<Q.length;i++){Q[i]=[Q[i][0],Q[i][1]];}createPath(Q,[],[],false);';
-    const dashjs = dash ? fmt('var dd=st.property("ADBE Vector Stroke Dashes");try{dd.addProperty("ADBE Vector Stroke Dash 1").setValue(%f);dd.addProperty("ADBE Vector Stroke Gap 1").setValue(%f);}catch(e){}', [wid * 3.2, wid * 2.8]) : '';
+    const dashjs = dash ? fmt('var dd=st.property("ADBE Vector Stroke Dashes");try{dd.addProperty("ADBE Vector Stroke Dash 1").setValue(%f);dd.addProperty("ADBE Vector Stroke Gap 1").setValue(%f);}catch(e){}', [wid * 3.2, wid * 2.5]) : '';   // 화면 dasharray(굵기×3.2, ×2.5)와 같게
     L.push(fmt('try{var sl=TG.layers.addShape();sl.name="%s";sl.property("Position").setValue([0,0]);sl.property("Anchor Point").setValue([0,0]);if(CAM){sl.parent=CAM;}' +
       'var root=sl.property("ADBE Root Vectors Group");var gp=root.addProperty("ADBE Vector Group");var ct=gp.property("ADBE Vectors Group");' +
       'var pa=ct.addProperty("ADBE Vector Shape - Group");pa.property("ADBE Vector Shape").expression=%s;' +
@@ -180,20 +196,33 @@ function emitTyphoonRig(L, rig) {
       'try{st.property("ADBE Vector Stroke Line Cap").setValue(2);st.property("ADBE Vector Stroke Line Join").setValue(2);}catch(e){}%s}catch(e){}',
       [name, pyJsonStr(expr), ts, te, col, wid, dashjs]));
   }
-  const past_ = [], fut_ = [];
-  for (let i = 0; i < n; i++) if (le(sub(A[i], 'idx'), nowIdx)) past_.push(i);
-  emitLine('\\uacbd\\ub85c(\\uc9c0\\ub09c)', past_, '#96A0AD', 2.6, false);
-  for (let i = 0; i < n; i++) if (ge(sub(A[i], 'idx'), nowIdx)) fut_.push(i);
-  emitLine('\\uacbd\\ub85c(\\uc608\\uc0c1)', fut_, '#FFFFFF', 2.8, true);
-  // 아이콘
+  if (line_mode) {   // 라인 모드 — 모든 점을 잇는 lineColor 단색 실선 1개(대시 없음)
+    const all_ = [];
+    for (let i = 0; i < n; i++) all_.push(i);
+    emitLine('\\uacbd\\ub85c', all_, lineColor, lineWidth, false);
+  } else {
+    const past_ = [], fut_ = [];
+    for (let i = 0; i < n; i++) if (le(sub(A[i], 'idx'), nowIdx)) past_.push(i);
+    emitLine('\\uacbd\\ub85c(\\uc9c0\\ub09c)', past_, '#96A0AD', pastLineWidth, false);
+    for (let i = 0; i < n; i++) if (ge(sub(A[i], 'idx'), nowIdx)) fut_.push(i);
+    emitLine('\\uacbd\\ub85c(\\uc608\\uc0c1)', fut_, '#FFFFFF', lineWidth, true);
+  }
+  // 아이콘 — 과거=pastIconK 배율, noIcon 지점은 아이콘만 생략. 라인 모드는 선두(마지막 점) 1개만(과거 아님·noIcon 무시).
   for (let i = 0; i < n; i++) {
     const p = A[i];
-    const past = truthy(get(p, 'past'));
+    let past;
+    if (line_mode) {
+      if (i !== n - 1) continue;
+      past = false;
+    } else {
+      if (truthy(get(p, 'noIcon'))) continue;
+      past = truthy(get(p, 'past'));
+    }
     const td = float(get(p, 'ws', 99)) < 17;
     let icvar;
     if (truthy(get(p, 'ex'))) icvar = past ? 'icEG' : 'icEC';
     else icvar = td ? (past ? 'icTG' : 'icTC') : (past ? 'icG' : 'icC');
-    const psc = sc * (past ? 0.5 : 1.0);
+    const psc = sc * (past ? pastIconK : 1.0);
     const ti = tapp(i);
     L.push(fmt('try{var ic=TG.layers.add(%s);ic.name="\\uc544\\uc774\\ucf58%d";ic.parent=TP%d;' +
       'ic.property("Anchor Point").setValue([%f,%f]);ic.property("Position").setValue([0,0]);ic.property("Scale").setValue([%f,%f]);' +
@@ -201,7 +230,7 @@ function emitTyphoonRig(L, rig) {
       [icvar, i, i, anc, anc, psc, psc, ti, ti + 0.22]));
   }
   // 라벨
-  const labels = iter(get(rig, 'labels', []));
+  const labels = line_mode ? [] : iter(get(rig, 'labels', []));   // 라인 모드는 라벨 없음(값이 와도 무시)
   for (let li = 0; li < labels.length; li++) {
     const lb = labels[li];
     const idx = int(get(lb, 'idx', 0));
@@ -267,7 +296,7 @@ function emitTyphoonRig(L, rig) {
   L.push('})();');
 }
 
-// ── helper.py 436~564 emit_compare_rig ──
+// ── helper.py 465~593 emit_compare_rig ──
 function emitCompareRig(L, rig) {
   const tys = iter(get(rig, 'typhoons', []));
   const rv = or(get(rig, 'reveal', {}), {});
@@ -420,7 +449,7 @@ function strCat(a, b) {
   return a + b;
 }
 
-// ── helper.py 570~739 build_ae_jsx ──
+// ── helper.py 599~768 build_ae_jsx ──
 function buildAeJsx(spec, framesDir) {
   spec = P.pyJsonVal(spec);   // 정수 number → BigInt(파이썬 int 와 같은 값·자릿수)
   const c = get(spec, 'comp', {});

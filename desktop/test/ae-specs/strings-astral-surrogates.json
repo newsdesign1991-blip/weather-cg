@@ -1,0 +1,802 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WC_\ud83c\udf00_\ud83c_\udf00_\udbff\udfff",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#\ud83c\udf00"
+ },
+ "layers": [
+  {
+   "text": {
+    "content": "\ud83c\udf00",
+    "x": 10,
+    "y": 10,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud83c\udf00"
+  },
+  {
+   "text": {
+    "content": "\ud83d\ude00\ud0dc\ud48d",
+    "x": 10,
+    "y": 11,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud83d\ude00\ud0dc\ud48d"
+  },
+  {
+   "text": {
+    "content": "\ud800\udc00",
+    "x": 10,
+    "y": 12,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud800\udc00"
+  },
+  {
+   "text": {
+    "content": "\udbff\udfff",
+    "x": 10,
+    "y": 13,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\udbff\udfff"
+  },
+  {
+   "text": {
+    "content": "\uffff",
+    "x": 10,
+    "y": 14,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\uffff"
+  },
+  {
+   "text": {
+    "content": "\ue000",
+    "x": 10,
+    "y": 15,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ue000"
+  },
+  {
+   "text": {
+    "content": "a\ud83c",
+    "x": 10,
+    "y": 16,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "a\ud83c"
+  },
+  {
+   "text": {
+    "content": "\udf00b",
+    "x": 10,
+    "y": 17,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\udf00b"
+  },
+  {
+   "text": {
+    "content": "\udf00\ud83c",
+    "x": 10,
+    "y": 18,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\udf00\ud83c"
+  },
+  {
+   "text": {
+    "content": "\ud83cA",
+    "x": 10,
+    "y": 19,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud83cA"
+  },
+  {
+   "text": {
+    "content": "\ud83c\ud83c\udf00",
+    "x": 10,
+    "y": 20,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud83c\ud83c\udf00"
+  },
+  {
+   "text": {
+    "content": "\ud83c\udf00\udf00",
+    "x": 10,
+    "y": 21,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud83c\udf00\udf00"
+  },
+  {
+   "text": {
+    "content": "\ud840\udc00\uc5c6\ub294",
+    "x": 10,
+    "y": 22,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud840\udc00\uc5c6\ub294"
+  },
+  {
+   "text": {
+    "content": "\ud83c\uddf0\ud83c\uddf7",
+    "x": 10,
+    "y": 23,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud83c\uddf0\ud83c\uddf7"
+  },
+  {
+   "text": {
+    "content": "x\u200dy",
+    "x": 10,
+    "y": 24,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "x\u200dy"
+  },
+  {
+   "text": {
+    "content": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67",
+    "x": 10,
+    "y": 25,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67"
+  },
+  {
+   "text": {
+    "content": "\ud835\udfce\ud835\udfd8",
+    "x": 10,
+    "y": 26,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\ud835\udfce\ud835\udfd8"
+  },
+  {
+   "text": {
+    "content": "\"\\U0001F300\\\"",
+    "x": 10,
+    "y": 27,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\"\\U0001F300\\\""
+  },
+  {
+   "text": {
+    "content": "\udb40\udc01\udb80\udc00\udbff\udffd",
+    "x": 10,
+    "y": 28,
+    "size": 60,
+    "col": "#ABCDEF",
+    "align": "start",
+    "track": 0,
+    "weight": 400
+   },
+   "name": "\udb40\udc01\udb80\udc00\udbff\udffd"
+  },
+  {
+   "legendComp": {
+    "w": 200,
+    "h": 100,
+    "items": [
+     {
+      "name": "\ud83c\udf00",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "#FFFFFF"
+      },
+      "text": {
+       "content": "\ud83c\udf00",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "\ud83d\ude00\ud0dc\ud48d",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "#FFFFFF"
+      },
+      "text": {
+       "content": "\ud83d\ude00\ud0dc\ud48d",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "\ud800\udc00",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "#FFFFFF"
+      },
+      "text": {
+       "content": "\ud800\udc00",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "\udbff\udfff",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "#FFFFFF"
+      },
+      "text": {
+       "content": "\udbff\udfff",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "\uffff",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "#FFFFFF"
+      },
+      "text": {
+       "content": "\uffff",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     },
+     {
+      "name": "\ue000",
+      "shape": {
+       "x": 0,
+       "y": 0,
+       "w": 10,
+       "h": 10,
+       "radius": 0,
+       "fill": "#FFFFFF"
+      },
+      "text": {
+       "content": "\ue000",
+       "x": 12,
+       "size": 30,
+       "weight": 600,
+       "track": 0,
+       "fill": "#FFFFFF",
+       "centerY": 5
+      }
+     }
+    ]
+   },
+   "name": "\ud83c\udf00\ubc94\ub840"
+  },
+  {
+   "labelComp": {
+    "w": 100,
+    "h": 40,
+    "x": 1,
+    "y": 2,
+    "bg": "\ud83c\udf00.png",
+    "texts": [
+     {
+      "content": "a\ud83c",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "\udf00b",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "\udf00\ud83c",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "\ud83cA",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "\ud83c\ud83c\udf00",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     },
+     {
+      "content": "\ud83c\udf00\udf00",
+      "size": 30,
+      "weight": 500,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 50,
+      "cy": 20
+     }
+    ]
+   },
+   "name": "\ub77c\ubca8\ud83d\ude00",
+   "fade": {
+    "start": 1,
+    "len": 1
+   }
+  },
+  {
+   "typhoonRig": {
+    "bg": "\ud83c\udf00\ud83c.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 1,
+      "ws": 21,
+      "ex": false
+     },
+     {
+      "x": 1092.3,
+      "y": 830.1,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 2,
+      "ws": 25,
+      "ex": false
+     },
+     {
+      "x": 1040.5,
+      "y": 742.8,
+      "r15": 112,
+      "r25": 48,
+      "r70": 230,
+      "past": false,
+      "idx": 3,
+      "ws": 33,
+      "ex": false
+     },
+     {
+      "x": 1001.2,
+      "y": 650.4,
+      "r15": 120,
+      "r25": 52,
+      "r70": 240,
+      "past": false,
+      "idx": 4,
+      "ws": 35,
+      "ex": false
+     }
+    ],
+    "nowIdx": 3,
+    "iconColFile": "\ud83d\ude00.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {
+     "r70": {
+      "fill": "#2E5BFF",
+      "fillOp": 0.18,
+      "stroke": "#9FB7FF",
+      "strokeW": 0,
+      "dash": 0
+     },
+     "r15": {
+      "fill": "#FFE45C",
+      "fillOp": 0.28,
+      "stroke": "#FFE45C",
+      "strokeW": 2,
+      "dash": 1
+     },
+     "r25": {
+      "fill": "#FF4B4B",
+      "fillOp": 0.35,
+      "stroke": "#FFFFFF",
+      "strokeW": 1.5,
+      "dash": 0
+     }
+    },
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [
+     {
+      "idx": 3,
+      "px": 1001.2,
+      "py": 650.4,
+      "txt": "\ud840\udc00\uc5c6\ub294",
+      "title": "",
+      "bx": 1200,
+      "by": 600,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     },
+     {
+      "idx": 4,
+      "px": 1001.2,
+      "py": 650.4,
+      "txt": "\ud83c\uddf0\ud83c\uddf7",
+      "title": "",
+      "bx": 1200,
+      "by": 600,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     },
+     {
+      "idx": 3,
+      "px": 1001.2,
+      "py": 650.4,
+      "txt": "x\u200dy",
+      "title": "",
+      "bx": 1200,
+      "by": 600,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     },
+     {
+      "idx": 4,
+      "px": 1001.2,
+      "py": 650.4,
+      "txt": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67",
+      "title": "",
+      "bx": 1200,
+      "by": 600,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     },
+     {
+      "idx": 3,
+      "px": 1001.2,
+      "py": 650.4,
+      "txt": "\ud835\udfce\ud835\udfd8",
+      "title": "",
+      "bx": 1200,
+      "by": 600,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     },
+     {
+      "idx": 4,
+      "px": 1001.2,
+      "py": 650.4,
+      "txt": "\"\\U0001F300\\\"",
+      "title": "",
+      "bx": 1200,
+      "by": 600,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     },
+     {
+      "idx": 3,
+      "px": 1001.2,
+      "py": 650.4,
+      "txt": "\udb40\udc01\udb80\udc00\udbff\udffd",
+      "title": "",
+      "bx": 1200,
+      "by": 600,
+      "bw": 168.4,
+      "bh": 74,
+      "size": 40,
+      "track": -25,
+      "weight": 600,
+      "col": "#FFFFFF",
+      "fill": "#0C295F",
+      "fillOp": 1,
+      "stroke": "#3F6BD8",
+      "strokeW": 0,
+      "radius": 14,
+      "revStart": null,
+      "revLen": null
+     }
+    ]
+   },
+   "name": "\ud0dc\ud48d"
+  },
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "\ud83c\udf00\udf00.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1200.5,
+        "y": 900.2
+       },
+       {
+        "x": 1150.1,
+        "y": 820.7
+       },
+       {
+        "x": 1100.4,
+        "y": 740.3
+       }
+      ],
+      "iconAt": [
+       0,
+       2
+      ],
+      "nameLabel": {
+       "txt": "KMA\ud83c\udf00\ud83c",
+       "x": 1053.2,
+       "y": 556.1,
+       "size": 34,
+       "weight": 800,
+       "col": "#FF5A5A"
+      },
+      "labels": [
+       {
+        "idx": 1,
+        "px": 1150.1,
+        "py": 820.7,
+        "txt": "\ud83d\ude00 9\uc77c\n\udf00",
+        "bx": 1250,
+        "by": 648,
+        "bw": 160.2,
+        "bh": 74,
+        "size": 40,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#8FA9E8",
+        "strokeW": 0,
+        "radius": 14
+       }
+      ]
+     }
+    ]
+   },
+   "name": "\ube44\uad50"
+  },
+  {
+   "file": [
+    "\ud83c\udf00",
+    "\ud83c",
+    "\udf00\udbff\udfff",
+    "\ud83c\uddf0"
+   ],
+   "name": {
+    "k\ud83c\udf00": "\ud83c\ud83d\ude00"
+   }
+  }
+ ]
+}

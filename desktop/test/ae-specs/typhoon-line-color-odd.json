@@ -1,0 +1,992 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261007_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#00ff00"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "red"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#12345"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#1234567"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#GGGGGG"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": null
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": 123
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": [
+     "#FFFFFF"
+    ]
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": {
+     "c": "#FFFFFF"
+    }
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#e5231e\n"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": " #FFFFFF"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "＃FFFFFF"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#FF\"FF0"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#\\FFFFF"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": ""
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#ＦＦＦＦＦＦ"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": "#٠١٢٣٤٥"
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line",
+    "lineColor": true
+   },
+   "name": "태풍 리깅"
+  },
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1210.4,
+      "y": 980.2,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150.8,
+      "y": 905.6,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 21,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 1,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 42.5,
+    "bands": {},
+    "reveal": {
+     "start": 1.0,
+     "path": 2.0,
+     "labelLen": 1.0
+    },
+    "labels": [],
+    "trackMode": "line"
+   },
+   "name": "태풍 리깅"
+  }
+ ]
+}

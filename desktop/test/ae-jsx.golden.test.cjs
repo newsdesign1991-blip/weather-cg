@@ -56,6 +56,12 @@ test('wantedPs/suitePs 직접 호출', extraOpts, () => {
     assert.strictEqual(M.suitePs(v), es, 'suitePs(' + s + ')');
   }
 });
+test('js() 직접 호출(U+10000 이상=서로게이트 쌍 두 개, 외톨이 서로게이트=하나)', extraOpts, () => {
+  const M = require(MOD_PATH);
+  const P = require(path.join(path.dirname(MOD_PATH), 'pyfmt.js'));
+  assert.ok(Array.isArray(extra.jsEsc) && extra.jsEsc.length > 0, 'extra-cases.json 에 jsEsc 없음 → make_golden.py 실행');
+  for (const [s, exp] of extra.jsEsc) assert.strictEqual(M.js(P.pyJsonVal(JSON.parse(s))), exp, 'js(' + s + ')');
+});
 test('framesDir 종류(스펙 {})', extraOpts, () => {
   for (const [s, exp, err] of extra.framesDir) {
     const d = JSON.parse(s);

@@ -180,13 +180,27 @@ def make_extra_cases():
             fdir.append([s, helper.build_ae_jsx({}, json.loads(s)), None])
         except Exception as e:
             fdir.append([s, None, type(e).__name__])
-    out = {"_note": "make_golden.py 가 생성. fontPs=[입력JSON, wanted_ps, suite_ps], framesDir=[입력JSON, jsx|null, 예외타입|null] (spec={})",
-           "fontPs": font, "framesDir": fdir}
+    # _js 직접 호출 — U+10000 이상은 서로게이트 쌍 두 개(소문자 hex), 외톨이 서로게이트는 하나. 입력은 JSON 텍스트(양쪽 파서가 쌍을 같게 합침)
+    jv = ["", "abc", '"', "\\", "\x00\x1f\x7f", "\xe9ÿĀ", "한글", "￿", "", "\U00010000", "\U0001F300", "\U0001F600태풍",
+          "\U00020000", "\U0010FFFF", "\U000E0001", "\ud800", "\udbff", "\udc00", "\udfff", "a\ud83c", "\udf00b", "\udf00\ud83c", "\ud83cA",
+          "\ud83c🌀", "🌀\udf00", "🌀", "\U0001F468‍\U0001F469‍\U0001F467", "\U0001F1F0\U0001F1F7",
+          '"\\\U0001F300\\"', "\U0001D7CE9\U0001D7D8"]
+    jr = random.Random(10115)
+    jpool = list("aZ9 \"\\'") + ["\n", "\x00", "\x7f", "\x80", "한", "\ud800", "\udbff", "\udc00", "\udfff", "\ud83c", "\udf00",
+                                 "\U0001F300", "\U0001F600", "\U00010000", "\U0010FFFF", "￿", "\U000E0001"]
+    for _ in range(200):
+        jv.append("".join(jr.choice(jpool) for _ in range(jr.randint(1, 16))))
+    jsrc = [json.dumps(s) for s in jv]
+    jsrc += ["null", "true", "false", "0", "-7", "12345678901234567000", "1.5", "-0.25", "1e-07",
+             json.dumps(["\U0001F300", "\ud83c", "\udf00\U0010FFFF", "q'\""]), json.dumps({"k\U0001F300": "\ud83c\U0001F600", "n": [1, 2.5, None]})]
+    jesc = [[s, helper._js(json.loads(s))] for s in jsrc]
+    out = {"_note": "make_golden.py 가 생성. fontPs=[입력JSON, wanted_ps, suite_ps], framesDir=[입력JSON, jsx|null, 예외타입|null] (spec={}), jsEsc=[입력JSON, _js 결과]",
+           "fontPs": font, "framesDir": fdir, "jsEsc": jesc}
     p = os.path.join(GOLD_DIR, "extra-cases.json")
     with open(p, "w", encoding="utf-8", newline="") as fh:
         json.dump(out, fh, ensure_ascii=True, indent=0)
         fh.write("\n")
-    print("추가 케이스: fontPs %d, framesDir %d → %s" % (len(font), len(fdir), p))
+    print("추가 케이스: fontPs %d, framesDir %d, jsEsc %d → %s" % (len(font), len(fdir), len(jesc), p))
 
 
 if __name__ == "__main__":

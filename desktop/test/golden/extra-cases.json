@@ -1,5 +1,5 @@
 {
-"_note": "make_golden.py \uac00 \uc0dd\uc131. fontPs=[\uc785\ub825JSON, wanted_ps, suite_ps], framesDir=[\uc785\ub825JSON, jsx|null, \uc608\uc678\ud0c0\uc785|null] (spec={})",
+"_note": "make_golden.py \uac00 \uc0dd\uc131. fontPs=[\uc785\ub825JSON, wanted_ps, suite_ps], framesDir=[\uc785\ub825JSON, jsx|null, \uc608\uc678\ud0c0\uc785|null] (spec={}), jsEsc=[\uc785\ub825JSON, _js \uacb0\uacfc]",
 "fontPs": [
 [
 "null",
@@ -270,7 +270,7 @@ null
 ],
 [
 "\"\\ud83d\\ude00\\\\\\t\"",
-"app.beginUndoGroup(\"WeatherCG\");\nvar proj=app.project;\nvar dir=\"\\u1f600/\\u0009\";\nvar comp=proj.items.addComp(\"WeatherCG\",1920,1080,1.0,6.000000,29.970000);\nvar TG=comp;\nfunction imp(f){var io=new ImportOptions(File(dir+\"/\"+f));return proj.importFile(io);}\nfunction addL(f,nm){var l=TG.layers.add(imp(f));l.name=nm;return l;}\nfunction hx(h){h=String(h).replace(\"#\",\"\");return [parseInt(h.substr(0,2),16)/255,parseInt(h.substr(2,2),16)/255,parseInt(h.substr(4,2),16)/255];}\nfunction addT(txt,nm){var l=TG.layers.addText(txt);l.name=nm;return l;}\nfunction ez2(prop){var A=[new KeyframeEase(0,33)],B=[new KeyframeEase(0,75)];try{prop.setInterpolationTypeAtKey(1,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setInterpolationTypeAtKey(2,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setTemporalEaseAtKey(1,A,A);prop.setTemporalEaseAtKey(2,B,B);}catch(err){}}\nfunction fadeL(l,s,e){var op=l.property(\"Opacity\");op.setValueAtTime(s,0);op.setValueAtTime(e,100);ez2(op);}\nfunction ezR(prop){try{var n=1;try{n=prop.value.length||1;}catch(e){n=1;}var A=[],B=[];for(var i=0;i<n;i++){A.push(new KeyframeEase(0,33));B.push(new KeyframeEase(0,75));}prop.setInterpolationTypeAtKey(1,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setInterpolationTypeAtKey(2,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setTemporalEaseAtKey(1,A,A);prop.setTemporalEaseAtKey(2,B,B);}catch(err){}}\nfunction dshadow(l){try{var e=l.property(\"ADBE Effect Parade\").addProperty(\"ADBE Drop Shadow\");e.property(\"Shadow Color\").setValue(hx(\"#000814\"));e.property(\"Opacity\").setValue(114.750000);e.property(\"Direction\").setValue(180.000000);e.property(\"Distance\").setValue(8.000000);e.property(\"Softness\").setValue(20.000000);}catch(err){}}\ncomp.openInViewer();app.endUndoGroup();",
+"app.beginUndoGroup(\"WeatherCG\");\nvar proj=app.project;\nvar dir=\"\\ud83d\\ude00/\\u0009\";\nvar comp=proj.items.addComp(\"WeatherCG\",1920,1080,1.0,6.000000,29.970000);\nvar TG=comp;\nfunction imp(f){var io=new ImportOptions(File(dir+\"/\"+f));return proj.importFile(io);}\nfunction addL(f,nm){var l=TG.layers.add(imp(f));l.name=nm;return l;}\nfunction hx(h){h=String(h).replace(\"#\",\"\");return [parseInt(h.substr(0,2),16)/255,parseInt(h.substr(2,2),16)/255,parseInt(h.substr(4,2),16)/255];}\nfunction addT(txt,nm){var l=TG.layers.addText(txt);l.name=nm;return l;}\nfunction ez2(prop){var A=[new KeyframeEase(0,33)],B=[new KeyframeEase(0,75)];try{prop.setInterpolationTypeAtKey(1,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setInterpolationTypeAtKey(2,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setTemporalEaseAtKey(1,A,A);prop.setTemporalEaseAtKey(2,B,B);}catch(err){}}\nfunction fadeL(l,s,e){var op=l.property(\"Opacity\");op.setValueAtTime(s,0);op.setValueAtTime(e,100);ez2(op);}\nfunction ezR(prop){try{var n=1;try{n=prop.value.length||1;}catch(e){n=1;}var A=[],B=[];for(var i=0;i<n;i++){A.push(new KeyframeEase(0,33));B.push(new KeyframeEase(0,75));}prop.setInterpolationTypeAtKey(1,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setInterpolationTypeAtKey(2,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);prop.setTemporalEaseAtKey(1,A,A);prop.setTemporalEaseAtKey(2,B,B);}catch(err){}}\nfunction dshadow(l){try{var e=l.property(\"ADBE Effect Parade\").addProperty(\"ADBE Drop Shadow\");e.property(\"Shadow Color\").setValue(hx(\"#000814\"));e.property(\"Opacity\").setValue(114.750000);e.property(\"Direction\").setValue(180.000000);e.property(\"Distance\").setValue(8.000000);e.property(\"Softness\").setValue(20.000000);}catch(err){}}\ncomp.openInViewer();app.endUndoGroup();",
 null
 ],
 [
@@ -302,6 +302,972 @@ null,
 "{\"a\": \"b\"}",
 null,
 "AttributeError"
+]
+],
+"jsEsc": [
+[
+"\"\"",
+""
+],
+[
+"\"abc\"",
+"abc"
+],
+[
+"\"\\\"\"",
+"\\\""
+],
+[
+"\"\\\\\"",
+"\\\\"
+],
+[
+"\"\\u0000\\u001f\\u007f\"",
+"\\u0000\\u001f\\u007f"
+],
+[
+"\"\\u00e9\\u00ff\\u0100\"",
+"\\u00e9\\u00ff\\u0100"
+],
+[
+"\"\\ud55c\\uae00\"",
+"\\ud55c\\uae00"
+],
+[
+"\"\\uffff\"",
+"\\uffff"
+],
+[
+"\"\\ue000\"",
+"\\ue000"
+],
+[
+"\"\\ud800\\udc00\"",
+"\\ud800\\udc00"
+],
+[
+"\"\\ud83c\\udf00\"",
+"\\ud83c\\udf00"
+],
+[
+"\"\\ud83d\\ude00\\ud0dc\\ud48d\"",
+"\\ud83d\\ude00\\ud0dc\\ud48d"
+],
+[
+"\"\\ud840\\udc00\"",
+"\\ud840\\udc00"
+],
+[
+"\"\\udbff\\udfff\"",
+"\\udbff\\udfff"
+],
+[
+"\"\\udb40\\udc01\"",
+"\\udb40\\udc01"
+],
+[
+"\"\\ud800\"",
+"\\ud800"
+],
+[
+"\"\\udbff\"",
+"\\udbff"
+],
+[
+"\"\\udc00\"",
+"\\udc00"
+],
+[
+"\"\\udfff\"",
+"\\udfff"
+],
+[
+"\"a\\ud83c\"",
+"a\\ud83c"
+],
+[
+"\"\\udf00b\"",
+"\\udf00b"
+],
+[
+"\"\\udf00\\ud83c\"",
+"\\udf00\\ud83c"
+],
+[
+"\"\\ud83cA\"",
+"\\ud83cA"
+],
+[
+"\"\\ud83c\\ud83c\\udf00\"",
+"\\ud83c\\ud83c\\udf00"
+],
+[
+"\"\\ud83c\\udf00\\udf00\"",
+"\\ud83c\\udf00\\udf00"
+],
+[
+"\"\\ud83c\\udf00\"",
+"\\ud83c\\udf00"
+],
+[
+"\"\\ud83d\\udc68\\u200d\\ud83d\\udc69\\u200d\\ud83d\\udc67\"",
+"\\ud83d\\udc68\\u200d\\ud83d\\udc69\\u200d\\ud83d\\udc67"
+],
+[
+"\"\\ud83c\\uddf0\\ud83c\\uddf7\"",
+"\\ud83c\\uddf0\\ud83c\\uddf7"
+],
+[
+"\"\\\"\\\\\\ud83c\\udf00\\\\\\\"\"",
+"\\\"\\\\\\ud83c\\udf00\\\\\\\""
+],
+[
+"\"\\ud835\\udfce9\\ud835\\udfd8\"",
+"\\ud835\\udfce9\\ud835\\udfd8"
+],
+[
+"\"\\\\\\udf00\\\"a'\"",
+"\\\\\\udf00\\\"a'"
+],
+[
+"\"\\udb40\\udc01\\ud83c\\udf00\\ud800\\udf00\\udbff\\ud800\\udc00 \\ud83d\\ude00\\udb40\\udc01\\\\\\udfffa\\u0080\"",
+"\\udb40\\udc01\\ud83c\\udf00\\ud800\\udf00\\udbff\\ud800\\udc00 \\ud83d\\ude00\\udb40\\udc01\\\\\\udfffa\\u0080"
+],
+[
+"\"\\udfff\\uffff\\u0000\\u0000\"",
+"\\udfff\\uffff\\u0000\\u0000"
+],
+[
+"\" '\\u0000\\n\\ud83c\\udf00\\u0000\\n\\udbff\\u007f\\udfff'ZZ\\ud800\\udc00\"",
+" '\\u0000\\u000a\\ud83c\\udf00\\u0000\\u000a\\udbff\\u007f\\udfff'ZZ\\ud800\\udc00"
+],
+[
+"\"a\\udf00\\udfff\\udbff\\udfff\"",
+"a\\udf00\\udfff\\udbff\\udfff"
+],
+[
+"\"\\udbff\\udfffZ\\udf00\\uffffa\"",
+"\\udbff\\udfffZ\\udf00\\uffffa"
+],
+[
+"\"\\u007f\\uffff\\ud83c\\u0000\\udbff9\\ud800\\\"\\udf00\\udbff\\udfff\"",
+"\\u007f\\uffff\\ud83c\\u0000\\udbff9\\ud800\\\"\\udf00\\udbff\\udfff"
+],
+[
+"\"  \\ud83cZ\\udb40\\udc01\\uffff\\udc00 \\udfff\\n\\uffff\"",
+"  \\ud83cZ\\udb40\\udc01\\uffff\\udc00 \\udfff\\u000a\\uffff"
+],
+[
+"\"'\\ud55ca\"",
+"'\\ud55ca"
+],
+[
+"\"\\\\\\udf00\\ud83c\"",
+"\\\\\\udf00\\ud83c"
+],
+[
+"\"\\n\"",
+"\\u000a"
+],
+[
+"\"Z\\u0080\\udc00\\ud83d\\ude00\\udf00\\udbff\\udfff\\udc00'\\u0000\"",
+"Z\\u0080\\udc00\\ud83d\\ude00\\udf00\\udbff\\udfff\\udc00'\\u0000"
+],
+[
+"\"'9\\ud800\\ud55c\\u0000\\uffff\"",
+"'9\\ud800\\ud55c\\u0000\\uffff"
+],
+[
+"\"\\u0080\\udf00\\udfff\\udc00\\udbff\\udfff'\\ud83c\\udf00\\ud83c\\ud800\\udb40\\udc01a\\udbff\\udfff\\u007f\"",
+"\\u0080\\udf00\\udfff\\udc00\\udbff\\udfff'\\ud83c\\udf00\\ud83c\\ud800\\udb40\\udc01a\\udbff\\udfff\\u007f"
+],
+[
+"\"\\\\ Z\\ud800\\n\\ud83d\\ude00\\udbff\\udfff\\u007f\\udc00\\\"\\ud83c\\udf00\\udfff\\u007f\"",
+"\\\\ Z\\ud800\\u000a\\ud83d\\ude00\\udbff\\udfff\\u007f\\udc00\\\"\\ud83c\\udf00\\udfff\\u007f"
+],
+[
+"\"\\udfff\\u0000 \"",
+"\\udfff\\u0000 "
+],
+[
+"\"\\n\\uffff\\udbff\\udfff\\uffff'\\ud800\\udc00\\u007f\"",
+"\\u000a\\uffff\\udbff\\udfff\\uffff'\\ud800\\udc00\\u007f"
+],
+[
+"\" \\u0080\\u007f\"",
+" \\u0080\\u007f"
+],
+[
+"\"\\udbff\\udfff\\u0080\\u0000\\ud83d\\ude00\\ud83c\\udf00'\\udbff\\udfff'Z\\udfffZ\\uffff\\udc00a\\n\"",
+"\\udbff\\udfff\\u0080\\u0000\\ud83d\\ude00\\ud83c\\udf00'\\udbff\\udfff'Z\\udfffZ\\uffff\\udc00a\\u000a"
+],
+[
+"\"\\ud800\\udc00\\udbff\\udc00\\udb40\\udc01Z\\u007fa\\ud83c\\udf00\\udb40\\udc01\\uffff\\ud55c'\\n  \"",
+"\\ud800\\udc00\\udbff\\udc00\\udb40\\udc01Z\\u007fa\\ud83c\\udf00\\udb40\\udc01\\uffff\\ud55c'\\u000a  "
+],
+[
+"\"\\\\\\udbff\\udbffa\\udfff\\ud800\\udc00\\ud55c\\u007fa'a\\u0080\\ud55c\\udbff\\udfff\"",
+"\\\\\\udbff\\udbffa\\udfff\\ud800\\udc00\\ud55c\\u007fa'a\\u0080\\ud55c\\udbff\\udfff"
+],
+[
+"\"\\ud55c'\\u0080\\ud83c\\udf00\"",
+"\\ud55c'\\u0080\\ud83c\\udf00"
+],
+[
+"\"\\udbff\\udfff\\u007f\\ud800\"",
+"\\udbff\\udfff\\u007f\\ud800"
+],
+[
+"\"\\udc00\\n\\udb40\\udc01\\udbff\\udfff\"",
+"\\udc00\\u000a\\udb40\\udc01\\udbff\\udfff"
+],
+[
+"\"\\\"\\ud800\\udc00\\ud83c\\ud55c\\ud800\\udc00\\ud83d\\ude009\"",
+"\\\"\\ud800\\udc00\\ud83c\\ud55c\\ud800\\udc00\\ud83d\\ude009"
+],
+[
+"\"\\u0080\\\"\\udbffZ\\udc00\\n9\\udbff\\udfff\\udbff\"",
+"\\u0080\\\"\\udbffZ\\udc00\\u000a9\\udbff\\udfff\\udbff"
+],
+[
+"\"\\n\\ud800\\u0080\\udfff9\\udc00\"",
+"\\u000a\\ud800\\u0080\\udfff9\\udc00"
+],
+[
+"\"\\u007f\\ud83c\\udf00\\u00809\\ud83d\\ude00\\ud800\\udc00\\udb40\\udc01\\udfff\\ud55c\\ud83c  \\ud55c '\"",
+"\\u007f\\ud83c\\udf00\\u00809\\ud83d\\ude00\\ud800\\udc00\\udb40\\udc01\\udfff\\ud55c\\ud83c  \\ud55c '"
+],
+[
+"\"\\ud83c\\udf00\\u0000\\u007f\\udf00  \\ud83c\\udf00\\u0000\\ud83c\\udf00\\ud83c\\ud83c\\udfff 9\\udb40\\udc01\\ud83c\\udf00\"",
+"\\ud83c\\udf00\\u0000\\u007f\\udf00  \\ud83c\\udf00\\u0000\\ud83c\\udf00\\ud83c\\ud83c\\udfff 9\\udb40\\udc01\\ud83c\\udf00"
+],
+[
+"\"\\udbff\\udfff\"",
+"\\udbff\\udfff"
+],
+[
+"\"\\ud83c\\ud83c\\u007f \\u0080\\ud800\\ud83d\\ude00\\u007f \\uffff\\ud83c\\ud83d\\ude00\\\\\"",
+"\\ud83c\\ud83c\\u007f \\u0080\\ud800\\ud83d\\ude00\\u007f \\uffff\\ud83c\\ud83d\\ude00\\\\"
+],
+[
+"\"\\\\\\ud800\\udc00Z\\u0080\\ud55c\\ud800\\udc00\\udf00\\n\\ud83d\\ude00a\"",
+"\\\\\\ud800\\udc00Z\\u0080\\ud55c\\ud800\\udc00\\udf00\\u000a\\ud83d\\ude00a"
+],
+[
+"\"'\"",
+"'"
+],
+[
+"\"\\ud83c\\\"\\ud83d\\ude00\\ud800\\u007f\\n9\\\"\\ud800\\udc00\\ud800\\udc00\\udbff\\udfff\"",
+"\\ud83c\\\"\\ud83d\\ude00\\ud800\\u007f\\u000a9\\\"\\ud800\\udc00\\ud800\\udc00\\udbff\\udfff"
+],
+[
+"\"\\u0000\\ud8009 \\udfff\\ud800\\udc00Z\\\"\\udbff'9a\\ud83d\\ude00\\udbff\\udfff\"",
+"\\u0000\\ud8009 \\udfff\\ud800\\udc00Z\\\"\\udbff'9a\\ud83d\\ude00\\udbff\\udfff"
+],
+[
+"\"\\u007f\"",
+"\\u007f"
+],
+[
+"\"\\u0000\\uffff\\uffff\\udf00\\ud83c\\udf00\\udfff\\udc00\\udf00\"",
+"\\u0000\\uffff\\uffff\\udf00\\ud83c\\udf00\\udfff\\udc00\\udf00"
+],
+[
+"\"\\udfff\\ud800\\udc00\\ud83c\\udf00a\\udb40\\udc01\\udf00\\u0000\\ud55c\\uffff\\ud55c\\udfff\\ud55c\"",
+"\\udfff\\ud800\\udc00\\ud83c\\udf00a\\udb40\\udc01\\udf00\\u0000\\ud55c\\uffff\\ud55c\\udfff\\ud55c"
+],
+[
+"\"9\\ud55c\\udb40\\udc01\\ud55c\\ud800\\udc00\\udc00\\\\\\\\\\udbff\\udb40\\udc01\\n\\udb40\\udc01\\ud83d\\ude00\\\\\\udfff\"",
+"9\\ud55c\\udb40\\udc01\\ud55c\\ud800\\udc00\\udc00\\\\\\\\\\udbff\\udb40\\udc01\\u000a\\udb40\\udc01\\ud83d\\ude00\\\\\\udfff"
+],
+[
+"\"\\\\' \\udbff\"",
+"\\\\' \\udbff"
+],
+[
+"\"\\udf00\\\"\\ud800\\udc00\\udbff\\udfff\\ud83c\\udf00\"",
+"\\udf00\\\"\\ud800\\udc00\\udbff\\udfff\\ud83c\\udf00"
+],
+[
+"\"\\udf00\\uffff\\n\\udfff\\udbff\\ud800\\ud83d\\ude00\\\\\\\"\\ud83c9\\udf00\\udc00\"",
+"\\udf00\\uffff\\u000a\\udfff\\udbff\\ud800\\ud83d\\ude00\\\\\\\"\\ud83c9\\udf00\\udc00"
+],
+[
+"\"a\\udbff\\udfff\\udc00\\udfff\\uffff\\u0000\\\"\\udbff\\udfff'a\\u0080\\u007f\"",
+"a\\udbff\\udfff\\udc00\\udfff\\uffff\\u0000\\\"\\udbff\\udfff'a\\u0080\\u007f"
+],
+[
+"\"\\\"\\n' \\ud800\\udb40\\udc01\\\"\\u007f\\udbff\\uffff\\n\\udbff\"",
+"\\\"\\u000a' \\ud800\\udb40\\udc01\\\"\\u007f\\udbff\\uffff\\u000a\\udbff"
+],
+[
+"\"a\\udbff\\udfff\\udf00\\ud55c\\ud800\\udc00\\udc00\\udb40\\udc01\\udbff\\ud800\\udb40\\udc01\\udbff\\udfff\"",
+"a\\udbff\\udfff\\udf00\\ud55c\\ud800\\udc00\\udc00\\udb40\\udc01\\udbff\\ud800\\udb40\\udc01\\udbff\\udfff"
+],
+[
+"\"\\\\\\u007f\"",
+"\\\\\\u007f"
+],
+[
+"\"\\ud55c\\udc009Z\\\\\\ud83c\"",
+"\\ud55c\\udc009Z\\\\\\ud83c"
+],
+[
+"\"9\\udbff\\ud83d\\ude00\\u007f\\\"\\\"\\uffffa \\udb40\\udc01 \"",
+"9\\udbff\\ud83d\\ude00\\u007f\\\"\\\"\\uffffa \\udb40\\udc01 "
+],
+[
+"\"\\udfff \\u007f\\udbff\\ud800\\udc00\\udfff\\\"\\udbff'\\u007f\\udbff\\udfff\\udbff\\udbff\"",
+"\\udfff \\u007f\\udbff\\ud800\\udc00\\udfff\\\"\\udbff'\\u007f\\udbff\\udfff\\udbff\\udbff"
+],
+[
+"\"'\\n\\ud83d\\ude00\\n\\u007f\\n\\udf00a\\udbff\"",
+"'\\u000a\\ud83d\\ude00\\u000a\\u007f\\u000a\\udf00a\\udbff"
+],
+[
+"\"\\udfff\\ud83c\"",
+"\\udfff\\ud83c"
+],
+[
+"\"a\\\" \\udb40\\udc01\\ud55c\\udc00\\ud800\\ud800\\udfff \\udbff\\udfff \\u007f\\u007f\\u0000Z\"",
+"a\\\" \\udb40\\udc01\\ud55c\\udc00\\ud800\\ud800\\udfff \\udbff\\udfff \\u007f\\u007f\\u0000Z"
+],
+[
+"\"'\\ud83c\\udf009\\ud800\\\\ \\ud83d\\ude00\\u0080\\udf00\\ud55c\\ud800\\udc009'\"",
+"'\\ud83c\\udf009\\ud800\\\\ \\ud83d\\ude00\\u0080\\udf00\\ud55c\\ud800\\udc009'"
+],
+[
+"\"\\udbff\\udfff\\udf00\\n\\n\\\\\\udf00\\udbff\\udfff\\ud800\\udc00\\udbff\\udfff\\udbff\\udfff\\u007f\\ud55c\\\"\"",
+"\\udbff\\udfff\\udf00\\u000a\\u000a\\\\\\udf00\\udbff\\udfff\\ud800\\udc00\\udbff\\udfff\\udbff\\udfff\\u007f\\ud55c\\\""
+],
+[
+"\"\\udf00\\udf00Z\\ud83c\\udf00\\udc00\"",
+"\\udf00\\udf00Z\\ud83c\\udf00\\udc00"
+],
+[
+"\"\\ud800\\udc00\\\"\\n\\ud800\\udc00\"",
+"\\ud800\\udc00\\\"\\u000a\\ud800\\udc00"
+],
+[
+"\"\\ud800\\udc00\\ud800\\udc00\\\\\\udbff\\udfffa\\ud55c\\\"a \"",
+"\\ud800\\udc00\\ud800\\udc00\\\\\\udbff\\udfffa\\ud55c\\\"a "
+],
+[
+"\"Z\\ud83c\\udb40\\udc01 \\u0000\\ud83c\\u0080\\ud83c\\udf00\"",
+"Z\\ud83c\\udb40\\udc01 \\u0000\\ud83c\\u0080\\ud83c\\udf00"
+],
+[
+"\"a9\\n'\\ud800' \\udb40\\udc01\\ud800\\udc00\"",
+"a9\\u000a'\\ud800' \\udb40\\udc01\\ud800\\udc00"
+],
+[
+"\"\\ud83cZ\\ud55c''\\ud55c\\ud55c\\ud8009Z\"",
+"\\ud83cZ\\ud55c''\\ud55c\\ud55c\\ud8009Z"
+],
+[
+"\"\\\"\\\\\\udb40\\udc01\\udbff\\\\\"",
+"\\\"\\\\\\udb40\\udc01\\udbff\\\\"
+],
+[
+"\"\\ud55c\\\\\\u0080\\udb40\\udc01\\ud800\\udc00\\ud55c\\\"\\ud83d\\ude00a\\u0080\\udc00\\u00809\\\"\"",
+"\\ud55c\\\\\\u0080\\udb40\\udc01\\ud800\\udc00\\ud55c\\\"\\ud83d\\ude00a\\u0080\\udc00\\u00809\\\""
+],
+[
+"\"\\ud800\\udc00\\ud83c\\udf00a\\ud55c\\ud800\\u0080\"",
+"\\ud800\\udc00\\ud83c\\udf00a\\ud55c\\ud800\\u0080"
+],
+[
+"\"\\u007f\\u0000\\u007f \\nZ9 \\ud800\\udc00'\\udf00\\u0000\"",
+"\\u007f\\u0000\\u007f \\u000aZ9 \\ud800\\udc00'\\udf00\\u0000"
+],
+[
+"\"Z\\udfff\\udc00\\\\\\u0080  \\\\\\ud800\\udc00\"",
+"Z\\udfff\\udc00\\\\\\u0080  \\\\\\ud800\\udc00"
+],
+[
+"\"\\\"\\udbff'\\udfff9\\ud83d\\ude00\\udc009a' \\ud55c\"",
+"\\\"\\udbff'\\udfff9\\ud83d\\ude00\\udc009a' \\ud55c"
+],
+[
+"\"\\uffff\\ud83c\\udf00\\u007f\\u007f\\udb40\\udc01\\udbff\\udfff\\uffff\\\"\\udc00\"",
+"\\uffff\\ud83c\\udf00\\u007f\\u007f\\udb40\\udc01\\udbff\\udfff\\uffff\\\"\\udc00"
+],
+[
+"\"\\udb40\\udc01\\ud83d\\ude00'\\ud83c\\ud55c Z\"",
+"\\udb40\\udc01\\ud83d\\ude00'\\ud83c\\ud55c Z"
+],
+[
+"\"\\udbff\\udfff\\u0080\\udb40\\udc01\\u0000\\u0080\\\"\"",
+"\\udbff\\udfff\\u0080\\udb40\\udc01\\u0000\\u0080\\\""
+],
+[
+"\"\\\"\\u007f\\ud83d\\ude00\\ud800'aZ\\udbff\\udfff\\ud55c\\uffff\\ud83d\\ude00\\ud800\\udc009\\udbff\\udfff\\u00009\"",
+"\\\"\\u007f\\ud83d\\ude00\\ud800'aZ\\udbff\\udfff\\ud55c\\uffff\\ud83d\\ude00\\ud800\\udc009\\udbff\\udfff\\u00009"
+],
+[
+"\"\\ud55c\\udbff\\udfff \\ud83c\\udf00\\udfff\\udfff\\udfff\\n\\udf00\\udf00\\ud800\\uffff\"",
+"\\ud55c\\udbff\\udfff \\ud83c\\udf00\\udfff\\udfff\\udfff\\u000a\\udf00\\udf00\\ud800\\uffff"
+],
+[
+"\"\\\\\\udf00\\\\\\udb40\\udc01\"",
+"\\\\\\udf00\\\\\\udb40\\udc01"
+],
+[
+"\"\\udbff\\udfff\\uffff\\udbff\\udfff\\udb40\\udc0199\\udbff\\udfffa\\udbff\\udfff \\udbff\\ud83c\\udfff\"",
+"\\udbff\\udfff\\uffff\\udbff\\udfff\\udb40\\udc0199\\udbff\\udfffa\\udbff\\udfff \\udbff\\ud83c\\udfff"
+],
+[
+"\"\\ud800\"",
+"\\ud800"
+],
+[
+"\"a\\u007f\\u007f\\udb40\\udc01 \\u00009\"",
+"a\\u007f\\u007f\\udb40\\udc01 \\u00009"
+],
+[
+"\"\\udbff\\udfff\\udbff\\udfff\"",
+"\\udbff\\udfff\\udbff\\udfff"
+],
+[
+"\"\\ud83c\\udf00a\\ud800\"",
+"\\ud83c\\udf00a\\ud800"
+],
+[
+"\"9\\udf00\\u007fa \"",
+"9\\udf00\\u007fa "
+],
+[
+"\"\\udbff \\ud800\\ud55c\\n\\udbff\\udfff\\u0080\"",
+"\\udbff \\ud800\\ud55c\\u000a\\udbff\\udfff\\u0080"
+],
+[
+"\"\\ud800\\udc00\\ud55c\\udc00\\udbff\"",
+"\\ud800\\udc00\\ud55c\\udc00\\udbff"
+],
+[
+"\"\\udbff\\na\\u0000\\ud800\\uffff\\\\\\ud55c\\ud83d\\ude00a\\ud83d\\ude00\\u0000'\\udf00\"",
+"\\udbff\\u000aa\\u0000\\ud800\\uffff\\\\\\ud55c\\ud83d\\ude00a\\ud83d\\ude00\\u0000'\\udf00"
+],
+[
+"\" \\udb40\\udc01\\ud83c\\udf00\\u0000\\udc00\\u0000\\udc00\\n\\\"\\ud55c\\u007f\\u007f\\udb40\\udc01Z\\\"\\udfff\"",
+" \\udb40\\udc01\\ud83c\\udf00\\u0000\\udc00\\u0000\\udc00\\u000a\\\"\\ud55c\\u007f\\u007f\\udb40\\udc01Z\\\"\\udfff"
+],
+[
+"\"\\uffff\\u0000\\\\\\u0000\\udbff\\udfff\\udbff\\\"\\u0000\\u0000\\ud83ca\"",
+"\\uffff\\u0000\\\\\\u0000\\udbff\\udfff\\udbff\\\"\\u0000\\u0000\\ud83ca"
+],
+[
+"\" \"",
+" "
+],
+[
+"\"\\u0080 \\n\\u007f\\udf00\\udf00\\u007f\\udb40\\udc01\\udc00a\\udf00\\udf00\\udbff\\udfff\"",
+"\\u0080 \\u000a\\u007f\\udf00\\udf00\\u007f\\udb40\\udc01\\udc00a\\udf00\\udf00\\udbff\\udfff"
+],
+[
+"\"\\u007f\\ud83c\\udf00\\ud83c\\udf00\\ud55c\\udf00\\ud83c\"",
+"\\u007f\\ud83c\\udf00\\ud83c\\udf00\\ud55c\\udf00\\ud83c"
+],
+[
+"\"9\\uffff\\u0080\\u0000 \\ud83c\\u0000\\ud83c\\ud55c \\\\\\ud83c\"",
+"9\\uffff\\u0080\\u0000 \\ud83c\\u0000\\ud83c\\ud55c \\\\\\ud83c"
+],
+[
+"\"\\ud55c'\\ud800\\udc00' \\ud83d\\ude00\\udbff\\udfff\\n\\ud800\\udf00\\udbff\\udfff9Z\\uffff\\ud55c\\udbff\"",
+"\\ud55c'\\ud800\\udc00' \\ud83d\\ude00\\udbff\\udfff\\u000a\\ud800\\udf00\\udbff\\udfff9Z\\uffff\\ud55c\\udbff"
+],
+[
+"\" \\udf00\\\"\\n\\udc00\\ud800\\n\\uffff\\ud55c\\ud83c\\ud800\\udc00\\n Z\\u0000\\ud800\\udc00\"",
+" \\udf00\\\"\\u000a\\udc00\\ud800\\u000a\\uffff\\ud55c\\ud83c\\ud800\\udc00\\u000a Z\\u0000\\ud800\\udc00"
+],
+[
+"\"\\ud83c\\udf00\\ud83d\\ude00\\udc00\"",
+"\\ud83c\\udf00\\ud83d\\ude00\\udc00"
+],
+[
+"\"Z\\udf00\\ud800\\udbff\\uffffZ\\ud83c\\udf00'\\u0000'\\uffff\\ud800\\udc00\\udf00\\ud800Z\\n\"",
+"Z\\udf00\\ud800\\udbff\\uffffZ\\ud83c\\udf00'\\u0000'\\uffff\\ud800\\udc00\\udf00\\ud800Z\\u000a"
+],
+[
+"\"\\u0000\\udbff\\udfff \\udbff\\udfff\\ud800\\ud83d\\ude00\\n\\u007f\"",
+"\\u0000\\udbff\\udfff \\udbff\\udfff\\ud800\\ud83d\\ude00\\u000a\\u007f"
+],
+[
+"\"a\\u0000\\u0080\\udc00\\ud55c\\u007f\\uffff \\ud83c\\udf00a9\\udb40\\udc01\\ud83c\\ud83d\\ude00Z\\ud83c\\udf00\"",
+"a\\u0000\\u0080\\udc00\\ud55c\\u007f\\uffff \\ud83c\\udf00a9\\udb40\\udc01\\ud83c\\ud83d\\ude00Z\\ud83c\\udf00"
+],
+[
+"\"9'\"",
+"9'"
+],
+[
+"\"\\u007f\\ud83c\\udf00\\n\\\\\\udb40\\udc01\\udf00\\u007f9\\u007f'\\uffffZ\\ud800\\udc00\\udfff \\ud800\"",
+"\\u007f\\ud83c\\udf00\\u000a\\\\\\udb40\\udc01\\udf00\\u007f9\\u007f'\\uffffZ\\ud800\\udc00\\udfff \\ud800"
+],
+[
+"\"Z\\udb40\\udc01Z\\\"\\ud83c\\udf009\\udb40\\udc01\\\"\"",
+"Z\\udb40\\udc01Z\\\"\\ud83c\\udf009\\udb40\\udc01\\\""
+],
+[
+"\"\\ud800\\udc00\\ud55c\\udbff'9\\ud800\\udc00\\ud800\\ud800'\\udfff\\ud55c\\n\\udb40\\udc01 \"",
+"\\ud800\\udc00\\ud55c\\udbff'9\\ud800\\udc00\\ud800\\ud800'\\udfff\\ud55c\\u000a\\udb40\\udc01 "
+],
+[
+"\"\\udbff\\udfff\\u0000\\ud55c9\\udbff\\udf00'\"",
+"\\udbff\\udfff\\u0000\\ud55c9\\udbff\\udf00'"
+],
+[
+"\"Z\\udbff9\\u0080\\n \\udbffa\\udb40\\udc01\\udf00\\u007f\\ud55c9\\ud55c\"",
+"Z\\udbff9\\u0080\\u000a \\udbffa\\udb40\\udc01\\udf00\\u007f\\ud55c9\\ud55c"
+],
+[
+"\"\\ud800\\udc00a\\\"a\\udbff \\u007f\"",
+"\\ud800\\udc00a\\\"a\\udbff \\u007f"
+],
+[
+"\"\\ud800 \\ud55ca\\\\\\\"\"",
+"\\ud800 \\ud55ca\\\\\\\""
+],
+[
+"\"\\udb40\\udc01\\u0080\\\"\"",
+"\\udb40\\udc01\\u0080\\\""
+],
+[
+"\"\\u0000\\ud55c\\uffff9\\uffff\\ud83c\\udf00\\ud83c \\ud83c\\udf00\\u0000\\ud55c\"",
+"\\u0000\\ud55c\\uffff9\\uffff\\ud83c\\udf00\\ud83c \\ud83c\\udf00\\u0000\\ud55c"
+],
+[
+"\"\\udf00\\\"\\\\\\udb40\\udc01\\ud83d\\ude00a9\\n'\\u0080\\udf00\"",
+"\\udf00\\\"\\\\\\udb40\\udc01\\ud83d\\ude00a9\\u000a'\\u0080\\udf00"
+],
+[
+"\"a9\\u0080\\uffff\\ud55c \\udbff\\udbff\\ud55c\\u0080\\\\\"",
+"a9\\u0080\\uffff\\ud55c \\udbff\\udbff\\ud55c\\u0080\\\\"
+],
+[
+"\"\\uffff\\udc00Z\\u007f\\\"\\udf00a\\udf00\\u0000\"",
+"\\uffff\\udc00Z\\u007f\\\"\\udf00a\\udf00\\u0000"
+],
+[
+"\"\\ud83c\\udf00\\u007f\\udbff\\udfff\\udc00Z\"",
+"\\ud83c\\udf00\\u007f\\udbff\\udfff\\udc00Z"
+],
+[
+"\"\\ud800\\udb40\\udc01'\\ud83c\\udf00\\u007f\\n\\udb40\\udc01\"",
+"\\ud800\\udb40\\udc01'\\ud83c\\udf00\\u007f\\u000a\\udb40\\udc01"
+],
+[
+"\"\\udbff\\\"'\\\"\\u0000\\ud800\\udc00\\ud800\\udf00\"",
+"\\udbff\\\"'\\\"\\u0000\\ud800\\udc00\\ud800\\udf00"
+],
+[
+"\"\\\"\\\"\\u0000a\\ud800\"",
+"\\\"\\\"\\u0000a\\ud800"
+],
+[
+"\"\\ud83c\\udbff\\udfff\\\\\\\"\\\"\\\\9\\ud800\"",
+"\\ud83c\\udbff\\udfff\\\\\\\"\\\"\\\\9\\ud800"
+],
+[
+"\"\\ud800\\udc00\\ud83d\\ude00\\udb40\\udc01\\ud55c\\udfff\\udbff  \\ud83d\\ude00\\ud800\\udc00\\ud800\\udc00\\u0080\\ud800\\uffff\"",
+"\\ud800\\udc00\\ud83d\\ude00\\udb40\\udc01\\ud55c\\udfff\\udbff  \\ud83d\\ude00\\ud800\\udc00\\ud800\\udc00\\u0080\\ud800\\uffff"
+],
+[
+"\"\\\"\\udfff9\\\"\\ud83c\\udf00\\udbffa\\udc00\\ud83c\\udf00\\udf00\\u0080\\ud83c\\udf00'\"",
+"\\\"\\udfff9\\\"\\ud83c\\udf00\\udbffa\\udc00\\ud83c\\udf00\\udf00\\u0080\\ud83c\\udf00'"
+],
+[
+"\"\\udb40\\udc01\\ud83c\\udf00\\ud800\\udc00\\uffffa\\ud8009\\u00809\\n\\udf00\\udb40\\udc01\\udfffa\"",
+"\\udb40\\udc01\\ud83c\\udf00\\ud800\\udc00\\uffffa\\ud8009\\u00809\\u000a\\udf00\\udb40\\udc01\\udfffa"
+],
+[
+"\"\\u0000Z\\udb40\\udc01\\u0000\\n\"",
+"\\u0000Z\\udb40\\udc01\\u0000\\u000a"
+],
+[
+"\"\\u007f\\udbff\\udfff \\\"'\\\\\\ud55c\\\"\\\"\\ud83c\\udf00\\udbff\\\"a\\ud55c\\udfff\"",
+"\\u007f\\udbff\\udfff \\\"'\\\\\\ud55c\\\"\\\"\\ud83c\\udf00\\udbff\\\"a\\ud55c\\udfff"
+],
+[
+"\"\\ud83c\\udb40\\udc01\\ud83c\\udf00'\\udbff\\udfff\\\"\\\\Z\\ud83c\\udf00 \"",
+"\\ud83c\\udb40\\udc01\\ud83c\\udf00'\\udbff\\udfff\\\"\\\\Z\\ud83c\\udf00 "
+],
+[
+"\"\\ud83c\\ud83c9\\ud55c\\udc00\\uffff\\n\\udbff\\ud83c\\ud55c\\udb40\\udc01\\u0000\"",
+"\\ud83c\\ud83c9\\ud55c\\udc00\\uffff\\u000a\\udbff\\ud83c\\ud55c\\udb40\\udc01\\u0000"
+],
+[
+"\"\\udbff\\udfff\\uffff\\udb40\\udc01\\\\\\udbff9a\\udbff\\udfff\"",
+"\\udbff\\udfff\\uffff\\udb40\\udc01\\\\\\udbff9a\\udbff\\udfff"
+],
+[
+"\"\\ud800a\\ud55c\\udbff\\udfff\\udc00\\ud83c\\udf00\"",
+"\\ud800a\\ud55c\\udbff\\udfff\\udc00\\ud83c\\udf00"
+],
+[
+"\"Z\\u0080\"",
+"Z\\u0080"
+],
+[
+"\"9\\\"\\n\\uffffa9\\ud800\\udb40\\udc01\\uffff\\ud83c\\udf00a\\u007f\"",
+"9\\\"\\u000a\\uffffa9\\ud800\\udb40\\udc01\\uffff\\ud83c\\udf00a\\u007f"
+],
+[
+"\"\\u007f\"",
+"\\u007f"
+],
+[
+"\"\\ud800\\udbff\\u0000\\ud83c\\\"\\udfffa\\udf00Z'\\uffff \\udbff\\udfff\\ud83d\\ude00\"",
+"\\ud800\\udbff\\u0000\\ud83c\\\"\\udfffa\\udf00Z'\\uffff \\udbff\\udfff\\ud83d\\ude00"
+],
+[
+"\"99a \\na\\udbff\\ud83d\\ude00\\ud55c\\u0080 \\\"\\udbff\\\"9\"",
+"99a \\u000aa\\udbff\\ud83d\\ude00\\ud55c\\u0080 \\\"\\udbff\\\"9"
+],
+[
+"\"\\u0080\\udf00\\uffff\\udbff\\udfff9\\u0080Z\\ud800\\ud800\\udc009\\u0080\\uffff\\u007f\\n\\udc00\\ud83c\"",
+"\\u0080\\udf00\\uffff\\udbff\\udfff9\\u0080Z\\ud800\\ud800\\udc009\\u0080\\uffff\\u007f\\u000a\\udc00\\ud83c"
+],
+[
+"\"\\ud800\\udfff\\\\\\ud83d\\ude00\\\"\\n\\udc00\\u0000 9\\uffff\\n\\udf00\\udbff\\udfff9\"",
+"\\ud800\\udfff\\\\\\ud83d\\ude00\\\"\\u000a\\udc00\\u0000 9\\uffff\\u000a\\udf00\\udbff\\udfff9"
+],
+[
+"\"\\udf00\\\"\\udb40\\udc019a\\u0000\\\"\\udbff\\ud800\\u007f\\ud55ca\"",
+"\\udf00\\\"\\udb40\\udc019a\\u0000\\\"\\udbff\\ud800\\u007f\\ud55ca"
+],
+[
+"\"\\udfff\\ud800\\ud800\\udc009\\uffff\"",
+"\\udfff\\ud800\\ud800\\udc009\\uffff"
+],
+[
+"\"\\ud800\\udc00a9'Z\\ud83c\\udf009\"",
+"\\ud800\\udc00a9'Z\\ud83c\\udf009"
+],
+[
+"\"\\\"\\udbff\\u007f\\udfff\\udb40\\udc01\\u0000\\udf00Z9Z\\udc00'\\udc00\\u0080\"",
+"\\\"\\udbff\\u007f\\udfff\\udb40\\udc01\\u0000\\udf00Z9Z\\udc00'\\udc00\\u0080"
+],
+[
+"\"\\ud800\\udfff\\udf009\\ud800\\uffff\"",
+"\\ud800\\udfff\\udf009\\ud800\\uffff"
+],
+[
+"\"\\ud55c\"",
+"\\ud55c"
+],
+[
+"\"\\ud55c\\ud55c\\ud800\\udc00\\udb40\\udc01\\udb40\\udc01\\ud83d\\ude00\"",
+"\\ud55c\\ud55c\\ud800\\udc00\\udb40\\udc01\\udb40\\udc01\\ud83d\\ude00"
+],
+[
+"\"\\udfff\\udbff \\ud83c\\udf00\\ud83cZ\\ud800\\udc00\\udb40\\udc01\\u007f\\uffff\\udbff\\uffff\\\\\\ud800\\udc00\\uffff\"",
+"\\udfff\\udbff \\ud83c\\udf00\\ud83cZ\\ud800\\udc00\\udb40\\udc01\\u007f\\uffff\\udbff\\uffff\\\\\\ud800\\udc00\\uffff"
+],
+[
+"\"\\uffff\\udbff\\udfff\\\"\\ud83d\\ude00\\udb40\\udc01\\u007f\"",
+"\\uffff\\udbff\\udfff\\\"\\ud83d\\ude00\\udb40\\udc01\\u007f"
+],
+[
+"\"\\ud55ca\"",
+"\\ud55ca"
+],
+[
+"\"\\udf009\"",
+"\\udf009"
+],
+[
+"\"\\\\\\udc00\\ud55c\\udb40\\udc019\\ud800\\udc00\\udbff\\udfff\\ud83d\\ude00\"",
+"\\\\\\udc00\\ud55c\\udb40\\udc019\\ud800\\udc00\\udbff\\udfff\\ud83d\\ude00"
+],
+[
+"\"\\ud83c\"",
+"\\ud83c"
+],
+[
+"\"\\\\\\\\\\udc00\\n\\udb40\\udc01\"",
+"\\\\\\\\\\udc00\\u000a\\udb40\\udc01"
+],
+[
+"\"\\ud800\\udc00\\u007f\\udfffZ'9\\ud800\\udc00\\uffff \\\"\\udb40\\udc01\\ud800\\udc00\\ud83c\\ud55c\\u0000\"",
+"\\ud800\\udc00\\u007f\\udfffZ'9\\ud800\\udc00\\uffff \\\"\\udb40\\udc01\\ud800\\udc00\\ud83c\\ud55c\\u0000"
+],
+[
+"\"a\\udb40\\udc01\\\"Z\\u0080\\udfff\\\\\\u007fa9\"",
+"a\\udb40\\udc01\\\"Z\\u0080\\udfff\\\\\\u007fa9"
+],
+[
+"\"\\udfff\\\"\\u0080\\ud83c\\udf00\\udb40\\udc01\\ud83c\\ud800\\udf00\\udfff\\udc00\\u007f\\u00009\\ud83c\\udf00\\u0080\"",
+"\\udfff\\\"\\u0080\\ud83c\\udf00\\udb40\\udc01\\ud83c\\ud800\\udf00\\udfff\\udc00\\u007f\\u00009\\ud83c\\udf00\\u0080"
+],
+[
+"\" \"",
+" "
+],
+[
+"\"a\\u007f\"",
+"a\\u007f"
+],
+[
+"\"\\udbff\\udfff\\udbff\\udfff\"",
+"\\udbff\\udfff\\udbff\\udfff"
+],
+[
+"\"\\ud83d\\ude00\\ud83c\\udf00\\udbff\\udc00\\udbff\\udb40\\udc01\\ud800\\udc00\\udbff\\udfff\\ud800\\udf00\\udc00\"",
+"\\ud83d\\ude00\\ud83c\\udf00\\udbff\\udc00\\udbff\\udb40\\udc01\\ud800\\udc00\\udbff\\udfff\\ud800\\udf00\\udc00"
+],
+[
+"\"\\udb40\\udc01\\u007f\\udb40\\udc019\\udfff\\n\\u0000\\n\\\\'\\udfff \\n\\\"\\uffff\"",
+"\\udb40\\udc01\\u007f\\udb40\\udc019\\udfff\\u000a\\u0000\\u000a\\\\'\\udfff \\u000a\\\"\\uffff"
+],
+[
+"\"\\ud800\\udc00\\ud55c\\u007f\\ud83c\\udb40\\udc01\\u0000\\ud800\\udbff\\udfff\\udf00\"",
+"\\ud800\\udc00\\ud55c\\u007f\\ud83c\\udb40\\udc01\\u0000\\ud800\\udbff\\udfff\\udf00"
+],
+[
+"\" \\ud800\\udc00\"",
+" \\ud800\\udc00"
+],
+[
+"\"\\\"\\ud83c\\udf00\\udbff\\udfff\\u0000\\u0000\\n\\udc00 \\udbff\"",
+"\\\"\\ud83c\\udf00\\udbff\\udfff\\u0000\\u0000\\u000a\\udc00 \\udbff"
+],
+[
+"\"\\uffff\\udbff\\udfff\\udc00\\\"Z\"",
+"\\uffff\\udbff\\udfff\\udc00\\\"Z"
+],
+[
+"\"\\udfff a\\ud800\\udc00\\ud55c\\ud800\\u007f\\ud800\\ud83d\\ude00'\\ud800\\udc00\\ud83c\\udf00\\udbff\\n\"",
+"\\udfff a\\ud800\\udc00\\ud55c\\ud800\\u007f\\ud800\\ud83d\\ude00'\\ud800\\udc00\\ud83c\\udf00\\udbff\\u000a"
+],
+[
+"\"\\ud83c\\udfff\\uffff\\ud83c\\udbff\\u0080\"",
+"\\ud83c\\udfff\\uffff\\ud83c\\udbff\\u0080"
+],
+[
+"\"\\udf00\\\\9\\ud800\\udfffZ\\ud800\\udc00\\\"\"",
+"\\udf00\\\\9\\ud800\\udfffZ\\ud800\\udc00\\\""
+],
+[
+"\"a\\ud83c\\ud800\\uffff\"",
+"a\\ud83c\\ud800\\uffff"
+],
+[
+"\"\\udbff\\uffff\\u0000\\ud83c\\udf00\\uffff'9\\ud55c\\ud83c\\udf00\"",
+"\\udbff\\uffff\\u0000\\ud83c\\udf00\\uffff'9\\ud55c\\ud83c\\udf00"
+],
+[
+"\" \\u0000\\ud800\\u007f\\\\\\udb40\\udc01\\ud800\\udc00\"",
+" \\u0000\\ud800\\u007f\\\\\\udb40\\udc01\\ud800\\udc00"
+],
+[
+"\"'\\u0080\\udb40\\udc01\\ud83c\\udf00\\ud55c \\ud83c\\ud55c9\\u0000\\udf00\\ud83c\\udf00a\\udb40\\udc01a\"",
+"'\\u0080\\udb40\\udc01\\ud83c\\udf00\\ud55c \\ud83c\\ud55c9\\u0000\\udf00\\ud83c\\udf00a\\udb40\\udc01a"
+],
+[
+"\"\\ud83c\\udf00a \"",
+"\\ud83c\\udf00a "
+],
+[
+"\"\\udbff\\udfff\\udf00a\\uffff\\udb40\\udc01\\udb40\\udc01\\u0080\\udb40\\udc01\\udb40\\udc01\"",
+"\\udbff\\udfff\\udf00a\\uffff\\udb40\\udc01\\udb40\\udc01\\u0080\\udb40\\udc01\\udb40\\udc01"
+],
+[
+"\"\\u0080\\ud8009\\\"\\ud800\\udc00\\uffff'\\ud800'\\udb40\\udc01\\ud83c\\udf00\\udf00\\ud55c\\udc00\\udbff\\udfff\"",
+"\\u0080\\ud8009\\\"\\ud800\\udc00\\uffff'\\ud800'\\udb40\\udc01\\ud83c\\udf00\\udf00\\ud55c\\udc00\\udbff\\udfff"
+],
+[
+"\"\\ud800\\\\\\udf00\\ud83d\\ude00\\u007f\\\"\\ud83c\\udf00\\udf00\\ud800\\udc00\\uffff\\ud800\\udbff\\na\"",
+"\\ud800\\\\\\udf00\\ud83d\\ude00\\u007f\\\"\\ud83c\\udf00\\udf00\\ud800\\udc00\\uffff\\ud800\\udbff\\u000aa"
+],
+[
+"\"\\n\\ud83c\\ud800\\udc00\\ud83c\\ud83c\\udf00\\ud55c\\udb40\\udc01Z\\n\\ud55c\"",
+"\\u000a\\ud83c\\ud800\\udc00\\ud83c\\ud83c\\udf00\\ud55c\\udb40\\udc01Z\\u000a\\ud55c"
+],
+[
+"\"\\ud800\"",
+"\\ud800"
+],
+[
+"\"\\uffff\\uffff\"",
+"\\uffff\\uffff"
+],
+[
+"\"\\udf00\\ud83c\\udf00\\n\"",
+"\\udf00\\ud83c\\udf00\\u000a"
+],
+[
+"\"\\uffff\"",
+"\\uffff"
+],
+[
+"\"\\u0000\\uffff\"",
+"\\u0000\\uffff"
+],
+[
+"\"\\ud800a\\udc00\\u0000'\"",
+"\\ud800a\\udc00\\u0000'"
+],
+[
+"\"\\ud83c\\udf00\\ud83d\\ude00\"",
+"\\ud83c\\udf00\\ud83d\\ude00"
+],
+[
+"\"Z\\udf00\\u0080\\n\\udbff\\udfff\\ud800\\ud800\\udc00\\n\\uffff\\udbff\\udfff\\udbff\"",
+"Z\\udf00\\u0080\\u000a\\udbff\\udfff\\ud800\\ud800\\udc00\\u000a\\uffff\\udbff\\udfff\\udbff"
+],
+[
+"\" \\uffff\\n\\udbff\\udfff\\ud800\\udc00\\uffff'\\udbff\\udfff\"",
+" \\uffff\\u000a\\udbff\\udfff\\ud800\\udc00\\uffff'\\udbff\\udfff"
+],
+[
+"\"\\ud800 a\\u0000\\\\9\\\"\\ud83c\\udf00\\ud800\\udc00\\ud83c\\udf00'\\ud800\\ud800\\udc00\\udb40\\udc01\\uffff\\\"\"",
+"\\ud800 a\\u0000\\\\9\\\"\\ud83c\\udf00\\ud800\\udc00\\ud83c\\udf00'\\ud800\\ud800\\udc00\\udb40\\udc01\\uffff\\\""
+],
+[
+"\"\\udc00\\udc00\\u007fZ\\n\\ud800\\udc00\\udfff\\ud83c\\udf00\\u007f\\ud800\"",
+"\\udc00\\udc00\\u007fZ\\u000a\\ud800\\udc00\\udfff\\ud83c\\udf00\\u007f\\ud800"
+],
+[
+"\"\\udc00\\\"\\ud83c9\\u0080\\udfff\\n\\udf009\\udbff\\udfff\\u007f\\ud83d\\ude00Z\"",
+"\\udc00\\\"\\ud83c9\\u0080\\udfff\\u000a\\udf009\\udbff\\udfff\\u007f\\ud83d\\ude00Z"
+],
+[
+"\"aa\\ud83ca\\uffff\"",
+"aa\\ud83ca\\uffff"
+],
+[
+"\"\\ud83c\\udf00\\n\\ud83c\"",
+"\\ud83c\\udf00\\u000a\\ud83c"
+],
+[
+"\"\\\"\\ud83d\\ude00\\ud83c\"",
+"\\\"\\ud83d\\ude00\\ud83c"
+],
+[
+"\"\\u007f\\u0080\\udfff\\ud83d\\ude00\\udf00\\udc00\\ud55c\\uffff\\ud800\\udc00\\udbff\\udbff\\udbffa9\"",
+"\\u007f\\u0080\\udfff\\ud83d\\ude00\\udf00\\udc00\\ud55c\\uffff\\ud800\\udc00\\udbff\\udbff\\udbffa9"
+],
+[
+"\"\\udb40\\udc01\\u007f\\ud83d\\ude00\\udb40\\udc01 \\u0080\\uffff9\\udc00\\udbff\\udfff\"",
+"\\udb40\\udc01\\u007f\\ud83d\\ude00\\udb40\\udc01 \\u0080\\uffff9\\udc00\\udbff\\udfff"
+],
+[
+"\"Z\\ud83d\\ude00\\uffff9\\\\\\udbff\\udfff\"",
+"Z\\ud83d\\ude00\\uffff9\\\\\\udbff\\udfff"
+],
+[
+"\"\\n\\ud800\\udc00\\u0000\\ud83c\\udf00\"",
+"\\u000a\\ud800\\udc00\\u0000\\ud83c\\udf00"
+],
+[
+"\"\\\\\\udc00\\udfff\\udf00\\udfffa\\u007fZ\\u0000\\u007f\\udb40\\udc01\"",
+"\\\\\\udc00\\udfff\\udf00\\udfffa\\u007fZ\\u0000\\u007f\\udb40\\udc01"
+],
+[
+"\"\\udbff\\udfff\\\"\\ud83c\\udf00\\ud55c\\udfff\\udfff\\udbff\\\\\\ud55c 9\"",
+"\\udbff\\udfff\\\"\\ud83c\\udf00\\ud55c\\udfff\\udfff\\udbff\\\\\\ud55c 9"
+],
+[
+"\"\\u0000\\n\\udbff\\\\\\ud83c \\u007f\\ud83c\\udf00\\ud83c\\udf00\\udbff\\udfff\\ud83c\\udf00\"",
+"\\u0000\\u000a\\udbff\\\\\\ud83c \\u007f\\ud83c\\udf00\\ud83c\\udf00\\udbff\\udfff\\ud83c\\udf00"
+],
+[
+"\"a9\\u007f\\ud800\\ud800\\udc00\\\"\\ud55cZ\\ud83ca\"",
+"a9\\u007f\\ud800\\ud800\\udc00\\\"\\ud55cZ\\ud83ca"
+],
+[
+"\"\\udfff\\ud83c\\udfff\\udbff\"",
+"\\udfff\\ud83c\\udfff\\udbff"
+],
+[
+"\"9\\udf00 \\ud83c\"",
+"9\\udf00 \\ud83c"
+],
+[
+"\"\\n\\u0080\\ud55c\\u007f\\udb40\\udc019\"",
+"\\u000a\\u0080\\ud55c\\u007f\\udb40\\udc019"
+],
+[
+"\"\\ud83d\\ude00\\udfff'\\udbff\\udf00\\udbff\\u0000'\\n\\ud83c\\udf00\\ud800\\udc00\"",
+"\\ud83d\\ude00\\udfff'\\udbff\\udf00\\udbff\\u0000'\\u000a\\ud83c\\udf00\\ud800\\udc00"
+],
+[
+"\"\\ud55c\\udb40\\udc01\\udb40\\udc01\"",
+"\\ud55c\\udb40\\udc01\\udb40\\udc01"
+],
+[
+"\"9\\ud800\\udc00\\ud800\\udc00\"",
+"9\\ud800\\udc00\\ud800\\udc00"
+],
+[
+"\"9\\udb40\\udc01 a\\udbff\\udbff\\udfff\\ud83c\\udf00Z\"",
+"9\\udb40\\udc01 a\\udbff\\udbff\\udfff\\ud83c\\udf00Z"
+],
+[
+"\"a\\udb40\\udc01\\udbff\\ud83ca\\\\\\n\\\"\\udbff\\udfff\\\"\\ud83c\\udf00\\udbff\\ud800\\udc00\\udbff\\udfff\"",
+"a\\udb40\\udc01\\udbff\\ud83ca\\\\\\u000a\\\"\\udbff\\udfff\\\"\\ud83c\\udf00\\udbff\\ud800\\udc00\\udbff\\udfff"
+],
+[
+"\"\\ud800a\"",
+"\\ud800a"
+],
+[
+"\"\\udfff'\\u007f\\udb40\\udc01\\\"\\n\\udbff\\ud800\\udc009\\ud55c\\ud83c\\\"\\udbff\"",
+"\\udfff'\\u007f\\udb40\\udc01\\\"\\u000a\\udbff\\ud800\\udc009\\ud55c\\ud83c\\\"\\udbff"
+],
+[
+"\"\\n '\"",
+"\\u000a '"
+],
+[
+"\"a\\udbff\\udfff\\udfff'Z\"",
+"a\\udbff\\udfff\\udfff'Z"
+],
+[
+"null",
+"None"
+],
+[
+"true",
+"True"
+],
+[
+"false",
+"False"
+],
+[
+"0",
+"0"
+],
+[
+"-7",
+"-7"
+],
+[
+"12345678901234567000",
+"12345678901234567000"
+],
+[
+"1.5",
+"1.5"
+],
+[
+"-0.25",
+"-0.25"
+],
+[
+"1e-07",
+"1e-07"
+],
+[
+"[\"\\ud83c\\udf00\", \"\\ud83c\", \"\\udf00\\udbff\\udfff\", \"q'\\\"\"]",
+"['\\ud83c\\udf00', '\\\\ud83c', '\\\\udf00\\\\U0010ffff', 'q\\\\'\\\"']"
+],
+[
+"{\"k\\ud83c\\udf00\": \"\\ud83c\\ud83d\\ude00\", \"n\": [1, 2.5, null]}",
+"{'k\\ud83c\\udf00': '\\\\ud83c\\ud83d\\ude00', 'n': [1, 2.5, None]}"
 ]
 ]
 }
