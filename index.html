@@ -2680,6 +2680,7 @@ function placeBrushImg(space, c) {
 }
 // 전체 다시 그리기 (되돌리기·불러오기·지우기·지도종류 바뀜 후)
 function renderBrush() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const all = brushStrokes();
   for (const space of brushSpaceKeys()) {
     const strokes = all.filter((s) => (s.space || 'main') === space);
@@ -2864,10 +2865,19 @@ function pushUndo(tag) {
   updateUndoBtns();
 }
 // 지도 내용 리비전 — 틸트 미리보기 캔버스가 칠·태풍·되돌리기 같은 '내용' 변경도 다시 굽게 서명에 넣는다
-let _mapContentRev = 0;
+let _mapContentRev = 0, _tiltContentTimer = 0;
+// 지도 레이어를 다시 그렸다 — 리비전을 올리고, 기울인 미리보기 중이면 잠깐 뒤 한 번 다시 굽는다(연속 변경은 1회로 묶음)
+function bumpMapContent() {
+  _mapContentRev++;
+  if (!document.querySelector('.fit.mapTilt')) return;
+  clearTimeout(_tiltContentTimer);
+  _tiltContentTimer = setTimeout(() => { if (typeof applyTilt === 'function') applyTilt(); }, 60);
+}
 function applyState(next) {
   const styleChanged = S.style !== next.style;
   S = next; sel = []; lastTag = '';
+  // 타임라인이 닫혀 있으면 편집은 평면 — 타임라인에서 기울인 채 쌓인 기록을 되돌려도 틸트로 돌아가지 않게
+  if (!$('#timeline')?.classList.contains('on') && S.map3d && (+S.map3d.rx || +S.map3d.ry || +S.map3d.rz)) S.map3d = { on: 0, rx: 0, ry: 0, rz: 0, persp: S.map3d.persp || 2.2 };
   if (styleChanged) { buildZones(); markStyleBtns(); }
   syncPanelFromState(); renderAll(); updateUndoBtns();
   if (typeof applyTilt === 'function') applyTilt();   // 되돌린 S.map3d·내용에 맞춰 틸트 클래스·캔버스도 갱신
@@ -3373,6 +3383,7 @@ function wireBasemap() {
 }
 
 function renderInsets() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   // '특보 + 해상' 지도는 도서 박스를 안 쓴다 — 섬이 전부 제자리에 있으므로 박스·핸들을 숨긴다
   const off = !!MAP.styles[S.style].noInsets;
   for (const key of Object.keys(S.insets)) {
@@ -3419,7 +3430,7 @@ function renderInsets() {
 }
 
 function renderFills() {
-  _mapContentRev++;
+  bumpMapContent();
   const F = fills();
   for (const [id, arr] of zoneEls) {
     const filled = !!F[id];
@@ -3487,6 +3498,7 @@ function renderZoneLines() {
 
 // 해상 특보구역. '특보 + 해상' 지도에서만 나온다. 안 칠한 구역은 기본 농도만큼만 비친다.
 function renderSea() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const on = !!MAP.styles[S.style].sea;
   $('#L_sea').style.display = on ? '' : 'none';
   // 가장자리 페이드 — 캔버스가 아니라 '바다 영역 자체'의 좌·우·하단에서 사라지게 한다.
@@ -3521,6 +3533,7 @@ function renderSea() {
 
 // 시도 경계선은 채운 조각들 위에 덧그린다 (같은 그룹 안에 있어야 인셋 transform을 따라감)
 function renderSidoLines() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const put = (node, sc) => {
     node.setAttribute('fill', 'none');
     node.setAttribute('stroke', S.sidoOn ? S.sidoCol : 'none');
@@ -3550,6 +3563,7 @@ function bgTypeOf() {
 function bgKey() { const t = bgTypeOf(); return S.cgLight ? (BG_LIGHT[t] || t) : t; }
 
 function renderBg() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const typh = isTyphoon();   // 태풍 지도는 한국 배경/이웃나라 대신 광역 바다·해안선을 쓴다
   const bg = $('#bgImg');
   const src = (bgUseFile && bgOverride) || IMG[bgKey()] || IMG.bg;
@@ -3762,6 +3776,7 @@ function applyVfClip() {
 }
 
 function renderShadow() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const s = S.shadow;
   const fx = $('#shadowFx');
   fx.setAttribute('dx', s.x); fx.setAttribute('dy', s.y);
@@ -4323,6 +4338,7 @@ const newMtn = (o) => Object.assign({
 }, o);
 
 function renderMtns() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const L = $('#L_mtn');
   L.textContent = '';
   const k = mtnK();
@@ -4391,7 +4407,7 @@ function renderSel() {
 }
 
 function renderAll() {
-  _mapContentRev++;
+  bumpMapContent();
   renderBg(); renderShadow(); renderMapTransform(); renderInsets();
   renderBrush(); renderTexts(); renderLegend(); renderLabels(); renderMtns(); renderTyphoon(); renderSel(); renderVfScale();
 }
@@ -5399,7 +5415,7 @@ function typhoonLandNoKorea() {
 }
 let _inTyphoonRender = false;
 function renderTyphoon() {
-  _mapContentRev++;
+  bumpMapContent();
   _inTyphoonRender = true;
   try { _renderTyphoon(); } finally { _inTyphoonRender = false; }
 }
