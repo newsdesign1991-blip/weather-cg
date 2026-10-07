@@ -2232,7 +2232,7 @@
           <!-- 서울 지도 전용 한강(파란 물). 서울 실루엣으로 클립, 경계선 아래. 다른 지도에선 숨김. -->
           <path id="seoulRiver" clip-path="url(#seoulClip)" style="display:none" pointer-events="none"/>
           <!-- 서울 지도: 칠한 동 색을 한강 위로 올리는 오버레이(강이 뒤에 살짝 비침). -->
-          <g id="seoulPaintTop" style="display:none" pointer-events="none"/>
+          <g id="seoulPaintTop" data-role="seoulPaintTop" style="display:none" pointer-events="none"/>
           <!-- 실제 방송용 구역선 (베이스색). 작업용 선과 별개로 켜고 끈다. -->
           <path id="zoneLineMain" class="zoneLine"/>
           <path id="sidoMain" class="sidoLine"/>
@@ -2526,6 +2526,8 @@ function setSeoulDefaultView() {
 
 // S.style이 없는 스타일을 가리키면(예: seoul-map-data.js 로드 실패 + 저장값이 seoul) 시도군으로 폴백.
 const curStyle = () => MAP.styles[S.style] || MAP.styles.sgg;
+// 저장·되돌리기·불러오기로 S를 통째로 바꾼 뒤 부른다 — 없는 지도 종류면 S.style 자체를 시도군으로(데이터 키도 맞게).
+const normStyle = () => { if (!MAP.styles[S.style]) S.style = 'sgg'; };
 const curZones = () => curStyle().zones;
 // 시도선은 지도 종류마다 다르다 — 특보 지도는 기상청 데이터에서, 나머지는 행정동 데이터에서 뽑았다.
 // 출처가 다른 시도선을 얹으면 경계가 0.2~0.6km 어긋난다.
@@ -2554,12 +2556,13 @@ function brushImgOf(space) {
   }
   return img;
 }
-// 색별 브러쉬 이미지 (data-col). 그리는 순서대로 위에 쌓이도록 매번 끝으로 다시 붙인다.
-function brushColImgOf(space, col) {
+// 색 런별 브러쉬 이미지 (data-col=색, data-run=칠한 순번). 그리는 순서대로 위에 쌓이도록 매번 끝으로 다시 붙인다.
+// 같은 색이 다른 색을 사이에 두고 다시 나오면(빨강→파랑→빨강) 런마다 따로 — 타임라인·AE는 data-col로 묶어 쓴다.
+function brushColImgOf(space, col, run) {
   const key = (col || '').toUpperCase();
-  const sel = `image.brushLayer[data-space="${space}"][data-col="${key}"]`;
+  const sel = `image.brushLayer[data-space="${space}"][data-col="${key}"][data-run="${run}"]`;
   let img = svg.querySelector(sel);
-  if (!img) img = el('image', { class: 'brushLayer', 'data-space': space, 'data-col': key, preserveAspectRatio: 'none' });
+  if (!img) img = el('image', { class: 'brushLayer', 'data-space': space, 'data-col': key, 'data-run': run, preserveAspectRatio: 'none' });
   if (space === 'main') $('#L_brush').append(img);
   else { const g = $('#insetT-' + space); if (!g) return null; g.insertBefore(img, g.querySelector('[data-zoneline]')); }
   return img;
@@ -2689,25 +2692,46 @@ function renderBrush() {
     // 라이브 이미지는 드래그 끝났으니 숨긴다(색별 이미지로 대체).
     const live = svg.querySelector(`image.brushLayer.brushLive[data-space="${space}"]`);
     if (live) live.style.display = 'none';
-    // 그린 순서대로 색 목록(중복 제외, 지우개 빼고). 이 순서가 곧 쌓임 순서.
-    const cols = [];
-    for (const s of strokes) if (!s.erase && !cols.some((x) => sameHex(x, s.col))) cols.push(s.col);
-    const c = cols.length ? ensureSpaceCanvas(space) : null;
-    const present = new Set();
-    if (c) for (const col of cols) {
-      // 그 색 획 + (그 사이의) 지우개만 그린다 → 색마다 독립 이미지. 순서 보존해 지우개가 제대로 파낸다.
-      const filtered = strokes.filter((s) => s.erase || sameHex(s.col, col));
-      paintSpaceCanvas(space, filtered);
-      const img = brushColImgOf(space, col); if (!img) continue;
-      img.setAttribute('x', c.bbox.x); img.setAttribute('y', c.bbox.y);
-      img.setAttribute('width', c.bbox.w); img.setAttribute('height', c.bbox.h);
-      img.setAttribute('href', c.canvas.toDataURL());
-      img.style.display = ''; img.removeAttribute('opacity');
-      present.add((col || '').toUpperCase());
+    const c = strokes.some((s) => !s.erase) ? ensureSpaceCanvas(space) : null;
+    const keep = new Set();
+    if (c) {
+      // 미리보기(paintSpaceCanvas)와 같은 결과가 나오게 '같은 색 연속 런'마다 이미지를 만들고 칠한 순서대로 쌓는다.
+      // 나중 런(어느 색이든)은 앞 런들을 파내고(=덮기), 나중 지우개는 앞 런들을 지운다.
+      // (파내기 2번 + 위에 얹힐 때 1번 = 미리보기 bComposite의 3번 파내기와 같은 덮임)
+      const W = c.canvas.width, H = c.canvas.height, runs = [];
+      for (let i = 0; i < strokes.length;) {
+        const s0 = strokes[i];
+        if (s0.erase) {
+          for (const r of runs) { const g = brushSetup(r.cv.getContext('2d'), space, strokeClip(s0, space)); for (const [x, y] of s0.dabs) brushDab(g, x, y, s0.r, s0.col, s0.op, s0.soft, true); brushEnd(g); }
+          i++; continue;
+        }
+        let j = i + 1;
+        while (j < strokes.length && !strokes[j].erase && sameHex(strokes[j].col, s0.col)) j++;   // 같은 색 연속 런
+        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const lx = cv.getContext('2d');
+        for (let k = i; k < j; k++) { const s = strokes[k]; const g = brushSetup(lx, space, strokeClip(s, space)); for (const [x, y] of s.dabs) brushDab(g, x, y, s.r, s.col, s.op, s.soft, false); brushEnd(g); }
+        for (const r of runs) {
+          const rx = r.cv.getContext('2d');
+          rx.setTransform(1, 0, 0, 1, 0, 0); rx.globalCompositeOperation = 'destination-out';
+          rx.drawImage(cv, 0, 0); rx.drawImage(cv, 0, 0);
+          rx.globalCompositeOperation = 'source-over';
+        }
+        runs.push({ col: s0.col, cv });
+        i = j;
+      }
+      runs.forEach((r, k) => {
+        const img = brushColImgOf(space, r.col, k); if (!img) return;
+        img.setAttribute('x', c.bbox.x); img.setAttribute('y', c.bbox.y);
+        img.setAttribute('width', c.bbox.w); img.setAttribute('height', c.bbox.h);
+        img.setAttribute('href', r.cv.toDataURL());
+        img.style.display = ''; img.removeAttribute('opacity');
+        keep.add(img);
+      });
+      paintSpaceCanvas(space, strokes);   // 공간 캔버스엔 전체 합성(스포이드·다음 획의 base)
     }
-    // 이제 없는 색의 옛 이미지는 제거
+    // 이번에 안 쓴 옛 이미지(없어진 색·런)는 제거
     svg.querySelectorAll(`image.brushLayer[data-space="${space}"][data-col]`).forEach((im) => {
-      if (!present.has((im.getAttribute('data-col') || '').toUpperCase())) im.remove();
+      if (!keep.has(im)) im.remove();
     });
   }
 }
@@ -2766,6 +2790,7 @@ function zoneUnder(e) {
   return null;
 }
 function brushSpaceAt(e) {
+  if (curStyle().noInsets) return 'main';   // 인셋 없는 지도(서울·특보+해상): 숨은 인셋 박스가 본토 칠을 가로채지 않게
   const p = toUser(e);
   for (const key of Object.keys(S.insets)) {
     if (!S.insets[key].show) continue;
@@ -2868,9 +2893,16 @@ function pushUndo(tag) {
 }
 function applyState(next) {
   const styleChanged = S.style !== next.style;
-  S = next; sel = []; lastTag = '';
+  const resChanged = S.res !== next.res;
+  S = next; normStyle(); sel = []; lastTag = '';
   if (styleChanged) { buildZones(); markStyleBtns(); }
+  buildBgBtns();   // 배경 목록은 해상도·교체 배경마다 다르다(VF 배경은 VF에서만)
   syncPanelFromState(); renderAll(); updateUndoBtns();
+  if (resChanged) {   // 해상도 적용(_apply)과 같은 해상도별 UI도 되돌린다
+    markResBtns();
+    if (typeof tlNote === 'function') tlNote();
+    updateFrameGuideLabel();
+  }
 }
 // 불러오기·새로 시작 경계 스냅샷에 저장 대상 파일(projFileHandle) 전/후를 붙여 둔다 — 되돌리면 파일도 같이 되돌려
 // 불러온 파일 B를 옛 작업 A로 묻지 않고 덮어쓰지 않게.
@@ -2943,7 +2975,7 @@ function buildZones() {
   for (const key of Object.keys(S.insets)) {
     const inner = $('#insetT-' + key);
     // 경계선 path는 남기고 조각만 지운다
-    inner.querySelectorAll('.zone').forEach((n) => n.remove());
+    inner.querySelectorAll('.zone, .brushSelHi').forEach((n) => n.remove());   // 인셋의 브러쉬 선택 강조도 같이(선택은 위에서 비움)
     inner.querySelector('.sidoLine').setAttribute('d', SL[key] || '');
     inner.querySelector('.zoneLine').setAttribute('d', ZL[key] || '');
   }
@@ -2983,6 +3015,9 @@ function buildZones() {
 function syncSeoulPaintTop() {
   const layer = $('#seoulPaintTop'); if (!layer) return;
   layer.textContent = '';
+  // 브러쉬 덧칠(#L_brush)은 칠 위에 와야 한다 — 서울에선 이 오버레이·한강 위로, 다른 지도에선 원래 자리(#gMain 바로 뒤)로.
+  const lb = $('#L_brush');
+  if (lb) { const want = isSeoul() ? layer : $('#gMain'); if (want.nextElementSibling !== lb) want.after(lb); }
   if (!isSeoul()) { layer.style.display = 'none'; return; }
   layer.style.display = '';
   const F = fills();
@@ -3055,6 +3090,7 @@ function setStyle(name) {
   buildZones();
   renderInsets(); // 지도 종류마다 박스를 쓰기도 안 쓰기도 한다
   renderFills();
+  renderBrush();   // 브러쉬 획은 지도 종류별 — 같은 배치 그룹끼리 바꿔도(renderAll 안 탐) 이전 지도 브러쉬가 남지 않게
   markStyleBtns(); syncEyes(); syncMapAltHint();   // 태풍↔다른 지도 전환 시 Alt 조작법 표시 갱신
   let applied = true;
   if (before !== after) {
@@ -3210,7 +3246,7 @@ function wireMapPos() {
     if (!isFinite(x) || !isFinite(y) || !isFinite(s)) return;
     pushUndo('mappos');
     S.map.x = Math.round(x); S.map.y = Math.round(y); S.map.s = Math.max(0.02, Math.min(4, s));
-    renderMapTransform(); renderSea(); if (typeof applyTilt === 'function') applyTilt();
+    renderMapTransform(); renderStrokeScale(); renderSea(); if (typeof applyTilt === 'function') applyTilt();   // 배율이 바뀌면 경계선 굵기도 보정
     status(`지도 위치 · X ${S.map.x} · Y ${S.map.y} · 확대 ${S.map.s}`, true);
   };
   const ap = document.getElementById('mapPosApply'); if (ap) ap.onclick = apply;
@@ -3358,7 +3394,7 @@ function wireBasemap() {
 
 function renderInsets() {
   // '특보 + 해상' 지도는 도서 박스를 안 쓴다 — 섬이 전부 제자리에 있으므로 박스·핸들을 숨긴다
-  const off = !!MAP.styles[S.style].noInsets;
+  const off = !!curStyle().noInsets;
   for (const key of Object.keys(S.insets)) {
     const c = S.insets[key];
     for (const id of ['#inset-', '#box-', '#grip-', '#hit-']) {
@@ -3452,6 +3488,14 @@ function renderFills() {
   renderSea();
   if (typeof syncSeoulPaintTop === 'function') syncSeoulPaintTop();   // 서울: 칠한 색을 한강 위로
 }
+// 지도 배율만 바뀌었을 때 — 칠(fill)은 건드리지 않고 경계선 굵기 보정(÷배율)만 다시. 좌표 입력·Alt 줌 확정에서 부른다.
+function renderStrokeScale() {
+  for (const [, arr] of zoneEls) for (const { el: e, inset } of arr) {
+    const sc = inset ? S.insets[inset].s : S.map.s;
+    e.setAttribute('stroke-width', S.strokeW / (sc || 1));
+  }
+  renderZoneLines(); renderSidoLines();
+}
 
 // 실제 방송용 구역선 (베이스색). 작업용 선과 독립적으로 켜고 끈다.
 function renderZoneLines() {
@@ -3470,7 +3514,7 @@ function renderZoneLines() {
 
 // 해상 특보구역. '특보 + 해상' 지도에서만 나온다. 안 칠한 구역은 기본 농도만큼만 비친다.
 function renderSea() {
-  const on = !!MAP.styles[S.style].sea;
+  const on = !!curStyle().sea;
   $('#L_sea').style.display = on ? '' : 'none';
   // 가장자리 페이드 — 캔버스가 아니라 '바다 영역 자체'의 좌·우·하단에서 사라지게 한다.
   // 그라디언트 범위를 바다 bbox에 맞춘다 (밖은 마지막 stop 색이 이어져서 자연스럽게 잘린다).
@@ -4128,7 +4172,8 @@ function swapRamp(name) {
   const target = RAMPS.find((r) => r.name === name);
   if (!target) return;
   const F = fills();
-  const src = [...new Set([...Object.values(F), ...Object.values(S.seaFills)].map((c) => c.toUpperCase()))];
+  const BS = brushStrokes().filter((s) => !s.erase && s.col);   // 브러쉬 덧칠 색도 칠한 색(autoLabels·애니와 같게)
+  const src = [...new Set([...Object.values(F), ...Object.values(S.seaFills), ...BS.map((s) => s.col)].map((c) => c.toUpperCase()))];
   if (!src.length) { status('칠한 색이 없습니다 — 먼저 지도를 칠하세요', true); return; }
 
   // 연한 것부터 차례로 자리를 준다. 서로 다른 색이 같은 단계로 겹치면 한 칸씩 밀어
@@ -4144,7 +4189,12 @@ function swapRamp(name) {
   for (const id of Object.keys(S.seaFills)) S.seaFills[id] = conv(S.seaFills[id]);
   // 라벨은 색으로 무슨 뜻인지 알려주는 것이라 같이 안 따라가면 지도와 어긋난다
   for (const b of S.labels) { const n = map.get((b.fill || '').toUpperCase()); if (n) b.fill = n; }
-  renderFills(); renderLabels(); refreshPanel();
+  for (const s of BS) s.col = conv(s.col);
+  // 애니 트랙 key(=색)도 같이 — 안 그러면 번짐/블라인드가 새 색을 못 찾아 처음부터 꽉 차거나, 타임라인을 열 때 트랙이 통째로 지워진다(recolorBul과 같게)
+  for (const tr of anim().tracks) if (tr.kind === 'fill' || tr.kind === 'brush') { const n = map.get((tr.key || '').toUpperCase()); if (n) tr.key = n.toUpperCase(); }
+  for (const s of bulSpecs) { const n = map.get((s.col || '').toUpperCase()); if (n) s.col = n; }
+  renderFills(); renderBrush(); renderLabels(); refreshPanel(); buildTimeline();
+  renderBulList(); saveWork();
   status(`${name} 계열로 바꿨습니다 (${src.length}색)`, true);
 }
 
@@ -7216,6 +7266,7 @@ svg.addEventListener('pointerdown', (e) => {
         for (const b of labelList()) if (b && b.x != null) { b.x = Math.round(tx + b.x * r); b.y = Math.round(ty + b.y * r); }
         shiftCompareLabelsBy(tx, ty, r);   // 비교 라벨도 지도와 함께 이동(팬 시 이름표 튐 방지)
       }
+      if (btn === 2) renderStrokeScale();   // 줌: 경계선 굵기 보정(÷배율) 다시
       renderMapTransform();   // 최종 위치를 속성 transform(#bgMapT/#mapT)으로 확정 + 태풍 재구성(내부에서 renderTyphoon)
       applyTilt();
     }  // 끝날 때만 정확히 재구성
@@ -7272,7 +7323,7 @@ svg.addEventListener('wheel', (e) => {
   clearTimeout(_wheelUndoTimer); _wheelUndoTimer = setTimeout(() => { _wheelUndoArmed = true; }, 500);
   if (camActive3d()) {   // 틸트: 기존 방식(캔버스 재래스터)
     zoomMapAbout(960, 540, S.map.s * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
-    renderMapTransform(); if (isTyphoon()) renderTyphoon(); applyTilt();
+    renderMapTransform(); renderStrokeScale(); if (isTyphoon()) renderTyphoon(); applyTilt();
     return;
   }
   // 평면: GPU CSS transform으로 즉시 확대(리페인트 없음), 휠 멈추면(180ms) 1회만 확정.
@@ -7287,7 +7338,7 @@ svg.addEventListener('wheel', (e) => {
       for (const b of labelList()) if (b && b.x != null) { b.x = Math.round(tx + b.x * r); b.y = Math.round(ty + b.y * r); }
       shiftCompareLabelsBy(tx, ty, r);   // 휠 줌에도 비교 라벨·참고 이미지 따라오게(확대/축소 반영)
     }
-    renderMapTransform(); applyTilt(); setFlatPanLOD(false);
+    renderMapTransform(); renderStrokeScale(); applyTilt(); setFlatPanLOD(false);
   }, 180);
 }, { passive: false, capture: true });
 
@@ -9065,7 +9116,7 @@ const PRESET_KEYS = ['map', 'insets', 'texts', 'labScale', 'mtnScale', 'cgLight'
 // 배치는 [출력 화면] × [배치 그룹] × [밝은/어두운]으로 따로 기억한다.
 // '특보 + 해상'은 바다까지 담느라 지도를 줄여야 해서 배치가 완전히 다르다.
 // 박스를 쓰는 나머지(시도군·시도·특보)는 배치가 같으므로 한 묶음('common')으로 공유한다.
-const layoutGroup = (style) => (MAP.styles[style].noInsets ? style : 'common');
+const layoutGroup = (style) => ((MAP.styles[style] || MAP.styles.sgg).noInsets ? style : 'common');
 const cgModeTag = (light) => ((light == null ? S.cgLight : light) ? 'L' : 'D');
 const presetKey = (res, style, light) => `${res || S.res}|${layoutGroup(style || S.style)}|${cgModeTag(light)}`;
 const presetLabel = (key) => {
@@ -10072,6 +10123,27 @@ function drawExportTextOverlay(cx, keep, W, H) {
   }
   cx.setTransform(1, 0, 0, 1, 0, 0);
 }
+// 추출용 복제본에서 편집 UI(선택·가이드·핸들·브러쉬 커서·브러쉬 영역 강조) 제거. <img> 안 SVG엔 문서 CSS가 없어 남기면 검게 찍힌다.
+// (svgToImage·svgBlob·previewPng 공용 — 목록을 한 곳에서 관리)
+const EXPORT_STRIP = ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor'];
+function stripExportUi(clone) {
+  for (const s of EXPORT_STRIP) clone.querySelector(s)?.remove();
+  clone.querySelectorAll('.brushSelHi').forEach((n) => n.remove());
+}
+// 서울: 레이어 분리(mutate)로 존 칠을 비우거나 베이스로 되돌렸으면 한강 위 칠 오버레이(#seoulPaintTop)도 그 존을 따른다
+// (안 그러면 베이스·시도선·브러쉬·경계선 레이어에 모든 칠 색이 처음부터 찍힌다). 칠한 존이 하나도 안 남은 투명 레이어엔 한강도 뺀다.
+function syncSeoulExport(clone) {
+  const top = clone.querySelector('#seoulPaintTop');
+  if (!top || !isSeoul()) return;
+  const zf = new Map();
+  clone.querySelectorAll('#gMain .zone').forEach((z) => zf.set(z.dataset.id, z.getAttribute('fill') || 'none'));
+  const base = (S.base || '').toUpperCase();
+  for (const p of [...top.children]) {
+    const f = zf.get(p.dataset.id);
+    if (!f || f === 'none' || f.toUpperCase() === base) p.remove(); else p.setAttribute('fill', f);
+  }
+  if (![...zf.values()].some((f) => f !== 'none')) clone.querySelector('#seoulRiver')?.remove();
+}
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
 // stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
 async function svgToImage(W, H, keep, viewBox, stripText) {
@@ -10080,7 +10152,7 @@ async function svgToImage(W, H, keep, viewBox, stripText) {
   clone.setAttribute('width', W);
   clone.setAttribute('height', H);
   if (viewBox) clone.setAttribute('viewBox', viewBox);
-  for (const s of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(s)?.remove();
+  stripExportUi(clone);
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
   // 실시간 Mapbox 타일: 외부 URL은 래스터에서 안 뜨므로 캐시된 data URI로 바꿔 끼운다. 없으면 제거(빈 참조 방지).
   clone.querySelectorAll('#typhoonTiles image[data-url]').forEach((im) => {
@@ -10567,9 +10639,10 @@ async function svgBlob(mutate, overlayText) {
   const [W, H] = RES[S.res].size;
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', W); clone.setAttribute('height', H);
-  for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(id)?.remove();
+  stripExportUi(clone);
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   mutate(clone);
+  syncSeoulExport(clone);   // 서울 칠 오버레이·한강을 남은 존 칠에 맞춘다
   const remain = overlayText ? ALL_LAYERS.filter((l) => clone.querySelector('#' + l)) : null;   // mutate 후 남은(글자 그릴) 레이어
   if (overlayText) clone.querySelectorAll('text').forEach((n) => n.remove());   // 글자는 캔버스에 직접 그린다
   const xml = new XMLSerializer().serializeToString(clone);
@@ -10593,7 +10666,7 @@ async function previewPng(maxW) {
   const k = Math.min(1, maxW / W), w = Math.round(W * k), h = Math.round(H * k);
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', w); clone.setAttribute('height', h);
-  for (const id of ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor']) clone.querySelector(id)?.remove();
+  stripExportUi(clone);
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   const xml = new XMLSerializer().serializeToString(clone);
   const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml); await img.decode();   // data: URL — 폰트 확실 적용
@@ -11499,6 +11572,7 @@ function loadProjectData(data, handle) {
   pushUndo();
   try {
     S = Object.assign(DEFAULTS(), data);
+    normStyle();   // 없는 지도 종류(데이터 파일 로드 실패)면 시도군으로
     bumpSeq();   // 불러온 작업 id 뒤에서 새 id 발급
     sel = [];
     buildZones(); markStyleBtns(); markResBtns();
@@ -12535,6 +12609,7 @@ function ensureBlind() {
   base.querySelectorAll('image').forEach((n) => n.remove());   // 브러쉬 이미지는 베이스에서 뺀다 (안 그러면 브러쉬가 겹쳐 이상해짐)
   // 경계선(구역선·시도선)은 베이스에도 그대로 둔다 — 애니메이션 처음부터 경계선이 보이게. 색칠만 슬랫으로 드러난다.
   base.querySelectorAll('.zone').forEach((z) => { z.setAttribute('fill', S.base); });
+  base.querySelectorAll('[data-role="seoulPaintTop"]').forEach((g) => { g.textContent = ''; });   // 서울: 칠한 색 오버레이도 베이스엔 없어야(슬랫 열리기 전 색이 보임)
   document.getElementById('L_map').before(base);
 }
 // 클립 하나를 진행도 gp 만큼 열린 슬랫으로 채운다 (여러 색이 각자 이걸 쓴다)
@@ -12655,6 +12730,21 @@ function renderAnimFrame(t) {
       const arr = zoneEls.get(p.dataset.id); const z = arr && arr[0] && arr[0].el;
       if (!z) continue;
       p.setAttribute('fill', z.getAttribute('fill'));
+      const cp = z.getAttribute('clip-path');
+      if (cp) p.setAttribute('clip-path', cp); else p.removeAttribute('clip-path');
+    }
+  }
+  // 서울 지도: 칠한 동 색을 한강 위로 다시 그린 오버레이(#seoulPaintTop)도 원본 존의 '지금 프레임' 칠/클립에 맞춘다
+  // (안 그러면 처음부터 최종색 85%가 덮여 번짐·블라인드가 안 보인다). 아직 베이스색이면 숨긴다. 끝나면 renderFills가 원래대로.
+  {
+    const top = $('#seoulPaintTop');
+    if (top && isSeoul()) for (const p of top.children) {
+      const arr = zoneEls.get(p.dataset.id); const z = arr && arr[0] && arr[0].el;
+      if (!z) continue;
+      const f = z.getAttribute('fill') || '';
+      if (f.toUpperCase() === (S.base || '').toUpperCase()) { p.style.display = 'none'; continue; }
+      p.style.display = '';
+      p.setAttribute('fill', f);
       const cp = z.getAttribute('clip-path');
       if (cp) p.setAttribute('clip-path', cp); else p.removeAttribute('clip-path');
     }
@@ -13916,6 +14006,7 @@ const pendingStart = !!localStorage.getItem('wcg_pending_start');
 const work = (freshOpen || pendingStart) ? null : loadWork();
 if (work) {
   S = work;
+  normStyle();   // 서울/태풍 데이터 로드 실패 시 저장된 지도 종류가 없으면 시도군으로
   bumpSeq();           // 저장본 id 뒤에서 새 id 발급
   applyVfDefaults();   // 이어서 열 때 VF면 라벨 92%·산 70% 강제
   buildZones(); markStyleBtns(); markResBtns();
