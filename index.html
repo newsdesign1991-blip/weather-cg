@@ -10809,7 +10809,7 @@ const WNS_HELPER = (window.wcgDesktop && window.wcgDesktop.helperUrl) || 'http:/
 const WNS_DESKTOP = !!(window.wcgDesktop && window.wcgDesktop.isDesktop);
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20260828;
+const HELPER_VER_MIN = 20261007;   // 20261007: 태풍 라인모드·선 굵기/색·noIcon·과거아이콘 30% 리깅 + fontsOk 응답 + 보안 보강
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {
@@ -10918,7 +10918,11 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   // 저장 대상 준비(렌더 전에) — 저장 폴더(R:\Upload 등) 있으면 바로쓰기, 없으면 저장창/다운로드. 취소면 렌더 안 함.
   const out = await prepareOutput(dateTag(), ext, 'application/octet-stream', label);
   if (!out) return;
-  const n = Math.round(A2.dur * A2.fps);
+  // 헬퍼는 항상 29.97(30000/1001)로 인코딩한다 → 프레임 수·샘플 시각도 그 기준(타임라인 fps로 뽑으면 길이·속도가 어긋남)
+  const RF = 30000 / 1001;
+  const fpsDiff = Math.abs((+A2.fps || RF) - RF) > 0.01;
+  if (fpsDiff) status(`MXF·MOV는 방송 규격 29.97fps로 만듭니다 (타임라인 ${A2.fps}fps는 MP4·PNG 추출에만 적용)`, true);
+  const n = Math.max(1, Math.round(A2.dur * RF));   // MP4(bakeMp4)와 같게 n프레임(i=0..n-1)
   const sid = 'wns' + Date.now();
   const mv = alpha ? $('#wnsMov') : $('#wnsMxf');
   animStop();
@@ -10934,7 +10938,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     // 한 프레임을 메인 스레드에서 직접 인코딩·전송(프레임0 = 헬퍼 세션 리셋용 + 워커 미지원 폴백).
     // 알파는 프리멀티플라이드(AE 동일)로 굽는다 — Uint32로 반투명 픽셀만 곱해 빠르게.
     const sendFrameMain = async (i) => {
-      renderAnimFrame(i / A2.fps);
+      renderAnimFrame(i / RF);
       await drawExportFrame(cx, W, H);
       if (alpha) {
         const id = cx.getImageData(0, 0, W, H), d = id.data, u32 = new Uint32Array(d.buffer);
@@ -10952,9 +10956,9 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     const POOL = canPool ? Math.max(2, Math.min(10, (navigator.hardwareConcurrency || 4) - 1)) : 0;   // 인코딩·전송 병렬 워커 상한(6→10) — 지도 캐싱으로 렌더가 빨라져 워커가 더 일함
 
     await sendFrameMain(0);                     // 프레임0 먼저(세션 폴더 리셋 보장)
-    exportProgress(1, n + 1, label + ' 전송 중');
+    exportProgress(1, n, label + ' 전송 중');
 
-    if (POOL && n >= 1) {
+    if (POOL && n > 1) {                        // 남은 프레임(1..n-1)이 있을 때만 워커 풀
       const wsrc = "self.onmessage=async(e)=>{const m=e.data;try{const data=new Uint8ClampedArray(m.buf);if(m.premul){const u=new Uint32Array(m.buf);for(let q=0;q<u.length;q++){const v=u[q],a=v>>>24;if(a===255)continue;if(a===0){u[q]=0;continue;}const p=q<<2;data[p]=(data[p]*a+127)/255|0;data[p+1]=(data[p+1]*a+127)/255|0;data[p+2]=(data[p+2]*a+127)/255|0;}}const oc=new OffscreenCanvas(m.W,m.H);const x=oc.getContext('2d');x.putImageData(new ImageData(data,m.W,m.H),0,0);const b=await oc.convertToBlob({type:m.mime,quality:m.quality});const r=await fetch(m.url,{method:'POST',body:b});self.postMessage({index:m.index,ok:r.ok});}catch(err){self.postMessage({index:m.index,ok:false,err:String(err&&err.message||err)});}};";
       const wURL = URL.createObjectURL(new Blob([wsrc], { type: 'text/javascript' }));
       const workers = Array.from({ length: POOL }, () => new Worker(wURL));
@@ -10962,26 +10966,26 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
       let done = 1, perr = null;                // done=1: 프레임0 이미 완료
       for (const w of workers) w.onmessage = (e) => {
         if (!e.data.ok && !perr) perr = new Error('프레임 인코딩 실패(' + e.data.index + ')' + (e.data.err ? ': ' + e.data.err : ''));
-        done++; exportProgress(done, n + 1, label + ' 인코딩·전송(병렬 ' + POOL + ')');
+        done++; exportProgress(done, n, label + ' 인코딩·전송(병렬 ' + POOL + ')');
         const waiter = waiters.shift(); if (waiter) waiter(w); else free.push(w);
       };
       const acquire = () => (free.length ? Promise.resolve(free.pop()) : new Promise((res) => waiters.push(res)));
       try {
         const base = WNS_HELPER + '/api/frame?sid=' + sid + '&ext=' + fext + '&index=';
-        for (let i = 1; i <= n; i++) {
+        for (let i = 1; i < n; i++) {
           if (perr) throw perr;
-          renderAnimFrame(i / A2.fps);
+          renderAnimFrame(i / RF);
           await drawExportFrame(cx, W, H);
           const buf = cx.getImageData(0, 0, W, H).data.buffer;
           const w = await acquire();
           if (perr) throw perr;
           w.postMessage({ index: i, W, H, buf, premul: alpha, url: base + i, mime: fmt, quality: alpha ? undefined : 0.92 }, [buf]);
         }
-        while (done < n + 1 && !perr) await new Promise((r) => setTimeout(r, 15));   // 남은 인코딩 마무리
+        while (done < n && !perr) await new Promise((r) => setTimeout(r, 15));   // 남은 인코딩 마무리(프레임0 포함 n장)
         if (perr) throw perr;
       } finally { workers.forEach((w) => w.terminate()); URL.revokeObjectURL(wURL); }
     } else {
-      for (let i = 1; i <= n; i++) { await sendFrameMain(i); exportProgress(i + 1, n + 1, label + ' 전송 중'); }
+      for (let i = 1; i < n; i++) { await sendFrameMain(i); exportProgress(i + 1, n, label + ' 전송 중'); }
     }
     exportProgress(n, n, label + ' 인코딩 중 (헬퍼)');
     const fr = await fetch(WNS_HELPER + '/api/finalize', {
@@ -10991,7 +10995,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     if (!fr.ok) { let er = {}; try { er = await fr.json(); } catch (_) {} throw new Error(er.error || ('헬퍼 오류 ' + fr.status)); }
     const buf = await fr.arrayBuffer();   // 인코딩된 파일 바이트
     await out.write(buf); const where = out.name;
-    $('#tlInfo').textContent = `${label} 저장됨: ${where}`; status(`${label} 저장 완료 → ${where}`);
+    $('#tlInfo').textContent = `${label} 저장됨: ${where} · ${n}프레임 @29.97fps`; status(`${label} 저장 완료 → ${where}` + (fpsDiff ? ' (29.97fps로 변환됨)' : ''));
     flashDone(`${label} 렌더 완료`);
   } catch (e) {
     status(`${label} 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${label} 실패`;
@@ -11205,7 +11209,7 @@ async function aeBaseBlob() {
     keepLayers(c, ALL_LAYERS);
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', S.base); z.setAttribute('stroke', 'none'); });
-    c.querySelectorAll('#L_labels > g').forEach((g) => g.remove());
+    c.querySelectorAll('#L_labels > *').forEach((n) => n.remove());   // 라벨 박스 + 지시선·앵커 전부 — 지시선은 라벨별 레이어(aeLeaderBlob)로 따로
     c.querySelectorAll('image.brushLayer').forEach((im) => im.remove());
     c.querySelector('#L_mtn')?.remove();     // 산은 색칠 위 별도 레이어로 (덮임 방지)
     c.querySelector('#L_vfBar')?.remove();   // 제목 바는 지도·경계선 위 별도 레이어로
@@ -11312,6 +11316,14 @@ function vfScaledPoint(x, y) {
 function vfScaledSize(value) {
   return S.res === '1920x1080-vf' ? value * vfScaleValue() / 100 : value;
 }
+// AE 스펙 출력 배율 — SVG 뷰박스(1920×1080) 좌표를 출력 해상도(터치 2158×1214 등)로. 노말·VF는 1.
+function aeOutK() {
+  const [W, H] = RES[S.res].size, kx = W / 1920, ky = H / 1080;
+  return { kx, ky, kk: (kx + ky) / 2 };
+}
+// 화면 좌표/크기 → AE 출력 좌표/크기(VF 축소 + 출력 해상도 배율)
+function aePt(x, y) { const p = vfScaledPoint(x, y), k = aeOutK(); return { x: p.x * k.kx, y: p.y * k.ky }; }
+function aeSz(value) { return vfScaledSize(value) * aeOutK().kk; }
 // 라벨 하나의 배경만(텍스트 뺀 rect+구분선) 그 라벨 크기(w×h)로 잘라서 PNG
 async function aeLabelBgBlob(ld) {
   const box = { x: ld.cx - ld.w / 2, y: ld.cy - ld.h / 2, w: ld.w, h: ld.h };
@@ -11319,18 +11331,27 @@ async function aeLabelBgBlob(ld) {
   keepLayers(clone, ['L_labels']);
   const scaleLayer = clone.querySelector('#L_vfScale'); if (scaleLayer) scaleLayer.removeAttribute('transform'); // 아래 캔버스 확대와 중복 금지
   clone.querySelectorAll('#L_labels > g').forEach((g) => { if (g.dataset.id !== ld.id) g.remove(); });
-  clone.querySelectorAll('#L_labels > [data-fleader-id], #L_labels > [data-fanchor-id]').forEach((n) => n.remove());   // 지시선·앵커는 박스 g 밖 형제 — 박스 배경에 섞이지 않게(베이스 레이어에 있음)
+  clone.querySelectorAll('#L_labels > [data-fleader-id], #L_labels > [data-fanchor-id]').forEach((n) => n.remove());   // 지시선·앵커(모든 라벨 것)는 박스 g 밖 형제 — 박스 배경엔 빼고 라벨별 지시선 레이어(aeLeaderBlob)로
   clone.querySelectorAll(`#L_labels > g[data-id="${ld.id}"] text`).forEach((t) => t.remove());   // 텍스트 제거 → 배경만
   clone.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
-  const W = Math.max(1, Math.round(vfScaledSize(box.w))), H = Math.max(1, Math.round(vfScaledSize(box.h)));
+  const W = Math.max(1, Math.round(aeSz(box.w))), H = Math.max(1, Math.round(aeSz(box.h)));   // 출력 해상도(터치 등) 크기로
   clone.setAttribute('width', W); clone.setAttribute('height', H);
   const fs = clone.querySelector('#fontStyle'); if (fs) fs.textContent = await suiteFontCss();
   const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone)); await img.decode();
   const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(img, 0, 0, W, H); return await new Promise((r) => c.toBlob(r, 'image/png'));
 }
+// 지시선 라벨(style 'leader')의 그 라벨 선·앵커원만(투명, 전체 화면) — 라벨 프리컴프와 같은 타이밍으로 페이드(배경에 굽지 않게)
+const aeLeaderOwner = (n) => n.getAttribute('data-fleader-id') || n.getAttribute('data-fanchor-id');
+async function aeLeaderBlob(id) {
+  return svgBlob((c) => {
+    keepLayers(c, ['L_labels']);
+    c.querySelectorAll('#L_labels > *').forEach((n) => { if (aeLeaderOwner(n) !== id) n.remove(); });   // 박스 g·다른 라벨 지시선 전부 제거
+  });
+}
 // 각 라벨의 프리컴프 정보(크기·중심위치·안쪽 텍스트들) — 화면에 그려진 DOM에서 실측
 function aeLabelCompData() {
   const out = [];
+  const leaderIds = new Set([...document.querySelectorAll('#L_labels > [data-fleader-id], #L_labels > [data-fanchor-id]')].map(aeLeaderOwner));   // 지시선·앵커가 있는 라벨
   for (const g of document.querySelectorAll('#L_labels > g')) {
     const id = g.dataset.id; const b = S.labels.find((x) => x.id === id);
     if (!b || b.off) continue;
@@ -11348,7 +11369,7 @@ function aeLabelCompData() {
         cy: h / 2 + (+t.getAttribute('y') || 0) + size * 0.34,     // 세로 중앙(central) → AE 베이스라인 보정
       });
     }
-    out.push({ id, w, h, cx: b.x, cy: b.y, fill: b.fill, texts });
+    out.push({ id, w, h, cx: b.x, cy: b.y, fill: b.fill, texts, leader: leaderIds.has(id) });
   }
   return out;
 }
@@ -11371,8 +11392,8 @@ function aeLegendCompData() {
   const tf = grp.transform && grp.transform.baseVal && grp.transform.baseVal.consolidate
     ? grp.transform.baseVal.consolidate() : null;
   const ox = tf ? tf.matrix.e : 0, oy = tf ? tf.matrix.f : 0;
-  const k = S.res === '1920x1080-vf' ? vfScaleValue() / 100 : 1;
-  const center = vfScaledPoint(ox + bb.x + bb.width / 2, oy + bb.y + bb.height / 2);
+  const k = aeSz(1);   // VF 축소 × 출력 해상도 배율(터치 2158×1214면 ≈1.124)
+  const center = aePt(ox + bb.x + bb.width / 2, oy + bb.y + bb.height / 2);
   const items = rects.map((r, i) => {
     const t = texts[i], tb = t.getBBox();
     const content = t.textContent || '';
@@ -11400,10 +11421,12 @@ function aeLegendCompData() {
   return { w: bb.width * k, h: bb.height * k, x: center.x, y: center.y, items };
 }
 // 태풍 아이콘을 단독 PNG로 래스터화(AE 리깅용). past=회색, 아니면 iconCol 틴트. {blob,w,h,cx,cy} 반환(중심=cx,cy).
-async function aeIconBlob(color, past, td, forceDot, ex) {
+// cmp=true면 비교 예보선 아이콘(compareIconEl 기준): 작은 원은 forceDot(=c.dotIcon)일 때만(단일 태풍 iconMode 무시).
+async function aeIconBlob(color, past, td, forceDot, ex, cmp) {
   const IC = window.TYPHOON_ICON;
   const R = 90, w = Math.round(R * 3), h = Math.round(R * 3);
-  let inner;
+  let inner, iconH = R * 2.5;   // iconH=헬퍼 배율 기준 높이(iconScreenH=화면 r×2.5 와 짝)
+  const dot = cmp ? !!forceDot : (forceDot || ((S.typhoon || {}).iconMode || 'image') === 'dot');
   if (ex) {   // 온대저압부 = 원 + '저' (typhoonIconEl ex 재현)
     const rr = R * 1.15, cx = w / 2, cy = h / 2;
     const lineCol = past ? '#79828E' : '#E24C4C';
@@ -11422,10 +11445,12 @@ async function aeIconBlob(color, past, td, forceDot, ex) {
     inner = `<circle cx="${cx}" cy="${cy}" r="${halo}" fill="none" stroke="${past ? '#5A626C' : '#FFFFFF'}" stroke-width="${Math.max(1.6, rr * 0.22)}" stroke-opacity="${past ? 0.35 : 0.9}"/>`
       + `<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${faceCol}" stroke="${lineCol}" stroke-width="${Math.max(1.6, rr * 0.15)}" stroke-opacity="${op}" fill-opacity="${op}"/>`
       + `<path d="M${cx - xx} ${cy - xx}L${cx + xx} ${cy + xx}M${cx + xx} ${cy - xx}L${cx - xx} ${cy + xx}" fill="none" stroke="${lineCol}" stroke-width="${Math.max(1.6, rr * 0.2)}" stroke-linecap="round" stroke-opacity="${op}"/>`;
-  } else if (forceDot || ((S.typhoon || {}).iconMode || 'image') === 'dot') {   // 작은 원 모드 — 색 채움 + 흰 링 한 겹
-    const cx = w / 2, cy = h / 2, rr = R * 0.62;
+  } else if (dot) {   // 작은 원 모드 — 색 채움 + 흰 링 한 겹
+    // 화면 원 반지름: 비교선 compareIconEl = r×1.05·링 0.34, 단일 태풍 typhoonIconEl = r×0.62·링 0.32 (r=화면 기준 반지름)
+    const cx = w / 2, cy = h / 2, rr = R * 0.62, rk = cmp ? 1.05 : 0.62, ring = cmp ? 0.34 : 0.32;
     const face = past ? '#9AA3AD' : color;
-    inner = `<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${face}" stroke="${past ? '#C8D0DA' : '#FFFFFF'}" stroke-width="${Math.max(1.6, rr * 0.32)}" stroke-opacity="${past ? 0.7 : 1}" fill-opacity="${past ? 0.9 : 1}"/>`;
+    inner = `<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${face}" stroke="${past ? '#C8D0DA' : '#FFFFFF'}" stroke-width="${Math.max(1.6, rr * ring)}" stroke-opacity="${past ? 0.7 : 1}" fill-opacity="${past ? 0.9 : 1}"/>`;
+    iconH = rr * 2.5 / rk;   // 헬퍼 배율(iconScreenH/iconH)로 AE 원 반지름 = 화면 r×rk (비교선은 예전 59%로 작게 들어가던 문제)
   } else if (IC && IC.img) {
     const ih = R * 2.5, iw = ih * (IC.w / IC.h);
     const filt = past
@@ -11438,7 +11463,7 @@ async function aeIconBlob(color, past, td, forceDot, ex) {
   const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${inner}</svg>`;
   const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s); await img.decode();
   const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
-  return { blob: await new Promise((r) => c.toBlob(r, 'image/png')), w, h, iconH: R * 2.5 };   // iconH=아이콘 실제 높이(px) — AE 스케일 계산용
+  return { blob: await new Promise((r) => c.toBlob(r, 'image/png')), w, h, iconH };   // iconH=아이콘 기준 높이(px) — AE 스케일 계산용
 }
 // AE가 안 켜져 있고 설치 버전이 여러 개일 때 — 버전 선택창(토스 모달). 고른 exe 경로(또는 null=취소) 반환.
 function pickAeVersion(versions) {
@@ -11471,6 +11496,9 @@ async function sendToAE() {
   let cooldown = false;
   try {
     const [W, H] = RES[S.res].size;
+    // 스펙 좌표는 SVG 뷰박스(1920×1080) 기준이지만 배경/컴포지션은 출력해상도(W×H) → 좌표·크기를 출력해상도로(노말·VF=1, 터치≈1.124)
+    const kx = W / 1920, ky = H / 1080, kk = (kx + ky) / 2;
+    const SX = (v) => +(v * kx).toFixed(1), SY = (v) => +(v * ky).toFixed(1);
     const fps = A.fps || 29.97, step = 5 / fps, start0 = animStart();
     const seen = {};
     if (warningDefs.length) {
@@ -11487,8 +11515,8 @@ async function sendToAE() {
     const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
     const addFile = (blob) => { const fi = uploads.length; uploads.push(blob); return 'f_' + String(fi).padStart(5, '0') + '.png'; };   // 레이어 없이 파일만 업로드(리깅에서 표현식으로 참조)
     const addText = (name, t) => {
-      const p = vfScaledPoint(t.x, t.y);
-      specLayers.push({ text: { content: aeArrow(t.txt || ''), x: p.x, y: p.y, size: vfScaledSize(t.size), col: t.col, align: t.align || 'start', track: vfScaledSize(t.track || 0), weight: t.w || 400 }, name });
+      const p = aePt(t.x, t.y);   // VF 축소 + 출력 해상도 배율
+      specLayers.push({ text: { content: aeArrow(t.txt || ''), x: p.x, y: p.y, size: aeSz(t.size), col: t.col, align: t.align || 'start', track: aeSz(t.track || 0), weight: t.w || 400 }, name });
     };
     if (isTyphoon()) {
       if (isTyphoonCompare()) {
@@ -11503,7 +11531,7 @@ async function sendToAE() {
           if (cpts.length < 1) continue;
           const sp = compareScreenPts(cpts, null).filter((p) => !p.head);
           if (sp.length < 1) continue;
-          const ic = await aeIconBlob(c.color, false, false, c.dotIcon);   // 그 예보 색 아이콘(작은 원 옵션이면 원)
+          const ic = await aeIconBlob(c.color, false, false, !!c.dotIcon, false, true);   // 그 예보 색 아이콘(작은 원 옵션이면 원, compareIconEl 기준)
           const iconFile = addFile(ic.blob);
           const idxSet = compareIconIdxSet(c, cpts);   // 화면과 동일한 아이콘 배치(등간격/실제날짜별/하루하나)
           const iconAt = [];
@@ -11514,7 +11542,7 @@ async function sendToAE() {
           if (c.showName !== 0) {
             let pos = c.labelPos;
             if (!pos) { const last = sp[sp.length - 1]; const [x, y] = camProjectXY(last.x, last.y); pos = { x: x + 13, y: y - 4 }; }
-            nameLabel = { txt: aeArrow(c.name || ''), x: +pos.x, y: +pos.y, size: (c.labelSize || 34), weight: (c.labelWeight || 800), col: (c.labelCol || c.color) };
+            nameLabel = { txt: aeArrow(c.name || ''), x: SX(+pos.x), y: SY(+pos.y), size: (c.labelSize || 34) * kk, weight: (c.labelWeight || 800), col: (c.labelCol || c.color) };   // 출력 해상도 배율
           }
           // 수치라벨(리치 박스)
           const labels = [];
@@ -11527,19 +11555,21 @@ async function sendToAE() {
             const size = c.numSize || ls.size || 40;
             const bxv = (lb.x != null ? lb.x : Math.round(pt.x + 150)), byv = (lb.y != null ? lb.y : Math.round(pt.y - 92));
             const est = Math.max(120, ((String(txt).length) || 4) * size * 0.62 + 56);   // 추정(화면에서 아직 안 그려져 실측이 없을 때만 폴백)
-            labels.push({ idx: vk, px: +pt.x.toFixed(1), py: +pt.y.toFixed(1), txt, bx: bxv, by: byv, bw: (lb._w || est), bh: (lb._h || (size + 34)), size, track: Math.round(((ls.track == null ? -1 : ls.track) / (c.numSize || ls.size || 40)) * 1000), weight: ls.w || 600, col: (c.numCol || ls.txtCol || '#FFFFFF'), fill: c.color, fillOp: (ls.fillOp == null ? 1 : ls.fillOp), stroke: mixHex(c.color, '#FFFFFF', 0.42), strokeW: (ls.strokeW || 0), radius: (ls.radius || 14) });
+            // 좌표=kx/ky, 크기=kk(출력 해상도), 글자·선·모서리=화면 fillLabelBox처럼 labK 배율. track은 비율값이라 그대로.
+            labels.push({ idx: vk, px: SX(pt.x), py: SY(pt.y), txt, bx: SX(bxv), by: SY(byv), bw: (lb._w || est) * kk, bh: (lb._h || (size + 34)) * kk, size: Math.round(size * labK() * kk), track: Math.round(((ls.track == null ? -1 : ls.track) / (c.numSize || ls.size || 40)) * 1000), weight: ls.w || 600, col: (c.numCol || ls.txtCol || '#FFFFFF'), fill: c.color, fillOp: (ls.fillOp == null ? 1 : ls.fillOp), stroke: mixHex(c.color, '#FFFFFF', 0.42), strokeW: (ls.strokeW || 0) * labK() * kk, radius: (ls.radius || 14) * labK() * kk });
           }
-          typhoons.push({ color: c.color, lineW: (c.lineW || 2.2), iconFile, iconH: ic.h, iconRenderH: ic.iconH, iconScreenH: 15 * (c.iconScale == null ? 1 : c.iconScale), points: sp.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1) })), iconAt, nameLabel, labels });
+          typhoons.push({ color: c.color, lineW: (c.lineW || 2.2) * kk, iconFile, iconH: ic.h, iconRenderH: ic.iconH, iconScreenH: 15 * (c.iconScale == null ? 1 : c.iconScale) * kk, points: sp.map((p) => ({ x: SX(p.x), y: SY(p.y) })), iconAt, nameLabel, labels });
         }
         specLayers.push({ compareRig: { bg, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, typhoons }, name: '태풍 비교 리깅' });
       } else {
         // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
         const T = S.typhoon, pts = curTyphoonPoints(), nowIdx = typhoonNowIdx(pts);
-        // 리깅 좌표는 SVG 뷰박스(1920×1080) 기준이지만 배경/컴포지션은 출력해상도(W×H)라, 좌표를 출력해상도로 스케일해야 어긋나지 않는다.
-        const kx = W / 1920, ky = H / 1080, kk = (kx + ky) / 2;
-        const SX = (v) => +(v * kx).toFixed(1), SY = (v) => +(v * ky).toFixed(1);
-        const sp = typhoonScreenPts(pts).filter((p) => !p.head && typhoonIdxInRange(pts, p.idx));   // '표시 날짜 범위'만 내보냄
+        // 리깅 좌표는 위의 kx/ky/kk(출력해상도 배율)로 스케일한다(SX/SY) — 여기서 다시 곱하지 않는다.
+        const lineMode = T.trackMode === 'line';   // 라인 모드: 화면 drawTyphoonTrack처럼 현재까지 단색선 + 선두 아이콘만
+        let sp = typhoonScreenPts(pts).filter((p) => !p.head && typhoonIdxInRange(pts, p.idx));   // '표시 날짜 범위'만 내보냄
+        if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 현재 이후 예상경로 제외(화면과 동일)
         const iconCol = T.iconCol || '#E5231E';
+        const trackW = Math.max(1, +T.lineWidth || 9.5);   // 화면 경로선 굵기(라인=단색선, 일반=현재~예상 점선)
         // 지명표시(원+이름표)는 정적이라 배경에 그대로 구워 넣는다 — 태풍 트랙/라벨만 제거(리깅이 재구성), place 요소는 보존.
         const bg = addFile(await svgBlob((c) => {
           for (const id of ['#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove();
@@ -11551,9 +11581,13 @@ async function sendToAE() {
         const iconColFile = addFile(icC.blob), iconGrayFile = addFile(icG.blob);
         const iconTdColFile = addFile(icTC.blob), iconTdGrayFile = addFile(icTG.blob);
         const iconExColFile = addFile(icExC.blob), iconExGrayFile = addFile(icExG.blob);
-        const bands = {};
-        for (const k of ['r70', 'r15', 'r25']) { const st = Object.assign({}, TYPHOON_BAND_DEF[k], (T.bands && T.bands[k]) || {}); if (!st.off) bands[k] = { fill: st.fill, fillOp: st.fillOp, stroke: st.stroke, strokeW: st.strokeW, dash: st.dash ? 1 : 0 }; }
-        const points = sp.map((p) => ({ x: SX(p.x), y: SY(p.y), r15: Math.round((p.r15 || 0) * kk), r25: Math.round((p.r25 || 0) * kk), r70: Math.round((p.r70 || 0) * kk), past: p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 0, ex: !!(pts[p.idx] && pts[p.idx].ex) }));
+        const bands = {};   // 라인 모드는 반경 없음(빈 객체)
+        if (!lineMode) for (const k of ['r70', 'r15', 'r25']) { const st = Object.assign({}, TYPHOON_BAND_DEF[k], (T.bands && T.bands[k]) || {}); if (!st.off) bands[k] = { fill: st.fill, fillOp: st.fillOp, stroke: st.stroke, strokeW: st.strokeW, dash: st.dash ? 1 : 0 }; }
+        // ws 없으면 99(화면 판정과 동일), noIcon=그 지점 아이콘만 생략, 라인 모드 선두=항상 컬러 아이콘(past·noIcon 무시)
+        const points = sp.map((p, j) => {
+          const tip = lineMode && j === sp.length - 1;
+          return { x: SX(p.x), y: SY(p.y), r15: Math.round((p.r15 || 0) * kk), r25: Math.round((p.r25 || 0) * kk), r70: Math.round((p.r70 || 0) * kk), past: tip ? false : p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 99, ex: !!(pts[p.idx] && pts[p.idx].ex), noIcon: tip ? false : !!p.noIcon };
+        });
         // 타임라인의 태풍 트랙에서 경로·라벨 애니 타이밍을 가져온다(없으면 기본값). #1: AE 리빌을 타임라인과 일치시킴.
         const _tt = A.tracks.find((x) => x.kind === 'typhoon');
         const revPathStart = _tt && _tt.ps != null ? +_tt.ps : start0;
@@ -11561,9 +11595,14 @@ async function sendToAE() {
         const _lab = (_tt && _tt.lab) || {};
         const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
         const labels = [];
-        for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : null, revLen: e ? Math.max(0.1, +e.e - +e.s) : null }); }
-        const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5 * kk;   // 화면상 아이콘 높이(px, 출력해상도 스케일) — AE 스케일 계산용
-        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconExColFile, iconExGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: revPathStart, path: revPathLen, labelLen: 1.0 }, labels }, name: '태풍 리깅' });
+        // 라인 모드는 경로 라벨 숨김(화면과 동일) → labels=[]
+        if (!lineMode) for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : null, revLen: e ? Math.max(0.1, +e.e - +e.s) : null }); }
+        // 화면상 현재 아이콘 높이(px, 출력해상도 스케일) — AE 스케일 계산용. 라인 모드 선두도 화면에서 typhoonIconEl(…,17,…)이라 같은 값.
+        const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5 * kk;
+        const lineCol = T.lineColor || iconCol;
+        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconExColFile, iconExGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: revPathStart, path: revPathLen, labelLen: 1.0 }, labels,
+          // 화면 drawTyphoonTrack과 같은 선: 라인=단색선(lineColor·lineWidth) / 일반=지난 회색 실선(pastLineWidth)+현재~예상 흰 점선(lineWidth). 지난 아이콘=현재의 30%.
+          trackMode: lineMode ? 'line' : 'full', lineColor: lineCol, lineWidth: +(trackW * kk).toFixed(2), pastLineWidth: +(Math.max(1.5, trackW * 0.55) * kk).toFixed(2), pastIconK: 0.3 }, name: '태풍 리깅' });
       }
       for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);
       if (S.legend && S.legend.on) { const lc = aeLegendCompData(); if (lc) specLayers.push({ legendComp: lc, name: '범례' }); }
@@ -11592,12 +11631,15 @@ async function sendToAE() {
     let li = 0;
     for (const ld of labData) {
       li++;
+      const ls0 = startForFill(ld.fill);
+      // 지시선 라벨: 선·앵커원을 라벨별 전체화면 투명 레이어로(라벨 바로 아래, 같은 페이드) — 배경에 정적으로 굽히던 문제
+      if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), { start: ls0, len: AE_LEN });
       const fi = uploads.length; uploads.push(await aeLabelBgBlob(ld));
-      const p = vfScaledPoint(ld.cx, ld.cy), k = S.res === '1920x1080-vf' ? vfScaleValue() / 100 : 1;
+      const p = aePt(ld.cx, ld.cy);   // 위치·크기 모두 출력 해상도(VF 축소 × 터치 배율)
       specLayers.push({
-        labelComp: { w: vfScaledSize(ld.w), h: vfScaledSize(ld.h), x: p.x, y: p.y, bg: 'f_' + String(fi).padStart(5, '0') + '.png',
-          texts: ld.texts.map((t) => ({ ...t, size: t.size * k, track: t.track * k, cx: t.cx * k, cy: t.cy * k })) },
-        name: '라벨_' + li, fade: { start: startForFill(ld.fill), len: AE_LEN, rise: vfScaledSize(26) },   // rise=아래서 올라오기(타임라인 동일)
+        labelComp: { w: aeSz(ld.w), h: aeSz(ld.h), x: p.x, y: p.y, bg: 'f_' + String(fi).padStart(5, '0') + '.png',
+          texts: ld.texts.map((t) => ({ ...t, size: aeSz(t.size), track: aeSz(t.track), cx: aeSz(t.cx), cy: aeSz(t.cy) })) },
+        name: '라벨_' + li, fade: { start: ls0, len: AE_LEN, rise: aeSz(26) },   // rise=아래서 올라오기(타임라인 동일)
       });
     }
     if (S.res === '1920x1080-vf' && S.vfBar && S.vfBar.on) addImg('VF_제목바', await aeVfBarBlob());
@@ -11608,8 +11650,18 @@ async function sendToAE() {
       specLayers.push({ legendComp, name: '범례' });
     }
     }
-    let end = start0;
-    for (const l of specLayers) if (l.fade) end = Math.max(end, l.fade.start + l.fade.len);
+    // 컴프 길이 — 타임라인 길이·페이드·태풍 리빌(경로+라벨)·비교 리빌까지 다 들어가게(리빌이 6초 넘으면 잘리던 문제)
+    let end = Math.max(start0, +A.dur || 0);
+    for (const l of specLayers) {
+      if (l.fade) end = Math.max(end, l.fade.start + l.fade.len);
+      const tr = l.typhoonRig, cr = l.compareRig;
+      if (tr) {
+        const rv = tr.reveal;
+        end = Math.max(end, rv.start + rv.path);
+        for (const lb of tr.labels) end = Math.max(end, lb.revStart != null ? lb.revStart + (lb.revLen != null ? lb.revLen : rv.labelLen) : rv.start + rv.path + rv.labelLen);
+      }
+      if (cr) end = Math.max(end, cr.reveal.start + cr.reveal.path + cr.reveal.labelLen);
+    }
     if (S.res === '1920x1080-vf') end = Math.max(end, ANIM_START + AE_LEN);
     const dur = Math.max(6, Math.ceil((end + 0.6) * 2) / 2);
     const sid = 'ae' + Date.now();
@@ -11635,6 +11687,7 @@ async function sendToAE() {
     }
     if (!rr.ok || !jr.ok) throw new Error(jr.error || ('AE 실행 실패 ' + rr.status));
     status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다'); flashDone('AE로 보냄');
+    if (jr.fontsOk === false) status('AE로 보냄 — SUITE 폰트를 설치하지 못해 AE에서 기본 폰트로 들어갈 수 있습니다', true);   // 새 헬퍼만 보냄(없으면 옛 헬퍼 → 안내 없음)
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 열림'; }
     // AE가 켜지는 동안 재전송하면 '프로젝트 닫을까?' 창이 뜬다 → 잠깐 잠가 중복 전송 막기
     cooldown = true;
