@@ -10083,6 +10083,20 @@ function stripExportUi(clone) {
   for (const s of EXPORT_STRIP) clone.querySelector(s)?.remove();
   clone.querySelectorAll('.brushSelHi').forEach((n) => n.remove());
 }
+// 서울: 레이어 분리(mutate)로 존 칠을 비우거나 베이스로 되돌렸으면 한강 위 칠 오버레이(#seoulPaintTop)도 그 존을 따른다
+// (안 그러면 베이스·시도선·브러쉬·경계선 레이어에 모든 칠 색이 처음부터 찍힌다). 칠한 존이 하나도 안 남은 투명 레이어엔 한강도 뺀다.
+function syncSeoulExport(clone) {
+  const top = clone.querySelector('#seoulPaintTop');
+  if (!top || !isSeoul()) return;
+  const zf = new Map();
+  clone.querySelectorAll('#gMain .zone').forEach((z) => zf.set(z.dataset.id, z.getAttribute('fill') || 'none'));
+  const base = (S.base || '').toUpperCase();
+  for (const p of [...top.children]) {
+    const f = zf.get(p.dataset.id);
+    if (!f || f === 'none' || f.toUpperCase() === base) p.remove(); else p.setAttribute('fill', f);
+  }
+  if (![...zf.values()].some((f) => f !== 'none')) clone.querySelector('#seoulRiver')?.remove();
+}
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
 // stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
 async function svgToImage(W, H, keep, viewBox, stripText) {
@@ -10581,6 +10595,7 @@ async function svgBlob(mutate, overlayText) {
   stripExportUi(clone);
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   mutate(clone);
+  syncSeoulExport(clone);   // 서울 칠 오버레이·한강을 남은 존 칠에 맞춘다
   const remain = overlayText ? ALL_LAYERS.filter((l) => clone.querySelector('#' + l)) : null;   // mutate 후 남은(글자 그릴) 레이어
   if (overlayText) clone.querySelectorAll('text').forEach((n) => n.remove());   // 글자는 캔버스에 직접 그린다
   const xml = new XMLSerializer().serializeToString(clone);

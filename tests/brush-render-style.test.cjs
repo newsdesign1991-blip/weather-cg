@@ -36,6 +36,14 @@ test('Seoul paint overlay follows animation frames and blind base', () => {
   assert.match(fn('syncSeoulPaintTop'), /#L_brush/);
 });
 
+test('Seoul paint overlay follows layer-split zone fills in image/AE exports', () => {
+  const sx = fn('syncSeoulExport');
+  assert.match(sx, /#seoulPaintTop/);
+  assert.match(sx, /p\.remove\(\)/);
+  assert.match(sx, /#seoulRiver/);
+  assert.match(fn('svgBlob'), /mutate\(clone\);\s*\r?\n\s*syncSeoulExport\(clone\);/);
+});
+
 test('missing map styles fall back instead of crashing', () => {
   assert.match(html, /const normStyle = \(\) => \{ if \(!MAP\.styles\[S\.style\]\) S\.style = 'sgg'; \};/);
   assert.match(fn('renderInsets'), /curStyle\(\)\.noInsets/);
