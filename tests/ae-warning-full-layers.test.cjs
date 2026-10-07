@@ -93,4 +93,7 @@ test('sea-only warning masks are not rejected by the empty land-fill guard', () 
   assert.equal(rejects({ F: {}, warningDefs: [] }), true);
   // 육지 칠만 있음: 통과
   assert.equal(rejects({ F: { A: '#FF0000' }, warningDefs: [] }), false);
+  // 브러쉬로만 칠함 / 태풍 지도(칠 없음): 통과
+  assert.equal(rejects({ F: {}, warningDefs: [], hasBrush: true }), false);
+  assert.equal(rejects({ F: {}, warningDefs: [], isTyphoon: () => true }), false);
 });
