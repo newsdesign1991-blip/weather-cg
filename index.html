@@ -5105,8 +5105,8 @@ function drawTyphoonTrack(L, pts) {
   for (const p of sp) {
     if (p.head) {   // 이동하는 선두 — 강한 구간=일러스트, 향하는 지점이 약하면(TD)·온대면 마커로 자연스럽게 전환(끝에서 탁 사라짐 방지).
       const hws = (p.ws == null) ? headWs : p.ws;
-      const hex = !!p.ex, htd = hex || hws < 17;
-      const hi = typhoonIconEl(p.x, p.y, 17, iconCol, htd, false, hws, !htd, hex);   // htd면 마커(forceImage=false), 아니면 일러스트
+      const hEx = !!p.ex, htd = hEx || hws < 17;
+      const hi = typhoonIconEl(p.x, p.y, 17, iconCol, htd, false, hws, !htd, hEx);   // htd면 마커(forceImage=false), 아니면 일러스트
       if (typhoonHeadFade < 1) hi.setAttribute('opacity', Math.max(0, typhoonHeadFade).toFixed(3));
       add(hi); continue;
     }
