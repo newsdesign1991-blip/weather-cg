@@ -74,6 +74,10 @@ test('dash variants, full-width colon and slash-separated regions are read', () 
   // 값 뒤 '/'로 이어지는 기존 다중 값 형식은 그대로
   const two = plain(parseBulletin('- (경상권) 부산.울산: 10~40mm / (22일) 대구.경북남부내륙: 5~20mm'));
   assert.equal(two.length, 2);
+  // 콜론 없는 '값' 조각(숫자 포함)은 다음 조각 지역에 붙이지 않는다
+  const val = plain(parseBulletin('- 강원영동: 30~80mm / 많은 곳 100mm 이상 / 경북북부: 10~40mm'));
+  assert.deepEqual(val.map((v) => v.regionText), ['강원영동', '경북북부']);
+  assert.ok(val.every((v) => v.tokens.every((t) => t.province)), 'no value text as a region');
 });
 
 test('the same region on several lines keeps only the larger value', () => {
