@@ -602,11 +602,11 @@ test('차등: /api/ae — 프레임 없음·aePath 가 문자열 아니면 무�
   c = await setAeState('C:\\Running\\Adobe After Effects 2024\\Support Files\\AfterFX.exe', V2);
   assert.deepEqual(normCalls(c.node, NF), normCalls(c.py, PYF));
   await post({ sid: 'aeT', z: null });   // 실행 중인 AE 우선
-  c = await setAeState(null, V2);
+  c = await setAeState(null, V2.concat([{ path: fake, name: 'After Effects 2099' }]));
   assert.deepEqual(normCalls(c.node, NF), normCalls(c.py, PYF));
   assert.deepEqual(c.node.map((x) => x[0]), ['fonts', 'popen']);   // 폰트 먼저, 그다음 실행
   assert.equal(c.node[1][1][0], 'C:\\Running\\Adobe After Effects 2024\\Support Files\\AfterFX.exe');
-  await post({ sid: 'aeT', aePath: fake });   // 앱이 고른 AfterFX.exe
+  await post({ sid: 'aeT', aePath: fake.replace(/\\/g, '/').toUpperCase() });   // 앱이 고른 AfterFX.exe(설치 목록에 있음, 대소문자·/ 달라도 목록 경로로)
   c = await setAeState(null, V2);
   assert.deepEqual(normCalls(c.node, NF), normCalls(c.py, PYF));
   assert.equal(c.node[1][1][0], fake);
@@ -958,25 +958,28 @@ test('보안: 점만으로 된 sid 는 400 — FRAMES 상위 폴더를 지우거
   } finally { await s.close(); }
 });
 
-test('보안: aePath 는 로컬 AfterFX.exe 만 — 다른 실행파일·UNC 는 무시하고 실행 중/설치된 AE 로', async () => {
+test('보안: aePath 는 설치 목록의 AfterFX.exe 만 — 목록 밖(실제 AfterFX.exe 파일·실행파일·UNC·\\??\\·네트워크 드라이브·상대경로)은 무시', async () => {
   const launched = [];
-  const inst = { path: 'C:\\Program Files\\Adobe\\Adobe After Effects 2025\\Support Files\\AfterFX.exe', name: 'After Effects 2025' };
-  const s = W.createWnsServer({ framesDir: path.join(TMP, 'aesec'), fontsInstall: false, buildAeJsx: stubJsx,
-    listAfterFx: () => [inst], findRunningAfterFx: async () => null, spawnAe: async (afx, args) => { launched.push(afx); } });
-  const p = await s.listen(0);
-  const fakeAe = path.join(TMP, 'aesec-ae', 'Support Files', 'AfterFX.exe');
+  const fakeAe = path.join(TMP, 'aesec-ae', 'Support Files', 'AfterFX.exe');   // 실제 파일이지만 목록 밖
   fs.mkdirSync(path.dirname(fakeAe), { recursive: true });
   fs.writeFileSync(fakeAe, '');
+  const inst = [{ path: 'C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.exe', name: 'After Effects 2026' },
+    { path: 'C:\\Program Files\\Adobe\\Adobe After Effects 2025\\Support Files\\AfterFX.exe', name: 'After Effects 2025' }];
+  const s = W.createWnsServer({ framesDir: path.join(TMP, 'aesec'), fontsInstall: false, buildAeJsx: stubJsx,
+    listAfterFx: () => inst, findRunningAfterFx: async () => null, spawnAe: async (afx, args) => { launched.push(afx); } });
+  const p = await s.listen(0);
+  const ae = (aePath) => rawReq(p, { method: 'POST', path: '/api/ae', body: JSON.stringify({ sid: 'sec', aePath }) }).then((r) => JSON.parse(r.body.toString('utf8')));
   try {
     await rawReq(p, { method: 'POST', path: '/api/frame?sid=sec&index=0', body: 'x' });
-    for (const bad of [process.execPath, 'C:\\Windows\\System32\\cmd.exe', '\\\\127.0.0.1\\c$\\AfterFX.exe', '//evil/share/AfterFX.exe', path.dirname(fakeAe)]) {
-      const r = await rawReq(p, { method: 'POST', path: '/api/ae', body: JSON.stringify({ sid: 'sec', aePath: bad }) });
-      assert.equal(r.status, 200, bad);
-      assert.equal(launched.pop(), inst.path, bad);
+    for (const bad of [fakeAe, process.execPath, 'C:\\Windows\\System32\\cmd.exe', '\\\\127.0.0.1\\c$\\AfterFX.exe', '//evil/share/AfterFX.exe', path.dirname(fakeAe),
+      '\\??\\UNC\\127.0.0.1\\C$\\AfterFX.exe', '\\??\\' + inst[1].path, '\\\\?\\' + inst[1].path, 'R:\\[F]_Util\\WNS\\AfterFX.exe', 'AfterFX.exe', 'C:AfterFX.exe', inst[1].path + ' ']) {
+      assert.deepEqual(await ae(bad), { ok: false, choose: true, versions: inst }, bad);   // 목록 밖 → 실행 없이 버전 고르기
     }
-    const r = await rawReq(p, { method: 'POST', path: '/api/ae', body: JSON.stringify({ sid: 'sec', aePath: fakeAe }) });
-    assert.deepEqual(JSON.parse(r.body.toString('utf8')), { ok: true, ae: 'aesec-ae', fontsOk: false });   // fontsInstall:false
-    assert.equal(launched.pop(), fakeAe);
+    assert.deepEqual(launched, []);
+    for (const good of [inst[1].path, inst[1].path.toLowerCase(), inst[1].path.replace(/\\/g, '/'), inst[1].path.toUpperCase()]) {
+      assert.deepEqual(await ae(good), { ok: true, ae: 'Adobe After Effects 2025', fontsOk: false }, good);   // fontsInstall:false
+      assert.equal(launched.pop(), inst[1].path, good);   // 실행은 늘 목록의 경로로
+    }
   } finally { await s.close(); }
 });
 
@@ -1153,27 +1156,125 @@ test('차등: 본문 상한 — Content-Length 가 넘으면 본문을 기다리
   assert.deepEqual([...W.BODY_MAX.entries()], [['/api/frame', 256 * MB], ['/api/finalize', 16 * MB], ['/api/ae', 16 * MB]]);
 });
 
-test('차등: aePath — 로컬 AfterFX.exe 파일만 쓰고 UNC·다른 실행파일·폴더·없는 파일·문자열 아님은 무시(설치된 AE 로)', async () => {
+test('차등: 본문 길이 머리글 — chunked·잘못된/중복/넘치는 Content-Length 는 모든 요청 400(출처·메서드보다 먼저, CORS 없음, 본문 안 읽음), 상한 경로에 길이 없으면 411', async () => {
+  await startPyHelper();
+  const BADLEN = '{"ok": false, "error": "잘못된 본문 길이"}';
+  const go = async (req) => {
+    const [a, b] = await Promise.all([rawSock(pyPort, req), rawSock(dsPort, req)]);
+    const pa = parseRaw(a), pb = parseRaw(b);
+    assert.deepEqual(rawView(pb), rawView(pa), JSON.stringify(req));
+    return pb;
+  };
+  const BAD = ['Transfer-Encoding: chunked', 'Transfer-Encoding: Chunked', 'Transfer-Encoding: gzip, chunked', 'Transfer-Encoding: gzip', 'Transfer-Encoding: identity',
+    'Transfer-Encoding: chunked, gzip', 'Transfer-Encoding: ', 'Transfer-Encoding: chunked\r\nTransfer-Encoding: chunked', 'Transfer-Encoding: chunked\r\nContent-Length: 5',
+    'Content-Length: 5\r\nTransfer-Encoding: chunked', 'Content-Length: -1', 'Content-Length: +5', 'Content-Length: 1_0', 'Content-Length: abc', 'Content-Length: 0x5',
+    'Content-Length: 5 5', 'Content-Length: 5,5', 'Content-Length: 5\t', 'Content-Length: ', 'Content-Length:', 'Content-Length: 5\r\nContent-Length: 5',
+    'Content-Length: 5\r\ncontent-length: 6', 'Content-Length: 18446744073709551616', 'Content-Length: 99999999999999999999999', 'Content-Length: ٣', 'Content-Length: ５'];
+  const kinds = ['POST /api/frame?sid=badlen&index=0', 'POST /api/ae', 'POST /api/finalize', 'POST /nope', 'GET /ping', 'OPTIONS /api/ae', 'PUT /ping'];
+  for (const h of BAD) {
+    for (const k of kinds) {
+      for (const origin of ['', 'Origin: https://evil.com\r\n', 'Origin: app://weathercg\r\n']) {
+        const r = await go(k + ' HTTP/1.1\r\nHost: x\r\n' + origin + h + '\r\n\r\n');   // 본문은 안 보냄 — 기다리면 5초 뒤 빈 응답
+        assert.equal(r.status, 400, h + ' / ' + k);
+        assert.equal(r.reason, 'Bad Request');
+        assert.equal(r.body, BADLEN, h + ' / ' + k);
+        assert.equal(r.headers['access-control-allow-origin'], undefined);
+      }
+    }
+  }
+  // chunked 본문을 실제로 보내도 읽지 않고 400 — 프레임 파일을 쓰지 않는다(예전 Node 는 끝까지 받아 디스크에 씀)
+  const chunked = 'POST /api/frame?sid=chunky&index=0 HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n';
+  assert.equal((await go(chunked)).status, 400);
+  for (const d of [NF, PYF]) { assert.ok(!fs.existsSync(path.join(d, 'chunky'))); assert.ok(!fs.existsSync(path.join(d, 'badlen'))); }
+  // 길이 없음 → 상한 있는 경로만 411(출처 검사 뒤라 CORS 있음, 거부 출처는 403), 상한 없는 경로는 그대로
+  for (const p of ['/api/frame?sid=nolen&index=0', '/api/finalize', '/api/ae']) {
+    for (const [origin, acao] of [['', '*'], ['Origin: app://weathercg\r\n', 'app://weathercg']]) {
+      const r = await go('POST ' + p + ' HTTP/1.1\r\nHost: x\r\n' + origin + 'Connection: close\r\n\r\n');
+      assert.deepEqual([r.status, r.reason, r.body, r.headers['access-control-allow-origin']], [411, 'Length Required', '{"ok": false, "error": "본문 길이(Content-Length)가 필요합니다"}', acao], p);
+    }
+    assert.equal((await go('POST ' + p + ' HTTP/1.1\r\nHost: x\r\nOrigin: https://evil.com\r\nConnection: close\r\n\r\n')).status, 403);
+  }
+  assert.equal((await go('POST /nope HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n')).status, 404);
+  for (const d of [NF, PYF]) assert.ok(!fs.existsSync(path.join(d, 'nolen')));
+  // 2^64-1 은 올바른 길이 → 상한 넘음 413
+  const r = await go('POST /api/ae HTTP/1.1\r\nHost: x\r\nContent-Length: 18446744073709551615\r\n\r\n');
+  assert.equal(r.status, 413);
+  // 앞 공백·탭, 끝 공백, 앞자리 0 은 올바른 길이 — 같은 파일을 쓴다
+  const okHeads = ['Content-Length: 5 ', 'Content-Length:\t 5', 'Content-Length:   05', 'content-length: 5'];
+  for (let i = 0; i < okHeads.length; i++) {
+    const ok = await go('POST /api/frame?sid=lenok&index=' + (i + 1) + ' HTTP/1.1\r\nHost: x\r\n' + okHeads[i] + '\r\nConnection: close\r\n\r\nhello');
+    assert.equal(ok.status, 200, okHeads[i]);
+  }
+  assert.deepEqual(tree(path.join(NF, 'lenok')), tree(path.join(PYF, 'lenok')));
+  assert.equal(Object.keys(tree(path.join(NF, 'lenok'))).length, okHeads.length);
+  // 길이 오류가 아닌 파서 오류는 Node 기본 응답 그대로(빈 본문 400)
+  const raw = await rawSock(dsPort, 'GE T /ping HTTP/1.1\r\nHost: x\r\n\r\n');
+  assert.equal(raw, 'HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+});
+
+test('차등: aePath — 설치 목록의 경로와 같을 때만(ASCII 대소문자·/ 무시) 목록 경로로 실행, UNC·\\??\\·네트워크 드라이브·상대경로·목록 밖 파일·문자열 아님은 무시', async () => {
   await startPyHelper();
   const fake = path.join(TMP, 'Adobe After Effects 2098', 'Support Files', 'AfterFX.exe');
-  const fakeLower = path.join(TMP, 'AE lower', 'Support Files', 'afterfx.EXE');
-  for (const f of [fake, fakeLower]) { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, ''); }
-  const inputs = [fake, fakeLower, fake.replace(/\\/g, '/'), process.execPath, 'C:\\Windows\\System32\\cmd.exe', '\\\\?\\' + fake, '//?/' + fake.replace(/\\/g, '/'),
-    '\\\\127.0.0.1\\c$\\AfterFX.exe', '//evil/share/AfterFX.exe', '\\/evil\\AfterFX.exe', '/\\evil\\AfterFX.exe', path.dirname(fake), path.join(TMP, 'nope', 'AfterFX.exe'),
-    'AfterFX.exe', '', 'C:AfterFX.exe', fake + '\u0000', fake + '.bak', 1, 0, true, false, null, [fake], { p: fake }, 1.5];
+  const offList = path.join(TMP, 'AE off list', 'Support Files', 'AfterFX.exe');   // 실제 파일이지만 목록 밖
+  for (const f of [fake, offList]) { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, ''); }
+  const VL = [{ path: fake, name: 'After Effects 2098' }, V1[0]];
+  const drv = fake.slice(0, 1);
+  const inputs = [fake, fake.toLowerCase(), fake.toUpperCase(), fake.replace(/\\/g, '/'), V1[0].path, V1[0].path.toLowerCase(), V1[0].path.replace(/\\/g, '/'),
+    offList, process.execPath, 'C:\\Windows\\System32\\cmd.exe', '\\\\?\\' + fake, '//?/' + fake.replace(/\\/g, '/'), '\\??\\' + fake,
+    '\\??\\UNC\\localhost\\' + drv + '$' + fake.slice(2), '\\\\localhost\\' + drv + '$' + fake.slice(2), '\\\\127.0.0.1\\c$\\AfterFX.exe', '//evil/share/AfterFX.exe',
+    'R:\\[F]_Util\\WNS\\AfterFX.exe', 'R:AfterFX.exe', 'AfterFX.exe', 'Support Files\\AfterFX.exe', 'C:AfterFX.exe', drv + ':' + path.relative(drv + ':\\', fake),
+    path.dirname(fake), fake + '\u0000', fake + ' ', ' ' + fake, fake + '.bak', V1[0].path.replace('Files', 'FİLES'), V1[0].path.replace('Adobe\\', 'Adobe\\\\'),
+    '', 1, 0, true, false, null, [fake], { path: fake }, 1.5];
   const py = pyRun('import sys,json; sys.path.insert(0, r"' + HELPER_SRC + '"); import helper\n'
-    + 'inp=json.loads(sys.stdin.read()); print(json.dumps([helper.is_afterfx_exe(p) for p in inp]))', inputs);
-  assert.deepEqual(inputs.map(W.isAfterFxExe), py);
-  assert.deepEqual(py.map((x, i) => (x ? i : -1)).filter((i) => i >= 0), [0, 1, 2]);
+    + 'a=json.loads(sys.stdin.read()); print(json.dumps([helper.listed_afterfx(p, a["vers"]) for p in a["inputs"]]))', { inputs, vers: VL });
+  assert.deepEqual(inputs.map((p) => W.listedAfterFx(p, VL)), py);
+  assert.deepEqual(py.slice(0, 7), [fake, fake, fake, fake, V1[0].path, V1[0].path, V1[0].path]);   // 목록 경로(원래 철자)로
+  assert.ok(py.slice(7).every((x) => x === null));
   await same({ method: 'POST', path: '/api/frame?sid=aeP&index=0', body: 'png' });
-  await setAeState(null, V1);
+  await setAeState(null, VL);
   for (const ap of inputs) {
     const r = await same({ method: 'POST', path: '/api/ae', body: JSON.stringify({ sid: 'aeP', aePath: ap }) });
     assert.equal(r.node.status, 200, String(ap));
-    const c = await setAeState(null, V1);
+    const c = await setAeState(null, VL);
     assert.deepEqual(normCalls(c.node, NF), normCalls(c.py, PYF), String(ap));
-    assert.equal(c.node[1][1][0], typeof ap === 'string' && W.isAfterFxExe(ap) ? ap : V1[0].path, String(ap));
+    const want = W.listedAfterFx(ap, VL);
+    if (want) assert.equal(c.node[1][1][0], want, String(ap));
+    else { assert.deepEqual(c.node, [], String(ap)); assert.equal(JSON.parse(r.node.body).choose, true); }   // 목록 밖 → 실행 없이 버전 고르기
   }
+  // 목록 밖 경로 + 실행 중인 AE → 실행 중인 것으로
+  await setAeState('C:\\Running\\Adobe After Effects 2024\\Support Files\\AfterFX.exe', VL);
+  await same({ method: 'POST', path: '/api/ae', body: JSON.stringify({ sid: 'aeP', aePath: offList }) });
+  const c = await setAeState(null, VL);
+  assert.deepEqual(normCalls(c.node, NF), normCalls(c.py, PYF));
+  assert.equal(c.node[1][1][0], 'C:\\Running\\Adobe After Effects 2024\\Support Files\\AfterFX.exe');
+});
+
+test('차등: 점으로 끝나는 sid·윈도 장치 이름 sid — 두 헬퍼 모두 400(폴더 안 만듦), 비슷한 보통 이름은 그대로 저장', async () => {
+  const A = path.join(TMP, 'devpy', 'frames'), B = path.join(TMP, 'devnode', 'frames');
+  const pport = await spawnPy(A, FFMPEG || path.join(TMP, 'none.exe'));
+  const s = W.createWnsServer({ ffmpegPath: FFMPEG || path.join(TMP, 'none.exe'), framesDir: B, aeDryRun: true, fontsInstall: false, buildAeJsx: stubJsx });
+  const nport = await s.listen(0);
+  const BAD = ['a..', 'x.', 'a.b.', 'NUL', 'nul', 'Con', 'aUx', 'PRN', 'COM1', 'com9', 'COM0', 'LPT1', 'lpt0', 'COM%C2%B9', 'lpt%C2%B3', 'LPT%C2%B2.log',
+    'NUL.txt', 'con.tar.gz', 'NUL..x', 'PRN.', 'nul%20', 'C%3AO%2FN', 'AUX%2E', 'COM1.%2E'];
+  const OK = ['COM10', 'CONX', 'NULL', 'xNUL', 'COM', 'LPT', 'a.b', '.hidden', 'CON_1', 'COM1x', 'COMa', 'LPT%C2%B9%C2%B9', 'COM%C2%B5', 'CON-', 'nul_.txt', '%EF%BC%AEUL'];
+  try {
+    const run = async (spec) => {
+      const [a, b] = await Promise.all([rawReq(pport, spec), rawReq(nport, spec)]);
+      assert.deepEqual(view(b), view(a), JSON.stringify(spec));
+      return view(b);
+    };
+    for (const sid of BAD) {
+      const r = await run({ method: 'POST', path: '/api/frame?sid=' + sid + '&index=0', body: 'evil' });
+      assert.equal(r.status, 400, sid); assert.equal(r.body, '{"ok": false, "error": "잘못된 sid"}');
+    }
+    for (const sid of ['a..', 'NUL', 'COM1.txt', 'x.']) {
+      for (const ep of ['/api/finalize', '/api/ae']) assert.equal((await run({ method: 'POST', path: ep, body: JSON.stringify({ sid }) })).status, 400, ep + ' ' + sid);
+    }
+    for (const sid of OK) assert.equal((await run({ method: 'POST', path: '/api/frame?sid=' + sid + '&index=0', body: 'ok:' + sid })).status, 200, sid);
+    assert.deepEqual(tree(B), tree(A));
+    assert.equal(Object.keys(tree(B)).length, OK.length);
+    for (const d of [A, B]) assert.deepEqual(fs.readdirSync(d).filter((n) => /\.$/.test(n) || /^(?:CON|PRN|AUX|NUL|COM[0-9¹²³]|LPT[0-9¹²³])(?:\.|$)/i.test(n)), [], d);
+  } finally { await s.close(); }
 });
 
 test('차등: 점만으로 된 sid — 두 헬퍼 모두 400, FRAMES 와 상위 폴더를 지우거나 쓰지 않음', async () => {
@@ -1206,10 +1307,11 @@ test('차등: 점만으로 된 sid — 두 헬퍼 모두 400, FRAMES 와 상위 
   } finally { await s.close(); }
 });
 
-test('차등: 오래된 세션 폴더 정리 — index 0 때·시작 때, ae… 14일/그 밖 1일, 지금 sid·파일·정션은 그대로', async () => {
+test('차등: 오래된 세션 폴더 정리 — index 0 때·시작 때, ae… 90일(저장한 AE 프로젝트 원본)/그 밖 1일, 지금 sid·파일·정션은 그대로', async () => {
   await startPyHelper();
   const DAY = 86400 * 1000;
-  const plan = [['aeOld15', 15 * DAY], ['ae13d', 13 * DAY], ['mov2d', 2 * DAY], ['wns20h', 20 * 3600 * 1000], ['AEcase2d', 2 * DAY], ['prunesid', 30 * DAY]];
+  assert.equal(W.PRUNE_AE_DAYS, 90);
+  const plan = [['aeOld91', 91 * DAY], ['ae89d', 89 * DAY], ['ae15d', 15 * DAY], ['mov2d', 2 * DAY], ['wns20h', 20 * 3600 * 1000], ['AEcase2d', 2 * DAY], ['prunesid', 120 * DAY]];
   const outside = path.join(TMP, 'prune-outside');
   fs.mkdirSync(outside, { recursive: true });
   fs.writeFileSync(path.join(outside, 'precious.txt'), 'p');
@@ -1228,7 +1330,7 @@ test('차등: 오래된 세션 폴더 정리 — index 0 때·시작 때, ae… 
   };
   const expectLeft = (root, sidKept) => {
     const has = (nm) => fs.existsSync(path.join(root, nm));
-    assert.deepEqual(plan.map(([nm]) => [nm, has(nm)]), [['aeOld15', false], ['ae13d', true], ['mov2d', false], ['wns20h', true], ['AEcase2d', false], ['prunesid', sidKept]], root);
+    assert.deepEqual(plan.map(([nm]) => [nm, has(nm)]), [['aeOld91', false], ['ae89d', true], ['ae15d', true], ['mov2d', false], ['wns20h', true], ['AEcase2d', false], ['prunesid', sidKept]], root);
     assert.ok(has('old-file.txt') && has('movlink'), root);
     assert.equal(fs.readFileSync(path.join(outside, 'precious.txt'), 'utf8'), 'p');
   };
@@ -1244,7 +1346,7 @@ test('차등: 오래된 세션 폴더 정리 — index 0 때·시작 때, ae… 
   // index 0 이 아니면 정리 안 함
   seed(PYF); seed(NF);
   await same({ method: 'POST', path: '/api/frame?sid=prunesid&index=1', body: 'x' });
-  for (const root of [PYF, NF]) assert.ok(fs.existsSync(path.join(root, 'aeOld15')));
+  for (const root of [PYF, NF]) assert.ok(fs.existsSync(path.join(root, 'aeOld91')));
   // (2) 시작 때 — 파이썬 main() 의 prune_frames() 와 Node listen() 이 같은 결과
   const P1 = path.join(TMP, 'prune-py'), N1 = path.join(TMP, 'prune-node');
   seed(P1); seed(N1);
@@ -1351,4 +1453,86 @@ test('차등: SUITE 폰트 — 후보 폴더 목록이 같고, SUITE-*.otf 만 �
   assert.deepEqual(fs.readdirSync(fN).sort(), names.slice().sort());   // WantedSansVariable.ttf 없음
   assert.equal(fs.readFileSync(path.join(fN, names[0]), 'utf8'), 'part:' + names[0]);   // 앞 후보 우선
   assert.equal(fs.readFileSync(path.join(fN, names[6]), 'utf8'), 'full:' + names[6]);
+});
+
+// 원본 폴더 확인을 기록·지연시키는 파이썬 쪽(os.path.isdir/exists 를 감싸 mark 아래 경로만 기록, slow 는 10초 멈춤)
+const PY_FONTS2 = String.raw`
+import sys, json, os, types, time
+a = json.loads(sys.stdin.read())
+sys.path.insert(0, a['src'])
+import helper
+reg = {}
+def qv(k, n):
+    if n in reg: return (reg[n], 1)
+    raise FileNotFoundError(n)
+sys.modules['winreg'] = types.SimpleNamespace(HKEY_CURRENT_USER=1, REG_SZ=1, CreateKey=lambda *x: object(), CloseKey=lambda k: None,
+    QueryValueEx=qv, SetValueEx=lambda k, n, r, t, v: reg.__setitem__(n, v))
+sys.modules['ctypes'] = types.SimpleNamespace(windll=types.SimpleNamespace(user32=types.SimpleNamespace(SendMessageTimeoutW=lambda *x: None)))
+os.environ['LOCALAPPDATA'] = a['la']
+default_probe = helper.FONT_PROBE_SEC
+helper.FONT_PROBE_SEC = a['probe']
+seen = []
+isdir0, exists0 = os.path.isdir, os.path.exists
+def isdir(p):
+    if str(p).startswith(a['mark']):
+        seen.append(['isdir', p])
+        if p == a['slow']: time.sleep(10)
+    return isdir0(p)
+def exists(p):
+    if str(p).startswith(a['mark']): seen.append(['exists', p])
+    return exists0(p)
+os.path.isdir, os.path.exists = isdir, exists
+fd = os.path.join(a['la'], 'Microsoft', 'Windows', 'Fonts')
+runs = []
+for c in a['cases']:
+    for f in c['rm']: os.remove(os.path.join(fd, f))
+    seen.clear()
+    t0 = time.time()
+    ok = helper.ensure_suite_fonts(c['dirs'])
+    runs.append({'ok': ok, 'ms': (time.time() - t0) * 1000, 'seen': list(seen), 'reg': dict(reg), 'files': sorted(os.listdir(fd))})
+print(json.dumps({'default': default_probe, 'runs': runs}))
+`;
+
+test('차등: SUITE 폰트 — 이미 설치된 폰트는 원본(네트워크)을 보지 않고 true, 원본 폴더 확인은 시간 한도·폴더마다 한 번·확인 중이면 재사용', async () => {
+  const names = W.SUITE_FONTS.map((f) => f[0]);
+  const full = path.join(TMP, 'fsrc2', 'full');
+  fs.mkdirSync(full, { recursive: true });
+  for (const f of names) fs.writeFileSync(path.join(full, f), 'full2:' + f);
+  const mark = path.join(TMP, 'fmark'), slow = path.join(mark, 'slow-unc'), nope = path.join(mark, 'nope');
+  const cases = [
+    { rm: [], dirs: [full] },                       // 0: 처음 설치
+    { rm: [], dirs: [nope] },                       // 1: 다 설치됨 + 원본 없음 → true, 원본 확인 0번 (예전엔 false)
+    { rm: [names[6]], dirs: [slow, full] },          // 2: 하나 빠짐 → 닿지 않는 폴더는 시간 한도 뒤 건너뛰고 다음 후보에서
+    { rm: [names[6]], dirs: [slow] },                // 3: 앞 확인이 아직 안 끝남 → 새로 확인하지 않고 기다림(한도 뒤 false)
+    { rm: [names[0]], dirs: [nope, full] },          // 4: 두 개 빠짐(0·6) — 없는 폴더는 한 번만 확인
+  ];
+  const laP = path.join(TMP, 'la2-py'), laN = path.join(TMP, 'la2-node');
+  const py = await pyAsync(PY_FONTS2, { src: HELPER_SRC, la: laP, cases, mark, slow, probe: 0.5 });
+  assert.equal(py.default * 1000, W.FONT_PROBE_MS);
+  assert.equal(W.FONT_PROBE_MS, 3000);
+  const reg = new Map(), seen = [];
+  const o = { localAppData: laN, regQuery: async (k, n) => (reg.has(n) ? reg.get(n) : null), regSet: async (k, n, v) => { reg.set(n, v); }, broadcast: async () => {},
+    probeMs: 500,
+    stat: (d) => {
+      if (d.startsWith(mark)) seen.push(['isdir', d]);
+      if (d === slow) return new Promise((resolve) => { setTimeout(resolve, 10000, { isDirectory: () => true }).unref(); });
+      return fs.promises.stat(d);
+    },
+    exists: (p) => { if (p.startsWith(mark)) seen.push(['exists', p]); return fs.promises.access(p).then(() => true, () => false); } };
+  const fN = path.join(laN, 'Microsoft', 'Windows', 'Fonts');
+  const norm = (obj, la) => JSON.parse(JSON.stringify(obj).split(JSON.stringify(la).slice(1, -1)).join('<LA>'));
+  for (let i = 0; i < cases.length; i++) {
+    for (const f of cases[i].rm) fs.rmSync(path.join(fN, f));
+    seen.length = 0;
+    const t0 = Date.now();
+    const ok = await W.ensureSuiteFonts(cases[i].dirs, o);
+    const ms = Date.now() - t0;
+    const p = py.runs[i];
+    assert.deepEqual([ok, seen, norm(Object.fromEntries(reg), laN), fs.readdirSync(fN).sort()], [p.ok, p.seen, norm(p.reg, laP), p.files], 'case ' + i);
+    assert.ok(ms < 3000 && p.ms < 3000, 'case ' + i + ' 시간 ' + ms + '/' + p.ms);   // 10초 멈춘 확인을 기다리지 않음
+  }
+  assert.deepEqual(py.runs.map((r) => r.ok), [true, true, true, false, true]);
+  assert.deepEqual(py.runs.map((r) => r.seen), [[], [], [['isdir', slow]], [], [['isdir', nope]]]);
+  assert.ok(py.runs[2].ms >= 400 && py.runs[3].ms >= 400);   // 한도(0.5초)까지는 기다림
+  assert.equal(fs.readFileSync(path.join(fN, names[6]), 'utf8'), 'full2:' + names[6]);
 });

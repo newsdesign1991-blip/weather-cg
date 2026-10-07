@@ -6,7 +6,7 @@ const P = require('./pyfmt');
 const { get, sub, iter, index, truthy, or, isNone, ge, le, max2, min2, float, int, round, ceil, div, mod,
   hypot, degrees, atan2, pyF, pyStr, pyJsonStr, fmt, pyErr } = P;
 
-// ── helper.py 189~195 wanted_ps ──
+// ── helper.py wanted_ps ──
 function wantedPs(w) {
   try { w = int(or(w, 400n)); } catch (e) { w = 400n; }
   const table = [[400n, 'Regular'], [500n, 'Medium'], [600n, 'SemiBold'], [700n, 'Bold'],
@@ -14,7 +14,7 @@ function wantedPs(w) {
   return 'WantedSansVariable-' + nearest(table, w)[1];
 }
 
-// ── helper.py 197~203 suite_ps ──
+// ── helper.py suite_ps ──
 function suitePs(w) {
   try { w = int(or(w, 400n)); } catch (e) { w = 400n; }
   const table = [[300n, 'Light'], [400n, 'Regular'], [500n, 'Medium'], [600n, 'SemiBold'],
@@ -29,7 +29,7 @@ function nearest(table, w) {
   return best;
 }
 
-// ── helper.py 205~217 _js ── 따옴표·역슬래시 이스케이프 + 비ASCII 는 \uXXXX(U+10000 이상은 서로게이트 쌍 두 개, 외톨이 서로게이트는 하나)
+// ── helper.py _js ── 따옴표·역슬래시 이스케이프 + 비ASCII 는 \uXXXX(U+10000 이상은 서로게이트 쌍 두 개, 외톨이 서로게이트는 하나)
 function js(s) {
   const t = pyStr(s);
   let out = '';
@@ -43,11 +43,12 @@ function js(s) {
   return out;
 }
 
-// ── helper.py 219~225 _rig_num ── 태풍 리깅 선택 숫자 필드 — 없음/null(앱 JSON의 NaN)·비유한·음수면 기본값(옛 앱 호환)
+// ── helper.py _rig_num ── 태풍 리깅 선택 숫자 필드 — 없음/null(앱 JSON의 NaN)·비유한·음수면 기본값(옛 앱 호환)
 function rigNum(d, k, dv) {
   const v = get(d, k);
   if (isNone(v)) return dv;
-  const f = float(v);
+  let f;
+  try { f = float(v); } catch (e) { if (e.pyType === 'OverflowError') return dv; throw e; }   // 너무 큰 정수(파이썬 OverflowError)도 기본값
   return (Number.isFinite(f) && f >= 0) ? f : dv;
 }
 
@@ -68,7 +69,7 @@ function clampIdx(n, j) {
   return Number(max2(0n, min2(BigInt(n - 1), int(j))));
 }
 
-// ── helper.py 227~460 emit_typhoon_rig ──
+// ── helper.py emit_typhoon_rig ──
 function emitTyphoonRig(L, rig) {
   const pts = get(rig, 'points', []);
   const nowIdx = int(get(rig, 'nowIdx', 0));
@@ -296,7 +297,7 @@ function emitTyphoonRig(L, rig) {
   L.push('})();');
 }
 
-// ── helper.py 465~593 emit_compare_rig ──
+// ── helper.py emit_compare_rig ──
 function emitCompareRig(L, rig) {
   const tys = iter(get(rig, 'typhoons', []));
   const rv = or(get(rig, 'reveal', {}), {});
@@ -449,7 +450,7 @@ function strCat(a, b) {
   return a + b;
 }
 
-// ── helper.py 599~768 build_ae_jsx ──
+// ── helper.py build_ae_jsx ──
 function buildAeJsx(spec, framesDir) {
   spec = P.pyJsonVal(spec);   // 정수 number → BigInt(파이썬 int 와 같은 값·자릿수)
   const c = get(spec, 'comp', {});
