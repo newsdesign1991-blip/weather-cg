@@ -116,7 +116,7 @@ test('baking normalizes VF scale and AE uses scale-aware coordinates', () => {
   assert.match(html, /vfEnter:[\s\S]*dx:\s*vfEnterDist\(\)\s*\*\s*vfScaleValue\(\)\s*\/\s*100/);
 });
 
-test('CG uses local SUITE weights while editor UI keeps Wanted Sans', () => {
+test('CG uses local SUITE weights while editor UI uses Segoe UI + Malgun Gothic', () => {
   const weights = [
     ['300', 'Light'], ['400', 'Regular'], ['500', 'Medium'],
     ['600', 'SemiBold'], ['700', 'Bold'], ['800', 'ExtraBold'], ['900', 'Heavy'],
@@ -128,7 +128,10 @@ test('CG uses local SUITE weights while editor UI keeps Wanted Sans', () => {
     );
   }
   const bodyRule = html.match(/^\s*body\s*\{[^}]*\}/m)?.[0] || '';
-  assert.match(bodyRule, /font-family:\s*'Wanted Sans Variable'/);
+  assert.match(bodyRule, /font-family:\s*var\(--ui-font\)/);
+  assert.match(html, /--ui-font:\s*'Segoe UI', 'Malgun Gothic'/);
+  // UI 쪽에 Wanted Sans 직접 지정이 남지 않게(비교 이름표 CG 글꼴 선택지 CMP_FONTS는 예외)
+  assert.doesNotMatch(html.replace(/const CMP_FONTS = [^\n]*/, ''), /font(-family)?:[^;}\n]*'Wanted Sans Variable'/);
   assert.match(html, /'font-family':\s*'"SUITE CG"/);
   assert.doesNotMatch(bodyRule, /font-family:\s*'SUITE CG'/);
 });
