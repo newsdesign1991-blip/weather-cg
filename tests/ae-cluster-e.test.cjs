@@ -202,7 +202,9 @@ function compDur(specLayers, opt = {}) {
   return fn(opt.start0 ?? 1, { dur: opt.dur ?? 6 }, specLayers, { res: opt.res || '1920x1080' }, 1.0, 1.0);
 }
 test('AE 컴프 길이는 타임라인 길이·태풍 리빌·라벨 키·비교 리빌까지 포함', () => {
-  assert.equal(compDur([], { dur: 6 }), 7);                               // max(start0, dur)=6 → +0.6 → 7
+  assert.equal(compDur([], { dur: 6 }), 6);                               // 타임라인 6초 = 컴프 6초(A.dur에 여유 두 번 안 더함, MXF와 같은 길이)
+  assert.equal(compDur([], { dur: 7.5 }), 7.5);                           // 타임라인 7.5초 그대로
+  assert.equal(compDur([{ fade: { start: 1, len: 1 } }], { dur: 6 }), 6);  // 내용이 타임라인 안이면 타임라인 길이
   assert.equal(compDur([], { dur: 2 }), 6);                               // 최소 6초 유지
   assert.equal(compDur([{ fade: { start: 8, len: 1 } }], { dur: 2 }), 10);
   const rig = (labels) => ({ typhoonRig: { reveal: { start: 1, path: 8, labelLen: 1 }, labels } });
@@ -211,6 +213,21 @@ test('AE 컴프 길이는 타임라인 길이·태풍 리빌·라벨 키·비교
   assert.equal(compDur([rig([{ revStart: 9.5, revLen: null }])], { dur: 2 }), 11.5); // 9.5+1(labelLen)=10.5 → ceil(11.1×2)/2
   assert.equal(compDur([rig([{ revStart: null, revLen: null }])], { dur: 2 }), 11); // 1+8+1=10 → 11
   assert.equal(compDur([{ compareRig: { reveal: { start: 4, path: 4, labelLen: 1 } } }], { dur: 2 }), 10);
+  assert.equal(compDur([rig([{ revStart: 9.5, revLen: 1.5 }])], { dur: 6 }), 12);   // 타임라인보다 긴 리빌은 내용 끝+여유
+  assert.equal(compDur([], { dur: 2, res: '1920x1080-vf' }), 6);          // VF 진입(1+1)도 최소 6초 안
+});
+
+// ── C14: 반경 외곽선 굵기도 출력 배율 / C59: 비교 아이콘은 화면처럼 noIcon 무시 ──
+test('단일 태풍 반경 strokeW는 kk 배율, 비교 리그 iconAt은 noIcon을 보지 않는다(화면 drawCompareTracks와 같게)', () => {
+  const send = sliceBetween('async function sendToAE()', '// 폴더를 물어보고');
+  assert.match(send, /bands\[k\] = \{ fill: st\.fill, fillOp: st\.fillOp, stroke: st\.stroke, strokeW: \(st\.strokeW \|\| 0\) \* kk, dash: st\.dash \? 1 : 0 \}/);
+  const cmp = send.slice(send.indexOf('if (isTyphoonCompare())'), send.indexOf("name: '태풍 비교 리깅'"));
+  assert.match(cmp, /sp\.forEach\(\(p\) => \{ if \(idxSet\.has\(Math\.round\(p\.idx\)\)\) iconAt\.push\(p\.idx\); \}\)/);
+  assert.doesNotMatch(cmp, /p\.noIcon/);
+  const tracks = fnSource('function drawCompareTracks(');
+  assert.doesNotMatch(tracks, /\.noIcon/, '화면 비교선 아이콘도 noIcon을 안 본다 — 바꾸면 AE iconAt도 같이');
+  // 화면 반경 외곽선 = 뷰박스 단위 strokeW, 점선 ×4/×3.5
+  assert.match(html, /if \(st\.dash\) a\['stroke-dasharray'\] = \(st\.strokeW \* 4\) \+ ' ' \+ \(st\.strokeW \* 3\.5\)/);
 });
 
 // ── C114: fontsOk ──
@@ -305,7 +322,12 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
   assert.equal(F.trackMode, 'full'); assert.equal(F.pastIconK, 0.3); close(F.pastLineWidth, +(Math.max(1.5, 6 * 0.55) * kk).toFixed(2));
   assert.deepEqual(F.points.map((p) => p.noIcon), [false, true, false, true, false]);
   F.points.forEach((p, i) => { close(p.x, N.points[i].x * kx, 0.11); close(p.y, N.points[i].y * ky, 0.11); });
+  close(F.bands.r15.strokeW, N.bands.r15.strokeW * kk); close(N.bands.r15.strokeW, 2);   // 반경 외곽선도 출력 배율
   assert.equal(o.tyLong.comp.dur, 12);
+  // 타임라인 6초 = AE 컴프 6초(여유 두 번 안 더함)
+  for (const k of ['tyLineTouch', 'tyFullTouch', 'tyFull1920', 'cmpTouch', 'cmp1920']) assert.equal(o[k].comp.dur, 6, k);
+  for (const res of ['1920x1080', '1920x1080-vf']) assert.equal(o[res].comp.dur, 6, res);
+  assert.equal(o.touch.comp.dur, 6);
   // 비교
   const ct = o.cmpTouch.rig.typhoons[0], cn = o.cmp1920.rig.typhoons[0];
   close(ct.iconScreenH, 15 * kk); close(ct.lineW, 3 * kk); close(ct.iconRenderH, 90 * 0.62 * 2.5 / 1.05);
