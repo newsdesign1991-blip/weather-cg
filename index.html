@@ -5987,8 +5987,8 @@ function loadRefImgFromFile(file) {
       // 원본 data URI를 그대로 S에 넣으면 undo 스냅샷·자동저장(localStorage)이 수 MB씩 커져 저장이 멈춘다 →
       // 긴 변 1920px 이하로 줄여 webp(투명 유지)로 다시 인코딩한다. 실패하면 원본.
       let href = rd.result;
-      try {
-        const k = Math.min(1, 1920 / Math.max(im.width, im.height)), cw = Math.max(1, Math.round(im.width * k)), ch = Math.max(1, Math.round(im.height * k));
+      if (!/svg/i.test(file.type) && im.width > 0 && im.height > 0) try {   // SVG(벡터·크기 없을 수 있음)는 그대로
+        const k =Math.min(1, 1920 / Math.max(im.width, im.height)), cw = Math.max(1, Math.round(im.width * k)), ch = Math.max(1, Math.round(im.height * k));
         const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
         cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
         const enc = cv.toDataURL('image/webp', 0.88);
@@ -6025,7 +6025,7 @@ function wireCompareSection() {
   const add = $('#tycAdd'); if (add) add.onclick = () => addCompareForecast();
   const pen = $('#tycPen'); if (pen) pen.onclick = startPen;
   const play = $('#tycPlay'); if (play) play.onclick = playTyphoon;
-  const which = $('#tycWhichSel'); if (which) which.onchange = () => { pushUndo(); selectTyphoonFromApi(+which.value, { fromSel: true }); };   // 비교 지도: 목록에서 고르면 그 태풍도 비교에 추가(되돌리기 가능)
+  const which = $('#tycWhichSel'); if (which) which.onchange = () => selectTyphoonFromApi(+which.value, { fromSel: true });   // 비교 지도: 목록에서 고르면 그 태풍도 비교에 추가(fromSel이 되돌리기 기록)
   const lg = $('#tycLegend'); if (lg) lg.onchange = () => { pushUndo(); (S.legend ||= {}).on = lg.checked ? 1 : 0; renderLegend(); };
   // 참고 이미지
   const drop = $('#tycRefDrop'), file = $('#tycRefFile');
@@ -6110,7 +6110,7 @@ function wireTyphoonPanel() {
   const rF = $('#typRangeFrom'); if (rF) rF.onchange = () => { pushUndo(); T().rangeFrom = rF.value; renderTyphoon(); };
   const rT = $('#typRangeTo'); if (rT) rT.onchange = () => { pushUndo(); T().rangeTo = rT.value; renderTyphoon(); };
   const kin = $('#typKey'); if (kin) { kin.value = typKey(); kin.oninput = (e) => localStorage.setItem(TYP_KEY_STORE, e.target.value.trim()); }
-  const which = $('#typWhichSel'); if (which) which.onchange = () => { pushUndo(); selectTyphoonFromApi(+which.value, { fromSwitch: true, fromSel: true }); };   // 전환도 되돌리기 가능
+  const which = $('#typWhichSel'); if (which) which.onchange = () => selectTyphoonFromApi(+which.value, { fromSwitch: true, fromSel: true });   // 전환도 되돌리기 가능(fromSel이 기록)
   const nmeIn = $('#typName');   // 이름 입력 → 번호별 저장 + 라벨/제목/드롭다운 즉시 반영
   if (nmeIn) nmeIn.oninput = (e) => {
     const T = S.typhoon; if (!T) return;
@@ -6182,6 +6182,7 @@ function selectTyphoonFromApi(idx, opts) {
     status('이 태풍으로 바꾸려면 다시 불러오기를 눌러 주세요', true);
     return;
   }
+  if (opts && opts.fromSel) pushUndo();   // 드롭다운 전환은 되돌리기 가능(못 바꾼 경우엔 빈 단계를 남기지 않게 여기서)
   const w = list[idx];
   const rows = w.points || (w.rows ? w.rows.map(typPointFromRow) : []);
   const anal = rows.filter((r) => !r.fcst).sort((a, b) => (a.tmef > b.tmef ? 1 : (a.tmef < b.tmef ? -1 : 0)));
@@ -11478,7 +11479,7 @@ async function openRecent(rec) {
     if (!isWorkData(data)) { status('열 수 없습니다 (파일이 옮겨졌거나 삭제됨)', true); return; }
     const keepH = (!fromSnap && rec.handle && /\.png$/i.test(rec.name || '')) ? rec.handle : null;   // PNG 핸들만 덮어쓰기에(스냅샷으로 열었으면 없는 파일에 쓰지 않게)
     loadProjectData(data, keepH);
-    await addRecent(rec.name, fromSnap ? null : (rec.handle || null), data);   // 방금 연 걸 맨 위로
+    await addRecent(rec.name, rec.handle || null, data);   // 방금 연 걸 맨 위로(스냅샷으로 열어도 핸들은 남긴다 — 네트워크 드라이브가 잠깐 끊긴 경우 다음엔 원본을 다시 시도)
     $('#recentList').classList.remove('on');
     status(fromSnap && rec.handle ? '원본 파일을 못 찾아 마지막 저장 스냅샷으로 열었습니다: ' + rec.name : '열림: ' + rec.name, fromSnap && !!rec.handle);
   } catch (e) { status('열기 실패: ' + rec.name + ' — 파일이 옮겨졌거나 지워졌을 수 있어요', true); }
