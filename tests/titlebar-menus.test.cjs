@@ -37,7 +37,7 @@ test('제목줄은 .app 앞에 있고 메뉴·추출·보기 버튼을 모두 �
     if (/data-menu="proj"/.test(b)) continue;
     if (/class="[^"]*\btbAction\b/.test(b)) {
       assert.equal((b.match(/<svg/g) || []).length, 1, '추출 버튼엔 아이콘이 딱 하나: ' + b.slice(0, 80));
-      assert.match(b, /<\/svg>[^<]*[^<\s][^<]*<\/button>$/, '추출 버튼은 아이콘 뒤에 글자가 있어야 한다');
+      assert.match(b, /<\/svg><span class="tbLbl">[^<]*[^<\s][^<]*<\/span><\/button>$/, '추출 버튼은 아이콘 뒤에 글자(.tbLbl span)가 있어야 한다');
       continue;
     }
     assert.doesNotMatch(b, /<svg/, b.slice(0, 80));
@@ -83,6 +83,11 @@ test('추출 3버튼 — 같은 폭(grid 균등 칸), 채운 아이콘(currentCo
     assert.doesNotMatch(svg, /stroke=/, '선 아이콘이 아니라 채운 아이콘');
     assert.match(svg, /aria-hidden="true"/);
   }
+  // 글자를 잠깐 바꿔도 아이콘이 남게 — 추출 버튼은 버튼 전체 textContent/innerText 를 덮지 않고 .tbLbl span 만 바꾼다
+  const ae = /async function sendToAE\(\) \{[\s\S]*?\n\}/.exec(html)[0];
+  assert.doesNotMatch(ae, /\bbtn\.(textContent|innerText|innerHTML) =/, 'AE 보내기 버튼 글자를 통째로 덮으면 svg 가 지워진다');
+  assert.match(ae, /btn\.querySelector\('\.tbLbl'\)/);
+  assert.doesNotMatch(html, /\$\('#(aeSend|tlToggle)'\)\.(textContent|innerText|innerHTML) =/);
   // 이모지 금지 — 버튼 글자에 그림 문자가 없다
   assert.doesNotMatch(titlebar, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
   // 맨 왼쪽 작은 앱 아이콘(파비콘)은 뺐다
