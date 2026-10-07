@@ -1,0 +1,3 @@
+# AE JSX 골든은 파이썬 출력과 바이트 비교한다 — 체크아웃 때 줄바꿈(CRLF) 변환 금지
+test/golden/** -text
+test/ae-specs/** -text
