@@ -360,35 +360,8 @@
   }
   button.pri:hover { filter: brightness(1.05); }
   button:disabled { opacity: .4; cursor: default; }
-  .choiceBtns button {
-    position: relative; overflow: visible;
-    transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s, background .2s, border-color .2s, color .2s;
-  }
-  .choiceBtns button.choicePending {
-    color: var(--on-primary); background: var(--accent-grad, var(--primary)); border-color: transparent;
-    transform: translateY(-4px) scale(1.025); box-shadow: 0 9px 22px -7px rgba(49,130,246,.72);
-    animation: choicePop .3s cubic-bezier(.2,1.35,.35,1);
-  }
-  .choiceBtns button.choicePending::after {
-    content: '✓'; position: absolute; top: -8px; right: -7px; width: 21px; height: 21px;
-    display: grid; place-items: center; border-radius: 50%; background: #fff; color: var(--primary);
-    border: 2px solid var(--primary); font-size: 12px; font-weight: 900;
-    animation: choiceCheck .32s cubic-bezier(.2,1.5,.35,1);
-  }
-  @keyframes choicePop { from { transform: translateY(1px) scale(.96); box-shadow: none; } }
+  /* 선택 카드 체크 표시가 톡 튀어나오는 애니메이션 (CG 구성 창 .cgsCard) */
   @keyframes choiceCheck { from { opacity: 0; transform: scale(.3) rotate(-20deg); } }
-  .applyChoice {
-    width: 100%; min-height: 44px; margin-top: 12px; font-size: 13px; font-weight: 800;
-    background: var(--accent-grad, var(--primary)); color: var(--on-primary); border: none;
-  }
-  .applyChoice:not(:disabled) { animation: applyRise .28s cubic-bezier(.2,.9,.25,1); box-shadow: 0 7px 18px -8px rgba(49,130,246,.7); }
-  .applyChoice:not(:disabled):hover {
-    background: var(--accent-grad, var(--primary)); color: var(--on-primary);
-    filter: brightness(1.08); opacity: 1;
-  }
-  .applyChoice:disabled { background: var(--surface-hi); color: var(--on-surface-var); border: 1px solid var(--outline-var); opacity: .55; }
-  .applyChoice:disabled:hover { background: var(--surface-hi); color: var(--on-surface-var); }
-  @keyframes applyRise { from { opacity: .35; transform: translateY(7px); } }
   .presetManage { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--outline-var); }
   .presetManageTitle { margin-bottom: 9px; color: var(--on-surface); font-size: 12px; font-weight: 800; }
   .presetReset { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--outline-var); }
@@ -401,8 +374,8 @@
   .presetMoreBody { max-height: 0; overflow: hidden; opacity: .0; transition: max-height .32s ease, opacity .28s ease; }
   .presetMoreBody.open { max-height: 340px; opacity: 1; }
   .presetMoreBody .presetManage { margin-top: 4px; border-top: none; padding-top: 4px; }
-  /* 잘 안 쓰는 출력화면 버튼(날씨 팀) — 골라지지 않았을 때 흐리게(눈에 덜 띄게) */
-  #resBtns button.resDim:not(.choicePending) { opacity: .4; color: var(--on-surface-var); }
+  /* 잘 안 쓰는 CG 종류 카드(날씨 팀) — 골라지지 않았을 때 흐리게(눈에 덜 띄게) */
+  #resBtns button.resDim:not(.choicePending):not(:hover) { opacity: .55; }
   .btns { display: flex; gap: 7px; flex-wrap: wrap; }
   .btns > button { flex: 1; }
   .hint { color: var(--on-surface-var); line-height: 1.6; margin: 6px 0 0; white-space: pre-line; }
@@ -584,6 +557,25 @@
   #titlebar .tbMenu.on { background: color-mix(in srgb, var(--on-surface) 13%, transparent); }
   #titlebar .tbMenu.pri { background: var(--nav-active-bg); color: var(--nav-active-fg); font-weight: 600; }   /* 영상으로 추출(타임라인) 켜짐 */
   #titlebar .tbMenu:disabled { opacity: .4; background: none; }
+  /* 프로젝트 = 플로피 디스크 아이콘 버튼(저장 버튼 느낌). 글자 메뉴와 같은 높이·호버 */
+  #titlebar .tbIconMenu { width: 30px; padding: 0; justify-content: center; color: var(--on-surface); }
+  #titlebar .tbIconMenu svg { width: 18px; height: 18px; display: block; opacity: 1; }
+  /* 이미지로 추출·영상으로 추출·AE로 보내기 — 특별한 버튼: 각각 둥근 사각형 + 파란 반투명 채움 + 파란 글자.
+     밝은 테마는 파랑을 한 단계 진하게(바탕 대비 4.5:1 이상). 열림(.on)·타임라인 켜짐(.pri)은 꽉 찬 파랑. */
+  :root, :root[data-theme="dark"] { --tb-act-fg: #9cc3ff; --tb-act-bg: rgba(74,148,255,.15); --tb-act-hover: rgba(74,148,255,.27); --tb-act-ring: rgba(106,168,255,.34); }
+  :root[data-theme="light"] { --tb-act-fg: #1b56d2; --tb-act-bg: rgba(49,130,246,.11); --tb-act-hover: rgba(49,130,246,.2); --tb-act-ring: rgba(49,130,246,.3); }
+  #titlebar #exportGroup { gap: 6px; }
+  #titlebar .tbAction {
+    height: 27px; padding: 0 12px; border-radius: 8px; font-weight: 650;
+    background: var(--tb-act-bg); color: var(--tb-act-fg); box-shadow: inset 0 0 0 1px var(--tb-act-ring);
+  }
+  #titlebar .tbAction:hover { background: var(--tb-act-hover); }
+  #titlebar .tbAction.on, #titlebar .tbAction.pri {
+    background: var(--primary); color: #fff; font-weight: 700;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 4px 12px -5px rgba(49,130,246,.75);
+  }
+  #titlebar .tbAction.on:hover, #titlebar .tbAction.pri:hover { background: var(--primary-hover); }
+  #titlebar .tbAction:disabled { opacity: .45; background: var(--tb-act-bg); }
   #titlebar .zoomInfo { font-size: 12px; min-width: 38px; font-variant-numeric: tabular-nums; }
   #titlebar .tourInfoBtn {
     width: 28px; height: 28px; border: 0; border-radius: 7px; background: none;
@@ -606,17 +598,23 @@
   /* 좁은 창 — 글자 메뉴 여백부터 줄여 한 줄에 다 들어가게 (창 버튼·서로 안 겹치게) */
   @media (max-width: 1280px) {
     #titlebar .tbMenu { padding: 0 7px; }
+    #titlebar .tbAction { padding: 0 10px; }
     .titlebar .tbSep { margin: 0 4px; }
   }
   @media (max-width: 1040px) {
     #titlebar .tbMenu { padding: 0 5px; font-size: 12.5px; }
+    #titlebar .tbAction { padding: 0 8px; }
+    #titlebar #exportGroup { gap: 4px; }
     .titlebar { padding-left: 8px; }
   }
   /* 구분선·오른쪽 묶음 간격은 정말 좁을 때만 줄인다(1000px 안팎에선 자리가 남아 4px 유지 — 글자에 붙어 보이지 않게) */
   @media (max-width: 860px) {
     .titlebar .tbSep { margin: 0 2px; }
     .titlebar .tbRight { gap: 2px; }
+    #titlebar .tbAction { padding: 0 7px; font-size: 12px; }
   }
+  /* 아이콘 버튼은 좁아져도 정사각에 가깝게 — 위의 글자 메뉴 여백 줄이기가 덮지 않게 */
+  #titlebar .tbMenu.tbIconMenu { width: 30px; padding: 0; }
   /* 조작 안내 — 스테이지(캔버스) 우하단 */
   .ctrlHint {
     position: absolute; left: 16px; bottom: 16px; z-index: 9; pointer-events: none;
@@ -698,7 +696,7 @@
   .mode button { border: none; border-radius: 0; }
   .mode button.on { background: var(--accent-grad, var(--primary)); color: var(--on-primary); }
   #cgMode button { flex: 1; }   /* 어두운/밝은 버튼이 폭을 반씩 채우게 (한쪽 쏠림 방지) */
-  /* 메뉴 버튼 — 출력화면·지도종류·프로젝트·추출. 지금은 맨 위 제목줄(#titlebar .tbMenu)에서 글자 메뉴로 보인다 */
+  /* 드롭다운 메뉴 버튼 — 프로젝트(플로피 아이콘)·이미지로 추출. 맨 위 제목줄(#titlebar .tbMenu)에 있다. CG 구성은 모달(#cgSetupOv) */
   .menuBtn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding-left: 12px; padding-right: 12px; }
   .menuBtn svg { flex: none; opacity: .85; }
   .menuBtn.on { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
@@ -813,6 +811,135 @@
   .startStep .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--on-surface-var); flex: none; transition: background .2s, border-color .2s; }
   .startStep.done { color: var(--on-surface); border-color: var(--primary); }
   .startStep.done .dot { background: var(--primary); border-color: var(--primary); }
+  /* 시작 화면의 'CG 구성 열기' — 큰 파란 버튼 */
+  .startSetupBtn {
+    margin-top: 24px; padding: 15px 34px; font-size: 16px; font-weight: 800; letter-spacing: -.01em;
+    border: none; border-radius: 14px; background: var(--accent-grad, var(--primary)); color: #fff;
+    box-shadow: 0 10px 26px -10px rgba(49,130,246,.85);
+  }
+  .startSetupBtn:hover { background: var(--accent-grad, var(--primary)); filter: brightness(1.07); }
+
+  /* ===== CG 구성 모달 — 상단 파란 헤더 + 아래 좌우 2판(CG 종류=파란 기운, 지도 종류=청록 기운) =====
+     두 판은 성격이 다른 메뉴라 바탕색을 은은하게 다르게. 선택 카드는 판 색으로 테두리 + 체크.
+     열고 닫기 = 블러 + 스케일(앱 메뉴 전환과 같은 결). body 잠금 없이 고정 막(.cgSetupOv)만 켠다. */
+  :root, :root[data-theme="dark"] {
+    --cgs-res: #4a94ff; --cgs-res-on: #a9caff;
+    --cgs-res-bg: color-mix(in srgb, #3182f6 10%, var(--surface-c)); --cgs-res-line: color-mix(in srgb, #3182f6 30%, var(--outline-var));
+    --cgs-map: #22b5a5; --cgs-map-on: #86e0d5;
+    --cgs-map-bg: color-mix(in srgb, #14b8a6 9%, var(--surface-c)); --cgs-map-line: color-mix(in srgb, #14b8a6 28%, var(--outline-var));
+    --cgs-card: #2a2a2a; --cgs-card-hover: #313131; --cgs-muted: #a3a3a3;
+  }
+  :root[data-theme="light"] {
+    --cgs-res: #2f77f6; --cgs-res-on: #1b56d2;
+    --cgs-res-bg: #f1f6ff; --cgs-res-line: #d4e3fd;
+    --cgs-map: #0e9384; --cgs-map-on: #0b6e63;
+    --cgs-map-bg: #eefaf7; --cgs-map-line: #c8ebe5;
+    --cgs-card: #ffffff; --cgs-card-hover: #fafcff; --cgs-muted: #64748b;
+  }
+  .cgSetupOv {
+    position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center;
+    padding: calc(var(--tbH, 0px) + 18px) 24px 24px;
+    background: rgba(6, 10, 20, .62); backdrop-filter: blur(4px);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .2s ease, visibility 0s linear .3s;
+  }
+  .cgSetupOv.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity .2s ease; }
+  .cgSetupCard {
+    width: min(1080px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--surface-c); color: var(--on-surface); border-radius: 22px;
+    box-shadow: 0 30px 90px -18px rgba(0,0,0,.62), 0 0 0 1px var(--outline-var);
+    opacity: 0; transform: scale(.95); filter: blur(8px);
+    transition: opacity .2s ease, transform .3s cubic-bezier(.2,.8,.2,1), filter .3s ease;
+  }
+  .cgSetupOv.on .cgSetupCard { opacity: 1; transform: none; filter: none; }
+  .cgSetupCard:focus { outline: none; }
+  .cgsHead { flex: none; display: flex; align-items: center; gap: 14px; padding: 20px 22px 20px 24px; color: #fff; background: linear-gradient(135deg, #2f6bff, #1e50e6); }
+  .cgsHeadIcon { flex: none; width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.18); }
+  .cgsHeadIcon svg { width: 25px; height: 25px; }
+  .cgsHeadTxt { flex: 1; min-width: 0; }
+  .cgsTitle { font-size: 21px; font-weight: 800; letter-spacing: -.02em; line-height: 1.25; }
+  .cgsSub { margin-top: 3px; font-size: 13.5px; font-weight: 600; opacity: .92; }
+  .cgsX {
+    flex: none; width: 34px; height: 34px; padding: 0; border: none; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,.18); color: #fff; font-size: 22px; line-height: 1;
+  }
+  .cgsX:hover { background: rgba(255,255,255,.34); }
+  .cgsBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 20px 22px; }
+  .cgsPane { min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 14px; border-radius: 18px; }
+  .cgsPaneRes { --acc: var(--cgs-res); --acc-on: var(--cgs-res-on); background: var(--cgs-res-bg); border: 1px solid var(--cgs-res-line); }
+  .cgsPaneStyle { --acc: var(--cgs-map); --acc-on: var(--cgs-map-on); background: var(--cgs-map-bg); border: 1px solid var(--cgs-map-line); }
+  .cgsPaneHead { display: flex; align-items: center; gap: 12px; }
+  .cgsPaneIcon { flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 18%, transparent); }
+  .cgsPaneIcon svg { width: 21px; height: 21px; }
+  .cgsPaneTxt { flex: 1; min-width: 0; }
+  .cgsPaneTitle { display: flex; align-items: center; gap: 7px; font-size: 16.5px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); }
+  .cgsStepNo { width: 20px; height: 20px; flex: none; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11.5px; font-weight: 800; color: #fff; background: var(--acc); }
+  .cgsPaneSub { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--cgs-muted); word-break: keep-all; }
+  .cgsPick {
+    flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+    color: var(--cgs-muted); background: var(--tag-bg);
+  }
+  .cgsPick.on { color: var(--acc-on); background: color-mix(in srgb, var(--acc) 17%, transparent); }
+  .cgsChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  /* 선택 카드 — 토스 반사 테두리(--refl) + 아이콘 칩 + 이름/설명, 오른쪽 위 동그라미(고르면 판 색 체크) */
+  .cgsCard {
+    position: relative; display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 13px 34px 13px 14px;
+    text-align: left; color: var(--on-surface); font-weight: 600;
+    border: 1px solid transparent; border-radius: 15px;
+    background: linear-gradient(var(--cgs-card), var(--cgs-card)) padding-box, var(--refl) border-box;
+    box-shadow: var(--shadow-card);
+    transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s, opacity .18s;
+  }
+  .cgsCard:hover { background: linear-gradient(var(--cgs-card-hover), var(--cgs-card-hover)) padding-box, var(--refl) border-box; transform: translateY(-1px); }
+  .cgsCard:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  .cgsCard::after {
+    content: ''; position: absolute; top: 10px; right: 10px; width: 18px; height: 18px; box-sizing: border-box;
+    display: grid; place-items: center; border-radius: 50%; border: 1.6px solid var(--outline);
+    color: #fff; font-size: 11px; font-weight: 900; line-height: 1;
+  }
+  .cgsCard.choicePending {
+    background: linear-gradient(color-mix(in srgb, var(--acc) 11%, var(--cgs-card)), color-mix(in srgb, var(--acc) 11%, var(--cgs-card))) padding-box, linear-gradient(var(--acc), var(--acc)) border-box;
+    box-shadow: 0 0 0 1px var(--acc), 0 10px 26px -12px color-mix(in srgb, var(--acc) 75%, transparent);
+  }
+  .cgsCard.choicePending::after { content: '\2713'; background: var(--acc); border-color: var(--acc); animation: choiceCheck .32s cubic-bezier(.2,1.5,.35,1); }
+  .cgsCardIcon { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 14%, transparent); }
+  .cgsCardIcon svg { width: 22px; height: 22px; }
+  .cgsCardTxt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .cgsCardTxt b { font-size: 14.5px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; word-break: keep-all; }
+  .cgsCardTxt small { font-size: 11.5px; font-weight: 600; line-height: 1.4; color: var(--cgs-muted); word-break: keep-all; white-space: pre-line; }
+  .cgsNote { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--cgs-muted); }
+  .cgsNote b { color: var(--on-surface); font-weight: 700; }
+  .cgsPane .presetMoreToggle { margin-top: auto; }
+  .presetManageNote { margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--cgs-muted); }
+  .cgsFoot { flex: none; display: flex; align-items: center; gap: 10px; padding: 14px 22px 18px; border-top: 1px solid var(--outline-var); }
+  .cgsSummary { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; line-height: 1.45; color: var(--cgs-muted); }
+  .cgsSummary b { color: var(--on-surface); font-weight: 800; }
+  .cgsCancel { height: 46px; padding: 0 20px; border: none; border-radius: 12px; font-size: 14.5px; font-weight: 700; background: var(--surface-hi); color: var(--on-surface); }
+  .cgsCancel:hover { background: var(--btn-hover); }
+  .cgsDone {
+    height: 46px; min-width: 150px; padding: 0 26px; border: none; border-radius: 12px; font-size: 15px; font-weight: 800;
+    background: var(--accent-grad, var(--primary)); color: var(--on-primary); box-shadow: 0 8px 20px -8px rgba(49,130,246,.8);
+  }
+  .cgsDone:not(:disabled) { animation: cgsDoneOn .28s cubic-bezier(.2,.9,.25,1); }   /* 두 가지 다 고르면 살짝 떠오르며 켜진다 */
+  @keyframes cgsDoneOn { from { opacity: .4; transform: translateY(5px); } }
+  /* 켜진 버튼 호버도 진한 파랑 유지(일반 button:hover 회색이 덮지 않게) */
+  .cgsDone:not(:disabled):hover { background: var(--accent-grad, var(--primary)); color: var(--on-primary); filter: brightness(1.08); }
+  .cgsDone:disabled, .cgsDone:disabled:hover { opacity: 1; cursor: not-allowed; background: var(--surface-hi); color: var(--cgs-muted); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  /* 좁은 창 — 두 판을 위아래로, 본문만 스크롤 */
+  @media (max-width: 900px) {
+    .cgSetupOv { padding: calc(var(--tbH, 0px) + 10px) 12px 12px; }
+    .cgsBody { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; }
+    .cgsHead { padding: 16px 16px 16px 18px; }
+    .cgsFoot { padding: 12px 14px 14px; }
+  }
+  @media (max-width: 560px) {
+    .cgsChoices { grid-template-columns: minmax(0, 1fr); }
+    .cgsFoot { flex-wrap: wrap; }
+    .cgsSummary { flex-basis: 100%; }
+    .cgsCancel, .cgsDone { flex: 1; min-width: 0; }
+  }
   .menuDrop > .sec { border: none; }
   .menuDrop > .sec > h3 { display: none; }             /* 메뉴 버튼이 제목 역할 */
   .menuDrop > .sec > .body { display: block !important; }
@@ -1419,15 +1546,17 @@
   <img class="tbAppIcon" src="icon.svg" alt="" width="16" height="16" draggable="false">
   <nav class="tbMenus" aria-label="메뉴">
     <div class="tbGroup" id="menubar">
-      <button class="menuBtn tbMenu" data-menu="out0" title="출력 화면">출력 화면</button>
-      <button class="menuBtn tbMenu" data-menu="style" title="지도 종류">지도 종류</button>
-      <button class="menuBtn tbMenu" data-menu="proj" title="프로젝트">프로젝트</button>
+      <!-- CG 구성 = CG 종류(화면) + 지도 종류를 한 창(#cgSetupOv)에서 고른다. 드롭다운이 아니라 모달이라 menuBtn 이 아님 -->
+      <button class="tbMenu" id="cgSetupBtn" title="CG 구성 — CG 종류와 지도 종류 고르기" aria-haspopup="dialog">CG 구성</button>
+      <button class="menuBtn tbMenu tbIconMenu" data-menu="proj" title="프로젝트 — 저장·불러오기" aria-label="프로젝트 — 저장·불러오기">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5.2 3.6h11.2l4 4v11.2a1.6 1.6 0 01-1.6 1.6H5.2a1.6 1.6 0 01-1.6-1.6V5.2a1.6 1.6 0 011.6-1.6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7.6 3.6v4.6h7.6V3.6M7.2 20.4v-6.1h9.6v6.1"/><rect x="12.1" y="4.9" width="1.8" height="2.2" rx=".4" fill="currentColor"/></svg>
+      </button>
     </div>
     <div class="tbSep"></div>
     <div class="tbGroup" id="exportGroup">
-      <button class="menuBtn tintBtn tbMenu" data-menu="out" title="이미지로 추출">이미지로 추출</button>
-      <button id="tlToggle" class="hasIcon tintBtn tbMenu" title="영상으로 추출 — 타임라인 열기/닫기">영상으로 추출</button>
-      <button id="aeSend" class="hasIcon tintBtn tbMenu" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)">AE로 보내기</button>
+      <button class="menuBtn tbMenu tbAction" data-menu="out" title="이미지로 추출">이미지로 추출</button>
+      <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 추출 — 타임라인 열기/닫기">영상으로 추출</button>
+      <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)">AE로 보내기</button>
     </div>
   </nav>
   <div class="tbFill"></div>
@@ -1454,6 +1583,63 @@
     </span>
   </div>
 </header>
+
+<!-- CG 구성 — CG 종류(왼쪽, 파란 기운 판)와 지도 종류(오른쪽, 청록 기운 판)를 한 창에서 고른다.
+     둘 다 골라야 '선택 완료'가 켜지고, 눌러야 적용된다(취소·Esc·바깥 클릭 = 아무것도 안 바뀜).
+     창은 한 번만 만들어 두고 class 'on'으로 열고 닫는다(다시 만들면 #resBtns·#styleBtns 핸들러가 끊긴다). -->
+<div class="cgSetupOv" id="cgSetupOv" aria-hidden="true">
+  <div class="cgSetupCard" role="dialog" aria-modal="true" aria-labelledby="cgsTitle" tabindex="-1">
+    <div class="cgsHead">
+      <span class="cgsHeadIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2.8" y="4" width="11.2" height="8.4" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M6.4 15.6h4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path fill="currentColor" d="M15.2 9.6l3.1-1.2 2.9 1.2v9.2l-2.9-1.2-3.1 1.2-2.6-1.2v-3.1l2.6 1.1z" opacity=".95"/></svg></span>
+      <div class="cgsHeadTxt">
+        <div class="cgsTitle" id="cgsTitle">CG 구성</div>
+        <div class="cgsSub">CG 종류와 지도 종류를 고른 뒤 선택 완료를 누르세요</div>
+      </div>
+      <button class="cgsX" id="cgsX" aria-label="닫기" title="닫기 (Esc)">&times;</button>
+    </div>
+    <div class="cgsBody">
+      <section class="cgsPane cgsPaneRes" aria-labelledby="cgsResTitle">
+        <div class="cgsPaneHead">
+          <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M2 4h20v13H2zm7 15h6v2H9z"/></svg></span>
+          <div class="cgsPaneTxt">
+            <div class="cgsPaneTitle" id="cgsResTitle"><span class="cgsStepNo">1</span>CG 종류</div>
+            <div class="cgsPaneSub">어느 방송 화면으로 낼지 · 종류마다 배치를 따로 기억해요</div>
+          </div>
+          <span class="cgsPick" id="cgsResPick">고르세요</span>
+        </div>
+        <div class="cgsChoices" id="resBtns" role="group" aria-label="CG 종류"></div>
+        <button id="presetMoreToggle" class="presetMoreToggle" aria-expanded="false" title="개인 배치 저장·초기화 (평소엔 숨김)">개인 배치 저장 · 초기화<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></button>
+        <div class="presetMoreBody" id="presetMoreBody">
+        <div class="presetManage">
+          <div class="presetManageTitle">개인 배치 저장 <span class="presetManageNote">지금 적용된 화면 기준</span></div>
+          <div class="btns"><button id="savePreset">현재 배치를 이 화면 기본값으로 저장</button></div>
+          <div class="presetReset">
+            <div class="presetResetTitle">배포 기본값으로 초기화</div>
+            <div class="btns"><button id="restoreDefaults" class="danger" title="이 브라우저에 내가 저장한 배치를 모두 지우고, 배포된 '모두의 기본 배치'로 되돌립니다 (다른 사람에겐 영향 없음)">모든 개인 배치 지우고 초기화</button></div>
+          </div>
+        </div>
+        </div>
+      </section>
+      <section class="cgsPane cgsPaneStyle" aria-labelledby="cgsStyleTitle">
+        <div class="cgsPaneHead">
+          <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5 0 2.2-9 5-9-5zM3 16.8l9 5 9-5 0 2.2-9 5-9-5z"/></svg></span>
+          <div class="cgsPaneTxt">
+            <div class="cgsPaneTitle" id="cgsStyleTitle"><span class="cgsStepNo">2</span>지도 종류</div>
+            <div class="cgsPaneSub">어떤 지도로 그릴지 · 예보·특보·태풍 등 상황에 맞게</div>
+          </div>
+          <span class="cgsPick" id="cgsStylePick">고르세요</span>
+        </div>
+        <div class="cgsChoices" id="styleBtns" role="group" aria-label="지도 종류"></div>
+        <p class="cgsNote" id="cgsStyleNote">서울 지도는 <b>시도군 구분</b>을 고른 뒤 아트보드 오른쪽 위 <b>지도 아이콘</b>으로 바꿔요.</p>
+      </section>
+    </div>
+    <div class="cgsFoot">
+      <div class="cgsSummary" id="cgsSummary" aria-live="polite">CG 종류와 지도 종류를 모두 골라 주세요</div>
+      <button class="cgsCancel" id="cgsCancel">취소</button>
+      <button class="cgsDone" id="cgsDone" disabled>선택 완료</button>
+    </div>
+  </div>
+</div>
 
 <div class="app">
   <div class="panelResize" id="panelResize" title="끌어서 사이드바 크기 조절"></div>
@@ -1482,33 +1668,6 @@
       <div class="ahText">
         <div class="ahTop">AI Weather News SBS</div>
         <div class="ahSub">ChoiJaeYoung</div>
-      </div>
-    </div>
-
-    <div class="sec pinned" data-sec="out0">
-      <h3>출력 화면</h3>
-      <div class="body">
-        <div class="btns choiceBtns" id="resBtns"></div>
-        <button id="resApply" class="applyChoice" disabled>선택한 출력 화면 적용</button>
-        <button id="presetMoreToggle" class="presetMoreToggle" aria-expanded="false" title="개인 배치 저장·초기화 (평소엔 숨김)">개인 배치 저장 · 초기화<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></button>
-        <div class="presetMoreBody" id="presetMoreBody">
-        <div class="presetManage">
-          <div class="presetManageTitle">개인 배치 저장</div>
-          <div class="btns"><button id="savePreset">현재 배치를 이 화면 기본값으로 저장</button></div>
-          <div class="presetReset">
-            <div class="presetResetTitle">배포 기본값으로 초기화</div>
-            <div class="btns"><button id="restoreDefaults" class="danger" title="이 브라우저에 내가 저장한 배치를 모두 지우고, 배포된 '모두의 기본 배치'로 되돌립니다 (다른 사람에겐 영향 없음)">모든 개인 배치 지우고 초기화</button></div>
-          </div>
-        </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="sec pinned" data-sec="style">
-      <h3>지도 종류</h3>
-      <div class="body">
-        <div class="btns choiceBtns" id="styleBtns"></div>
-        <button id="styleApply" class="applyChoice" disabled>선택한 지도 적용</button>
       </div>
     </div>
 
@@ -1541,7 +1700,7 @@
           <p class="hint" style="margin:2px 0 0">경로선 두께와 아래 아이콘 크기는 <b>일반·라인 모드 모두</b> 적용됩니다. 라인 모드는 과거 아이콘·예상경로·반경·시각 라벨을 숨기고 아이콘 하나가 현재 위치까지 이동합니다.</p>
         </div>
         <p class="hint" id="typInfo"></p>
-        <p class="hint" style="margin:2px 0">여러 기관 예보선을 겹쳐 비교하려면 상단 <b>지도 종류 → 태풍 비교</b>를 고르세요.</p>
+        <p class="hint" style="margin:2px 0">여러 기관 예보선을 겹쳐 비교하려면 맨 위 <b>CG 구성 → 지도 종류</b>에서 <b>태풍 비교</b>를 고르세요.</p>
         <!-- 자동이 안 될 때: 수동 입력 (분리) -->
         <div class="fieldGroup" style="margin:8px 0;border:1px dashed var(--outline-var);border-radius:10px;padding:8px">
           <div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기</div>
@@ -2160,10 +2319,11 @@
    <div class="startOverlay" id="startOverlay">
      <div class="startBoard">
        <div class="startCard">
-         <div class="startTitle">출력 화면과 지도 종류를<br>선택해 주세요</div>
-         <div class="startSub">상단의 <b>출력 화면</b> · <b>지도 종류</b> 메뉴에서 골라주면 시작됩니다.</div>
+         <div class="startTitle">CG 종류와 지도 종류를 고르세요</div>
+         <div class="startSub">맨 위 <b>CG 구성</b>에서 두 가지를 고르고 <b>선택 완료</b>를 누르면 제작이 시작돼요.</div>
+         <button id="startSetup" class="startSetupBtn">CG 구성 열기</button>
          <div class="startSteps">
-           <div class="startStep" data-step="res"><span class="dot"></span>출력 화면 선택</div>
+           <div class="startStep" data-step="res"><span class="dot"></span>CG 종류 선택</div>
            <div class="startStep" data-step="style"><span class="dot"></span>지도 종류 선택</div>
          </div>
          <div class="startAlt"><span>또는</span></div>
@@ -2176,24 +2336,6 @@
    </div>
    <div class="dropHint" id="dropHint">
      <div class="dropHintCard">여기에 놓으면 작업 파일을 엽니다<div class="dropHintSub">날씨CG 작업 파일 (.wcg.png) 또는 .json</div></div>
-   </div>
-   <div class="tourWrap" id="tourWrap" aria-hidden="true">
-     <div id="tourBlock"></div>
-     <div class="tourSpot" id="tourSpot"></div>
-     <div class="tourBar tourUI">
-       <button id="tourClose" class="tourX" title="둘러보기 닫기">✕</button>
-       <button id="tourNever" class="tourNever">다시 보지 않기</button>
-     </div>
-     <div class="tourCard tourUI" id="tourCard">
-       <div class="tourArrow" id="tourArrow"></div>
-       <div class="tourStepNo" id="tourStepNo"></div>
-       <div class="tourTitle" id="tourTitle"></div>
-       <div class="tourBody" id="tourBody"></div>
-       <div class="tourNav">
-         <button id="tourPrev" class="tourNavBtn">← 이전</button>
-         <button id="tourNext" class="tourNavBtn tintBtn">다음 →</button>
-       </div>
-     </div>
    </div>
    <div class="fit">
     <button id="mapLockBtn" class="mapLockBtn" title="지도 잠금/해제 — 잠그면 지도 위치가 안 움직입니다" aria-label="지도 잠금">
@@ -2339,7 +2481,7 @@
       <!-- 도서 박스 크기 핸들 + 지도 전체 크기 핸들. 이동 모드에서만 보이고 추출 시 제거된다. (래퍼 밖 = 크롭/슬라이드 영향 안 받음) -->
       <g id="L_grips">
         <rect id="vfScaleBounds" class="selbox" style="display:none"/>
-        <g id="vfScaleGrip" class="insetGrip" style="display:none"><circle r="13"/><path class="gripArrow" d="M5 -5 L-5 5 M-5 5 L-5 0 M-5 5 L0 5"/><title>끌어서 VF 출력화면 전체 크기 조절</title></g>
+        <g id="vfScaleGrip" class="insetGrip" style="display:none"><circle r="13"/><path class="gripArrow" d="M5 -5 L-5 5 M-5 5 L-5 0 M-5 5 L0 5"/><title>끌어서 노말 VF 전체 크기 조절</title></g>
         <g id="mapGrip" class="insetGrip" data-mapgrip="1">
           <circle r="13"/>
           <path class="gripArrow" d="M-5 5 L5 -5 M5 -5 L5 0 M5 -5 L0 -5"/>
@@ -2358,6 +2500,26 @@
     </svg>
     <div id="frameGuide" aria-hidden="true"></div>
    </div>
+  </div>
+</div>
+<!-- 둘러보기 — .app(고정 위치=쌓임 맥락) 밖, 맨 위 층에 둔다. 안에 두면 .app 밖에 뜨는 CG 구성 창·떼어낸 창 아래로 깔려
+     설명 카드 버튼이 눌리지 않는다. -->
+<div class="tourWrap" id="tourWrap" aria-hidden="true">
+  <div id="tourBlock"></div>
+  <div class="tourSpot" id="tourSpot"></div>
+  <div class="tourBar tourUI">
+    <button id="tourClose" class="tourX" title="둘러보기 닫기">✕</button>
+    <button id="tourNever" class="tourNever">다시 보지 않기</button>
+  </div>
+  <div class="tourCard tourUI" id="tourCard">
+    <div class="tourArrow" id="tourArrow"></div>
+    <div class="tourStepNo" id="tourStepNo"></div>
+    <div class="tourTitle" id="tourTitle"></div>
+    <div class="tourBody" id="tourBody"></div>
+    <div class="tourNav">
+      <button id="tourPrev" class="tourNavBtn">← 이전</button>
+      <button id="tourNext" class="tourNavBtn tintBtn">다음 →</button>
+    </div>
   </div>
 </div>
 
@@ -3237,10 +3399,45 @@ function setStyle(name) {
   if (fctRows.length && (name === 'sgg' || name === 'sido') && fctOwnsFills(name)) paintFct();
 }
 function markStyleBtns() {
-  document.querySelectorAll('#styleBtns button').forEach((b) => b.classList.toggle('choicePending', b.dataset.style === pendingStyle));
+  // 서울 지도는 시도군 지도의 변형(목록엔 숨김) — 고른 게 서울이면 '시도군 구분' 카드를 켜 보인다
+  const shown = (pendingStyle && isSeoul(pendingStyle)) ? 'sgg' : pendingStyle;   // (isSeoul(null)은 지금 지도를 보므로 null 먼저 거른다)
+  document.querySelectorAll('#styleBtns button').forEach((b) => {
+    const on = b.dataset.style === shown;
+    b.classList.toggle('choicePending', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 }
 // 어느 지도가 무엇에 쓰는 것인지. 이름만으론 특보용/예보용 구분이 안 된다.
-const STYLE_USE = { sgg: '날씨 예보용', sido: '날씨 예보용', warn: '기상특보용', warnsea: '기상특보용', typhoon: '태풍 예상경로' };
+const STYLE_USE = { sgg: '날씨 예보용', sido: '날씨 예보용', warn: '기상특보용', warnsea: '기상특보용', typhoon: '태풍 예상경로', typhoonCompare: '여러 기관 예보선 겹쳐 비교' };
+// CG 구성 창의 선택 카드 아이콘(24x24, 선 아이콘). 없는 키는 겹친 지도 아이콘.
+const CGS_ICON = {
+  '2158x1214': '<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M9 20.5h6M12 16.5v4"/><circle cx="12" cy="10.2" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="10.2" r="4.2" opacity=".55"/>',
+  '1920x1080': '<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M9 20.5h6M12 16.5v4"/>',
+  '1920x1080-vf': '<rect x="2.5" y="4" width="19" height="12.5" rx="2" stroke-dasharray="3 2.4"/><path d="M9 20.5h6M12 16.5v4"/><rect x="12.5" y="9.5" width="6.5" height="4.5" rx="1" fill="currentColor" stroke="none"/>',
+  '1920x1080-team': '<circle cx="9" cy="8.6" r="3"/><circle cx="16.6" cy="9.6" r="2.4"/><path d="M3.4 19.2c.6-3.1 2.8-4.8 5.6-4.8s5 1.7 5.6 4.8M15 14.9c2.6-.3 4.9 1 5.6 4"/>',
+  sgg: '<path d="M3.5 6.2l5.3-2.2 6.4 2.2 5.3-2.2v13.8l-5.3 2.2-6.4-2.2-5.3 2.2z"/><path d="M8.8 4v13.8M15.2 6.2V20M3.5 11.6l5.3-1.6 6.4 2 5.3-1.8"/>',
+  sido: '<path d="M3.5 6.2l5.3-2.2 6.4 2.2 5.3-2.2v13.8l-5.3 2.2-6.4-2.2-5.3 2.2z"/><path d="M8.8 4v13.8M15.2 6.2V20"/>',
+  warn: '<path d="M12 3.6l9.2 16H2.8z" stroke-linejoin="round"/><path d="M12 10v4.2M12 16.8v.3" stroke-width="2.2"/>',
+  warnsea: '<path d="M12 2.8l7 12.1H5z" stroke-linejoin="round"/><path d="M12 7.6v3.4M12 12.8v.2" stroke-width="2.1"/><path d="M2.5 19.2c1.6 0 1.6-1.3 3.2-1.3s1.6 1.3 3.2 1.3 1.6-1.3 3.1-1.3 1.6 1.3 3.2 1.3 1.6-1.3 3.2-1.3 1.6 1.3 3.1 1.3"/>',
+  typhoon: '<path d="M12 4.2c4.4 0 7.3 2.1 7.3 4.9 0 2-1.6 3.3-3.6 3.3M12 19.8c-4.4 0-7.3-2.1-7.3-4.9 0-2 1.6-3.3 3.6-3.3"/><circle cx="12" cy="12" r="2.6"/>',
+  typhoonCompare: '<path d="M10 4.6c3.6 0 6 1.7 6 4 0 1.6-1.3 2.7-2.9 2.7M10 17.4c-3.6 0-6-1.7-6-4 0-1.6 1.3-2.7 2.9-2.7"/><circle cx="10" cy="11" r="2.1"/><path d="M15.5 15.5c2.2.2 4.2 1.2 4.2 2.6s-1.6 2.3-3.6 2.3" opacity=".7"/>',
+};
+function cgsIconSvg(k) {
+  const d = CGS_ICON[k] || '<path d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16.5l9 5 9-5"/>';
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${d}</svg>`;
+}
+// CG 구성 창의 선택 카드 하나(아이콘 칩 + 이름 + 작은 설명). 이름·설명은 textContent로 넣는다.
+function cgsCardBtn(iconKey, label, sub, subClass) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'cgsCard';
+  b.setAttribute('aria-pressed', 'false');
+  const ic = document.createElement('span'); ic.className = 'cgsCardIcon'; ic.innerHTML = cgsIconSvg(iconKey);   // 정적 아이콘 문자열
+  const tx = document.createElement('span'); tx.className = 'cgsCardTxt';
+  const nm = document.createElement('b'); nm.textContent = label;
+  const sm = document.createElement('small'); if (subClass) sm.className = subClass; sm.textContent = sub || '';
+  tx.append(nm, sm); b.append(ic, tx);
+  return b;
+}
 
 // 지금 고른 예보를 이 지도에 칠하면 얼마나 정확한가.
 // 예보 단위와 지도 단위가 다르면 반드시 정보가 깎이는데, 그걸 버튼에서 바로 알려준다.
@@ -3290,23 +3487,17 @@ function buildStyleBtns() {
   w.textContent = '';
   for (const [k, v] of Object.entries(MAP.styles)) {
     if (v.hidden) continue;   // 서울 지도 등 — 아트보드의 지도종류 아이콘 버튼으로만 진입
-    const b = document.createElement('button');
-    b.append(document.createTextNode(v.label));
-    const s = document.createElement('span');
-    // 고른 버튼은 파란 배경이라 흐린 회색을 쓰면 안 보인다 — 글자색을 물려받아 옅게만
-    s.className = 'styleUse';
-    s.style.cssText = 'display:block;opacity:.72;font-size:10px;line-height:1.3';
-    b.append(s);
+    const b = cgsCardBtn(k, v.label, '', 'styleUse');   // 설명(용도·정확도)은 syncStyleUse가 채운다
     b.dataset.style = k;
-    b.style.flex = '1 0 46%';
     b.onclick = () => {
       pendingStyle = k;
-      markStyleBtns();
-      const apply = $('#styleApply');
-      if (apply) apply.disabled = false;
+      // 지금 서울 지도면 '시도군 구분'을 눌러도 서울 그대로(전국/서울 전환은 아트보드 지도 아이콘 몫)
+      if (k === 'sgg' && isSeoul(S.style)) pendingStyle = S.style;
+      syncCgSetup();
     };
     w.append(b);
   }
+  const note = $('#cgsStyleNote'); if (note) note.style.display = MAP.styles.seoul ? '' : 'none';   // 서울 지도 데이터가 있을 때만 안내
   markStyleBtns();
   syncStyleUse();
 }
@@ -3318,12 +3509,13 @@ function syncStyleUse() {
     const s = b.querySelector('.styleUse');
     if (!s) continue;
     const acc = fctRows.length ? styleAccuracy(k) : null;
+    const seoulNow = k === 'sgg' && isSeoul(S.style);   // 지금 서울 지도(시도군의 변형)로 작업 중
     if (acc) {
       s.textContent = (acc[1] ? '✓ ' : '') + acc[0];
-      s.style.opacity = acc[1] ? '.95' : '.72';
+      s.style.opacity = acc[1] ? '1' : '.8';
     } else {
-      s.textContent = STYLE_USE[k] || '';
-      s.style.opacity = '.72';
+      s.textContent = seoulNow ? '날씨 예보용 · 지금 서울 지도' : (STYLE_USE[k] || '');
+      s.style.opacity = '';
     }
   }
 }
@@ -7953,6 +8145,7 @@ window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
   if ($('#tourWrap')?.classList.contains('on')) return;   // 투어 중 ←/→는 단계 넘기기 전용(지도·선택 이동 금지)
+  if (cgSetupIsOpen()) return;   // CG 구성 창이 떠 있는 동안엔 뒤의 지도 단축키(되돌리기·삭제·이동 등)를 막는다
   // 브러쉬 크기: [ 줄이기, ] 키우기
   if (mode === 'brush' && (e.key === '[' || e.key === ']')) {
     e.preventDefault();
@@ -9723,13 +9916,14 @@ function showPresetInfo() {
 
 // ===================== 추출 =====================
 const RES = {
-  '2158x1214': { size: [2158, 1214], label: '터치 스크린' },
-  '1920x1080': { size: [1920, 1080], label: '노말 CG' },
+  // note = CG 구성 창 카드의 크기 옆 한마디(쓰임새)
+  '2158x1214': { size: [2158, 1214], label: '터치 스크린', note: '터치 화면용' },
+  '1920x1080': { size: [1920, 1080], label: '노말 CG', note: '기본 방송 화면' },
   // 노말 VF — 영상 위에 얹는 오버레이(오른쪽 귀퉁이, 작게). 캔버스는 1920x1080로 같고 배치만 따로 기억한다.
   // 최종은 알파 채널로 뽑아 편집 툴(AE)에서 영상에 합친다. (3번째 자리)
-  '1920x1080-vf': { size: [1920, 1080], label: '노말 VF' },
+  '1920x1080-vf': { size: [1920, 1080], label: '노말 VF', note: '영상 위 투명 오버레이' },
   // 날씨 팀 전용 — 크기는 노말 CG와 같은 1920x1080이지만 배치는 따로 기억한다. 잘 안 쓰는 옵션이라 흐리게(dim), 맨 오른쪽.
-  '1920x1080-team': { size: [1920, 1080], label: '날씨 팀', dim: 1 },
+  '1920x1080-team': { size: [1920, 1080], label: '날씨 팀', note: '팀 전용 배치', dim: 1 },
 };
 let pendingRes = null, pendingStyle = null;
 
@@ -9737,14 +9931,10 @@ function buildResBtns() {
   const w = $('#resBtns');
   w.textContent = '';
   for (const [k, v] of Object.entries(RES)) {
-    const b = document.createElement('button');
-    // 고른 버튼은 파란 배경이라 흐린 회색을 쓰면 크기 숫자가 안 보인다.
-    // 버튼 글자색을 물려받아 옅게만 깐다.
-    // 라벨은 공백에서만 줄바꿈(단어 안 쪼갬: '터치 스크린'->'터치/스크린'), 크기 숫자는 한 줄로.
-    b.innerHTML = `${v.label}<br><span style="opacity:.88;font-size:10px;white-space:nowrap">${v.size[0]} × ${v.size[1]}</span>`;
+    // CG 구성 창의 선택 카드 — 이름 + 화면 크기(+ 쓰임새 한마디)
+    const b = cgsCardBtn(k, v.label, `${v.size[0]} × ${v.size[1]}` + (v.note ? '\n' + v.note : ''));   // 크기 / 쓰임새 두 줄(white-space: pre-line)
     b.dataset.res = k;
     if (v.dim) b.classList.add('resDim');   // 잘 안 쓰는 옵션(날씨 팀) — 흐리게
-    b.style.cssText = 'flex:1;line-height:1.3;text-align:center;word-break:keep-all;padding-left:6px;padding-right:6px';
     b._apply = () => {
       if (S.res === k) return;
       if (animT != null) { animStop(); animOff(); }   // 애니 프리뷰 중이었으면 종료 — VF 진입 슬라이드/페이드 잔재 제거
@@ -9767,17 +9957,21 @@ function buildResBtns() {
     };
     b.onclick = () => {
       pendingRes = k;
-      markResBtns();
-      const apply = $('#resApply');
-      if (apply) apply.disabled = false;
+      syncCgSetup();   // 카드 표시 + 두 가지 다 골랐으면 '선택 완료' 켜기
     };
     w.append(b);
   }
   markResBtns();
 }
 const markResBtns = () =>
-  document.querySelectorAll('#resBtns button').forEach((b) => b.classList.toggle('choicePending', b.dataset.res === pendingRes));
+  document.querySelectorAll('#resBtns button').forEach((b) => {
+    const on = b.dataset.res === pendingRes;
+    b.classList.toggle('choicePending', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 
+// 고른 CG 종류·지도 종류를 실제로 적용(바뀐 것만 — 같으면 _apply·setStyle이 그냥 돌아온다).
+// 되돌리기·배치 적용·VF 기본값 같은 안전장치는 원래 적용 경로(b._apply / setStyle)를 그대로 탄다.
 function applyPendingRes() {
   if (!pendingRes) return;
   const b = document.querySelector(`#resBtns button[data-res="${pendingRes}"]`);
@@ -9786,7 +9980,6 @@ function applyPendingRes() {
   pendingRes = null;
   markResBtns();
   markStartStep('res');
-  if (_closeMenu) _closeMenu();
 }
 function applyPendingStyle() {
   if (!pendingStyle) return;
@@ -9795,7 +9988,78 @@ function applyPendingStyle() {
   setStyle(style);
   markStyleBtns();
   markStartStep('style');
-  if (_closeMenu) _closeMenu();
+}
+
+// ===================== CG 구성 (CG 종류 + 지도 종류 고르기 창) =====================
+// 맨 위 'CG 구성'·시작 화면 'CG 구성 열기'로 연다. 카드를 눌러도 바로 바뀌지 않고(pendingRes/pendingStyle),
+// 둘 다 골라 '선택 완료'를 눌러야 적용된다. 닫기(X·Esc·바깥 클릭·취소)는 아무것도 안 바꾼다.
+let _cgsOpener = null, _cgsResetT = 0;
+function cgSetupIsOpen() { const ov = document.getElementById('cgSetupOv'); return !!(ov && ov.classList.contains('on')); }
+function startScreenOn() { const ov = document.getElementById('startOverlay'); return !!(ov && ov.classList.contains('on')); }
+// 카드 표시·판 머리의 '고른 것'·아래 요약·선택 완료 버튼을 지금 pending 값에 맞춘다
+function syncCgSetup() {
+  markResBtns(); markStyleBtns();
+  const rl = pendingRes && RES[pendingRes] ? RES[pendingRes].label : '';
+  const sl = pendingStyle && MAP.styles[pendingStyle] ? MAP.styles[pendingStyle].label : '';
+  const ok = !!(rl && sl);
+  const done = $('#cgsDone'); if (done) done.disabled = !ok;
+  const pick = (id, txt) => { const el = $(id); if (!el) return; el.textContent = txt || '고르세요'; el.classList.toggle('on', !!txt); };
+  pick('#cgsResPick', rl); pick('#cgsStylePick', sl);
+  const sum = $('#cgsSummary'); if (!sum) return;
+  sum.textContent = '';
+  if (!ok) { sum.textContent = !rl && !sl ? 'CG 종류와 지도 종류를 모두 골라 주세요' : (!rl ? '왼쪽에서 CG 종류도 골라 주세요' : '오른쪽에서 지도 종류도 골라 주세요'); return; }
+  const b = document.createElement('b'); b.textContent = `${rl} · ${sl}`;
+  const same = pendingRes === S.res && pendingStyle === S.style;
+  sum.append(b, document.createTextNode(startScreenOn() ? ' — 이 구성으로 제작을 시작합니다' : (same ? ' — 지금과 같아요' : ' — 선택 완료를 누르면 바뀝니다')));
+}
+function openCgSetup() {
+  const ov = $('#cgSetupOv'); if (!ov) return;
+  if (_closeMenu) _closeMenu();   // 열려 있던 드롭다운(프로젝트·추출)은 닫는다
+  clearTimeout(_cgsResetT);
+  // 작업 중이면 지금 CG 종류·지도 종류가 미리 골라져 있다. 시작 화면이면 둘 다 새로 고른다.
+  const fresh = startScreenOn();
+  pendingRes = fresh ? null : S.res;
+  pendingStyle = fresh ? null : S.style;
+  syncStyleUse(); syncCgSetup();
+  if (!ov.classList.contains('on')) _cgsOpener = document.activeElement;
+  ov.classList.add('on'); ov.setAttribute('aria-hidden', 'false');
+  const tb = $('#cgSetupBtn'); if (tb) tb.classList.add('on');
+  setTimeout(() => { if (!cgSetupIsOpen()) return; const f = ov.querySelector('.cgsCard.choicePending') || ov.querySelector('.cgSetupCard'); try { f.focus({ preventScroll: true }); } catch (e) {} }, 40);
+}
+function closeCgSetup() {
+  const ov = $('#cgSetupOv'); if (!ov || !ov.classList.contains('on')) return;
+  ov.classList.remove('on'); ov.setAttribute('aria-hidden', 'true');
+  const tb = $('#cgSetupBtn'); if (tb) tb.classList.remove('on');
+  // 고르던 것은 버린다 — 닫히는 애니메이션(블러+스케일) 동안엔 그대로 보이게 끝난 뒤에 비운다
+  clearTimeout(_cgsResetT);
+  _cgsResetT = setTimeout(() => { if (!cgSetupIsOpen()) { pendingRes = null; pendingStyle = null; syncCgSetup(); } }, 320);
+  const back = _cgsOpener; _cgsOpener = null;
+  if (back && back.focus && document.contains(back) && !$('#tourWrap')?.classList.contains('on')) { try { back.focus({ preventScroll: true }); } catch (e) {} }
+}
+// '선택 완료' — CG 종류 먼저(화면 크기·배치), 그다음 지도 종류. 시작 화면이면 두 단계가 다 끝나 제작이 시작된다.
+function applyCgSetup() {
+  if (!pendingRes || !pendingStyle) return;
+  const res = pendingRes, style = pendingStyle;
+  applyPendingRes();
+  pendingStyle = style; applyPendingStyle();
+  pendingRes = res; pendingStyle = style;   // 닫히는 동안 고른 카드가 그대로 보이게(닫힌 뒤 비움)
+  markResBtns(); markStyleBtns();
+  closeCgSetup();
+}
+function setupCgSetup() {
+  const ov = $('#cgSetupOv'); if (!ov) return;
+  $('#cgSetupBtn').onclick = (e) => { e.stopPropagation(); if (cgSetupIsOpen()) closeCgSetup(); else openCgSetup(); };
+  $('#cgsX').onclick = closeCgSetup;
+  $('#cgsCancel').onclick = closeCgSetup;
+  $('#cgsDone').onclick = applyCgSetup;
+  ov.addEventListener('click', (e) => { if (e.target === ov) closeCgSetup(); });   // 바깥(어두운 막) 클릭 = 취소
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !cgSetupIsOpen()) return;
+    // 위에 뜬 둘러보기·확인창·토스 모달이 먼저 Esc를 받는다
+    if ($('#tourWrap')?.classList.contains('on') || document.getElementById('tossOv') || $('#confirmOverlay')?.classList.contains('on') || $('#slotOverlay')?.classList.contains('on')) return;
+    e.preventDefault(); closeCgSetup();
+  });
+  syncCgSetup();
 }
 
 // 평소엔 비어 있고, 알릴 게 있을 때만 잠깐 떴다가 사라진다.
@@ -9932,7 +10196,7 @@ const NOTICE_SEEN_KEY = 'wcg_notice_seen', NOTICE_AUTH_KEY = 'wcg_notices', NOTI
 const SEED_NOTICES = [{
   id: '2026-07-31-typhoon-beta', date: '2026.07.31', title: '새 기능 — 태풍 예상경로 지도 (베타)',
   body:
-    '<p>상단 <b>‘지도 종류’</b>에 <b>태풍 (베타)</b>가 새로 생겼어요. 기상청 태풍정보로 <b>예상경로 CG</b>를 만듭니다.</p>'
+    '<p>맨 위 <b>‘CG 구성’</b>의 <b>지도 종류</b>에 <b>태풍 (베타)</b>가 새로 생겼어요. 기상청 태풍정보로 <b>예상경로 CG</b>를 만듭니다.</p>'
     + '<ul>'
     + '<li><b>불러오기</b> — 태풍 메뉴의 <b>‘기상청에서 불러오기’</b>를 누르면 현재 태풍의 <b>실황+예상경로</b>가 자동으로 들어옵니다. (발표 시각도 자동으로 최신 것을 찾습니다.)</li>'
     + '<li><b>경로·반경 애니메이션</b> — <b>‘애니메이션 확인’</b>으로 경로가 스으윽 그려지고, 15m/s·25m/s·70% 확률반경이 함께 나타납니다. <b>영상으로 추출</b>에도 그대로 담깁니다.</li>'
@@ -9954,7 +10218,7 @@ const SEED_NOTICES = [{
   body:
     '<p><b>노말 VF 출력</b>과 <b>방송용 렌더</b>가 새로 들어왔어요.</p>'
     + '<ul>'
-    + '<li><b>VF 출력 기능 추가</b> — 상단 <b>‘출력 화면’</b>에서 <b>노말 VF</b>를 고르면 투명(알파) 오버레이용 화면으로 작업할 수 있습니다.</li>'
+    + '<li><b>VF 출력 기능 추가</b> — 맨 위 <b>‘CG 구성’</b>의 <b>CG 종류</b>에서 <b>노말 VF</b>를 고르면 투명(알파) 오버레이용 화면으로 작업할 수 있습니다.</li>'
     + '<li><b>MXF · MOV 렌더 추가</b> — <b>‘영상으로 추출’</b> 창에서 <b>노말 CG는 MXF</b>, <b>노말 VF는 알파 MOV</b> 버튼으로 방송용 파일을 바로 뽑습니다.</li>'
     + '<li><b>쓰는 법</b> — <b>MXF / MOV 버튼을 누르면 안내창</b>이 뜹니다. 처음 한 번만 그 안내대로 <b>‘렌더 기능 확장팩’</b>을 켜 두면, 이후로는 버튼만 누르면 자동으로 됩니다.</li>'
     + '</ul>'
@@ -12118,6 +12382,7 @@ function loadProjectData(data, handle) {
   const ov = document.getElementById('startOverlay');
   if (ov && ov.classList.contains('on')) { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); }
   localStorage.removeItem('wcg_pending_start');   // 프로젝트를 열었으면 '선택 화면 대기' 해제
+  closeCgSetup();   // CG 구성 창이 떠 있었으면(파일 끌어다 놓기 등) 고르던 건 버리고 닫는다 — 불러온 작업의 구성이 이긴다
 }
 
 // 불러오기 (사이드바 버튼·시작화면 버튼 공용). 새 형식(PNG, 데이터 내장)·옛 형식(JSON) 둘 다 연다.
@@ -12341,8 +12606,7 @@ function wire() {
   $('#theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
   watchTitleBarDim();   // 데스크톱: 모달·둘러보기 막이 뜨면 창 버튼 자리도 같이 어둡게
 
-  $('#resApply').onclick = applyPendingRes;
-  $('#styleApply').onclick = applyPendingStyle;
+  setupCgSetup();   // CG 구성 창(CG 종류 + 지도 종류 → 선택 완료)
   { const tg = $('#presetMoreToggle'), bd = $('#presetMoreBody');
     if (tg && bd) tg.onclick = () => { const open = bd.classList.toggle('open'); tg.setAttribute('aria-expanded', open ? 'true' : 'false'); }; }
   $('#savePreset').onclick = async () => {
@@ -12771,15 +13035,17 @@ function wire() {
     }
     _tiltRasterSig = null; applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거
     localStorage.removeItem('wcg_started');           // 다시 빈 화면 + 선택 안내부터
-    localStorage.setItem('wcg_pending_start', '1');   // 새로고침해도 '출력화면·지도종류 선택' 화면이 계속 뜨게(자동저장된 빈 작업을 로드하지 않도록)
+    localStorage.setItem('wcg_pending_start', '1');   // 새로고침해도 'CG 종류·지도 종류 선택' 화면이 계속 뜨게(자동저장된 빈 작업을 로드하지 않도록)
     showStartScreen();
     status('새로 시작');
+    setTimeout(() => { if (startScreenOn()) openCgSetup(); }, 160);   // 새로 시작했으면 바로 CG 구성 창을 띄워 고르게
   };
 
   $('#save').onclick = () => saveProject(false);   // 처음엔 위치 선택, 이후 같은 파일에 저장 (Ctrl+S와 동일)
   $('#load').onclick = openProject;
   { const ex = $('#exportSettings'), im = $('#importSettings'); if (ex) ex.onclick = exportSettings; if (im) im.onclick = importSettings; }
   const startLoadBtn = $('#startLoad'); if (startLoadBtn) startLoadBtn.onclick = openProject;
+  const startSetupBtn = $('#startSetup'); if (startSetupBtn) startSetupBtn.onclick = openCgSetup;   // 시작 화면 'CG 구성 열기'
   $('#recentBtn').onclick = () => {
     const l = $('#recentList');
     l.classList.toggle('on');
@@ -12792,7 +13058,7 @@ try { customCols = JSON.parse(localStorage.getItem('wcg_custom') || '[]'); } cat
 
 // 사이드바 갈래 — 색 + 태그로 구분한다. 항목이 많아 그냥 나열하면 안 읽힌다.
 const SEC_GRP = {
-  out0: ['pinned', '설정'], style: ['pinned', '설정'], out: ['pinned', '설정'],
+  out: ['pinned', '설정'],   // (CG 종류·지도 종류는 CG 구성 창으로 옮겨 사이드바 카드가 없다)
   res: ['map', '지도'], map: ['map', '지도'],
   pal: ['paint', '칠하기'],
   text: ['text', '글자'], label: ['text', '글자'], mtn: ['text', '글자'],
@@ -12802,8 +13068,6 @@ const SEC_GRP = {
 // 항목 제목의 아이콘. 채워진(filled) 모양으로 통일한다 — 24x24 기준 path.
 // 외부 아이콘 폰트는 못 쓴다 (file:// 로도 열려야 하고 CSP도 막는다).
 const SEC_ICON = {
-  out0: 'M2 4h20v13H2zm7 15h6v2H9z',                                        // 화면
-  style: 'M12 3l9 5-9 5-9-5zM3 12l9 5 9-5 0 2.2-9 5-9-5zM3 16.8l9 5 9-5 0 2.2-9 5-9-5z', // 지도(겹)
   res: 'M3 4h18v16H3zm2.5 12.5h13l-4-5.5-3 4-2-2.5zM8 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z', // 이미지
   text: 'M4 4h16v3.2h-6.4V20h-3.2V7.2H4z',                                  // T
   wrn: 'M12 2L1.2 21h21.6zm-1.2 6h2.4v6h-2.4zm0 8h2.4v2.4h-2.4z',           // 경고
@@ -12856,10 +13120,10 @@ for (const [sec, [grp, tag]] of Object.entries(SEC_GRP)) {
 // 항목 순서. 마크업을 직접 옮기는 것보다 여기서 한 줄로 정리하는 게 실수가 적다.
 // 도서 박스는 뺐다 — 이동 모드에서 끌고 핸들로 크기 조절하면 되니 중복이다.
 // '지도 위치·경계선·그림자'(map)는 사이드바 가장 아래로.
-// 설정 4개(out0=출력화면, style=지도종류, out=추출, proj=프로젝트)는 상단 메뉴바로 빠져서 여기 없다.
+// 설정(out=추출, proj=프로젝트)은 상단 메뉴바 드롭다운으로, CG 종류·지도 종류는 CG 구성 창으로 빠져서 여기 없다.
 const SEC_ORDER = ['res', 'text', 'legend', 'wrn', 'fct', 'pal', 'sea', 'label', 'mtn', 'map'];
 // 항상 펴져 있는 설정 항목. 나머지는 '이 지도 편집' 묶음 — 기본 접힘, 눌러야 펴진다.
-const ALWAYS_OPEN = new Set(['out0', 'style', 'out', 'proj']);
+const ALWAYS_OPEN = new Set(['out', 'proj']);
 (() => {
   const panel = document.querySelector('#panel');
   document.querySelector('.sec[data-sec="inset"]')?.remove();
@@ -13892,6 +14156,7 @@ function titleBarH() { const t = $('#titlebar'); return t ? t.offsetHeight : 0; 
 const TITLEBAR_DIM = [
   ['#tourWrap.on', 'rgba(6, 8, 12, .76)'],
   ['#tossOv', ''], ['#confirmOverlay.on', ''], ['#slotOverlay.on', ''], ['#bulHelpPop.on', ''], ['#dropHint.on', ''],
+  ['#cgSetupOv.on', 'rgba(6, 10, 20, .62)'],   // CG 구성 창 — 막이 서서히 나타나 배경색 대신 최종 색을 직접 적는다(.cgSetupOv 배경과 같게)
 ];
 function titleBarDimLayers() {
   const out = [];
@@ -14312,11 +14577,11 @@ function loadLayout() {
   renderWins();
 }
 
-// 상단 메뉴바(맨 위 제목줄의 글자 메뉴) — 설정 4개 섹션(출력화면·지도종류·추출·프로젝트)을 드롭다운으로 올린다.
+// 상단 메뉴바(맨 위 제목줄) — 설정 섹션(이미지로 추출·프로젝트)을 드롭다운으로 올린다. CG 종류·지도 종류는 CG 구성 창(setupCgSetup).
 function setupMenus() {
   const drop = $('#menuDrop');
   if (!drop) return;
-  for (const s of ['out0', 'style', 'out', 'proj']) { const n = secNode(s); if (n) { n.classList.remove('closed'); n.style.display = 'none'; drop.append(n); } }
+  for (const s of ['out', 'proj']) { const n = secNode(s); if (n) { n.classList.remove('closed'); n.style.display = 'none'; drop.append(n); } }
   // '새로 시작'은 프로젝트 메뉴에서 빼내 사이드바 맨 아래 붉은 footer로.
   const nw = $('#newWork');
   if (nw) {
@@ -14341,17 +14606,10 @@ function setupMenus() {
     updateDockBtn();
   }
   let openSec = null;
-  const clearPendingChoices = () => {
-    pendingRes = null; pendingStyle = null;
-    markResBtns(); markStyleBtns();
-    if ($('#resApply')) $('#resApply').disabled = true;
-    if ($('#styleApply')) $('#styleApply').disabled = true;
-  };
   const close = () => {
     drop.classList.remove('on'); openSec = null;
     document.documentElement.classList.remove('menuOpen');   // 데스크톱: 제목줄 창 끌기 다시 켬
     document.querySelectorAll('.menuBtn.on').forEach((b) => b.classList.remove('on'));
-    clearPendingChoices();
   };
   const openMenu = (sec, btn) => {
     if (openSec === sec) { close(); return; }
@@ -14364,7 +14622,6 @@ function setupMenus() {
     drop.classList.add('on'); btn.classList.add('on'); openSec = sec;
     // 열려 있는 동안 제목줄 빈 곳(데스크톱=창 끌기 영역)을 눌러도 아래 '바깥 클릭 닫기'가 받게
     document.documentElement.classList.add('menuOpen');
-    if (sec === 'out0') showPresetInfo();
   };
   _openMenu = openMenu; _closeMenu = close;   // 투어가 실제 드롭다운을 그대로 열고 닫을 수 있게 노출
   document.querySelectorAll('.menuBtn').forEach((btn) => { btn.onclick = (e) => { e.stopPropagation(); openMenu(btn.dataset.menu, btn); }; });
@@ -14373,7 +14630,7 @@ function setupMenus() {
   window.addEventListener('resize', close);
 }
 
-// 처음 켰을 때 빈 화면 + '출력 화면·지도 종류를 선택해 주세요' 안내. 둘 다 고르면 사라진다.
+// 처음 켰을 때 빈 화면 + 'CG 종류와 지도 종류를 고르세요' 안내. CG 구성 창에서 둘 다 골라 선택 완료하면 사라진다.
 let startResDone = false, startStyleDone = false;
 function showStartScreen() {
   const ov = $('#startOverlay'); if (!ov) return;
@@ -14427,7 +14684,8 @@ function tourMenu(sec) {
   const b = menuBtnFor(sec);
   if (b && _openMenu) _openMenu(sec, b);
 }
-function tourMenuClose() { if (_closeMenu) _closeMenu(); }
+function tourMenuClose() { if (_closeMenu) _closeMenu(); closeCgSetup(); }   // 드롭다운·CG 구성 창 모두 닫기
+function tourCgSetup() { if (_closeMenu) _closeMenu(); if (!cgSetupIsOpen()) openCgSetup(); }   // 투어: 실제 CG 구성 창을 열어 보여준다
 function tourExpand(sec, open) { const n = secNode(sec); if (!n) return; n.classList.toggle('closed', !open); if (open) { try { n.scrollIntoView({ block: 'center' }); } catch (e) {} } }
 // 투어 '설명용'으로 이 카드만 보이게 — 기상특보(wrn)는 특보 지도, 기상예보(fct)는 예보 지도에서만 보이므로
 // 지금 지도 모드와 상관없이 대상 카드만 강제로 펼쳐 보여준다(다른 자동색칠 카드는 숨김). 투어 끝나면 tourEnd가 updateAutoPaintSecs로 복원.
@@ -14444,15 +14702,13 @@ function tourAllClosed() { document.querySelectorAll('#panel .sec.toolSec').forE
 
 function tourStepList() {
   return [
-    { title: '출력 화면', body: '방송 종류를 고릅니다 — 터치스크린 · 노말 CG · 날씨 팀. 종류마다 화면 크기와 지도 · 제목 배치를 따로 기억해요.',
-      target: () => $('#menuDrop'), setup: () => tourMenu('out0'), delay: 320 },
-    { title: '지도 종류', body: '어떤 지도로 그릴지 고릅니다. 시 · 도, 시 · 군 · 구, 특보 + 해상 등 상황에 맞게 바꿔요.',
-      target: () => $('#menuDrop'), setup: () => tourMenu('style'), delay: 320 },
+    { title: 'CG 구성', body: '맨 위 <b>CG 구성</b>을 누르면 이 창이 열립니다. 왼쪽 <b>CG 종류</b>(터치 스크린 · 노말 CG · 노말 VF · 날씨 팀)와 오른쪽 <b>지도 종류</b>(시도군 · 시도 · 특보 · 태풍 등)를 <b>둘 다</b> 고르고 <b>선택 완료</b>를 눌러야 적용돼요. CG 종류마다 화면 크기와 지도 · 제목 배치를 따로 기억합니다.',
+      target: () => document.querySelector('#cgSetupOv .cgSetupCard'), setup: () => tourCgSetup(), delay: 380 },
     { title: '지도 종류 선택 · 지도 잠금', body: '<b>태풍 지도</b>에서는 아트보드 <b>오른쪽 위</b>에 버튼 두 개가 나옵니다. <b>접힌 지도 아이콘</b> = <b>지도 종류 선택</b> — 파란 지도 · 밝은/어두운 위성지도 · Mapbox 실시간 타일 중에서 고르고, 개인 Mapbox URL도 붙일 수 있어요. <b>자물쇠 아이콘</b> = <b>지도 잠금</b> — 켜면 지도가 실수로 움직이지 않게 고정됩니다(다시 누르면 해제).',
       target: () => { const b = document.querySelector('.basemapBtn'); return (b && b.offsetParent) ? b : (document.querySelector('.fit') || $('#stage')); }, setup: () => tourMenuClose(), delay: 300 },
-    { title: '프로젝트', body: '작업을 저장 · 불러오고 최근 파일을 엽니다. 저장 파일은 그림(PNG)이라 파일 탐색기에서 미리보기가 그대로 보여요.',
+    { title: '프로젝트 (플로피 디스크 아이콘)', body: '<b>CG 구성</b> 옆 <b>플로피 디스크 아이콘</b>이에요. 작업을 저장 · 불러오고 최근 파일을 엽니다. 저장 파일은 그림(PNG)이라 파일 탐색기에서 미리보기가 그대로 보여요.',
       target: () => $('#menuDrop'), setup: () => tourMenu('proj'), delay: 320 },
-    { title: '이미지로 추출 · 영상으로 추출', body: '완성한 화면을 그림(PNG)으로, 타임라인을 영상(MP4)으로 뽑습니다. 저장 위치를 먼저 물어봐요.',
+    { title: '이미지로 추출 · 영상으로 추출 · AE로 보내기', body: '파란 버튼 세 개예요. 완성한 화면을 그림(PNG)으로, 타임라인을 영상(MP4)으로 뽑습니다(저장 위치를 먼저 물어봐요). <b>AE로 보내기</b>는 레이어째 애프터이펙트로 넘깁니다.',
       target: () => $('#exportGroup'), setup: () => tourMenuClose(), delay: 280 },
     { title: '칠하기 · 브러쉬 · 이동 모드', body: '작업은 이 세 모드를 상황에 맞게 바꿔 가며 합니다. ① 칠하기 = 지역을 클릭해 색칠, ② 브러쉬 = 고른 영역 안에만 부드럽게 덧칠, ③ 이동 = 지도 · 글자 · 산의 위치를 끌어서 옮기기. 색칠하려면 칠하기, 자리 잡으려면 이동으로 바꾸세요.',
       target: () => { const b = document.getElementById('mPaint'); return b ? b.closest('.mode') : null; }, setup: () => tourMenuClose(), delay: 280 },
@@ -14637,8 +14893,8 @@ buildSwapBtns();
 buildInsetPanel(); // 인셋 입력칸을 먼저 만들어야 syncPanelFromState가 채울 수 있다
 wire();
 loadLayout();   // wire() 뒤라야 한다 — 창으로 옮겨도 핸들러가 이미 붙어 있어야 안 끊긴다
-setupMenus();   // 설정 4개를 상단 메뉴바 드롭다운으로 (loadLayout 뒤 — 사이드바에서 빼내야 하니)
-setupStartScreen();   // 처음 켰으면 빈 화면 + 출력화면·지도종류 선택 안내
+setupMenus();   // 추출·프로젝트를 상단 메뉴바 드롭다운으로 (loadLayout 뒤 — 사이드바에서 빼내야 하니)
+setupStartScreen();   // 처음 켰으면 빈 화면 + CG 종류·지도 종류 선택 안내(CG 구성 열기)
 syncPanelFromState();
 markActive();
 updateUndoBtns();
@@ -14682,7 +14938,7 @@ if (work) {
   flash('하던 작업 이어서 열었습니다');
 } else {
   applyPreset();   // 저장해 둔 기본 배치(있으면)로 베이스 지도만 (showPresetInfo는 안에서 부른다)
-  if (freshOpen || pendingStart) showStartScreen();   // 빈 화면 + '출력 화면·지도 종류 선택' 안내 (새 접속 또는 '새로 시작' 후)
+  if (freshOpen || pendingStart) showStartScreen();   // 빈 화면 + 'CG 종류·지도 종류 선택' 안내 (새 접속 또는 '새로 시작' 후)
 }
 
 wireTour();

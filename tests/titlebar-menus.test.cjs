@@ -28,12 +28,43 @@ const topbar = block(html, /<div class="topbar" id="topbar">/, 'div');
 
 test('제목줄은 .app 앞에 있고 메뉴·추출·보기 버튼을 모두 담는다', () => {
   assert.ok(html.indexOf('id="titlebar"') < html.indexOf('<div class="app">'));
-  for (const m of ['out0', 'style', 'proj', 'out']) assert.match(titlebar, new RegExp(`class="menuBtn[^"]*" data-menu="${m}"`));
-  for (const id of ['tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'menubar', 'exportGroup', 'tbInfoGroup']) {
+  for (const m of ['proj', 'out']) assert.match(titlebar, new RegExp(`class="menuBtn[^"]*" data-menu="${m}"`));
+  for (const id of ['cgSetupBtn', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'menubar', 'exportGroup', 'tbInfoGroup']) {
     assert.match(titlebar, new RegExp(`id="${id}"`), `${id} 가 제목줄에 없음`);
   }
-  // 글자 메뉴 — 아이콘 SVG 없이 글자만
-  for (const b of titlebar.match(/<button[^>]*class="[^"]*tbMenu[^"]*"[^>]*>[\s\S]*?<\/button>/g)) assert.doesNotMatch(b, /<svg/);
+  // 글자 메뉴 — 아이콘 SVG 없이 글자만. 예외는 프로젝트(플로피 디스크 아이콘 버튼) 하나
+  for (const b of titlebar.match(/<button[^>]*class="[^"]*tbMenu[^"]*"[^>]*>[\s\S]*?<\/button>/g)) {
+    if (/data-menu="proj"/.test(b)) continue;
+    assert.doesNotMatch(b, /<svg/, b.slice(0, 80));
+    assert.match(b, />[^<\s][^<]*<\/button>$/, '글자 메뉴엔 글자가 있어야 한다');
+  }
+});
+
+test('CG 구성 — 출력 화면·지도 종류 두 글자 메뉴를 하나로 합쳤다', () => {
+  assert.match(titlebar, /<button class="tbMenu" id="cgSetupBtn"[^>]*>CG 구성<\/button>/);
+  // 옛 두 메뉴와 그 드롭다운 카드·따로 적용 버튼은 없다
+  for (const m of ['out0', 'style']) assert.equal(html.split(`data-menu="${m}"`).length - 1, 0, `data-menu="${m}" 이 남아 있음`);
+  assert.doesNotMatch(html, /data-sec="out0"|<div class="sec[^"]*" data-sec="style"|id="resApply"|id="styleApply"/);
+  // 사용자에게 보이는 글(주석 뺀)에 '출력 화면'이 남지 않는다 — 이름은 'CG 종류'
+  const visible = html.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  assert.doesNotMatch(visible, /출력 ?화면/);
+});
+
+test('프로젝트 = 플로피 디스크 아이콘 버튼, 추출 3개 = 파란 둥근 사각형 버튼', () => {
+  const proj = /<button[^>]*data-menu="proj"[^>]*>[\s\S]*?<\/button>/.exec(titlebar)[0];
+  assert.match(proj, /class="menuBtn tbMenu tbIconMenu"/);
+  assert.match(proj, /aria-label="프로젝트 — 저장·불러오기"/);
+  assert.match(proj, /<svg viewBox="0 0 24 24"/);
+  assert.doesNotMatch(proj, />\s*프로젝트\s*</, '글자 대신 아이콘');
+  for (const sel of ['data-menu="out"', 'id="tlToggle"', 'id="aeSend"']) {
+    const b = new RegExp(`<button[^>]*${sel}[^>]*>`).exec(titlebar)[0];
+    assert.match(b, /class="[^"]*\btbAction\b/, b);
+  }
+  assert.match(html, /#titlebar \.tbAction \{[^}]*border-radius: 8px;[^}]*background: var\(--tb-act-bg\); color: var\(--tb-act-fg\)/);
+  // 열림(.on)·타임라인 켜짐(.pri)은 꽉 찬 파랑
+  assert.match(html, /#titlebar \.tbAction\.on, #titlebar \.tbAction\.pri \{[^}]*background: var\(--primary\)/);
+  // 밝은 테마는 파란 글자를 한 단계 진하게(대비)
+  assert.match(html, /:root\[data-theme="light"\] \{ --tb-act-fg: #1b56d2;/);
 });
 
 test('플로팅 바엔 칠하기·브러쉬·이동·되돌리기·다시만 남는다', () => {
@@ -42,10 +73,10 @@ test('플로팅 바엔 칠하기·브러쉬·이동·되돌리기·다시만 남
 });
 
 test('옮긴 요소는 하나씩만 있다(복제 금지)', () => {
-  for (const id of ['tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'exportGroup', 'tbInfoGroup', 'menubar', 'undo', 'redo']) {
+  for (const id of ['cgSetupBtn', 'cgSetupOv', 'resBtns', 'styleBtns', 'cgsDone', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'exportGroup', 'tbInfoGroup', 'menubar', 'undo', 'redo']) {
     assert.equal(html.split(`id="${id}"`).length - 1, 1, `id="${id}" 개수`);
   }
-  for (const m of ['out0', 'style', 'proj', 'out']) assert.equal(html.split(`data-menu="${m}"`).length - 1, 1, `data-menu="${m}" 개수`);
+  for (const m of ['proj', 'out']) assert.equal(html.split(`data-menu="${m}"`).length - 1, 1, `data-menu="${m}" 개수`);
 });
 
 test('데스크톱 창 제목표시줄 — 높이·창 버튼 색 연동', () => {
