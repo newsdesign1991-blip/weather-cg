@@ -13,7 +13,7 @@ const path = require('path');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const a = args.find((x) => x === `--${k}` || x.startsWith(`--${k}=`)); if (!a) return d; return a.includes('=') ? a.slice(k.length + 3) : true; };
 const APP = path.resolve(opt('app', path.resolve(__dirname, '..', '..', '..')));   // 기본: 이 파일 기준 앱 폴더
-const DESK = path.join(APP, 'desktop');
+const DESK = path.resolve(__dirname, '..', '..');   // 일렉트론·main.js 는 이 작업트리 것, 앱 파일만 APP(--app)에서
 const ELECTRON = path.join(DESK, 'node_modules', 'electron', 'dist', 'electron.exe');
 const HERE = __dirname;
 const RES = opt('res', '1920x1080'), STYLE = opt('style', 'sgg'), NSTROKES = +opt('strokes', 0);
@@ -79,6 +79,8 @@ async function waitUntil(t) { while (true) { const d = t - performance.now(); if
     await evaluate('__h.closePopups()');
   }
   if (opt('noshadow', false)) info.noshadow = await evaluate(`(() => { document.querySelector('#L_map').removeAttribute('filter'); return true; })()`);   // 실험: 지도 그림자 필터 끔
+  // 부팅(새로고침) 때 브러쉬 그림이 다 들어온 시각과 그동안의 긴 작업 — 처음부터 굽기 비용
+  info.boot = await evaluate('(() => ({ brushReadyMs: __perf.lastHref == null ? null : Math.round(__perf.lastHref), longTaskMs: Math.round(__perf.lt.filter((e) => e.startTime < 20000).reduce((a, e) => a + e.duration, 0)), longTaskMax: Math.round(Math.max(0, ...__perf.lt.filter((e) => e.startTime < 20000).map((e) => e.duration))) }))()');
   info.state0 = await evaluate('__h.state()');
   log('state', JSON.stringify(info.state0));
 
@@ -129,6 +131,7 @@ async function waitUntil(t) { while (true) { const d = t - performance.now(); if
   const stopTrace = async () => {
     const done = new Promise((r) => { const f = (m) => { if (m.method === 'Tracing.tracingComplete') { listeners.splice(listeners.indexOf(f), 1); r(); } }; listeners.push(f); });
     await send('Tracing.end'); await done; listeners.splice(listeners.indexOf(traceL), 1);
+    if (opt('rawtrace', false)) fs.writeFileSync(path.join(OUT, `${TAG}_${Date.now()}.trace.json`), JSON.stringify(traceEvents));   // 원 트레이스(chrome://tracing·Perfetto로 열기)
     const tn = new Map(); const pn = new Map();
     for (const e of traceEvents) { if (e.ph === 'M' && e.name === 'thread_name') tn.set(e.pid + ':' + e.tid, e.args.name); if (e.ph === 'M' && e.name === 'process_name') pn.set(e.pid, e.args.name); }
     const agg = new Map(); const open = new Map();
@@ -240,6 +243,8 @@ async function waitUntil(t) { while (true) { const d = t - performance.now(); if
   const pSoft = await evaluate(`__h.strokePath(${JSON.stringify(B)}, 61, 5)`);
   await scen('softBig', async () => { await stroke(pSoft); await sleep(700); });
   await evaluate(`__h.setRange('#brSoft', 70) && __h.setRange('#brSize', 55)`);
+  // 7-1) 되돌리기 1번(마지막 획) — 버튼 클릭 처리(동기) 시간
+  await scen('undo', async () => evaluate(`(async () => { let tImg = null; const t = performance.now(); const mo = new MutationObserver((ms) => { if (tImg == null && ms.some((m) => m.target.classList && m.target.classList.contains('brushLayer'))) tImg = performance.now() - t; }); mo.observe(document.querySelector('#cg'), { subtree: true, attributes: true, attributeFilter: ['href'] }); document.querySelector('#undo').click(); const sync = performance.now() - t; await new Promise((r) => setTimeout(r, 900)); mo.disconnect(); return { syncMs: Math.round(sync * 10) / 10, imgMs: tImg == null ? null : Math.round(tImg * 10) / 10 }; })()`));
   // 8) 가만히 3.2초(자동저장 주기)
   await scen('idle', async () => { await sleep(3200); });
   info.stateEnd = await evaluate('__h.state()');

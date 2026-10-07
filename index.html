@@ -2809,49 +2809,30 @@ const fills = () => (S.fillsByStyle[S.style] ||= {});
 const brushStrokes = () => ((S.brushByStyle ||= {})[S.style] ||= []);
 
 // ===================== 브러쉬 덧칠 =====================
-// '공간'(본토 main + 각 인셋)마다 그 공간 좌표계 위에 캔버스를 굽고 <image>로 얹는다.
+// '공간'(본토 main + 각 인셋)마다 그 공간 좌표계 위 캔버스에 굽고 <image>로 얹는다.
 // 본토 이미지는 mapT 안(L_brush), 인셋 이미지는 그 인셋 그룹(insetT-key) 안 → 각자 지도/박스를 따라간다.
 // 각 획은 자기 '영역(존)' path 로 클립해서 그 안에만 칠해진다. 섬(인셋)도 같은 방식.
-const brushCanv = {};   // space -> { canvas, bbox, K }
+// 쌓는 규칙: 같은 색이 이어지는 획들 = 한 '색 런' 이미지(겹치면 진해짐, data-col·data-run). 새 획은 앞 런들을
+// 자기 모양으로 2번 파내고(덮기 — 위에 얹힐 때 1번 더 = 3번) 자기 런에 얹는다. 지우개 획은 앞 런들을 파낸다.
+//
+// 가볍게(2026-10) — 계산·결과는 그대로, '다시 그리는 양'만 줄였다:
+//  · 공간마다 색 런 캔버스를 메모리에 들고 있다가 새 획 하나엔 그 획만 더한다(증분 — 처음부터 굽기와 픽셀까지 같은 계산,
+//    brushApply). 처음부터 다시 굽기는 획 목록이 통째로 바뀔 때(불러오기·지도 종류·색 계열 바꾸기)만.
+//    renderAll 이 불러도 획이 그대로면 아무것도 안 한다.
+//  · 되돌리기 = 획마다 남겨 둔 '바뀌기 전 조각'을 되붙인다(최근 40획·메모리 한도 안 — 넘으면 다시 굽기).
+//  · 드래그 중엔 <foreignObject> 안 캔버스(늘 붙어 있음)에 점만 바로 찍는다(PNG 인코딩·디코딩·그림자 필터 재래스터 없음).
+//  · 손 떼면 바뀐 런만 PNG(data URL) — 워커가 인코딩(메인 스레드 밖). 끝나면 한 번에 바꿔 끼우고 라이브 캔버스를 비운다.
+//  · 클립 Path2D 는 존마다 한 번만 파싱하고, 같은 영역(keys)은 캐시한다(buildZones 때 비움).
 const hexA = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
 const brushSpaceKeys = () => ['main', ...Object.keys(S.insets)];
 const brushGroup = (space) => (space === 'main' ? $('#gMain') : $('#insetT-' + space));
 const brushOutline = (space) => (space === 'main' ? $('#zoneLineMain') : svg.querySelector(`[data-zoneline="${space}"]`));
-// 그 공간의 '라이브' 브러쉬 이미지 — 드래그 중에만 쓰는 단일 이미지(모든 색 합성).
-// 손 떼면 renderBrush()가 색별 이미지로 다시 나눈다(타임라인에서 색별로 따로 등장하도록).
-function brushImgOf(space) {
-  let img = svg.querySelector(`image.brushLayer.brushLive[data-space="${space}"]`);
-  if (!img) {
-    img = el('image', { class: 'brushLayer brushLive', 'data-space': space, preserveAspectRatio: 'none' });
-    if (space === 'main') $('#L_brush').append(img);
-    else { const g = $('#insetT-' + space); if (!g) return null; g.insertBefore(img, g.querySelector('[data-zoneline]')); }
-  }
-  return img;
-}
-// 색 런별 브러쉬 이미지 (data-col=색, data-run=칠한 순번). 그리는 순서대로 위에 쌓이도록 매번 끝으로 다시 붙인다.
-// 같은 색이 다른 색을 사이에 두고 다시 나오면(빨강→파랑→빨강) 런마다 따로 — 타임라인·AE는 data-col로 묶어 쓴다.
-function brushColImgOf(space, col, run) {
-  const key = (col || '').toUpperCase();
-  const sel = `image.brushLayer[data-space="${space}"][data-col="${key}"][data-run="${run}"]`;
-  let img = svg.querySelector(sel);
-  if (!img) img = el('image', { class: 'brushLayer', 'data-space': space, 'data-col': key, 'data-run': run, preserveAspectRatio: 'none' });
-  if (space === 'main') $('#L_brush').append(img);
-  else { const g = $('#insetT-' + space); if (!g) return null; g.insertBefore(img, g.querySelector('[data-zoneline]')); }
-  return img;
-}
-function ensureSpaceCanvas(space) {
-  const outline = brushOutline(space);
-  let b; try { b = outline && outline.getBBox(); } catch (e) { b = null; }
-  if (!b || !b.width) return null;
-  const pad = 30;
-  const bbox = { x: b.x - pad, y: b.y - pad, w: b.width + pad * 2, h: b.height + pad * 2 };
-  const c = brushCanv[space] || (brushCanv[space] = { canvas: document.createElement('canvas') });
-  c.bbox = bbox;
-  c.K = Math.min(3, Math.max(1, 1400 / Math.max(bbox.w, bbox.h)));
-  c.canvas.width = Math.round(bbox.w * c.K);
-  c.canvas.height = Math.round(bbox.h * c.K);
-  return c;
-}
+const brushParent = (space) => (space === 'main' ? $('#L_brush') : $('#insetT-' + space));
+const brushRT = {};                  // space -> 메모리 캐시(저장 안 함): 색 런 캔버스·<image>·적용한 획 서명·되돌리기 조각·라이브 캔버스
+let brushGeomRev = 0;                // 존을 다시 만들면 +1 → bbox·클립 캐시를 버린다
+const brushZoneP = new WeakMap();    // 존 path 요소 -> Path2D (d 는 한 번만 파싱)
+const brushClipC = new Map();        // 'space|영역' -> 합친 클립 Path2D
+const BRUSH_UNDO_N = 40, BRUSH_UNDO_PX = 12e6;   // 되돌리기 조각: 공간마다 최근 40획·1200만 픽셀(약 48MB)까지
 // 특보구역 코드(L1+2자리) -> 권역(시도급). 특보구역은 시군보다 잘게 쪼개져 있어 이걸로 묶는다.
 // (대전은 충남권, 부산·울산은 경남권으로 함께 묶인다 — 코드 체계가 그렇게 나뉜다.)
 const WARN_SIDO = {
@@ -2866,49 +2847,46 @@ const brushSido = (id) => {
   return id.includes('/') ? id.split('/')[0] : id;
 };
 const regionKey = (space, id) => space + '::' + brushSido(id);
-// 선택된 시도 key들(그 공간)에 해당하는 존 path 전부 합쳐서 마스크
-function keysPath2D(keys, space) {
-  const set = keys instanceof Set ? keys : new Set(keys);
-  const p = new Path2D();
-  for (const [id, arr] of zoneEls) {
-    if (!set.has(regionKey(space, id))) continue;
-    for (const { el: e, inset } of arr) { if ((inset || 'main') !== space) continue; const d = e.getAttribute('d'); if (d) p.addPath(new Path2D(d)); }
-  }
+// 존을 다시 만들었다(지도 종류·불러오기) — 존 id·모양이 달라지니 선택과 클립·bbox 캐시를 비운다(buildZones가 부른다)
+function brushZonesChanged() {
+  brushGeomRev++;
+  brushClipC.clear();
+  brushRegions.clear();
+  brushSelEls.clear();
+}
+function zonePath2D(e) {
+  let p = brushZoneP.get(e);
+  if (p === undefined) { const d = e.getAttribute('d'); p = d ? new Path2D(d) : null; brushZoneP.set(e, p); }
   return p;
 }
+// ids 에 걸리는(match(존 id)) 그 공간의 존 path 를 전부 합친 클립 — 같은 영역은 한 번만 만든다
+function brushClipPath(space, tag, ids, match) {
+  const ck = space + '|' + tag + ids.join('\u0001');
+  let p = brushClipC.get(ck);
+  if (p) return p;
+  const set = new Set(ids);
+  p = new Path2D();
+  for (const [id, arr] of zoneEls) {
+    if (!set.has(match(id))) continue;
+    for (const { el: e, inset } of arr) { if ((inset || 'main') !== space) continue; const zp = zonePath2D(e); if (zp) p.addPath(zp); }
+  }
+  brushClipC.set(ck, p);
+  return p;
+}
+// 선택된 시도 key들(그 공간)에 해당하는 존 path 전부 합쳐서 마스크
+const keysPath2D = (keys, space) => brushClipPath(space, 'k:', [...keys], (id) => regionKey(space, id));
 function strokeClip(s, space) {
   if (s.keys) return keysPath2D(s.keys, space);
-  // 옛 데이터 호환
-  const ids = s.regions || (s.region ? [s.region] : []);
-  const set = new Set(ids); const p = new Path2D();
-  for (const [id, arr] of zoneEls) { if (!set.has(id)) continue; for (const { el: e, inset } of arr) { if ((inset || 'main') !== space) continue; const d = e.getAttribute('d'); if (d) p.addPath(new Path2D(d)); } }
-  return p;
-}
-// 재사용 오프스크린 캔버스 (색 런 레이어·라이브 레이어·베이스 스냅샷용)
-const brushScratch = {};
-function scratchCanvas(w, h, key) {
-  const s = (brushScratch[key] ||= document.createElement('canvas'));
-  if (s.width !== w) s.width = w; if (s.height !== h) s.height = h;
-  const cx = s.getContext('2d'); cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, w, h);
-  return s;
+  return brushClipPath(space, 'r:', s.regions || (s.region ? [s.region] : []), (id) => id);   // 옛 데이터 호환
 }
 const sameHex = (a, b) => (a || '').toUpperCase() === (b || '').toUpperCase();
-// 색 레이어를 main에 합성 — 아래(다른 색)를 여러 번 파낸 뒤(op가 낮아도 확실히 덮이게) 레이어를 얹는다.
-function bComposite(cx, layer) {
-  cx.globalCompositeOperation = 'destination-out';
-  cx.drawImage(layer, 0, 0); cx.drawImage(layer, 0, 0); cx.drawImage(layer, 0, 0);
-  cx.globalCompositeOperation = 'source-over';
-  cx.drawImage(layer, 0, 0);
-}
 // 주어진 ctx에 그 공간의 좌표계(배율·bbox)와 클립을 건다. save()하므로 끝나면 brushEnd(=restore).
-function brushSetup(cx, space, clipPath) {
-  const c = brushCanv[space];
+function brushSetup(cx, st, clipPath) {
   cx.save();
-  cx.setTransform(c.K, 0, 0, c.K, -c.bbox.x * c.K, -c.bbox.y * c.K);
+  cx.setTransform(st.K, 0, 0, st.K, -st.bbox.x * st.K, -st.bbox.y * st.K);
   if (clipPath) cx.clip(clipPath);
   return cx;
 }
-const brushBegin = (space, clipPath) => brushSetup(brushCanv[space].canvas.getContext('2d'), space, clipPath);
 const brushEnd = (cx) => cx.restore();
 // 부드러운 원형 그라디언트 한 점 (peak 알파 a).
 function brushGrad(cx, x, y, r, col, a, soft) {
@@ -2927,92 +2905,356 @@ function brushDab(cx, x, y, r, col, op, soft, erase) {
   brushGrad(cx, x, y, r, col, erase ? 1 : op / 100, soft);
   cx.restore();
 }
-// 한 공간 캔버스에 획들을 다시 그린다. 같은 색 연속 획은 한 레이어에 쌓아(진해짐) 그린 뒤,
-// 그 레이어로 아래(다른 색)를 파내고 얹는다 → 같은 색은 쌓이고, 다른 색은 깔끔히 덮인다.
-function paintSpaceCanvas(space, strokes) {
-  const c = brushCanv[space], cx = c.canvas.getContext('2d');
-  const W = c.canvas.width, H = c.canvas.height;
-  cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, W, H); cx.globalCompositeOperation = 'source-over';
-  for (let i = 0; i < strokes.length;) {
-    const s0 = strokes[i];
-    if (s0.erase) {   // 지우개는 그 자리에서 바로 파낸다
-      const g = brushBegin(space, strokeClip(s0, space));
-      for (const [x, y] of s0.dabs) brushDab(g, x, y, s0.r, s0.col, s0.op, s0.soft, true);
-      brushEnd(g); i++; continue;
+// 재사용 캔버스(공간 크기) — 런·레이어용. 버린 것은 몇 장만 모아 둔다.
+const brushPool = [];
+function brushNewCanvas(w, h) {
+  const i = brushPool.findIndex((c) => c.width === w && c.height === h);
+  const c = i >= 0 ? brushPool.splice(i, 1)[0] : document.createElement('canvas');
+  if (c.width !== w) c.width = w;
+  if (c.height !== h) c.height = h;
+  const x = c.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, w, h);
+  return c;
+}
+const brushFree = (c) => { if (c && brushPool.length < 4) brushPool.push(c); };
+// 되돌리기 조각 캔버스 — 너무 작으면 GPU 가속이 꺼질 수 있어 한 변 160 이상
+function brushPatchCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(160, w); c.height = Math.max(160, h); return c; }
+function brushFreePatch(P) { if (P) for (const sv of P.saves) { sv[1].width = 0; sv[1].height = 0; } }
+// 획 서명 — 같은 획인지 빠르게 비교(되돌리기는 S를 JSON으로 통째로 갈아끼워 객체가 새것). 점은 개수 + 처음·가운데·끝.
+function brushSig(s) {
+  const d = s.dabs || [], a = d[0] || [], m = d[d.length >> 1] || [], z = d[d.length - 1] || [];
+  return [s.erase ? 1 : 0, (s.col || '').toUpperCase(), s.r, s.op, s.soft,
+    s.keys ? 'k' + s.keys.join('\u0001') : 'r' + (s.regions || (s.region ? [s.region] : [])).join('\u0001'),
+    d.length, a[0], a[1], m[0], m[1], z[0], z[1]].join('|');
+}
+// 획이 닿는 캔버스 픽셀 사각형 [x, y, w, h] (점 bbox + 반지름 + 여유 2px). 이 밖은 그 획 레이어가 완전히 투명.
+function brushRect(st, s) {
+  const d = s.dabs, r = +s.r;
+  if (!d || !d.length || !(r > 0)) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of d) { const x = p[0], y = p[1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const K = st.K, bx = st.bbox.x, by = st.bbox.y;
+  const rx0 = Math.max(0, Math.floor((x0 - r - bx) * K) - 2), ry0 = Math.max(0, Math.floor((y0 - r - by) * K) - 2);
+  const rx1 = Math.min(st.W, Math.ceil((x1 + r - bx) * K) + 2), ry1 = Math.min(st.H, Math.ceil((y1 + r - by) * K) + 2);
+  return rx1 > rx0 && ry1 > ry0 ? [rx0, ry0, rx1 - rx0, ry1 - ry0] : null;
+}
+const boxHit = (b, r) => !!b && b[0] < r[0] + r[2] && r[0] < b[0] + b[2] && b[1] < r[1] + r[3] && r[1] < b[1] + b[3];
+const boxAdd = (b, r) => {
+  if (!b) return r.slice();
+  const x0 = Math.min(b[0], r[0]), y0 = Math.min(b[1], r[1]);
+  return [x0, y0, Math.max(b[0] + b[2], r[0] + r[2]) - x0, Math.max(b[1] + b[3], r[1] + r[3]) - y0];
+};
+// 공간 캐시 — 지도 종류·존이 그대로면 재사용. 처음 보거나 바뀌면 bbox부터 새로(런은 비움).
+function brushStateOf(space) {
+  const key = S.style + '|' + brushGeomRev;
+  let st = brushRT[space];
+  if (st && st.key === key && st.ok) return st;
+  if (!st) {
+    st = brushRT[space] = { space, key: null, ok: false, runs: [], applied: [], hist: [], last: null, bk: null, imgs: [], fo: null, layer: null, layerRect: null };
+    svg.querySelectorAll(`image.brushLayer[data-space="${space}"]`).forEach((im) => im.remove());   // 이제부터 imgs 가 관리
+  }
+  if (st.key !== key) { brushResetRuns(st); st.key = key; }
+  const outline = brushOutline(space);
+  let b; try { b = outline && outline.getBBox(); } catch (e) { b = null; }
+  st.ok = !!(b && b.width);
+  if (st.ok) {
+    const pad = 30;
+    const bbox = { x: b.x - pad, y: b.y - pad, w: b.width + pad * 2, h: b.height + pad * 2 };
+    const K = Math.min(3, Math.max(1, 1400 / Math.max(bbox.w, bbox.h)));
+    if (!st.bbox || st.W !== Math.round(bbox.w * K) || st.H !== Math.round(bbox.h * K) || st.bbox.x !== bbox.x || st.bbox.y !== bbox.y) brushResetRuns(st);
+    st.bbox = bbox; st.K = K; st.W = Math.round(bbox.w * K); st.H = Math.round(bbox.h * K);
+  }
+  return st;
+}
+function brushResetRuns(st) {
+  for (const r of st.runs) brushFree(r.cv);
+  for (const P of st.hist) brushFreePatch(P);
+  st.runs = []; st.applied = []; st.hist = []; st.last = null; st.bk = null;
+}
+// (앞 런 백업이 없을 때만 쓰는 예비) 색 획 하나를 빈 레이어에 — 그 획 모양으로만 앞 런을 파낸다.
+function brushStrokeLayer(st, s, rect) {
+  let cv = st.layer;
+  if (!cv || cv.width !== st.W || cv.height !== st.H) { cv = st.layer = brushNewCanvas(st.W, st.H); st.layerRect = null; }
+  const x = cv.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over';
+  if (st.layerRect) x.clearRect(st.layerRect[0], st.layerRect[1], st.layerRect[2], st.layerRect[3]);
+  st.layerRect = rect;
+  const g = brushSetup(x, st, strokeClip(s, st.space));
+  for (const [px, py] of s.dabs) brushDab(g, px, py, s.r, s.col, s.op, s.soft, false);
+  brushEnd(g);
+  return cv;
+}
+// 그 런의 지금 모습을 칠한 범위(box)만큼 떠 둔다 — '이 런 시작 전' 백업용
+function brushBackup(r) {
+  const [bx, by, bw, bh] = r.box, c = brushPatchCanvas(bw, bh);
+  c.getContext('2d').drawImage(r.cv, bx, by, bw, bh, 0, 0, bw, bh);
+  return { c, box: r.box.slice() };
+}
+// 획 하나를 런 캔버스들에 더한다(증분) — 바꾸기 전 renderBrush 와 같은 계산을 획 단위로 한다:
+//  · 색 획: 자기 런 캔버스에 점을 바로 찍는다(같은 색 연속 = 같은 런 → 진해짐).
+//    앞 런들은 '이 런을 시작하기 전 모습(백업)'으로 되돌린 뒤 지금 런 전체로 2번 파낸다
+//    (= 런을 다 그린 뒤 앞 런들을 한 번에 2번 파내던 것과 같은 픽셀. 획 사각형 밖은 런이 안 바뀌어 그대로).
+//  · 지우개: 그때까지의 런마다 점으로 바로 파낸다.
+// rec 이면 바뀌기 전 조각을 남겨 되돌리기를 다시 굽기 없이 한다.
+function brushApply(st, s, sig, rec) {
+  const rect = brushRect(st, s);
+  const P = rec ? { rect, saves: [], newRun: false, last: st.last, bk: st.bk, px: 0 } : null;
+  const save = (k) => {
+    if (!P || !rect) return;
+    const r = st.runs[k], c = brushPatchCanvas(rect[2], rect[3]);
+    c.getContext('2d').drawImage(r.cv, rect[0], rect[1], rect[2], rect[3], 0, 0, rect[2], rect[3]);
+    P.saves.push([k, c, r.box && r.box.slice()]);
+    P.px += c.width * c.height;
+  };
+  const clip = rect ? strokeClip(s, st.space) : null;
+  const dabs = (cv, erase) => {
+    const g = brushSetup(cv.getContext('2d'), st, clip);
+    for (const [x, y] of s.dabs) brushDab(g, x, y, s.r, s.col, s.op, s.soft, erase);
+    brushEnd(g);
+  };
+  if (s.erase) {   // 지우개 — 그때까지의 런을 전부 파낸다
+    if (rect) st.runs.forEach((r, k) => { if (boxHit(r.box, rect)) { save(k); dabs(r.cv, true); r.dirty = true; } });
+    st.last = '\u0000';   // 지우개 뒤의 색 획은 새 런
+    st.bk = null;
+  } else {
+    const col = (s.col || '').toUpperCase();
+    let k = st.runs.length - 1;
+    if (k >= 0 && st.last === col) save(k);   // 같은 색 연속 → 같은 런
+    else {
+      st.runs.push({ col: s.col, cv: brushNewCanvas(st.W, st.H), box: null, dirty: true }); k++;
+      if (P) P.newRun = true;
+      st.bk = { k, m: new Map() };   // 새 런: 앞 런들 백업은 처음 닿을 때 뜬다
     }
-    let j = i + 1;
-    while (j < strokes.length && !strokes[j].erase && sameHex(strokes[j].col, s0.col)) j++;   // 같은 색 연속 런
-    const layer = scratchCanvas(W, H, 'run'), lx = layer.getContext('2d');
-    for (let k = i; k < j; k++) { const s = strokes[k]; const g = brushSetup(lx, space, strokeClip(s, space)); for (const [x, y] of s.dabs) brushDab(g, x, y, s.r, s.col, s.op, s.soft, false); brushEnd(g); }
-    cx.setTransform(1, 0, 0, 1, 0, 0);
-    bComposite(cx, layer);
-    i = j;
+    const run = st.runs[k];
+    if (rect) {
+      dabs(run.cv, false);
+      run.box = boxAdd(run.box, rect);
+      const bk = st.bk && st.bk.k === k ? st.bk : null;
+      const L = bk ? null : brushStrokeLayer(st, s, rect);   // (백업이 없을 일은 없지만) 그땐 이 획 모양으로만 파낸다
+      for (let j = 0; j < k; j++) {
+        const pr = st.runs[j];
+        if (!boxHit(pr.box, rect)) continue;
+        save(j);
+        const x = pr.cv.getContext('2d');
+        x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over';
+        if (bk) {
+          const b = bk.m.get(j);
+          if (!b) { const nb = brushBackup(pr); bk.m.set(j, nb); if (P) P.px += nb.c.width * nb.c.height; }   // 처음 닿음 = 아직 이 런에 안 파였다
+          else {   // 이 런에 이미 파인 자리 → 백업으로 되돌린 뒤 다시(런 전체로) 파낸다
+            x.clearRect(rect[0], rect[1], rect[2], rect[3]);
+            const ix = Math.max(rect[0], b.box[0]), iy = Math.max(rect[1], b.box[1]);
+            const iw = Math.min(rect[0] + rect[2], b.box[0] + b.box[2]) - ix, ih = Math.min(rect[1] + rect[3], b.box[1] + b.box[3]) - iy;
+            if (iw > 0 && ih > 0) x.drawImage(b.c, ix - b.box[0], iy - b.box[1], iw, ih, ix, iy, iw, ih);
+          }
+        }
+        const src = bk ? run.cv : L;
+        x.globalCompositeOperation = 'destination-out';
+        x.drawImage(src, rect[0], rect[1], rect[2], rect[3], rect[0], rect[1], rect[2], rect[3]);
+        x.drawImage(src, rect[0], rect[1], rect[2], rect[3], rect[0], rect[1], rect[2], rect[3]);
+        x.globalCompositeOperation = 'source-over';
+        pr.dirty = true;
+      }
+    }
+    run.dirty = true;
+    st.last = col;
+  }
+  st.applied.push(sig);
+  st.hist.push(P);
+  if (P) brushTrimUndo(st);
+}
+// 되돌리기 조각은 최근 것만(개수·픽셀 한도). 가장 최근 1개는 늘 남긴다.
+function brushTrimUndo(st) {
+  let n = 0, px = 0;
+  for (let i = st.hist.length - 1; i >= 0; i--) {
+    const P = st.hist[i];
+    if (!P) break;
+    n++; px += P.px;
+    if (n > 1 && (n > BRUSH_UNDO_N || px > BRUSH_UNDO_PX)) {
+      for (let j = i; j >= 0 && st.hist[j]; j--) { brushFreePatch(st.hist[j]); st.hist[j] = null; }
+      break;
+    }
   }
 }
-function placeBrushImg(space, c) {
-  const img = brushImgOf(space); if (!img) return null;
-  img.setAttribute('x', c.bbox.x); img.setAttribute('y', c.bbox.y);
-  img.setAttribute('width', c.bbox.w); img.setAttribute('height', c.bbox.h);
-  img.style.display = ''; img.removeAttribute('opacity');
-  return img;
+// 마지막에 더한 획 하나를 되돌린다(남겨 둔 조각을 되붙임) — 다시 굽기와 픽셀이 같다
+function brushRevert(st) {
+  const P = st.hist.pop();
+  st.applied.pop();
+  if (P.newRun) brushFree(st.runs.pop().cv);
+  for (const [k, c, box] of P.saves) {
+    const r = st.runs[k];
+    if (!r) continue;
+    const x = r.cv.getContext('2d'), [rx, ry, rw, rh] = P.rect;
+    x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over';
+    x.clearRect(rx, ry, rw, rh);
+    x.drawImage(c, 0, 0, rw, rh, rx, ry, rw, rh);
+    r.box = box; r.dirty = true;
+  }
+  st.last = P.last;
+  st.bk = P.bk;   // 그 획 전의 '앞 런 백업'(런을 넘어 되돌려도 이어 칠하기가 바꾸기 전과 같게)
+  brushFreePatch(P);
 }
-// 전체 다시 그리기 (되돌리기·불러오기·지우기·지도종류 바뀜 후)
-function renderBrush() {
-  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
-  const all = brushStrokes();
-  for (const space of brushSpaceKeys()) {
-    const strokes = all.filter((s) => (s.space || 'main') === space);
-    // 라이브 이미지는 드래그 끝났으니 숨긴다(색별 이미지로 대체).
-    const live = svg.querySelector(`image.brushLayer.brushLive[data-space="${space}"]`);
-    if (live) live.style.display = 'none';
-    const c = strokes.some((s) => !s.erase) ? ensureSpaceCanvas(space) : null;
-    const keep = new Set();
-    if (c) {
-      // 미리보기(paintSpaceCanvas)와 같은 결과가 나오게 '같은 색 연속 런'마다 이미지를 만들고 칠한 순서대로 쌓는다.
-      // 나중 런(어느 색이든)은 앞 런들을 파내고(=덮기), 나중 지우개는 앞 런들을 지운다.
-      // (파내기 2번 + 위에 얹힐 때 1번 = 미리보기 bComposite의 3번 파내기와 같은 덮임)
-      const W = c.canvas.width, H = c.canvas.height, runs = [];
-      for (let i = 0; i < strokes.length;) {
-        const s0 = strokes[i];
-        if (s0.erase) {
-          for (const r of runs) { const g = brushSetup(r.cv.getContext('2d'), space, strokeClip(s0, space)); for (const [x, y] of s0.dabs) brushDab(g, x, y, s0.r, s0.col, s0.op, s0.soft, true); brushEnd(g); }
-          i++; continue;
-        }
-        let j = i + 1;
-        while (j < strokes.length && !strokes[j].erase && sameHex(strokes[j].col, s0.col)) j++;   // 같은 색 연속 런
-        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-        const lx = cv.getContext('2d');
-        for (let k = i; k < j; k++) { const s = strokes[k]; const g = brushSetup(lx, space, strokeClip(s, space)); for (const [x, y] of s.dabs) brushDab(g, x, y, s.r, s.col, s.op, s.soft, false); brushEnd(g); }
-        for (const r of runs) {
-          const rx = r.cv.getContext('2d');
-          rx.setTransform(1, 0, 0, 1, 0, 0); rx.globalCompositeOperation = 'destination-out';
-          rx.drawImage(cv, 0, 0); rx.drawImage(cv, 0, 0);
-          rx.globalCompositeOperation = 'source-over';
-        }
-        runs.push({ col: s0.col, cv });
-        i = j;
-      }
-      runs.forEach((r, k) => {
-        const img = brushColImgOf(space, r.col, k); if (!img) return;
-        img.setAttribute('x', c.bbox.x); img.setAttribute('y', c.bbox.y);
-        img.setAttribute('width', c.bbox.w); img.setAttribute('height', c.bbox.h);
-        img.setAttribute('href', r.cv.toDataURL());
-        img.style.display = ''; img.removeAttribute('opacity');
-        keep.add(img);
-      });
-      paintSpaceCanvas(space, strokes);   // 공간 캔버스엔 전체 합성(스포이드·다음 획의 base)
-    }
-    // 이번에 안 쓴 옛 이미지(없어진 색·런)는 제거
-    svg.querySelectorAll(`image.brushLayer[data-space="${space}"][data-col]`).forEach((im) => {
-      if (!keep.has(im)) im.remove();
+// 캐시(적용한 획들)를 지금 획 목록에 맞춘다: 같은 앞부분은 그대로, 뒤에서 빠진 획은 조각으로 되돌리고, 새 획만 더한다.
+// 조각이 없으면(오래된 되돌리기·색 계열 바꾸기·불러오기) 처음부터 다시 굽는다.
+function brushReconcile(st, strokes) {
+  const sigs = strokes.map(brushSig), A = st.applied;
+  let p = 0;
+  const n = Math.min(A.length, sigs.length);
+  while (p < n && A[p] === sigs[p]) p++;
+  if (p === A.length && p === sigs.length) return false;
+  if (p < A.length) {
+    let can = p > 0;
+    for (let i = p; can && i < A.length; i++) if (!st.hist[i]) can = false;
+    if (can) while (st.applied.length > p) brushRevert(st);
+    else { brushResetRuns(st); p = 0; }
+  }
+  const N = strokes.length;
+  for (let i = p; i < N; i++) brushApply(st, strokes[i], sigs[i], N - i <= BRUSH_UNDO_N);
+  return true;
+}
+// 런 → <image> 반영: 개수·순서(칠한 순서대로 위로)·색·위치, 새 PNG(urls), 보이기(애니가 바꾼 opacity 원복). 라이브는 비움.
+// 같은 색이 다른 색을 사이에 두고 다시 나오면(빨강→파랑→빨강) 런마다 따로 — 타임라인·AE는 data-col로 묶어 쓴다.
+function brushSyncImgs(st, urls) {
+  const space = st.space, imgs = st.imgs, parent = brushParent(space);
+  const n = st.ok && parent ? st.runs.length : 0;
+  let changed = false;
+  while (imgs.length > n) { imgs.pop().remove(); changed = true; }
+  const anchor = st.fo && st.fo.parentNode === parent ? st.fo : (space === 'main' ? null : parent && parent.querySelector('[data-zoneline]'));
+  const bk = n ? [st.bbox.x, st.bbox.y, st.bbox.w, st.bbox.h].join(',') : '';
+  for (let k = 0; k < n; k++) {
+    const r = st.runs[k];
+    let img = imgs[k];
+    if (!img) { img = imgs[k] = el('image', { class: 'brushLayer', 'data-space': space, preserveAspectRatio: 'none' }); parent.insertBefore(img, anchor); changed = true; }
+    const col = (r.col || '').toUpperCase();
+    if (img.getAttribute('data-col') !== col) img.setAttribute('data-col', col);
+    if (img.getAttribute('data-run') !== String(k)) img.setAttribute('data-run', k);
+    if (img._bk !== bk) { img._bk = bk; img.setAttribute('x', st.bbox.x); img.setAttribute('y', st.bbox.y); img.setAttribute('width', st.bbox.w); img.setAttribute('height', st.bbox.h); }
+    const u = urls && urls.get(r);
+    if (u) { img.setAttribute('href', u); changed = true; }
+    if (img.style.display) img.style.display = '';
+    if (img.hasAttribute('opacity')) img.removeAttribute('opacity');
+  }
+  // 라이브 캔버스는 숨기지 않고 비우기만 한다 — 보였다 숨겼다 하면 레이어 구성이 바뀌어 지도(그림자 필터)를 통째로 다시 굽는다
+  if (st.fo && !(brushStroke && brushStroke.space === space)) {
+    if (st.liveDirty) { const x = st.fo.firstChild.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, st.fo.firstChild.width, st.fo.firstChild.height); st.liveDirty = false; }
+    // 본토는 늘 붙여 둔다. 섬(인셋)은 확대 변환·클립 안이라 붙여 두면 섬 경계선 안티앨리어싱이 미세하게 달라져(화면만) 칠할 때만 보인다.
+    const want = st.ok && space === 'main' ? '' : 'none';
+    if (st.fo.style.display !== want) st.fo.style.display = want;
+  }
+  return changed;
+}
+// PNG 인코딩 일꾼(워커) — 런 캔버스를 createImageBitmap(GPU 스냅샷, 읽어오기 없음)으로 넘기면 워커가
+// OffscreenCanvas 에 그려 PNG data URL 로 돌려준다. 메인 스레드는 GPU 읽어오기·인코딩을 기다리지 않는다.
+const BRUSH_ENC_SRC = "self.onmessage=async(e)=>{const m=e.data;try{const oc=new OffscreenCanvas(m.bmp.width,m.bmp.height);const x=oc.getContext('2d');x.drawImage(m.bmp,0,0);m.bmp.close();const b=await oc.convertToBlob({type:'image/png'});self.postMessage({id:m.id,url:new FileReaderSync().readAsDataURL(b)});}catch(err){self.postMessage({id:m.id,url:null});}};";
+let brushEncW = null, brushEncSeq = 0;
+const brushEncCb = new Map();
+function brushEncoder() {
+  if (brushEncW !== null) return brushEncW;
+  try {
+    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap !== 'function') throw new Error('no worker');
+    brushEncW = new Worker(URL.createObjectURL(new Blob([BRUSH_ENC_SRC], { type: 'text/javascript' })));
+    brushEncW.onmessage = (e) => { const cb = brushEncCb.get(e.data.id); if (cb) { brushEncCb.delete(e.data.id); cb(e.data.url); } };
+    brushEncW.onerror = () => { brushEncW = false; for (const cb of brushEncCb.values()) cb(null); brushEncCb.clear(); };   // 워커가 죽으면 이후엔 toBlob
+  } catch (_) { brushEncW = false; }
+  return brushEncW;
+}
+// 캔버스 → PNG data URL (비동기). 실패하면 done(null) — 부른 쪽이 toDataURL 로 대신한다.
+function brushEncode(cv, done) {
+  const w = brushEncoder();
+  if (w) {
+    createImageBitmap(cv).then((bmp) => { const id = ++brushEncSeq; brushEncCb.set(id, done); brushEncW.postMessage({ id, bmp }, [bmp]); }, () => done(null));
+    return;
+  }
+  cv.toBlob((blob) => {
+    if (!blob) { done(null); return; }
+    const fr = new FileReader();
+    fr.onload = () => done(fr.result);
+    fr.onerror = () => done(null);
+    fr.readAsDataURL(blob);
+  }, 'image/png');
+}
+// 바뀐 런만 PNG(data URL)로 — 인코딩은 워커(메인 스레드 밖). 다 되면 한 번에 바꿔 끼운다(그동안은
+// 라이브 캔버스가 새 획을 보여 준다). 도중에 새 획·되돌리기·추출이 오면 brushFinalize 가 바로 끝낸다.
+let brushPub = null;
+function brushPublish() {
+  brushFinalize();
+  const items = [];
+  for (const st of Object.values(brushRT)) for (const r of st.runs) if (r.dirty) { r.dirty = false; items.push(r); }
+  const pub = brushPub = { items, urls: new Map(), done: false };
+  if (!items.length) { brushPubApply(pub); return; }
+  let left = items.length;
+  for (const r of items) {
+    brushEncode(r.cv, (url) => {
+      if (pub.done) return;
+      pub.urls.set(r, url || r.cv.toDataURL());
+      if (--left === 0) brushPubApply(pub);
     });
   }
 }
-// 화면좌표 -> 그 공간의 로컬좌표
-function toSpaceLocal(e, space) {
-  const g = brushGroup(space), p = svg.createSVGPoint();
+// 진행 중인 이미지 갱신을 지금 끝낸다(남은 런은 toDataURL) — 새 획 시작·되돌리기·추출·애니 프레임 전에 부른다.
+function brushFinalize() {
+  const pub = brushPub;
+  if (!pub || pub.done) return;
+  for (const r of pub.items) if (!pub.urls.has(r)) pub.urls.set(r, r.cv.toDataURL());
+  brushPubApply(pub);
+}
+function brushPubApply(pub) {
+  if (pub.done) return;
+  pub.done = true;
+  if (brushPub === pub) brushPub = null;
+  let changed = pub.items.length > 0;
+  for (const st of Object.values(brushRT)) changed = brushSyncImgs(st, pub.urls) || changed;
+  if (changed) bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
+}
+// 획 목록 → 화면. 되돌리기·불러오기·지우기·지도종류 바뀜 후, 그리고 renderAll 마다 불린다 — 획이 그대로면 할 일 없음.
+function renderBrush() {
+  if (brushStroke) return;   // 드래그 중엔 손 뗄 때 한 번에 맞춘다
+  brushFinalize();
+  const by = {};
+  for (const s of brushStrokes()) (by[s.space || 'main'] ||= []).push(s);
+  for (const space of brushSpaceKeys()) {
+    const strokes = by[space] || [];
+    if (!strokes.length && !brushRT[space]) continue;   // 획도 캐시도 없는 공간은 건드리지 않는다
+    const st = brushStateOf(space);
+    if (!st.ok) { brushResetRuns(st); continue; }
+    if (st.imgs.some((im) => !im.isConnected)) { for (const im of st.imgs) im.remove(); st.imgs.length = 0; for (const r of st.runs) r.dirty = true; }   // 누가 이미지를 떼어 냈으면 다시 붙인다
+    brushReconcile(st, strokes);
+    if (space === 'main' && st.runs.length && !st.fo) brushLiveOf(st);   // 본토 라이브 캔버스를 미리 붙여 둔다(첫 획 때 레이어 구성이 바뀌어 지도를 다시 굽지 않게)
+  }
+  brushPublish();
+}
+// 라이브(드래그 중) 캔버스 — 그 공간 bbox에 <foreignObject><canvas>. 런 이미지들 위(인셋은 경계선 아래)에 둔다.
+function brushLiveOf(st) {
+  const space = st.space, parent = brushParent(space);
+  if (!parent) return null;
+  let fo = st.fo;
+  if (!fo) {
+    fo = st.fo = el('foreignObject', { class: 'brushLayer brushLive', 'data-space': space });
+    const cv = document.createElement('canvas');
+    cv.style.cssText = 'display:block;width:100%;height:100%;pointer-events:none';
+    fo.append(cv);
+  }
+  const cv = fo.firstChild;
+  if (cv.width !== st.W) cv.width = st.W;
+  if (cv.height !== st.H) cv.height = st.H;
+  const bk = [st.bbox.x, st.bbox.y, st.bbox.w, st.bbox.h].join(',');
+  if (fo._bk !== bk) { fo._bk = bk; fo.setAttribute('x', st.bbox.x); fo.setAttribute('y', st.bbox.y); fo.setAttribute('width', st.bbox.w); fo.setAttribute('height', st.bbox.h); }
+  const anchor = space === 'main' ? null : parent.querySelector('[data-zoneline]');
+  if (fo.parentNode !== parent || fo.nextSibling !== anchor) parent.insertBefore(fo, anchor);
+  return fo;
+}
+// 스포이드 — 그 픽셀의 런들을 1×1 캔버스에 쌓아 읽는다(런 캔버스에 getImageData 를 안 해서 GPU 가속 유지).
+let brushPick = null, brushPickX = null;
+function brushPixelAt(st, px, py) {
+  if (!brushPick) { brushPick = document.createElement('canvas'); brushPick.width = 1; brushPick.height = 1; brushPickX = brushPick.getContext('2d', { willReadFrequently: true }); }
+  brushPickX.clearRect(0, 0, 1, 1);
+  for (const r of st.runs) brushPickX.drawImage(r.cv, px, py, 1, 1, 0, 0, 1, 1);
+  return brushPickX.getImageData(0, 0, 1, 1).data;
+}
+// 화면좌표 -> 그 공간의 로컬좌표 (inv: 드래그 동안 재사용하는 역행렬 — 점마다 getScreenCTM(강제 레이아웃) 안 부르게)
+function toSpaceLocal(e, space, inv) {
+  const p = svg.createSVGPoint();
   p.x = e.clientX; p.y = e.clientY;
-  const r = p.matrixTransform(g.getScreenCTM().inverse());
+  const r = p.matrixTransform(inv || brushGroup(space).getScreenCTM().inverse());
   return [r.x, r.y];
 }
 // 그 공간의 로컬 -> 캔버스(1920) 배율 (반지름 환산용)
@@ -3024,30 +3266,27 @@ function brushLocalScale(space) {
 
 let brushErase = false;              // 지우개 브러쉬 토글
 let brushRegions = new Set();        // 선택된 시도 영역 key들 (space::sido)
-let brushStroke = null, brushDirty = false, brushRAF = 0, brushLiveSpace = null, brushLiveCanvas = null, brushLiveRecomp = null;
-function brushFlush() {
-  if (brushDirty && brushLiveCanvas) {
-    if (brushLiveRecomp) brushLiveRecomp();   // base + 라이브 레이어 합성해 main 갱신(같은색 쌓기/다른색 덮기)
-    const img = brushImgOf(brushLiveSpace); if (img) { img.setAttribute('href', brushLiveCanvas.toDataURL()); img.style.display = ''; }
-    brushDirty = false;
-  }
-  brushRAF = brushStroke ? requestAnimationFrame(brushFlush) : 0;
-}
+const brushSelEls = new Map();       // 선택 강조 path들 (key -> [path]) — 고른 시도만 붙였다 뗀다
+let brushStroke = null;              // 드래그 중인 획(손 떼면 null)
 // SHIFT+클릭 = 그 존이 속한 '시도'를 통째로 선택/해제 (작은 시군 조각 하나가 아니라)
 function toggleBrushRegion(zoneEl) {
   const key = regionKey(zoneEl.dataset.inset || 'main', zoneEl.dataset.id);
   if (brushRegions.has(key)) brushRegions.delete(key); else brushRegions.add(key);
-  markBrushRegions();
+  markBrushRegions(key);   // 그 시도 강조만 붙이거나 뗀다(나머지는 그대로)
   status(brushRegions.size ? `영역 ${brushRegions.size}곳 선택 — 이제 클릭·드래그로 칠하세요` : '영역 선택 없음', true);
 }
-function markBrushRegions() {
-  // 선택 강조를 '면'으로 — 시군마다 테두리를 긋지 않고, 선택된 존 위에 반투명 파란 면을 덮는다.
-  // (테두리 방식은 시도 안의 모든 시군 경계가 밝게 강조돼 지저분했다.)
-  for (const e of document.querySelectorAll('.brushSelHi')) e.remove();
+// 선택 강조를 '면'으로 — 시군마다 테두리를 긋지 않고, 선택된 존 위에 반투명 파란 면을 덮는다.
+// (테두리 방식은 시도 안의 모든 시군 경계가 밝게 강조돼 지저분했다.) only = 그 key 만 다시(없으면 전부).
+function markBrushRegions(only) {
+  if (only == null) { for (const e of document.querySelectorAll('.brushSelHi')) e.remove(); brushSelEls.clear(); }
+  else { for (const e of brushSelEls.get(only) || []) e.remove(); brushSelEls.delete(only); }
   for (const [id, arr] of zoneEls) for (const { el: ze, inset } of arr) {
-    if (!brushRegions.has(regionKey(inset || 'main', id))) continue;
+    const key = regionKey(inset || 'main', id);
+    if ((only != null && key !== only) || !brushRegions.has(key)) continue;
     const d = ze.getAttribute('d'); if (!d || !ze.parentNode) continue;
-    ze.parentNode.appendChild(el('path', { class: 'brushSelHi', d }));   // 같은 부모라 좌표계·변형 그대로
+    const hi = el('path', { class: 'brushSelHi', d });
+    ze.parentNode.appendChild(hi);   // 같은 부모라 좌표계·변형 그대로
+    (brushSelEls.get(key) || brushSelEls.set(key, []).get(key)).push(hi);
   }
 }
 function clearBrushRegions() { brushRegions.clear(); markBrushRegions(); }
@@ -3072,55 +3311,65 @@ function brushSpaceAt(e) {
   }
   return 'main';
 }
+// 손 뗀 뒤 저장은 잠깐 뒤 한 번(연달아 칠하면 묶임). 드래그 중이면 끝난 뒤로 미룬다.
+let _brushSaveT = 0;
+function brushSaveSoon() {
+  clearTimeout(_brushSaveT);
+  _brushSaveT = setTimeout(() => { _brushSaveT = 0; if (brushStroke) brushSaveSoon(); else saveWork(); }, 400);
+}
 function startBrush(e, keys, space, erase) {
-  const c = ensureSpaceCanvas(space);
-  if (!c) return;
-  pushUndo();
-  paintSpaceCanvas(space, brushStrokes().filter((s) => (s.space || 'main') === space));   // 기존 결과(=base)
+  if (brushStroke) return;   // 이미 칠하는 중(두 번째 손가락 등)
+  brushFinalize();   // 앞 획 이미지 갱신이 남았으면 마무리(라이브 캔버스를 새 획에 쓴다)
+  renderBrush();     // 캐시를 획 목록에 맞춘다 — 보통 이미 맞아서 할 일 없음
+  const st = brushStateOf(space);
+  if (!st.ok) return;
+  const fo = brushLiveOf(st);
+  if (!fo) return;
+  const g = brushGroup(space);
+  let inv = g.getScreenCTM().inverse();   // 드래그 동안 화면→로컬 변환 재사용. 휠·창 크기가 바뀌면 다시 구한다.
   const r = Math.max(1, S.brush.size / brushLocalScale(space));   // 화면(캔버스) px -> 그 공간 로컬 단위
   const s = { space, keys: keys.slice(), col: activeColor, r, op: S.brush.op, soft: S.brush.soft, erase: !!erase, dabs: [] };
-  brushStroke = s; brushLiveSpace = space; brushLiveCanvas = c.canvas;
-  placeBrushImg(space, c);   // 라이브(단일) 이미지 표시
-  // 드래그 중엔 색별 이미지를 숨겨 겹쳐 보이지 않게 (라이브 이미지가 전체를 보여줌)
-  svg.querySelectorAll(`image.brushLayer[data-space="${space}"][data-col]`).forEach((im) => { im.style.display = 'none'; });
-  const W = c.canvas.width, H = c.canvas.height, cx = c.canvas.getContext('2d');
-  let base = null, live = null, glive = null, gmain = null;
+  const D = fo.firstChild, dx = D.getContext('2d');
+  dx.setTransform(1, 0, 0, 1, 0, 0); dx.globalCompositeOperation = 'source-over'; dx.clearRect(0, 0, st.W, st.H);
   if (s.erase) {
-    gmain = brushBegin(space, keysPath2D(s.keys, space));   // 지우개는 main에 직접 파낸다
-    brushLiveRecomp = null;
-  } else {
-    // 같은 색은 라이브 레이어에서 쌓이고(진해짐), 합성 때 아래 다른 색을 덮는다.
-    base = scratchCanvas(W, H, 'base'); base.getContext('2d').drawImage(c.canvas, 0, 0);
-    live = scratchCanvas(W, H, 'live');
-    glive = brushSetup(live.getContext('2d'), space, keysPath2D(s.keys, space));
-    // 라이브 미리보기는 그냥 얹어 보여준다(즉시 보이고 같은 색이 쌓인다). 손 떼면 paintSpaceCanvas가
-    // 정식으로 합성(같은 색 쌓기/다른 색 덮기)한다. knockout을 라이브에 쓰면 칠이 안 보이는 것처럼 됐다.
-    brushLiveRecomp = () => {
-      cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalCompositeOperation = 'source-over';
-      cx.clearRect(0, 0, W, H); cx.drawImage(base, 0, 0); cx.drawImage(live, 0, 0);
-    };
+    // 지우개: 라이브 캔버스에 지금 런들을 쌓아 두고(이미지는 잠깐 숨김) 거기서 바로 파낸다. 손 떼면 런마다 같은 점으로 파낸다.
+    for (const run of st.runs) dx.drawImage(run.cv, 0, 0);
+    for (const im of st.imgs) im.style.display = 'none';
   }
+  // 색 획: 라이브 캔버스엔 이 획 점만(앞 런 이미지는 그대로 보이고 그 위에 얹혀 보인다 — 바꾸기 전 미리보기와 같은 모습).
+  // 손 떼면 같은 점을 런 캔버스에 찍는다(처음부터 굽기와 같은 계산 → 다시 열어도 픽셀이 같다).
+  const gd = brushSetup(dx, st, keysPath2D(s.keys, space));
+  if (fo.style.display) fo.style.display = '';
+  st.liveDirty = true;
   const add = (ev) => {
-    const [lx, ly] = toSpaceLocal(ev, space);
+    if (!inv) inv = g.getScreenCTM().inverse();
+    const [lx, ly] = toSpaceLocal(ev, space, inv);
     const d = s.dabs, last = d[d.length - 1];
-    if (!last || Math.hypot(lx - last[0], ly - last[1]) > r * 0.28) { d.push([lx, ly]); brushDab(s.erase ? gmain : glive, lx, ly, r, s.col, s.op, s.soft, s.erase); brushDirty = true; }
+    if (!last || Math.hypot(lx - last[0], ly - last[1]) > r * 0.28) {
+      d.push([lx, ly]);
+      brushDab(gd, lx, ly, r, s.col, s.op, s.soft, s.erase);
+    }
   };
-  add(e);
-  brushRAF = requestAnimationFrame(brushFlush);
+  try { add(e); } catch (err) { brushEnd(gd); for (const im of st.imgs) im.style.display = ''; throw err; }   // 첫 점에서 실패하면 칠하기 상태로 남지 않게
+  brushStroke = s;
   const mv = (ev) => add(ev);
+  const reinv = () => { inv = null; };
   const up = () => {
     window.removeEventListener('pointermove', mv);
     window.removeEventListener('pointerup', up);
-    brushEnd(s.erase ? gmain : glive);
-    brushLiveRecomp = null;
-    if (s.dabs.length) brushStrokes().push(s);
+    window.removeEventListener('wheel', reinv, true);
+    window.removeEventListener('resize', reinv);
+    brushEnd(gd);
+    if (s.dabs.length) { pushUndo(); brushStrokes().push(s); }   // 되돌리기 기록은 손 뗄 때(=누르기 전 상태 그대로)
     brushStroke = null;
-    renderBrush();   // 색별 이미지로 다시 나눠 그린다(라이브 이미지 숨김) — 타임라인에서 색별로 등장
-    saveWork();
+    renderBrush();   // 이 획만 런에 더하고(증분) 바뀐 런만 다시 PNG(워커)
+    brushSaveSoon();
     status(s.erase ? '브러쉬 지움' : '브러쉬 덧칠', true);
   };
   window.addEventListener('pointermove', mv);
   window.addEventListener('pointerup', up);
+  window.addEventListener('wheel', reinv, true);
+  window.addEventListener('resize', reinv);
 }
 
 function projLL(lon, lat) {
@@ -3247,7 +3496,7 @@ function buildFrame() {
 
 // 지도 종류가 바뀌면 조각만 갈아끼운다 (뼈대는 그대로)
 function buildZones() {
-  if (typeof brushRegions !== 'undefined') brushRegions.clear();   // 지도 종류 바뀌면 존 id가 달라져 선택 초기화
+  brushZonesChanged();   // 지도 종류 바뀌면 존 id가 달라져 선택 초기화(+브러쉬 클립·bbox 캐시 비움)
   zoneEls.clear();
   gMain.textContent = '';
   // 시도선도 지도 종류에 맞는 것으로 갈아끼운다
@@ -8401,6 +8650,19 @@ function delSel() {
   sel = []; refreshPanel(); renderAll();
 }
 
+// 모드(칠하기·브러쉬·이동)에 따라 달라지는 것만 맞춘다 — renderInsets·renderMapTransform 중 mode 를 보는 부분과 같다.
+// (예전엔 모드를 바꿀 때마다 두 함수를 통째로 불러 모든 존 칠·경계선·인셋을 다시 넣었고, 그림자 필터 걸린 지도 전체를 다시 그렸다)
+function syncModeHandles() {
+  const off = !!curStyle().noInsets;
+  for (const key of Object.keys(S.insets)) {
+    const grip = $('#grip-' + key);
+    if (grip) grip.style.display = !off && mode === 'move' ? '' : 'none';
+    const hit = $('#hit-' + key);
+    if (hit) { const pe = mode === 'move' ? 'all' : 'none'; if (hit.getAttribute('pointer-events') !== pe) hit.setAttribute('pointer-events', pe); }
+  }
+  const g = $('#mapGrip');
+  if (g) g.style.display = (mode === 'move' && !S.mapLock) ? '' : 'none';
+}
 function setMode(m) {
   mode = m;
   $('#mPaint').classList.toggle('on', m === 'paint');
@@ -8414,9 +8676,8 @@ function setMode(m) {
   syncMapAltHint();   // 부팅·모드전환 때도 Alt 조작법 표시 갱신
   if (m !== 'brush') { clearBrushRegions(); hideBrushCursor(); }
   else revealSecFor('paint', null, 'soft');   // 브러쉬 모드 켜면 색 팔레트 펴 준다(접혀 있을 때만)
-  renderInsets();
-  renderMapTransform();
-  renderVfBar();   // 이동 모드 전환에 맞춰 제목 바 핸들 표시/숨김
+  syncModeHandles();   // 모드에 따라 바뀌는 핸들만(인셋·지도 크기 핸들) — 지도를 통째로 다시 칠하지 않는다(브러쉬 버튼이 무거웠던 원인)
+  if (S.res === '1920x1080-vf') renderVfBar();   // 이동 모드 전환에 맞춰 제목 바 핸들 표시/숨김(VF에서만 — 그 밖엔 범례를 통째로 다시 만들 뿐이라 생략)
   renderVfScale(); // 이동 모드에서만 VF 전체 외곽선·핸들 표시
   status(m === 'move' ? '이동 모드 — 끌어서 이동, 파란 핸들로 크기 조절 (지도 전체 / 도서 박스)'
     : m === 'brush' ? '브러쉬 모드 — 한 영역을 끌어서 그 안에만 부드럽게 덧칠' : '칠하기 모드');
@@ -11017,7 +11278,7 @@ function drawExportTextOverlay(cx, keep, W, H) {
 const EXPORT_STRIP = ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor', '#L_refImg'];
 function stripExportUi(clone) {
   for (const s of EXPORT_STRIP) clone.querySelector(s)?.remove();
-  clone.querySelectorAll('.brushSelHi').forEach((n) => n.remove());
+  clone.querySelectorAll('.brushSelHi, .brushLive').forEach((n) => n.remove());   // 브러쉬 라이브 캔버스(드래그 중 전용)도 뺀다
 }
 // 서울: 레이어 분리(mutate)로 존 칠을 비우거나 베이스로 되돌렸으면 한강 위 칠 오버레이(#seoulPaintTop)도 그 존을 따른다
 // (안 그러면 베이스·시도선·브러쉬·경계선 레이어에 모든 칠 색이 처음부터 찍힌다). 칠한 존이 하나도 안 남은 투명 레이어엔 한강도 뺀다.
@@ -11036,6 +11297,7 @@ function syncSeoulExport(clone) {
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
 // stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
 async function svgToImage(W, H, keep, viewBox, stripText) {
+  brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다(복제본에 최신 그림)
   const clone = svg.cloneNode(true);
   if (stripText) clone.querySelectorAll('text').forEach((n) => n.remove());
   clone.setAttribute('width', W);
@@ -11536,6 +11798,7 @@ const ALL_LAYERS = ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn', 'L_typhoon', '
 // overlayText=true면 글자를 빼고 래스터한 뒤 캔버스에 SUITE로 직접(크롬 폰트 문제 우회). 남은 레이어 기준으로만 글자를 그린다.
 async function svgBlob(mutate, overlayText) {
   const [W, H] = RES[S.res].size;
+  brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', W); clone.setAttribute('height', H);
   stripExportUi(clone);
@@ -11563,6 +11826,7 @@ const keepLayers = (clone, keep) => { for (const k of ALL_LAYERS) if (!keep.incl
 async function previewPng(maxW) {
   const [W, H] = RES[S.res].size;
   const k = Math.min(1, maxW / W), w = Math.round(W * k), h = Math.round(H * k);
+  brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', w); clone.setAttribute('height', h);
   stripExportUi(clone);
@@ -12596,12 +12860,12 @@ async function openProject() {
 function colorAtPoint(e) {
   const toHex = (r, g, b) => '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
   const space = brushSpaceAt(e);
-  const c = brushCanv[space];
-  if (c && c.canvas) {
+  const c = brushRT[space];   // 브러쉬 런 캔버스들(화면 이미지와 같은 그림)
+  if (c && c.ok && c.runs.length) {
     const [lx, ly] = toSpaceLocal(e, space);
     const px = Math.round((lx - c.bbox.x) * c.K), py = Math.round((ly - c.bbox.y) * c.K);
-    if (px >= 0 && py >= 0 && px < c.canvas.width && py < c.canvas.height) {
-      try { const d = c.canvas.getContext('2d').getImageData(px, py, 1, 1).data; if (d[3] > 30) return toHex(d[0], d[1], d[2]); } catch (_) {}
+    if (px >= 0 && py >= 0 && px < c.W && py < c.H) {
+      try { const d = brushPixelAt(c, px, py); if (d[3] > 30) return toHex(d[0], d[1], d[2]); } catch (_) {}
     }
   }
   const z = zoneUnder(e);
@@ -13582,7 +13846,7 @@ function ensureBlind() {
   base.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
   base.id = 'L_mapBase';
   base.removeAttribute('filter');
-  base.querySelectorAll('image').forEach((n) => n.remove());   // 브러쉬 이미지는 베이스에서 뺀다 (안 그러면 브러쉬가 겹쳐 이상해짐)
+  base.querySelectorAll('image, foreignObject').forEach((n) => n.remove());   // 브러쉬 이미지(·라이브 캔버스)는 베이스에서 뺀다 (안 그러면 브러쉬가 겹쳐 이상해짐)
   // 경계선(구역선·시도선)은 베이스에도 그대로 둔다 — 애니메이션 처음부터 경계선이 보이게. 색칠만 슬랫으로 드러난다.
   base.querySelectorAll('.zone').forEach((z) => { z.setAttribute('fill', S.base); });
   base.querySelectorAll('[data-role="seoulPaintTop"]').forEach((g) => { g.textContent = ''; });   // 서울: 칠한 색 오버레이도 베이스엔 없어야(슬랫 열리기 전 색이 보임)
@@ -13770,6 +14034,7 @@ function renderAnimFrameBody(t) {
     const bft = A.tracks.filter((x) => x.kind === 'fill');
     const firstFill = bft.length ? Math.min(...bft.map((x) => x.start)) : ANIM_FILL_LEN;
     const fallback = easeOut(clamp01(t / Math.max(firstFill, ANIM_FILL_LEN)));
+    brushFinalize();   // 방금 칠한 획 이미지 갱신이 남았으면 먼저 끝낸다
     for (const im of document.querySelectorAll('image.brushLayer[data-col]')) {
       const col = (im.getAttribute('data-col') || '').toUpperCase();
       const tr = A.tracks.find((x) => x.kind === 'brush' && (x.key || '').toUpperCase() === col);
@@ -13777,8 +14042,8 @@ function renderAnimFrameBody(t) {
       im.style.display = '';
       im.setAttribute('opacity', gp.toFixed(3));
     }
-    // 라이브(단일) 이미지는 애니메이션 중엔 숨긴다
-    for (const im of document.querySelectorAll('image.brushLayer.brushLive')) im.style.display = 'none';
+    // 라이브(드래그 중) 캔버스는 애니메이션 중엔 숨긴다
+    for (const im of document.querySelectorAll('.brushLayer.brushLive')) im.style.display = 'none';
   }
 
   // 산 색칠 — 지도 칠과 똑같이. 번짐이면 베이스->산색으로 번지고, 블라인드면 그 산색의 슬랫으로 각자 드러난다.
@@ -15134,7 +15399,7 @@ setTimeout(checkNoticeOnBoot, tourWillOpen ? 1500 : 600);
 setTimeout(checkHelperFreshOnBoot, tourWillOpen ? 2400 : 1300);
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
-setInterval(saveWork, 1500);
+setInterval(() => { if (!brushStroke) saveWork(); }, 1500);   // 브러쉬 드래그 중엔 건너뛴다(손 떼면 저장)
 window.addEventListener('beforeunload', saveWork);
 document.fonts.ready.then(() => { renderLabels(); renderMtns(); renderSel(); });
 })();

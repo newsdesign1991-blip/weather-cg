@@ -114,9 +114,17 @@
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) P.loaf.push(e.toJSON ? e.toJSON() : e); }).observe({ type: 'long-animation-frame', buffered: true }); } catch (e) { P.loafErr = String(e); }
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) P.lt.push({ startTime: e.startTime, duration: e.duration }); }).observe({ type: 'longtask', buffered: true }); } catch (e) { P.ltErr = String(e); }
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) P.et.push({ name: e.name, startTime: e.startTime, processingStart: e.processingStart, processingEnd: e.processingEnd, duration: e.duration, target: e.target && (e.target.id || e.target.getAttribute && e.target.getAttribute('class')) }); }).observe({ type: 'event', durationThreshold: 16, buffered: true }); } catch (e) { P.etErr = String(e); }
+  // 브러쉬 런 이미지 href 가 바뀐 시각(손 뗀 뒤 최종 이미지가 화면 DOM에 들어간 때) — 개선 후 비동기 갱신 지연 재기
+  P.mut = [];
+  try {
+    new MutationObserver((ms) => {
+      const t = now();
+      for (const m of ms) if (m.target.classList && m.target.classList.contains('brushLayer')) { P.lastHref = t; if (P.on) P.mut.push(t); break; }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['href'] });
+  } catch (e) { P.mutErr = String(e); }
   // 구간 시작/끝
   P.begin = (name) => {
-    P.name = name; P.acc = {}; P.lis = {}; P.ev = {}; P.cbs = {}; P.pathChars = 0;
+    P.name = name; P.acc = {}; P.lis = {}; P.ev = {}; P.cbs = {}; P.pathChars = 0; P.mut = [];
     P.frames = []; P.t0 = now(); P.on = true;
     const f = (ts) => { if (!P.on) return; P.frames.push(ts); oRAF(f); };
     oRAF(f);
@@ -141,7 +149,11 @@
     for (const e of loaf) for (const s of e.scripts || []) { const k = (s.invoker || '') + ' | ' + (s.sourceFunctionName || '') + ' | ' + (s.invokerType || ''); add(loafScripts, k, s.duration); }
     const lt = P.lt.filter((e) => e.startTime >= t0 && e.startTime <= t1);
     const et = P.et.filter((e) => e.startTime >= t0 - 5 && e.startTime <= t1);
+    // 손 뗌(pointerup 리스너 시작) → 다음 브러쉬 이미지 href 갱신까지(ms)
+    const ups = (P.ev.pointerup || []).map((r) => r.start);
+    const upToImg = ups.map((u) => { const m = P.mut.find((x) => x >= u); return m == null ? null : r2(m - u); });
     return {
+      upToImg,
       name: P.name, spanMs: r2(t1 - t0),
       frames: { n: P.frames.length, mean: r2(iv.reduce((a, b) => a + b, 0) / (iv.length || 1)), p50: r2(q(iv, 0.5)), p95: r2(q(iv, 0.95)), max: r2(Math.max(0, ...iv)), over20: iv.filter((x) => x > 20).length, over33: iv.filter((x) => x > 33.4).length, over50: iv.filter((x) => x > 50).length },
       events: evs,

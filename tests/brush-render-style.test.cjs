@@ -16,10 +16,11 @@ test('map style change clears inset brush highlights and redraws brush strokes',
 });
 
 test('brush runs become stacked images in paint order', () => {
-  const rb = fn('renderBrush');
-  assert.match(rb, /brushColImgOf\(space, r\.col, k\)/);
-  assert.match(rb, /destination-out/);
-  assert.match(fn('brushColImgOf'), /'data-run': run/);
+  // 색 런마다 이미지 하나(칠한 순서대로 쌓기) — 런 계산은 brushApply(앞 런 파내기), 이미지 반영은 brushSyncImgs
+  assert.match(fn('renderBrush'), /brushReconcile\(st, strokes\)/);
+  assert.match(fn('brushApply'), /destination-out/);
+  assert.match(fn('brushSyncImgs'), /'data-run'/);
+  assert.match(fn('brushSyncImgs'), /parent\.insertBefore\(img, anchor\)/);
 });
 
 test('ramp swap recolors brush strokes and animation track keys', () => {
