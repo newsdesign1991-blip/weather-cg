@@ -70,8 +70,10 @@ test('열고 닫기 = 블러 + 스케일, 좁은 창(900px 이하)은 위아래�
   assert.match(html, /@media \(max-width: 900px\) \{\n\s*\.cgSetupOv \{[^}]*\}\n\s*\.cgsBody \{ grid-template-columns: minmax\(0, 1fr\);/);
   for (const f of ['openCgSetup', 'closeCgSetup']) assert.doesNotMatch(fn(f), /document\.body\.style|position:\s*fixed|\.remove\(\)|createElement/);
   // 데스크톱: 막이 뜨면 창 버튼 자리도 같이 어둡게
-  assert.match(html, /\['#cgSetupOv\.on', 'rgba\(6, 10, 20, \.62\)'\]/);
-  assert.match(cssRule('.cgSetupOv'), /background: rgba\(6, 10, 20, \.62\)/);
+  // (막 색은 테마마다 다른 --pop-ov — CSS 배경과 창 버튼 어둡게 하기가 같은 변수를 짝으로 쓴다)
+  assert.match(html, /\['#cgSetupOv\.on', 'var\(--pop-ov\)'\]/);
+  assert.match(cssRule('.cgSetupOv'), /background: var\(--pop-ov\)/);
+  assert.match(fn('titleBarDimLayers'), /getPropertyValue\(v\[1\]\)/, '캔버스 합성 전에 var() 를 실제 값으로 바꾼다');
 });
 
 test('고르기만 하고, 둘 다 골라 선택 완료를 눌러야 적용 — 닫기는 아무것도 안 바꾼다', () => {
@@ -176,7 +178,11 @@ test('선택 완료 한 번 = 되돌리기 한 칸(중간 상태 새 CG 종류 +
 test('바깥 막·포커스·제목줄 — Tab 가두기, 데스크톱 제목줄 끌기 끔, 꺼진 선택 완료는 취소와 다른 모양', () => {
   const setup = fn('setupCgSetup');
   assert.match(setup, /if \(e\.key !== 'Tab' \|\| !cgSetupIsOpen\(\) \|\| aboveCgs\(\)\) return;/);
-  assert.match(setup, /\(e\.shiftKey \? last : first\)\.focus\(\);/);
+  // 가두기 본체는 팝업 공통 도우미(popTrapTab) — 토스 모달·확인창·배치 지정하기·이미지 안내도 같은 걸 쓴다
+  assert.match(setup, /popTrapTab\(ov\.querySelector\('\.cgSetupCard'\), e\);/);
+  assert.match(fn('popTrapTab'), /\(e\.shiftKey \? last : first\)\.focus\(\);/);
+  // 닫히는 중(.popClosing)인 위 창은 '위에 떠 있음'으로 안 친다 — 그 .34초 동안 Esc·Tab 이 사라지지 않게
+  assert.match(setup, /const aboveCgs = \(\) => [^\n]*#tossOv:not\(\.popClosing\)[^\n]*#confirmOverlay\.on:not\(\.popClosing\)[^\n]*#slotOverlay\.on:not\(\.popClosing\)/);
   assert.match(fn('openCgSetup'), /document\.documentElement\.classList\.add\('cgsOpen'\);/);
   assert.match(fn('closeCgSetup'), /document\.documentElement\.classList\.remove\('cgsOpen'\);/);
   assert.match(html, /html\.isDesktop\.cgsOpen \.titlebar \{ -webkit-app-region: no-drag; \}/);

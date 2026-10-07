@@ -32,9 +32,14 @@ test('제목줄은 .app 앞에 있고 메뉴·추출·보기 버튼을 모두 �
   for (const id of ['cgSetupBtn', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'menubar', 'exportGroup', 'tbInfoGroup']) {
     assert.match(titlebar, new RegExp(`id="${id}"`), `${id} 가 제목줄에 없음`);
   }
-  // 글자 메뉴 — 아이콘 SVG 없이 글자만. 예외는 프로젝트(플로피 디스크 아이콘 버튼) 하나
+  // 글자 메뉴 — 아이콘 SVG 없이 글자만. 예외: 프로젝트(플로피 디스크 아이콘 버튼), 추출 3버튼(.tbAction = 채운 아이콘 + 글자)
   for (const b of titlebar.match(/<button[^>]*class="[^"]*tbMenu[^"]*"[^>]*>[\s\S]*?<\/button>/g)) {
     if (/data-menu="proj"/.test(b)) continue;
+    if (/class="[^"]*\btbAction\b/.test(b)) {
+      assert.equal((b.match(/<svg/g) || []).length, 1, '추출 버튼엔 아이콘이 딱 하나: ' + b.slice(0, 80));
+      assert.match(b, /<\/svg><span class="tbLbl">[^<]*[^<\s][^<]*<\/span><\/button>$/, '추출 버튼은 아이콘 뒤에 글자(.tbLbl span)가 있어야 한다');
+      continue;
+    }
     assert.doesNotMatch(b, /<svg/, b.slice(0, 80));
     assert.match(b, />[^<\s][^<]*<\/button>$/, '글자 메뉴엔 글자가 있어야 한다');
   }
@@ -65,6 +70,29 @@ test('프로젝트 = 플로피 디스크 아이콘 버튼, 추출 3개 = 파란 
   assert.match(html, /#titlebar \.tbAction\.on, #titlebar \.tbAction\.pri \{[^}]*background: var\(--primary\)/);
   // 밝은 테마는 파란 글자를 한 단계 진하게(대비)
   assert.match(html, /:root\[data-theme="light"\] \{ --tb-act-fg: #1b56d2;/);
+});
+
+test('추출 3버튼 — 같은 폭(grid 균등 칸), 채운 아이콘(currentColor), 맨 왼쪽 앱 아이콘 없음', () => {
+  // 사용자 요청: 세 버튼 너비를 똑같이 + 채운(fill) 아이콘 하나씩. AE 버튼이 숨으면(display:none) 칸이 안 생겨 나머지 둘도 같은 폭
+  assert.match(html, /#titlebar #exportGroup \{[^}]*display: grid;[^}]*grid-auto-flow: column;[^}]*grid-auto-columns: 1fr;/);
+  assert.match(html, /#titlebar \.tbAction \{[^}]*justify-content: center;/);
+  for (const sel of ['data-menu="out"', 'id="tlToggle"', 'id="aeSend"']) {
+    const b = new RegExp(`<button[^>]*${sel}[^>]*>[\\s\\S]*?<\\/button>`).exec(titlebar)[0];
+    const svg = /<svg[^>]*>[\s\S]*?<\/svg>/.exec(b)[0];
+    assert.match(svg, /fill="currentColor"/, '채운 아이콘(글자색을 따라감)');
+    assert.doesNotMatch(svg, /stroke=/, '선 아이콘이 아니라 채운 아이콘');
+    assert.match(svg, /aria-hidden="true"/);
+  }
+  // 글자를 잠깐 바꿔도 아이콘이 남게 — 추출 버튼은 버튼 전체 textContent/innerText 를 덮지 않고 .tbLbl span 만 바꾼다
+  const ae = /async function sendToAE\(\) \{[\s\S]*?\n\}/.exec(html)[0];
+  assert.doesNotMatch(ae, /\bbtn\.(textContent|innerText|innerHTML) =/, 'AE 보내기 버튼 글자를 통째로 덮으면 svg 가 지워진다');
+  assert.match(ae, /btn\.querySelector\('\.tbLbl'\)/);
+  assert.doesNotMatch(html, /\$\('#(aeSend|tlToggle)'\)\.(textContent|innerText|innerHTML) =/);
+  // 이모지 금지 — 버튼 글자에 그림 문자가 없다
+  assert.doesNotMatch(titlebar, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+  // 맨 왼쪽 작은 앱 아이콘(파비콘)은 뺐다
+  assert.doesNotMatch(titlebar, /tbAppIcon|<img/);
+  assert.doesNotMatch(html, /\.tbAppIcon/);
 });
 
 test('플로팅 바엔 칠하기·브러쉬·이동·되돌리기·다시만 남는다', () => {

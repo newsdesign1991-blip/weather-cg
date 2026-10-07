@@ -75,7 +75,7 @@
     --card-fill: #212121;
     --refl: linear-gradient(135deg, rgba(255,255,255,.2), rgba(255,255,255,.05) 40%, rgba(0,0,0,.32) 100%);
     --shadow-card: 0 1px 2px rgba(0,0,0,.28), 0 12px 28px -16px rgba(0,0,0,.55);
-    --rc: 18px; --rb: 11px; --ri: 11px;
+    --rc: 18px; --rb: 10px; --ri: 10px;
     --accent-grad: linear-gradient(135deg,#4a94ff,#2f77f6);
     /* 갈래별 색 — 띠(accent)와 제목(on) */
     --grp-map: #4a7f6a;      --grp-map-on: #9fd8bf;
@@ -131,6 +131,36 @@
     --ok: #16a34a;
     --caution: #c27803;
   }
+  /* ===== 팝업 공통 토큰 — 근무표 최신 팝업(공지·투표·일정)과 같은 결 =====
+     막 = 어두운 반투명 + 살짝 블러 · 카드 = 반사 테두리(--refl) 반경 18~20 · 머리 = 옅은 색 틴트(진한 색 띠·흰 글자 아님) + 기본색 제목 ·
+     닫기 = 유리 원 · 주 버튼 = --accent-grad. 열기 = 막 페이드 + 카드가 아래에서 올라옴(popCardIn), 닫기 = .popClosing(popAnimClose). */
+  :root, :root[data-theme="dark"] {
+    --pop-ov: rgba(6, 10, 20, .62);
+    --pop-shadow: 0 1px 2px rgba(0,0,0,.28), 0 22px 55px -14px rgba(0,0,0,.6);
+    --pop-drop-shadow: 0 1px 2px rgba(0,0,0,.28), 0 18px 46px -12px rgba(0,0,0,.6);
+    --pop-hd: rgba(106,168,255,.08);      --pop-hd-line: rgba(106,168,255,.13);
+    --pop-hd-red: rgba(255,120,110,.09);  --pop-hd-red-line: rgba(255,120,110,.16);
+    --pop-hd-green: rgba(74,222,128,.08); --pop-hd-green-line: rgba(74,222,128,.15);
+    --pop-x-bg: rgba(50,50,50,.55); --pop-x-line: rgba(255,255,255,.12); --pop-x-hover: rgba(78,78,78,.72);
+    --pop-muted: #a3a3a3; --pop-label: #6aa8ff;
+  }
+  :root[data-theme="light"] {
+    --pop-ov: rgba(15, 23, 42, .32);   /* 밝은 테마 막은 근무표(rgba(0,0,0,.3))처럼 옅게 — 짙은 회색으로 덮여 무거워 보이지 않게 */
+    --pop-shadow: 0 1px 2px rgba(20,24,40,.05), 0 22px 55px -14px rgba(20,24,40,.30);
+    --pop-drop-shadow: 0 1px 2px rgba(20,24,40,.05), 0 18px 46px -12px rgba(20,24,40,.34);
+    --pop-hd: rgba(49,130,246,.07);       --pop-hd-line: rgba(49,130,246,.12);
+    --pop-hd-red: rgba(224,72,60,.07);    --pop-hd-red-line: rgba(224,72,60,.14);
+    --pop-hd-green: rgba(22,163,74,.08);  --pop-hd-green-line: rgba(22,163,74,.15);
+    --pop-x-bg: rgba(255,255,255,.55); --pop-x-line: rgba(255,255,255,.65); --pop-x-hover: rgba(255,255,255,.92);
+    --pop-muted: #64748b; --pop-label: #3182f6;
+  }
+  /* 열기·닫기 움직임 — 근무표 ndModalFade/ndModalPop(.32·.46초) · 닫힘 ndModalPopOut(.34초)과 같은 값 */
+  @keyframes popOvIn { from { opacity: 0; } }
+  @keyframes popOvOut { to { opacity: 0; } }
+  @keyframes popCardIn { from { opacity: 0; transform: translateY(48px); } }
+  @keyframes popCardOut { to { opacity: 0; transform: translateY(34px); } }
+  @keyframes popPopIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+  .popClosing { pointer-events: none; }   /* 닫히는 동안(.34초)은 클릭이 아래로 지나간다 */
 
   /* html까지 overflow:hidden — 어떤 자식이 넘쳐도 문서 자체가 스크롤돼 앱이 위로 밀리지 않게 */
   html, body { height: 100%; margin: 0; overflow: hidden; }
@@ -185,10 +215,10 @@
   }
   .panelFooter .footRow { display: flex; gap: 8px; align-items: stretch; }
   .panelFooter .footRow .newBtn { flex: 1; }
-  .panelFooter .footIcon { flex: 0 0 auto; width: 42px; padding: 6px 0; display: inline-flex; align-items: center; justify-content: center; }
-  .panelFooter .footIcon svg { width: 18px; height: 18px; }
+  .panelFooter .footIcon { flex: 0 0 auto; width: 38px; padding: 5px 0; display: inline-flex; align-items: center; justify-content: center; }
+  .panelFooter .footIcon svg { width: 17px; height: 17px; }
   /* 상단바 작은 아이콘 버튼 (되돌리기/다시) */
-  .topbar .iconBtn { padding: 5px 8px; display: inline-flex; align-items: center; justify-content: center; }
+  .topbar .iconBtn { padding: 4px 7px; display: inline-flex; align-items: center; justify-content: center; }
   .topbar .iconBtn svg { width: 16px; height: 16px; display: block; }
   .topbar .iconBtn:disabled { opacity: .35; }
   /* 스크롤 여백(옛 85vh 패딩 대체) — footer 앞에 두어야 sticky가 바닥에 제대로 붙는다 */
@@ -274,19 +304,22 @@
   :root, :root[data-theme="dark"] { --nav-active-bg: rgba(106,168,255,.14); --nav-active-fg: #8ab4ff; }
   :root[data-theme="light"] { --nav-active-bg: rgba(49,130,246,.1); --nav-active-fg: #2f77f6; }
   .panel { background: var(--surface-c); box-shadow: none; border-right: 1px solid var(--outline-var); gap: 3px; padding: 8px 12px 0; }
-  #panel > .appHeader { background: var(--surface-c); margin: -8px -12px 6px; padding: 16px 16px 12px; top: -8px; }
-  #panel > .appHeader .ahTop { font-size: 16.5px; letter-spacing: -.03em; }
-  #panel > .appHeader .ahSub { font-size: 12px; }
-  #panel > .panelFooter { margin: 0 -12px; padding: 12px; box-shadow: none; }
+  #panel > .appHeader { background: var(--surface-c); margin: -8px -12px 6px; padding: 13px 14px 10px; top: -8px; gap: 10px; }
+  #panel > .appHeader .ahLogo { width: 32px; height: 32px; }
+  #panel > .appHeader .ahLogo svg { width: 31px; height: 31px; }
+  #panel > .appHeader .ahTop { font-size: 15px; letter-spacing: -.03em; }
+  #panel > .appHeader .ahSub { font-size: 11px; }
+  #panel > .panelFooter { margin: 0 -12px; padding: 10px; box-shadow: none; }
   #panel > .sec { border: 0; border-radius: 12px; background: none; box-shadow: none; }
+  /* 섹션 머리 — 43→38px(사이드바 배율 1.3에서 56→49px). 글자 13.5px·아이콘 19px */
   #panel > .sec > h3 {
-    padding: 11px 12px; gap: 12px; border-radius: 12px;
-    font-size: 14px; font-weight: 600; color: var(--on-surface-var);
+    padding: 9px 11px; gap: 11px; border-radius: 12px;
+    font-size: 13.5px; font-weight: 600; color: var(--on-surface-var);
     transition: background .13s, color .13s;
   }
   #panel > .sec > h3:hover { background: var(--surface-hi); color: var(--on-surface); }
   #panel > .sec:not(.closed) > h3 { background: var(--nav-active-bg); color: var(--nav-active-fg); }
-  #panel > .sec > h3 .secIcon { width: 21px; height: 21px; padding: 0; border-radius: 0; background: none; color: currentColor; }
+  #panel > .sec > h3 .secIcon { width: 19px; height: 19px; padding: 0; border-radius: 0; background: none; color: currentColor; }
   #panel > .sec > h3 .tag { display: none; }   /* 갈래 칩(지도·글자·특수·칠하기)은 사이드바에서 숨김 */
   /* 접기 표시: 근무표 꺾쇠(›)처럼 얇은 선 — 닫힘=오른쪽, 열림=아래. 칩이 없으니 항상 오른쪽 끝 */
   #panel > .sec > h3::after {
@@ -316,7 +349,7 @@
   /* 밝은 테마: 블록 안의 카드·목록칸(surface-hi)은 흰색으로 띄워 회색 바탕과 구분 (어두운 테마는 원래 값이 이미 더 밝다) */
   :root[data-theme="light"] #panel > .sec:not(.closed) { --surface-hi: #ffffff; }
   /* 펼친 내용 — 블록 안쪽 여백(가장자리에 붙지 않게) */
-  #panel > .sec > .body > .bodyInner > .bodyPad { padding: 10px 10px 14px; }
+  #panel > .sec > .body > .bodyInner > .bodyPad { padding: 9px 9px 12px; }
   #panel > .sec:not(.closed) { margin: 3px 0 6px; }
   #panel > .grpHead { margin: 10px 4px 4px; }
   /* 열 때 깜빡이는 강조 — 납작한 목록이라 카드 그림자 없이 얇은 링만 */
@@ -361,26 +394,27 @@
   input[type=number], input[type=text], input[type=date], input[type=time],
   input[type=datetime-local], input[type=password], select, textarea {
     flex: 1; min-width: 0; background: var(--surface-field); border: 1px solid var(--outline);
-    color: var(--on-surface); border-radius: var(--ri); padding: 8px 10px; font: inherit;
+    color: var(--on-surface); border-radius: var(--ri); padding: 6px 9px; font: inherit;   /* 32→28px(약 −12%) */
   }
   textarea { width: 100%; resize: vertical; font-family: ui-monospace, monospace; font-size: 10px; }
   input[type=range] { flex: 1; min-width: 0; accent-color: var(--primary); }
   input[type=checkbox] { accent-color: var(--primary); }
   input[type=color] {
-    width: 34px; height: 30px; padding: 0; border: 1px solid var(--outline);
-    border-radius: 9px; background: none; cursor: pointer; flex: none; overflow: hidden;
+    width: 30px; height: 26px; padding: 0; border: 1px solid var(--outline);
+    border-radius: 8px; background: none; cursor: pointer; flex: none; overflow: hidden;
   }
   /* 색이 둥근 박스를 꽉 채우게 — 기본 스와치의 여백/테두리(네모 속 네모)를 없앤다 */
   input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
-  input[type=color]::-webkit-color-swatch { border: none; border-radius: 7px; }
-  input[type=color]::-moz-color-swatch { border: none; border-radius: 7px; }
+  input[type=color]::-webkit-color-swatch { border: none; border-radius: 6px; }
+  input[type=color]::-moz-color-swatch { border: none; border-radius: 6px; }
   input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(49,130,246,.14); }
   /* 버튼에 background/background-color 트랜지션을 걸지 말 것.
      테마를 바꿀 때(=변수만 갈아끼울 때) 크로미움이 트랜지션에 물려 버튼만 이전 테마 색으로
      남는다. 새로고침해야 풀린다. hover는 트랜지션 없이도 충분히 자연스럽다. */
+  /* 기본 버튼 높이 34→30px(약 −12%, 사이드바 배율 1.3에서 44→39px) — 사이드바·드롭다운·툴바·떼어낸 창이 한꺼번에 따라온다 */
   button {
     background: var(--btn); border: 1px solid var(--btn-line); color: var(--on-surface);
-    border-radius: var(--rb); padding: 9px 11px; font: inherit; font-weight: 600; letter-spacing: -.01em; cursor: pointer;
+    border-radius: var(--rb); padding: 7px 10px; font: inherit; font-weight: 600; letter-spacing: -.01em; cursor: pointer;
   }
   button:hover { background: var(--btn-hover); }
   button.pri {
@@ -396,8 +430,8 @@
   .presetReset { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--outline-var); }
   .presetResetTitle { margin-bottom: 8px; color: var(--danger); font-size: 11px; font-weight: 800; }
   /* 개인 배치 저장/초기화 — 평소엔 접어두고 아래 화살표로 슈욱 펼침 */
-  .presetMoreToggle { width: 100%; margin-top: 12px; background: transparent; border: none; color: var(--muted, #8a93a6); font-size: 11.5px; font-weight: 700; padding: 7px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; }
-  .presetMoreToggle:hover { background: var(--surface-2, rgba(127,127,127,.10)); color: var(--on-surface); }
+  .presetMoreToggle { width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--pop-muted); font-size: 11.5px; font-weight: 700; padding: 6px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; }
+  .presetMoreToggle:hover { background: var(--state-hover); color: var(--on-surface); }
   .presetMoreToggle svg { width: 14px; height: 14px; transition: transform .28s ease; }
   .presetMoreToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
   /* 접힌 동안엔 visibility도 숨김 — 안 보이는 저장·초기화 버튼에 Tab 포커스가 들어가지 않게(펼치면 바로, 접히면 애니메이션 뒤) */
@@ -408,8 +442,17 @@
   #resBtns button.resDim:not(.choicePending):not(:hover) { opacity: .55; }
   .btns { display: flex; gap: 7px; flex-wrap: wrap; }
   .btns > button { flex: 1; }
-  .hint { color: var(--on-surface-var); line-height: 1.6; margin: 6px 0 0; white-space: pre-line; }
-  .chk { display: flex; align-items: center; gap: 5px; color: var(--on-surface-var); cursor: pointer; }
+  /* 사이드바·떼어낸 창 버튼은 한 줄 — 좁은 칸에서 '기상청 단기예/보 열기'·'붙여넣은 걸로 / 읽기'처럼 끊겨 두 줄(높이 ×1.5)로 커지지 않게.
+     nowrap 이면 글자 폭이 그 버튼의 최소 폭이 돼 긴 쪽이 조금 더 넓어지고(flex: 1 이어도), 둘이 한 줄에 안 들어가면 다음 줄로 내려간다.
+     max-width 100% = 줄보다 넓어지진 않게. overflow:hidden 은 주지 말 것(flex 최소 폭이 0이 돼 다시 같은 폭으로 줄어든다) */
+  #panel .btns > button, #panel .btns > a.linkBtn, #wins .btns > button, #wins .btns > a.linkBtn { white-space: nowrap; max-width: 100%; }
+  /* 칸이 많은 줄(예보 종류 3칸·색 계열 5칸)은 좌우 여백만 줄여 한 줄에 들어가게 */
+  #fctKindBtns > button { padding-left: 6px; padding-right: 6px; }
+  #swapRamp > button { padding-left: 4px; padding-right: 4px; }
+  /* 안내문도 낱말 단위로만 줄바꿈('붙여넣/으면' 같은 끊김 없게) — 긴 주소·코드만 아무 데서나 */
+  .hint { color: var(--on-surface-var); line-height: 1.6; margin: 6px 0 0; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+  /* 체크박스 글은 낱말 단위로만 줄바꿈('경계에/서' 같은 끊김 없게) */
+  .chk { display: flex; align-items: center; gap: 5px; color: var(--on-surface-var); cursor: pointer; word-break: keep-all; overflow-wrap: anywhere; }
   .chk input { flex: none; }
 
   /* 포토샵식 눈 버튼 */
@@ -447,13 +490,13 @@
     border: 2px solid transparent; box-shadow: inset 0 0 0 1px var(--outline);
   }
   .sw.on { border-color: var(--on-surface); box-shadow: 0 0 0 2px var(--primary); }
-  .curcol { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; padding: 9px 11px; background: var(--surface-hi); border-radius: 12px; }
-  .curcol .chip { width: 30px; height: 30px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+  .curcol { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; padding: 7px 10px; background: var(--surface-hi); border-radius: 12px; }
+  .curcol .chip { width: 26px; height: 26px; border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
   .curcol code { color: var(--on-surface-var); font-size: 12px; }
 
   .list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
   .item {
-    display: flex; align-items: center; gap: 8px; padding: 9px 11px; background: var(--surface-hi);
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--surface-hi);
     border: 1px solid transparent; border-radius: 12px; cursor: pointer;
   }
   .item:hover { background: var(--btn-hover); }
@@ -548,7 +591,7 @@
     position: absolute; top: 12px; left: 16px; display: flex; gap: 8px; align-items: center;
     flex-wrap: wrap; row-gap: 6px;   /* 자리가 부족하면 버튼을 잘라 접지 말고 아래 줄로 흘린다 */
     background: color-mix(in srgb, var(--surface-c) 92%, transparent); border: 1px solid var(--outline-var);
-    border-radius: 12px; padding: 7px 10px 7px 6px; backdrop-filter: blur(6px); z-index: 10;
+    border-radius: 12px; padding: 6px 9px 6px 5px; backdrop-filter: blur(6px); z-index: 10;
     box-shadow: 0 2px 10px var(--shade); max-width: calc(100% - 32px);
   }
   /* 상단바 버튼 글자는 절대 줄바꿈하지 않는다 — 사이드바를 키워 좁아져도 '영상으로 추/출'처럼 안 쪼개지게 */
@@ -565,7 +608,7 @@
   .tbGrip:active { cursor: grabbing; }
 
   /* ===== 맨 위 제목줄 (데스크톱 앱 창 제목표시줄 겸용) =====
-     왼쪽: 앱 아이콘 + 글자 메뉴(테두리 없는 데스크톱 메뉴바식), 오른쪽: 확대 비율·밝기·둘러보기·공지·설정(렌치).
+     왼쪽: 글자 메뉴(테두리 없는 데스크톱 메뉴바식 — 앱 아이콘은 뺐다), 오른쪽: 확대 비율·밝기·둘러보기·공지·설정(렌치).
      플로팅 바(#topbar)엔 칠하기·브러쉬·이동·되돌리기·다시만 남는다.
      데스크톱(html.isDesktop): 빈 곳을 끌면 창 이동·더블클릭 최대화, 오른쪽 끝엔 윈도 창 버튼이 겹쳐 그려진다
      (Window Controls Overlay) — env(titlebar-area-*)로 그 자리를 비운다. 웹에선 env 값이 없어 평소 여백.
@@ -577,7 +620,6 @@
     padding: 0 calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px) 0 12px;
     background: var(--surface); color: var(--on-surface); font-size: 13px; user-select: none;
   }
-  .titlebar .tbAppIcon { width: 16px; height: 16px; flex: none; margin-right: 6px; -webkit-user-drag: none; }
   .titlebar .tbMenus, .titlebar .tbGroup, .titlebar .tbRight { display: flex; align-items: center; flex: none; }
   .titlebar .tbMenus, .titlebar .tbGroup { gap: 1px; }
   .titlebar .tbRight { gap: 4px; }
@@ -597,15 +639,18 @@
   /* 프로젝트 = 플로피 디스크 아이콘 버튼(저장 버튼 느낌). 글자 메뉴와 같은 높이·호버 */
   #titlebar .tbIconMenu { width: 30px; padding: 0; justify-content: center; color: var(--on-surface); }
   #titlebar .tbIconMenu svg { width: 18px; height: 18px; display: block; opacity: 1; }
-  /* 이미지로 추출·영상으로 추출·AE로 보내기 — 특별한 버튼: 각각 둥근 사각형 + 파란 반투명 채움 + 파란 글자.
-     밝은 테마는 파랑을 한 단계 진하게(바탕 대비 4.5:1 이상). 열림(.on)·타임라인 켜짐(.pri)은 꽉 찬 파랑. */
+  /* 이미지로 추출·영상으로 추출·AE로 보내기 — 특별한 버튼: 각각 둥근 사각형 + 파란 반투명 채움 + 파란 글자 + 채운 아이콘(currentColor).
+     밝은 테마는 파랑을 한 단계 진하게(바탕 대비 4.5:1 이상). 열림(.on)·타임라인 켜짐(.pri)은 꽉 찬 파랑(아이콘도 흰색으로 따라감).
+     세 버튼 폭은 grid 균등 칸(1fr)으로 '가장 넓은 버튼'에 맞춘다 — 좁은 창에서 여백·글자가 줄어도 같은 폭 유지,
+     AE로 보내기가 숨으면(display:none) 칸이 안 생겨 나머지 둘도 서로 같은 폭. */
   :root, :root[data-theme="dark"] { --tb-act-fg: #9cc3ff; --tb-act-bg: rgba(74,148,255,.15); --tb-act-hover: rgba(74,148,255,.27); --tb-act-ring: rgba(106,168,255,.34); }
   :root[data-theme="light"] { --tb-act-fg: #1b56d2; --tb-act-bg: rgba(49,130,246,.11); --tb-act-hover: rgba(49,130,246,.2); --tb-act-ring: rgba(49,130,246,.3); }
-  #titlebar #exportGroup { gap: 6px; }
+  #titlebar #exportGroup { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
   #titlebar .tbAction {
-    height: 27px; padding: 0 12px; border-radius: 8px; font-weight: 650;
+    height: 26px; padding: 0 12px; justify-content: center; gap: 6px; border-radius: 8px; font-weight: 650;
     background: var(--tb-act-bg); color: var(--tb-act-fg); box-shadow: inset 0 0 0 1px var(--tb-act-ring);
   }
+  #titlebar .tbAction svg { flex: none; width: 15px; height: 15px; display: block; opacity: 1; }
   #titlebar .tbAction:hover { background: var(--tb-act-hover); }
   #titlebar .tbAction.on, #titlebar .tbAction.pri {
     background: var(--primary); color: #fff; font-weight: 700;
@@ -651,7 +696,8 @@
   @media (max-width: 860px) {
     .titlebar .tbSep { margin: 0 2px; }
     .titlebar .tbRight { gap: 2px; }
-    #titlebar .tbAction { padding: 0 7px; font-size: 12px; }
+    #titlebar .tbAction { padding: 0 7px; gap: 5px; font-size: 12px; }
+    #titlebar .tbAction svg { width: 13px; height: 13px; }
   }
   /* 아이콘 버튼은 좁아져도 정사각에 가깝게 — 위의 글자 메뉴 여백 줄이기가 덮지 않게 */
   #titlebar .tbMenu.tbIconMenu { width: 30px; padding: 0; }
@@ -715,7 +761,7 @@
   /* 추출: 뽑을 것 고르는 토글 목록 */
   .exPick { display: flex; flex-direction: column; gap: 5px; }
   .exItem {
-    display: flex; align-items: center; gap: 9px; padding: 10px 11px; cursor: pointer;
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer;
     background: var(--surface-hi); border: 1px solid transparent; border-radius: 12px;
   }
   .exItem:hover { background: var(--btn-hover); }
@@ -749,10 +795,12 @@
   .exportGroup .tintBtn { border-radius: 0; }
   .exportGroup .tintBtn:first-child { border-top-left-radius: var(--rb); border-bottom-left-radius: var(--rb); }
   .exportGroup .tintBtn:last-child { border-top-right-radius: var(--rb); border-bottom-right-radius: var(--rb); border-left-width: 0; }
+  /* 드롭다운 — 근무표 드롭다운·팝오버처럼 반사 테두리 + 두 겹 그림자(반경 16) */
   .menuDrop {
-    position: fixed; z-index: 40; width: 400px; max-height: 84vh; overflow-y: auto;
-    background: var(--surface-c); border: 1px solid var(--outline); border-radius: 14px;
-    box-shadow: 0 16px 46px var(--shade);
+    position: fixed; z-index: 40; width: 380px; max-height: 84vh; overflow-y: auto;
+    border: 1px solid transparent; border-radius: 16px;
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-drop-shadow);
     /* 슈욱 — 버튼 아래에서 살짝 내려오며 나타난다 (앱 공통 ease 커브) */
     opacity: 0; visibility: hidden; transform: translateY(-12px) scale(0.97); transform-origin: top left;
     pointer-events: none;
@@ -783,7 +831,7 @@
   /* '또는' 구분선 + 예전 작업 불러오기 버튼 */
   .startAlt { margin: 22px auto 14px; max-width: 320px; display: flex; align-items: center; gap: 10px; color: var(--on-surface-var); font-size: 12.5px; }
   .startAlt::before, .startAlt::after { content: ''; flex: 1; height: 1px; background: var(--outline-var); }
-  #startLoad, #startResume { padding: 12px 22px; font-size: 14px; }
+  #startLoad, #startResume { padding: 9px 18px; font-size: 13px; }   /* 42→36px(약 −12%, 다른 버튼과 같은 비율) */
   .startBtns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   /* ===== 둘러보기(온보딩 투어) — 어두운 오버레이 + 스포트라이트 구멍 + 설명 카드 ===== */
   .tourWrap { position: fixed; inset: 0; z-index: 9988; display: none; pointer-events: none; }
@@ -803,27 +851,29 @@
     box-shadow: 0 6px 18px rgba(0,0,0,.5); font-weight: 800;
   }
   .tourBar .tourX:hover, .tourBar .tourNever:hover { background: #EEF1F6; border-color: var(--primary); color: #10131A; }
-  .tourBar .tourX { width: 38px; height: 38px; padding: 0; border-radius: 11px; font-size: 17px; }
-  .tourBar .tourNever { border-radius: 11px; padding: 0 15px; height: 38px; }
+  .tourBar .tourX { width: 34px; height: 34px; padding: 0; border-radius: 10px; font-size: 15px; }
+  .tourBar .tourNever { border-radius: 10px; padding: 0 14px; height: 34px; }
+  /* 설명 카드 — 팝업 공통 카드(반사 테두리·반경 18). 화살표 색은 카드 바탕(--card-fill)과 같게 */
   .tourCard {
-    position: fixed; z-index: 9995; width: 320px; max-width: calc(100vw - 24px);
-    background: var(--surface-c); border: 1px solid var(--outline); border-radius: 16px;
-    padding: 18px 20px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+    position: fixed; z-index: 9995; width: 300px; max-width: calc(100vw - 24px);
+    border: 1px solid transparent; border-radius: 18px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    padding: 16px 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
     opacity: 0; transform: scale(.96); pointer-events: none;
     transition: opacity .18s ease, transform .2s cubic-bezier(.34, 0, .15, 1),
       left .3s cubic-bezier(.4, 0, .15, 1), top .3s cubic-bezier(.4, 0, .15, 1);
   }
   .tourCard.show { opacity: 1; transform: scale(1); pointer-events: auto; }
-  .tourStepNo { font-size: 11.5px; font-weight: 700; color: var(--primary); letter-spacing: .04em; }
-  .tourTitle { margin-top: 3px; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--on-surface); }
-  .tourBody { margin-top: 8px; font-size: 13.5px; line-height: 1.62; color: var(--on-surface-var); }
-  .tourNav { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  .tourStepNo { font-size: 11px; font-weight: 700; color: var(--pop-label); letter-spacing: .04em; }
+  .tourTitle { margin-top: 3px; font-size: 16px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); }
+  .tourBody { margin-top: 7px; font-size: 13px; line-height: 1.6; color: var(--pop-muted); word-break: keep-all; overflow-wrap: anywhere; }
+  .tourNav { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
   .tourNavBtn { border-radius: 10px; }
   .tourArrow { position: absolute; width: 0; height: 0; border-style: solid; }
-  .tourCard.pos-right .tourArrow { left: -9px; border-width: 9px 9px 9px 0; border-color: transparent var(--surface-c) transparent transparent; }
-  .tourCard.pos-left .tourArrow { right: -9px; border-width: 9px 0 9px 9px; border-color: transparent transparent transparent var(--surface-c); }
-  .tourCard.pos-below .tourArrow { top: -9px; border-width: 0 9px 9px 9px; border-color: transparent transparent var(--surface-c) transparent; }
-  .tourCard.pos-above .tourArrow { bottom: -9px; border-width: 9px 9px 0 9px; border-color: var(--surface-c) transparent transparent transparent; }
+  .tourCard.pos-right .tourArrow { left: -9px; border-width: 9px 9px 9px 0; border-color: transparent var(--card-fill) transparent transparent; }
+  .tourCard.pos-left .tourArrow { right: -9px; border-width: 9px 0 9px 9px; border-color: transparent transparent transparent var(--card-fill); }
+  .tourCard.pos-below .tourArrow { top: -9px; border-width: 0 9px 9px 9px; border-color: transparent transparent var(--card-fill) transparent; }
+  .tourCard.pos-above .tourArrow { bottom: -9px; border-width: 9px 9px 0 9px; border-color: var(--card-fill) transparent transparent transparent; }
   /* 상단바 오른쪽 끝 i(둘러보기) 버튼 */
   .tourInfoBtn { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .tourInfoBtn svg { width: 18px; height: 18px; }
@@ -833,35 +883,37 @@
     background: color-mix(in srgb, var(--primary) 15%, rgba(6, 8, 12, .58)); backdrop-filter: blur(2px); pointer-events: none;
   }
   .dropHint.on { display: flex; }
+  /* 크기는 다른 버튼·팝업과 같은 비율로 약 −12% (글자 22→19px, 여백 34·50→28·42) */
   .dropHintCard {
-    padding: 34px 50px; border-radius: 20px; text-align: center;
+    padding: 28px 42px; border-radius: 20px; text-align: center;
     border: 2.5px dashed color-mix(in srgb, var(--primary) 65%, #fff); background: var(--surface-c);
-    font-size: 22px; font-weight: 800; color: var(--on-surface); box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+    font-size: 19px; font-weight: 800; color: var(--on-surface); box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
   }
-  .dropHintSub { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--on-surface-var); }
+  .dropHintSub { margin-top: 7px; font-size: 12.5px; font-weight: 600; color: var(--on-surface-var); }
+  /* 단계 알약 40→35px, 글자 14→13px */
   .startStep {
-    display: inline-flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
     color: var(--on-surface-var); background: var(--surface);
-    padding: 11px 18px; border-radius: 12px; border: 1px solid var(--outline-var);
+    padding: 9px 16px; border-radius: 11px; border: 1px solid var(--outline-var);
     transition: color .2s, border-color .2s;
   }
-  .startStep .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--on-surface-var); flex: none; transition: background .2s, border-color .2s; }
+  .startStep .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--on-surface-var); flex: none; transition: background .2s, border-color .2s; }
   /* 단계 알약 — 누르면 CG 구성 창이 열린다. 창에서 고르는 대로(picked) 바로 체크, 적용되면 done */
   .startStep { cursor: pointer; }
   .startStep:hover { color: var(--on-surface); border-color: color-mix(in srgb, var(--primary) 55%, var(--outline-var)); }
   .startStep.done, .startStep.picked { color: var(--on-surface); border-color: var(--primary); }
   .startStep.done .dot, .startStep.picked .dot { background: var(--primary); border-color: var(--primary); }
-  /* 시작 화면의 'CG 구성 열기' — 큰 파란 버튼 */
+  /* 시작 화면의 'CG 구성 열기' — 큰 파란 버튼(49→43px, 글자 16→15px) */
   .startSetupBtn {
-    margin-top: 24px; padding: 15px 34px; font-size: 16px; font-weight: 800; letter-spacing: -.01em;
-    border: none; border-radius: 14px; background: var(--accent-grad, var(--primary)); color: #fff;
+    margin-top: 22px; padding: 13px 30px; font-size: 15px; font-weight: 800; letter-spacing: -.01em;
+    border: none; border-radius: 13px; background: var(--accent-grad, var(--primary)); color: #fff;
     box-shadow: 0 10px 26px -10px rgba(49,130,246,.85);
   }
   .startSetupBtn:hover { background: var(--accent-grad, var(--primary)); filter: brightness(1.07); }
 
-  /* ===== CG 구성 모달 — 상단 파란 헤더 + 아래 좌우 2판(CG 종류=파란 기운, 지도 종류=청록 기운) =====
+  /* ===== CG 구성 모달 — 옅은 파란 틴트 머리(근무표 최신 팝업과 같은 결) + 아래 좌우 2판(CG 종류=파란 기운, 지도 종류=청록 기운) =====
      두 판은 성격이 다른 메뉴라 바탕색을 은은하게 다르게. 선택 카드는 판 색으로 테두리 + 체크.
-     열고 닫기 = 블러 + 스케일(앱 메뉴 전환과 같은 결). body 잠금 없이 고정 막(.cgSetupOv)만 켠다. */
+     열고 닫기 = 아래에서 살짝 올라오며 블러 + 스케일(앱 메뉴 전환과 같은 결). body 잠금 없이 고정 막(.cgSetupOv)만 켠다. */
   :root, :root[data-theme="dark"] {
     --cgs-res: #4a94ff; --cgs-res-on: #a9caff;
     --cgs-res-bg: color-mix(in srgb, #3182f6 10%, var(--surface-c)); --cgs-res-line: color-mix(in srgb, #3182f6 30%, var(--outline-var));
@@ -881,60 +933,58 @@
   .cgSetupOv {
     position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center;
     padding: calc(var(--tbH, 0px) + 18px) 24px 24px;
-    background: rgba(6, 10, 20, .62); backdrop-filter: blur(4px);
+    background: var(--pop-ov); backdrop-filter: blur(4px);
     opacity: 0; visibility: hidden; pointer-events: none;
-    transition: opacity .2s ease, visibility 0s linear .3s;
+    transition: opacity .34s ease, visibility 0s linear .34s;
   }
-  .cgSetupOv.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity .2s ease; }
+  .cgSetupOv.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity .32s ease; }
+  /* 카드 = 팝업 공통 카드(반사 테두리·반경 20·--pop-shadow). 폭 1080→1000 */
   .cgSetupCard {
-    position: relative; width: min(1080px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
-    background: var(--surface-c); color: var(--on-surface); border-radius: 22px;
-    box-shadow: 0 30px 90px -18px rgba(0,0,0,.62), 0 0 0 1px var(--outline-var);
-    opacity: 0; transform: scale(.95); filter: blur(8px);
-    transition: opacity .2s ease, transform .3s cubic-bezier(.2,.8,.2,1), filter .3s ease;
+    position: relative; width: min(1000px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
+    color: var(--on-surface); border: 1px solid transparent; border-radius: 20px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-shadow);
+    opacity: 0; transform: scale(.95); filter: blur(8px); translate: 0 34px;
+    transition: opacity .3s ease, transform .34s ease, filter .3s ease, translate .34s ease;
   }
   .cgSetupOv.on .cgSetupCard { opacity: 1; transform: none; filter: none; }
-  .cgSetupCard:focus { outline: none; }
-  .cgsHead { flex: none; display: flex; align-items: center; gap: 14px; padding: 20px 22px 20px 24px; color: #fff; background: linear-gradient(135deg, #2f6bff, #1e50e6); }
-  .cgsHeadIcon { flex: none; width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.18); }
-  .cgsHeadIcon svg { width: 25px; height: 25px; }
-  .cgsHeadTxt { flex: 1; min-width: 0; }
-  .cgsTitle { font-size: 21px; font-weight: 800; letter-spacing: -.02em; line-height: 1.25; }
-  .cgsSub { margin-top: 3px; font-size: 13.5px; font-weight: 600; opacity: .92; }
-  .cgsX {
-    flex: none; width: 34px; height: 34px; padding: 0; border: none; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,.18); color: #fff; font-size: 22px; line-height: 1;
-  }
-  .cgsX:hover { background: rgba(255,255,255,.34); }
-  .cgsBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 20px 22px; }
+  /* 열 때는 근무표 팝업처럼 아래에서 올라오며 끝에서 부드럽게 멈춘다(.46초) — 닫힐 땐 위 규칙대로 .34초 동안 내려가며 흐려진다 */
+  .cgSetupOv.on .cgSetupCard { translate: none; transition: opacity .32s ease, transform .46s cubic-bezier(.16,1,.3,1), filter .36s ease, translate .46s cubic-bezier(.16,1,.3,1); }
+  /* 팝업 카드 자체(tabindex=-1)에 포커스를 둘 땐 테두리 없이 — 첫 Tab 부터 안쪽 버튼에 링이 보인다 */
+  .cgSetupCard:focus, .tossCard:focus, .confirmCard:focus, .slotCard:focus, .imgPopInner:focus { outline: none; }
+  /* 머리 — 진한 파란 띠(85px) 대신 옅은 틴트 + 기본색 제목 17px, 부제는 제목 옆 한 줄(좁으면 아래로). 높이 약 59px */
+  .cgsHead { flex: none; display: flex; align-items: center; gap: 12px; padding: 13px 14px 13px 22px; background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line); }
+  .cgsHeadTxt { flex: 1; min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 9px; row-gap: 1px; }
+  .cgsTitle { font-size: 17px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; color: var(--on-surface); }
+  .cgsSub { font-size: 12px; font-weight: 500; color: var(--pop-muted); word-break: keep-all; }
+  .cgsBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 16px 18px; }
   /* 좁은 창에서 본문이 스크롤될 때 — 윈도 기본 스크롤바(흰 바탕·화살표) 대신 앱 스크롤바(두 테마 모두 --scrollbar) */
   .cgsBody::-webkit-scrollbar { width: 10px; }
   .cgsBody::-webkit-scrollbar-track { background: transparent; }
   .cgsBody::-webkit-scrollbar-thumb { background-color: var(--scrollbar); background-clip: padding-box; border: 2px solid transparent; border-radius: 6px; }
   .cgsBody::-webkit-scrollbar-thumb:hover { background-color: var(--on-surface-var); }
-  .cgsPane { min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 14px; border-radius: 18px; }
+  .cgsPane { min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 12px; border-radius: 16px; }
   .cgsPaneRes { --acc: var(--cgs-res); --acc-on: var(--cgs-res-on); background: var(--cgs-res-bg); border: 1px solid var(--cgs-res-line); }
   .cgsPaneStyle { --acc: var(--cgs-map); --acc-on: var(--cgs-map-on); background: var(--cgs-map-bg); border: 1px solid var(--cgs-map-line); }
-  .cgsPaneHead { display: flex; align-items: center; gap: 12px; }
-  .cgsPaneIcon { flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 18%, transparent); }
-  .cgsPaneIcon svg { width: 21px; height: 21px; }
+  .cgsPaneHead { display: flex; align-items: center; gap: 10px; }
+  .cgsPaneIcon { flex: none; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 18%, transparent); }
+  .cgsPaneIcon svg { width: 18px; height: 18px; }
   .cgsPaneTxt { flex: 1; min-width: 0; }
-  .cgsPaneTitle { display: flex; align-items: center; gap: 7px; font-size: 16.5px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); }
-  .cgsStepNo { width: 20px; height: 20px; flex: none; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11.5px; font-weight: 800; color: #fff; background: var(--acc); }
-  .cgsPaneSub { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--cgs-muted); word-break: keep-all; }
+  .cgsPaneTitle { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); }
+  .cgsStepNo { width: 18px; height: 18px; flex: none; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; background: var(--acc); }
+  .cgsPaneSub { margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--cgs-muted); word-break: keep-all; }
   .cgsPick {
     flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+    padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
     color: var(--cgs-muted); background: var(--tag-bg);
   }
   .cgsPick.on { color: var(--acc-on); background: color-mix(in srgb, var(--acc) 17%, transparent); }
-  .cgsChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  /* 선택 카드 — 토스 반사 테두리(--refl) + 아이콘 칩 + 이름/설명, 오른쪽 위 동그라미(고르면 판 색 체크) */
+  .cgsChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  /* 선택 카드 — 토스 반사 테두리(--refl) + 아이콘 칩 + 이름/설명, 오른쪽 위 동그라미(고르면 판 색 체크). 높이 78→66px */
   .cgsCard {
-    position: relative; display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 13px 34px 13px 14px;
+    position: relative; display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 11px 30px 11px 12px;
     text-align: left; color: var(--on-surface); font-weight: 600;
-    border: 1px solid transparent; border-radius: 15px;
+    border: 1px solid transparent; border-radius: 14px;
     background: linear-gradient(var(--cgs-card), var(--cgs-card)) padding-box, var(--refl) border-box;
     box-shadow: var(--shadow-card);
     transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s, opacity .18s;
@@ -942,43 +992,45 @@
   .cgsCard:hover { background: linear-gradient(var(--cgs-card-hover), var(--cgs-card-hover)) padding-box, var(--refl) border-box; transform: translateY(-1px); }
   .cgsCard:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
   .cgsCard::after {
-    content: ''; position: absolute; top: 10px; right: 10px; width: 18px; height: 18px; box-sizing: border-box;
+    content: ''; position: absolute; top: 9px; right: 9px; width: 16px; height: 16px; box-sizing: border-box;
     display: grid; place-items: center; border-radius: 50%; border: 1.6px solid var(--outline);
-    color: #fff; font-size: 11px; font-weight: 900; line-height: 1;
+    color: #fff; font-size: 10px; font-weight: 900; line-height: 1;
   }
   .cgsCard.choicePending {
     background: linear-gradient(color-mix(in srgb, var(--acc) 11%, var(--cgs-card)), color-mix(in srgb, var(--acc) 11%, var(--cgs-card))) padding-box, linear-gradient(var(--acc), var(--acc)) border-box;
     box-shadow: 0 0 0 1px var(--acc), 0 10px 26px -12px color-mix(in srgb, var(--acc) 75%, transparent);
   }
   .cgsCard.choicePending::after { content: '\2713'; background: var(--acc); border-color: var(--acc); animation: choiceCheck .32s cubic-bezier(.2,1.5,.35,1); }
-  .cgsCardIcon { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 14%, transparent); }
-  .cgsCardIcon svg { width: 22px; height: 22px; }
-  .cgsCardTxt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .cgsCardTxt b { font-size: 14.5px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; word-break: keep-all; }
-  .cgsCardTxt small { font-size: 11.5px; font-weight: 600; line-height: 1.4; color: var(--cgs-muted); word-break: keep-all; white-space: pre-line; }
-  .cgsNote { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--cgs-muted); }
+  .cgsCardIcon { flex: none; width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 14%, transparent); }
+  .cgsCardIcon svg { width: 19px; height: 19px; }
+  .cgsCardTxt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cgsCardTxt b { font-size: 13.5px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; word-break: keep-all; }
+  .cgsCardTxt small { font-size: 11px; font-weight: 600; line-height: 1.4; color: var(--cgs-muted); word-break: keep-all; white-space: pre-line; }
+  .cgsNote { margin: 0; font-size: 11px; line-height: 1.5; color: var(--cgs-muted); }
   .cgsNote b { color: var(--on-surface); font-weight: 700; }
   .cgsPane .presetMoreToggle { margin-top: auto; }
   .presetManageNote { margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--cgs-muted); }
-  .cgsFoot { position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 14px 22px 18px; border-top: 1px solid var(--outline-var); }
+  .cgsFoot { position: relative; flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 18px 14px 22px; border-top: 1px solid var(--outline-var); }
   /* 창 안 알림(토스트) — 창이 떠 있으면 작업 화면의 #status·flash가 막 뒤에 가려지므로 개인 배치 저장·초기화 결과는 여기 띄운다.
      반전 색(밝은 테마=어두운 알약, 어두운 테마=밝은 알약)이라 두 테마 모두 판 위에서 또렷하다. */
   .cgsToast {
     position: absolute; left: 50%; bottom: calc(100% + 12px); z-index: 2; max-width: min(520px, calc(100% - 32px)); width: max-content;
-    padding: 11px 18px; border-radius: 14px; font-size: 13.5px; font-weight: 700; line-height: 1.45; text-align: center; word-break: keep-all;
+    padding: 10px 16px; border-radius: 14px; font-size: 13px; font-weight: 700; line-height: 1.45; text-align: center; word-break: keep-all;
     color: var(--surface-c); background: color-mix(in srgb, var(--on-surface) 90%, var(--surface-c));
     box-shadow: 0 12px 30px -10px rgba(0,0,0,.55);
     opacity: 0; transform: translate(-50%, 8px) scale(.97); pointer-events: none;
     transition: opacity .2s ease, transform .26s cubic-bezier(.2,.8,.2,1);
   }
   .cgsToast.on { opacity: 1; transform: translate(-50%, 0); }
-  .cgsSummary { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; line-height: 1.45; color: var(--cgs-muted); }
+  .cgsSummary { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--cgs-muted); }
   .cgsSummary b { color: var(--on-surface); font-weight: 800; }
-  .cgsCancel { height: 46px; padding: 0 20px; border: none; border-radius: 12px; font-size: 14.5px; font-weight: 700; background: var(--surface-hi); color: var(--on-surface); }
+  /* 바닥 버튼 46→40px (근무표 주 버튼 모양: 그라디언트·반경 12) */
+  /* 취소 = 토스 모달 .tossBtn.ghost 와 같은 결(옅은 바탕 + 1px 안쪽 테두리 — 밝은 테마 카드 바탕에 묻히지 않게) */
+  .cgsCancel { height: 40px; padding: 0 18px; border: none; border-radius: 12px; font-size: 13.5px; font-weight: 700; background: var(--surface-hi); color: var(--on-surface); box-shadow: inset 0 0 0 1px var(--outline-var); }
   .cgsCancel:hover { background: var(--btn-hover); }
   .cgsDone {
-    height: 46px; min-width: 150px; padding: 0 26px; border: none; border-radius: 12px; font-size: 15px; font-weight: 800;
-    background: var(--accent-grad, var(--primary)); color: var(--on-primary); box-shadow: 0 8px 20px -8px rgba(49,130,246,.8);
+    height: 40px; min-width: 132px; padding: 0 22px; border: none; border-radius: 12px; font-size: 14px; font-weight: 800;
+    background: var(--accent-grad, var(--primary)); color: var(--on-primary); box-shadow: 0 4px 12px -4px rgba(49,130,246,.5);
   }
   .cgsDone:not(:disabled) { animation: cgsDoneOn .28s cubic-bezier(.2,.9,.25,1); }   /* 두 가지 다 고르면 살짝 떠오르며 켜진다 */
   @keyframes cgsDoneOn { from { opacity: .4; transform: translateY(5px); } }
@@ -989,9 +1041,9 @@
   /* 좁은 창 — 두 판을 위아래로, 본문만 스크롤 */
   @media (max-width: 900px) {
     .cgSetupOv { padding: calc(var(--tbH, 0px) + 10px) 12px 12px; }
-    .cgsBody { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; }
-    .cgsHead { padding: 16px 16px 16px 18px; }
-    .cgsFoot { padding: 12px 14px 14px; }
+    .cgsBody { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; }
+    .cgsHead { padding: 11px 12px 11px 16px; }
+    .cgsFoot { padding: 10px 12px 12px 16px; }
   }
   @media (max-width: 560px) {
     .cgsChoices { grid-template-columns: minmax(0, 1fr); }
@@ -1003,9 +1055,12 @@
   .menuDrop > .sec > h3 { display: none; }             /* 메뉴 버튼이 제목 역할 */
   .menuDrop > .sec > .body { display: block !important; }
   .menuDrop > .sec > .body > .bodyInner { opacity: 1 !important; }
-  /* 드롭다운 안은 살짝 크게 (버튼·간격) — 상단 메뉴는 좀 크게 보이는 게 편하다 */
-  .menuDrop > .sec > .body > .bodyInner > .bodyPad { padding: 15px 16px; }
-  .menuDrop .btns button, .menuDrop .exItem { font-size: 13.5px; }
+  /* 드롭다운 안은 사이드바보다 살짝 크게(배율이 없으니 글자 13px) — 여백은 근무표 드롭다운처럼 단정하게 */
+  .menuDrop > .sec > .body > .bodyInner > .bodyPad { padding: 13px 14px; }
+  .menuDrop .btns button, .menuDrop .exItem { font-size: 13px; }
+  /* 팝업·드롭다운 안 안내문 — 밝은 테마 --on-surface-var(#94a3b8)는 카드 바탕 대비 2.5:1이라 흐리다 → --pop-muted(4.8:1).
+     (낱말 단위 줄바꿈은 .hint 공통 규칙에서) */
+  #apiPop .hint, .menuDrop .hint { color: var(--pop-muted); }
   /* 설정(렌치) 메뉴 — 제목줄 오른쪽 끝 버튼 아래에 '오른쪽 끝을 맞춰' 연다(화면 밖으로 안 나가게) */
   .menuDrop.alignR { transform-origin: top right; }
   #titlebar #helperBtn svg { opacity: 1; }
@@ -1017,7 +1072,7 @@
   .cfgGroup .btns + .btns { margin-top: 7px; }
   /* 맨 아래 '기능 확장팩' 상태 한 줄 — 웹판: 꺼짐·구버전이면 눌러서 켜는 방법 / 데스크톱: 앱에 내장(누를 것 없음) */
   .helperRow {
-    display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 14px; padding: 9px 11px;
+    display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 12px; padding: 7px 10px;
     border-radius: 10px; text-align: left; background: var(--surface-hi); border: 1px solid var(--outline-var);
     color: var(--on-surface-var); font-size: 12px; font-weight: 500; letter-spacing: -.01em;
   }
@@ -1074,28 +1129,28 @@
   .wintab {
     flex: 0 100 auto; min-width: 42px; overflow: hidden;
     display: flex; align-items: center; gap: 8px;
-    padding: 0 12px; height: 36px; border-radius: 12px;
-    font-size: 13px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap;
+    padding: 0 11px; height: 32px; border-radius: 11px;
+    font-size: 12.5px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap;
     color: var(--on-surface-var); cursor: pointer; transition: background .13s, color .13s;
   }
-  .wintab .secIcon { flex: none; width: 18px; height: 18px; padding: 0; border-radius: 0; background: none; color: currentColor; }
+  .wintab .secIcon { flex: none; width: 17px; height: 17px; padding: 0; border-radius: 0; background: none; color: currentColor; }
   .wintab .wtName { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .wintab:hover { background: var(--surface-hi); color: var(--on-surface); }
   .wintab.on { flex-shrink: 0; background: var(--nav-active-bg); color: var(--nav-active-fg); }
   .win.tabsTight .wintab.on { flex-shrink: 1; }
   /* 닫기(=사이드바로 되돌리기) — 얇은 X 아이콘의 둥근 버튼 */
   .winclose {
-    flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
+    flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
     background: none; color: var(--on-surface-var); cursor: pointer;
   }
-  .winclose svg { width: 16px; height: 16px; display: block; }
+  .winclose svg { width: 15px; height: 15px; display: block; }
   .winclose:hover { background: var(--state-hover); color: var(--on-surface); }
   .winclose:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   /* 항목이 하나(solo)면 탭줄 대신 섹션 머리(h3)가 제목 — 머리줄은 그 위에 투명하게 겹쳐 '끌기 손잡이 + 오른쪽 닫기'만 맡는다.
-     (h3 높이 44px·본문 위 여백 8px·좌우 12px 과 같은 값이어야 겹친다) */
+     (h3 높이 40px·본문 위 여백 8px·좌우 12px 과 같은 값이어야 겹친다 — 아래 #wins … > h3 의 height 와 짝) */
   .win.solo .wintabs { display: none; }
-  .win.solo .winbar { position: absolute; z-index: 2; top: 8px; left: 12px; right: 12px; height: 44px; padding: 0 7px 0 0; justify-content: flex-end; }
+  .win.solo .winbar { position: absolute; z-index: 2; top: 8px; left: 12px; right: 12px; height: 40px; padding: 0 6px 0 0; justify-content: flex-end; }
   .win.solo .winclose { color: var(--nav-active-fg); }
   .win.solo .winclose:hover { color: var(--nav-active-fg); }
   /* 본문 — 머리는 고정, 내용(.body)만 스크롤 (스크롤해도 닫기 버튼이 머리에서 안 떨어지게) */
@@ -1105,13 +1160,14 @@
     flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
     border: 0; border-radius: 12px; background: none; box-shadow: none;
   }
-  /* 머리 = 사이드바의 '열린 항목' 머리와 같은 모양(타일 없는 21px 아이콘·14px/600·파란 틴트). 칩·접기 꺾쇠는 숨김 */
+  /* 머리 = 사이드바의 '열린 항목' 머리와 같은 모양(타일 없는 19px 아이콘·13.5px/600·파란 틴트). 칩·접기 꺾쇠는 숨김.
+     높이 40px 은 위 .win.solo .winbar 의 height 와 짝 */
   #wins .winbody > .sec > h3 {
-    flex: none; height: 44px; margin: 0 12px; padding: 0 46px 0 12px; gap: 12px; border-radius: 12px;
-    font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden;
+    flex: none; height: 40px; margin: 0 12px; padding: 0 42px 0 11px; gap: 11px; border-radius: 12px;
+    font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden;
     background: var(--nav-active-bg); color: var(--nav-active-fg); cursor: move;
   }
-  #wins .winbody > .sec > h3 .secIcon { width: 21px; height: 21px; padding: 0; border-radius: 0; background: none; color: currentColor; }
+  #wins .winbody > .sec > h3 .secIcon { width: 19px; height: 19px; padding: 0; border-radius: 0; background: none; color: currentColor; }
   /* 창을 좁히면 제목은 닫기(X) 앞에서 말줄임 — 글자는 span.secName(SEC_GRP 루프에서 감쌈)이라 ellipsis가 먹는다 */
   #wins .winbody > .sec > h3 .secName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #wins .winbody > .sec > h3 .tag { display: none; }
@@ -1123,7 +1179,7 @@
     overflow-y: auto; overscroll-behavior: contain;
   }
   #wins .winbody > .sec > .body > .bodyInner { opacity: 1 !important; }
-  #wins .winbody > .sec > .body > .bodyInner > .bodyPad { padding: 12px 18px 12px; }
+  #wins .winbody > .sec > .body > .bodyInner > .bodyPad { padding: 11px 16px 11px; }
   /* 스크롤바 = 사이드바(#panel)와 같게: 얇은 6px·둥근 썸, 평소 투명 → 창에 마우스를 올리면 보임, 화살표 없음 */
   #wins .winbody > .sec > .body::-webkit-scrollbar { width: 6px; }
   /* 트랙 아래 여백 = 오른쪽 아래 크기 조절 손잡이(.winsize 20px)·둥근 모서리(반경 20) 자리를 비운다 — 썸 끝을 잡아도 크기 조절로 안 넘어가게 */
@@ -1306,7 +1362,7 @@
   .tlCamKey:active { cursor: grabbing; }
   /* 카메라 키 값 편집 팝오버 (토스 카드: 상단 컬러헤더 + 내용) — 별도 도킹창 없이 다이아몬드 클릭 시 뜬다 */
   .camKeyPop { position: fixed; z-index: 60; width: 320px; max-width: calc(100vw - 16px); background: #0e1626; border: 1px solid rgba(120,160,220,.35); border-radius: 12px; box-shadow: 0 12px 34px rgba(0,0,0,.5); overflow: hidden; font-size: 11px; box-sizing: border-box; }
-  .camKeyPop .ckpHead { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: linear-gradient(90deg,#2563a8,#1f4e86); color: #fff; }
+  .camKeyPop .ckpHead { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: rgba(106,168,255,.10); border-bottom: 1px solid rgba(120,160,220,.2); color: #fff; }   /* 진한 띠 대신 옅은 틴트(팝오버 자체는 항상 어두운 색) */
   .camKeyPop .ckpHead b { font-size: 12px; }
   .camKeyPop .ckpHead span { color: #cfe6ff; }
   .camKeyPop .ckpHead .ckpX { margin-left: auto; background: transparent; border: 0; color: #dbe9ff; font-size: 13px; cursor: pointer; }
@@ -1393,67 +1449,77 @@
     position: fixed; right: 16px; bottom: 16px; z-index: 28;
     display: flex; align-items: center; gap: 6px;
     background: var(--surface-c); border: 1px solid var(--outline);
-    border-radius: 999px; padding: 8px 14px 8px 11px;
+    border-radius: 999px; padding: 7px 13px 7px 10px;
     box-shadow: 0 3px 14px var(--shade); color: var(--on-surface-var);
   }
   #apiGear:hover { background: var(--btn-hover); color: var(--on-surface); }
   #apiGear.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  /* API 설정 팝오버 — 팝업 공통 카드(반사 테두리·반경 16) + 옅은 틴트 머리 + 유리 닫기 */
   #apiPop {
-    position: fixed; right: 16px; bottom: 62px; z-index: 28; width: 300px;
-    background: var(--surface-c); border: 1px solid var(--outline);
-    border-radius: 12px; box-shadow: 0 10px 34px var(--shade); display: none;
+    position: fixed; right: 16px; bottom: 60px; z-index: 28; width: 300px; overflow: hidden;
+    border: 1px solid transparent; border-radius: 16px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-drop-shadow); display: none; transform-origin: bottom right;
   }
-  #apiPop.on { display: block; }
+  #apiPop.on { display: block; animation: popPopIn .22s cubic-bezier(.16,1,.3,1) both; }
   .apiHead {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 8px 10px 14px; font-size: 12px; font-weight: 600;
-    border-bottom: 1px solid var(--outline-var);
+    padding: 7px 7px 7px 14px; font-size: 12.5px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface);
+    background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line);
   }
-  .apiHead button { background: none; border: none; color: var(--on-surface-var); padding: 2px 7px; }
-  .apiHead button:hover { background: var(--state-hover); color: var(--on-surface); }
   .apiBody { padding: 12px 14px 14px; }
 
-  /* ===== 확인 모달 (토스 카드: 상단 컬러헤더 + 하단 내용) ===== */
+  /* ===== 확인 모달 (토스 카드: 옅은 틴트 머리 + 아래 내용 — 근무표 최신 팝업과 같은 결) =====
+     DOM은 한 번만 — .on 으로 열고(막 페이드 + 카드 올라옴), 닫을 땐 popAnimClose(.popClosing .34초) 뒤 .on 을 뗀다. */
   .confirmOverlay {
-    position: fixed; inset: 0; z-index: 200; display: none;
+    position: fixed; inset: 0; z-index: 200; display: none; padding: 20px;
     align-items: center; justify-content: center;
-    background: color-mix(in srgb, #000 52%, transparent); backdrop-filter: blur(2px);
+    background: var(--pop-ov); backdrop-filter: blur(4px);
   }
-  .confirmOverlay.on { display: flex; }
+  .confirmOverlay.on { display: flex; animation: popOvIn .32s ease both; }
+  .confirmOverlay.on .confirmCard { animation: popCardIn .46s cubic-bezier(.16,1,.3,1) both; }
+  .confirmOverlay.popClosing { animation: popOvOut .34s ease both; }
+  .confirmOverlay.popClosing .confirmCard { animation: popCardOut .34s ease both; }
   .confirmCard {
-    width: min(360px, 90vw); border-radius: 16px; overflow: hidden;
-    background: var(--surface-c); border: 1px solid var(--outline);
-    box-shadow: 0 22px 64px -14px var(--shade);
+    width: min(340px, 90vw); border-radius: 18px; overflow: hidden;
+    border: 1px solid transparent;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-shadow);
   }
+  /* 머리 — 꽉 찬 파랑·빨강 띠 대신 옅은 틴트 + 기본색 제목(경고는 옅은 빨강 + 빨간 제목). 높이 47→43px */
   .confirmHead {
-    padding: 15px 18px; font-size: 14px; font-weight: 700; letter-spacing: -.01em;
-    color: var(--on-primary); background: var(--primary);
+    padding: 12px 16px 11px; font-size: 14.5px; font-weight: 800; letter-spacing: -.02em;
+    color: var(--on-surface); background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line);
   }
-  .confirmHead.warn { background: var(--danger); }
-  .confirmBody { padding: 16px 18px 16px; }
-  .confirmMsg { margin: 0 0 16px; font-size: 13px; line-height: 1.65; color: var(--on-surface); white-space: pre-line; }
+  .confirmHead.warn { color: var(--danger); background: var(--pop-hd-red); border-bottom-color: var(--pop-hd-red-line); }
+  .confirmBody { padding: 14px 16px 14px; }
+  .confirmMsg { margin: 0 0 14px; font-size: 12.5px; line-height: 1.6; color: var(--on-surface); white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
   .confirmBtns { display: flex; gap: 8px; justify-content: flex-end; }
-  .confirmBtns button { min-width: 76px; padding: 9px 16px; }
-  .confirmBtns button.pri { background: var(--primary); color: var(--on-primary); border-color: var(--primary); font-weight: 700; }
-  .confirmBtns button.pri.warn { background: var(--danger); border-color: var(--danger); }
-  .confirmInput { width: 100%; box-sizing: border-box; margin: 0 0 14px; padding: 9px 11px; font-size: 13px;
-    background: var(--surface-field); border: 1px solid var(--outline); border-radius: 9px; color: var(--on-surface); }
-  .confirmInput:focus { outline: none; border-color: var(--primary); }
+  .confirmBtns button { min-width: 72px; height: 32px; padding: 0 14px; font-size: 12.5px; border-radius: 10px; }
+  .confirmBtns button.pri { background: var(--accent-grad, var(--primary)); color: var(--on-primary); border: none; font-weight: 700; }
+  .confirmBtns button.pri.warn { background: var(--danger); box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--danger) 70%, transparent); }
+  /* 어두운 테마 --danger(#ff6b6b)는 흰 글자 대비 2.8:1 → 버튼 바탕만 진한 빨강(4.5:1). 머리 제목의 빨강 글자는 그대로 */
+  :root:not([data-theme="light"]) .confirmBtns button.pri.warn { background: #dc3545; }
+  .confirmInput { width: 100%; box-sizing: border-box; margin: 0 0 12px; padding: 7px 10px; font-size: 13px;
+    background: var(--surface-field); border: 1px solid var(--outline); border-radius: 10px; color: var(--on-surface); }
+  .confirmInput:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(49,130,246,.14); }
 
-  /* ===== 배치 지정하기(기본 배치 슬롯) 모달 ===== */
-  #slotOverlay { position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; background: color-mix(in srgb, #000 52%, transparent); backdrop-filter: blur(3px); }
-  #slotOverlay.on { display: flex; }
-  .slotCard { width: min(680px, 94vw); max-height: 88vh; overflow: auto; border-radius: 20px; background: var(--surface-c); border: 1px solid var(--outline); box-shadow: 0 28px 80px -14px var(--shade); font-family: var(--ui-font); }
-  .slotHead { padding: 15px 18px; font-size: 15px; font-weight: 800; letter-spacing: -.01em; color: var(--on-primary); background: var(--primary); display: flex; justify-content: space-between; align-items: center; }
-  .slotHead .x { background: none; border: none; color: var(--on-primary); font-size: 20px; line-height: 1; cursor: pointer; opacity: .85; padding: 0 2px; }
-  .slotBody { padding: 16px 18px; }
-  .slotGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  /* ===== 배치 지정하기(기본 배치 슬롯) 모달 — 팝업 공통 카드 + 옅은 틴트 머리 + 유리 닫기 ===== */
+  #slotOverlay { position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; padding: 20px; background: var(--pop-ov); backdrop-filter: blur(4px); }
+  #slotOverlay.on { display: flex; animation: popOvIn .32s ease both; }
+  #slotOverlay.on .slotCard { animation: popCardIn .46s cubic-bezier(.16,1,.3,1) both; }
+  #slotOverlay.popClosing { animation: popOvOut .34s ease both; }
+  #slotOverlay.popClosing .slotCard { animation: popCardOut .34s ease both; }
+  .slotCard { width: min(640px, 94vw); max-height: 88vh; overflow: auto; border: 1px solid transparent; border-radius: 20px; background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box; box-shadow: var(--pop-shadow); font-family: var(--ui-font); }
+  .slotHead { padding: 11px 12px 11px 18px; font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line); display: flex; justify-content: space-between; align-items: center; }
+  .slotBody { padding: 14px 16px; }
+  .slotGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 560px) { .slotGrid { grid-template-columns: 1fr; } }
-  .slot { border: 1px solid var(--outline-var); border-radius: 14px; padding: 14px; background: var(--surface-hi); text-align: center; transition: border-color .15s, background .15s; }
-  .slot.drag { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--surface-hi)); }
+  .slot { border: 1px solid var(--outline-var); border-radius: 14px; padding: 12px; background: var(--cgs-card); text-align: center; transition: border-color .15s, background .15s; }
+  .slot.drag { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--cgs-card)); }
   /* 플로피 디스크 — 장착(filled)=테마 틴트색 플로피, 빈(empty)=점선 플로피 아웃라인 */
-  .slotDrive { width: 138px; height: 116px; margin: 4px auto 10px; display: flex; align-items: center; justify-content: center; }
-  .flopSvg { width: 100px; height: 100px; }
+  .slotDrive { width: 120px; height: 100px; margin: 2px auto 8px; display: flex; align-items: center; justify-content: center; }
+  .flopSvg { width: 88px; height: 88px; }
   .slotDrive.filled .flopSvg { filter: drop-shadow(0 6px 9px rgba(0,0,0,.35)); animation: flopIn .3s cubic-bezier(.2,.9,.25,1); }
   @keyframes flopIn { from { transform: translateY(-16px) scale(.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
   .flopBody { stroke: rgba(0,0,0,.28); stroke-width: 1.5; }
@@ -1469,28 +1535,28 @@
   .flopDashed { color: var(--on-surface-var); opacity: .5; }
   .flopDashed path, .flopDashed rect { fill: none; stroke: currentColor; stroke-width: 2; stroke-dasharray: 5 5; }
   .slot.drag .flopDashed { color: var(--primary); opacity: .9; }
-  .slot h4 { margin: 0 0 4px; font-size: 14px; font-weight: 800; color: var(--on-surface); }
-  .slot .sub { font-size: 10.5px; color: var(--muted, #8a93a6); margin-bottom: 9px; }
-  .slot .slotState { font-size: 12px; color: var(--on-surface-var); min-height: 32px; line-height: 1.5; }
+  .slot h4 { margin: 0 0 3px; font-size: 13.5px; font-weight: 800; color: var(--on-surface); }
+  .slot .sub { font-size: 10.5px; color: var(--pop-muted); margin-bottom: 8px; }
+  .slot .slotState { font-size: 12px; color: var(--pop-muted); min-height: 32px; line-height: 1.5; }
   .slot .slotState b { color: var(--on-surface); }
   .slot .badge { display: inline-block; margin-left: 5px; padding: 1px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; background: var(--primary); color: var(--on-primary); vertical-align: middle; }
-  .slot .drop { margin: 10px 0 11px; font-size: 11px; color: var(--muted, #8a93a6); }
+  .slot .drop { margin: 8px 0 10px; font-size: 11px; color: var(--pop-muted); }
   .slot .drop b { color: var(--on-surface-var); }
   .slot .slotBtns { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
   .slot .slotBtns button { font-size: 12px; padding: 6px 11px; }
-  .slotFootHint { margin-top: 14px; font-size: 11.5px; color: var(--on-surface-var); line-height: 1.65; }
+  .slotFootHint { margin-top: 12px; font-size: 11px; color: var(--pop-muted); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
   .slotFootHint b { color: var(--on-surface); }
 
   /* ===== 통보문 색칠 박스 (배경을 살짝 달리해 눈에 띄게) ===== */
   .bulBox {
-    padding: 11px 12px; border-radius: 14px;
+    padding: 10px 11px; border-radius: 13px;
     background: color-mix(in srgb, var(--primary) 13%, var(--surface-hi));
     border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--outline-var));
   }
   .bulBox .hint code { background: var(--surface); }
   /* 기상청 예보 API 박스 — 통보문(파랑 계열)과 성격이 다름을 배경색으로 확실히 구분(예보 전용색) */
   .fctBox {
-    padding: 11px 12px; border-radius: 14px; margin-bottom: 12px;
+    padding: 10px 11px; border-radius: 13px; margin-bottom: 12px;
     background: var(--surface);
     border: 1px solid var(--outline-var);
   }
@@ -1503,7 +1569,7 @@
     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
     flex: 1; text-decoration: none; box-sizing: border-box;
     background: var(--btn); border: 1px solid var(--btn-line); color: var(--on-surface);
-    border-radius: var(--rb); padding: 9px 11px; font-weight: 600; letter-spacing: -.01em; cursor: pointer;
+    border-radius: var(--rb); padding: 7px 10px; font-weight: 600; letter-spacing: -.01em; cursor: pointer;   /* 기본 button 과 같은 높이 */
   }
   a.linkBtn:hover { background: var(--btn-hover); }
   /* 강조 링크버튼 (눌러야 열린다는 걸 알리게 파란색으로) — button.pri 는 button 전용이라 a 에는 따로 준다 */
@@ -1541,25 +1607,27 @@
   .recentRow .del:hover { background: var(--state-hover); color: var(--danger); }
   .recentEmpty { font-size: 12px; color: var(--on-surface-var); padding: 6px 4px; }
 
-  /* ===== 이미지 안내 팝업 (통보문 복사 안내) ===== */
+  /* ===== 이미지 안내 팝업 (통보문 복사 안내) — 팝업 공통 카드 + 옅은 틴트 머리 + 유리 닫기 ===== */
   .imgPop {
     position: fixed; inset: 0; z-index: 60; display: none;
     align-items: center; justify-content: center; padding: 24px;
-    background: rgba(8, 12, 22, .62); backdrop-filter: blur(3px);
+    background: var(--pop-ov); backdrop-filter: blur(4px);
   }
-  .imgPop.on { display: flex; }
+  .imgPop.on { display: flex; animation: popOvIn .32s ease both; }
+  .imgPop.on .imgPopInner { animation: popCardIn .46s cubic-bezier(.16,1,.3,1) both; }
+  .imgPop.popClosing { animation: popOvOut .34s ease both; }
+  .imgPop.popClosing .imgPopInner { animation: popCardOut .34s ease both; }
   .imgPopInner {
     display: flex; flex-direction: column; max-width: min(920px, 94vw); max-height: 90vh;
-    background: var(--surface-c); border: 1px solid var(--outline);
-    border-radius: 16px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+    border: 1px solid transparent; border-radius: 18px; overflow: hidden;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-shadow);
   }
   .imgPopHead {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 12px 12px 12px 16px; font-size: 13px; font-weight: 700; color: var(--on-primary);
-    background: var(--accent-grad, var(--primary));
+    padding: 9px 10px 9px 18px; font-size: 13.5px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface);
+    background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line);
   }
-  .imgPopHead button { background: rgba(255, 255, 255, .16); border: none; color: var(--on-primary); border-radius: 8px; padding: 3px 9px; }
-  .imgPopHead button:hover { background: rgba(255, 255, 255, .3); }
   .imgPopBody { padding: 12px; overflow: auto; background: var(--surface); }
   .imgPopBody img { display: block; max-width: 100%; height: auto; border-radius: 8px; }
 
@@ -1578,7 +1646,7 @@
   #flashMsg {
     position: fixed; top: 44%; left: 50%; transform: translate(-50%, -50%);
     z-index: 60; pointer-events: none; opacity: 0; white-space: nowrap;
-    padding: 15px 30px; border-radius: 14px; font-size: 19px; font-weight: 800; letter-spacing: -.01em;
+    padding: 12px 24px; border-radius: 14px; font-size: 16px; font-weight: 800; letter-spacing: -.01em;
     background: var(--surface-c); border: 1px solid var(--outline); color: var(--on-surface); box-shadow: 0 16px 46px var(--shade);
   }
   #flashMsg.show { animation: flashPop 2.1s cubic-bezier(0.34, 0, 0.15, 1) forwards; }
@@ -1594,7 +1662,7 @@
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     z-index: 100001; pointer-events: none; opacity: 0; white-space: nowrap;
     display: flex; align-items: center; gap: 12px;
-    padding: 22px 38px; border-radius: 18px; font-size: 23px; font-weight: 800; letter-spacing: -.01em;
+    padding: 18px 30px; border-radius: 18px; font-size: 20px; font-weight: 800; letter-spacing: -.01em;
     background: linear-gradient(135deg, #2fd36a, #16a34a); color: #fff;
     border: 2px solid rgba(255,255,255,.7);
     box-shadow: 0 24px 64px rgba(0,0,0,.55), 0 0 0 5px rgba(22,163,74,.28);
@@ -1618,38 +1686,75 @@
   /* 브러쉬 영역 선택 강조 — 시도를 '면'으로 파랗게 덮는다(내부 시군 경계는 강조 안 함). */
   .brushSelHi { fill: #4a94ff; fill-opacity: .30; stroke: none; pointer-events: none; }
 
-  /* ===== 토스 카드 모달 (공지·안내 공통) ===== */
-  .tossOv { position: fixed; inset: 0; z-index: 100002; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(6,10,20,.72); backdrop-filter: blur(3px); }
-  .tossCard { max-width: 520px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; background: var(--surface, #fff); border-radius: 20px; overflow: hidden; box-shadow: 0 28px 80px rgba(0,0,0,.55); font-family: var(--ui-font); animation: tossIn .28s cubic-bezier(.2,.8,.2,1); }
-  .tossCard.wide { max-width: 640px; }
-  @keyframes tossIn { 0% { opacity: 0; transform: translateY(14px) scale(.97); } 100% { opacity: 1; transform: none; } }
-  .tossHead { display: flex; align-items: flex-start; gap: 12px; padding: 20px 22px; color: #fff; }
-  .tossHeadTxt { flex: 1; min-width: 0; }
-  .tossTitle { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
-  .tossSub { font-size: 13px; opacity: .92; margin-top: 3px; font-weight: 600; }
+  /* ===== 토스 카드 모달 (공지·안내 공통) — 근무표 최신 팝업과 같은 결 =====
+     옅은 틴트 머리(data-tone: blue 기본·red 경고·green 완료/작성) + 기본색 제목 16px·옆에 작은 부제 + 유리 닫기, 반사 테두리 카드.
+     열기 = 막 페이드 + 카드가 아래에서 올라옴, 닫기 = popAnimClose(.popClosing .34초 뒤 지움). 머리 높이 80→59px */
+  .tossOv { position: fixed; inset: 0; z-index: 100002; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--pop-ov); backdrop-filter: blur(4px); animation: popOvIn .32s ease both; }
+  .tossCard {
+    max-width: 500px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
+    color: var(--on-surface); font-family: var(--ui-font);
+    border: 1px solid transparent; border-radius: 20px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-shadow); animation: popCardIn .46s cubic-bezier(.16,1,.3,1) both;
+  }
+  .tossCard.wide { max-width: 600px; }
+  .tossOv.popClosing { animation: popOvOut .34s ease both; }
+  .tossOv.popClosing .tossCard { animation: popCardOut .34s ease both; }
+  .tossHead { flex: none; display: flex; align-items: center; gap: 10px; padding: 13px 14px 13px 20px; background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line); }
+  .tossHead[data-tone="red"] { background: var(--pop-hd-red); border-bottom-color: var(--pop-hd-red-line); }
+  .tossHead[data-tone="green"] { background: var(--pop-hd-green); border-bottom-color: var(--pop-hd-green-line); }
+  .tossHeadTxt { flex: 1; min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; row-gap: 1px; }
+  .tossTitle { font-size: 16px; font-weight: 800; letter-spacing: -.02em; line-height: 1.35; color: var(--on-surface); word-break: keep-all; }
+  .tossHead[data-tone="red"] .tossTitle { color: var(--danger); }   /* 경고 — 틴트가 옅으니 제목 색으로도 알린다 */
+  .tossSub { font-size: 12px; font-weight: 500; color: var(--pop-muted); word-break: keep-all; }
   .tossHeadAct { display: flex; gap: 6px; align-items: center; }
-  .tossHeadIcon, .tossX { flex: none; background: rgba(255,255,255,.18); border: none; color: #fff; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-  .tossHeadIcon { width: 32px; height: 32px; }
-  .tossX { width: 32px; height: 32px; font-size: 21px; line-height: 1; }
-  .tossHeadIcon:hover, .tossX:hover { background: rgba(255,255,255,.34); }
-  .tossBody { padding: 22px; overflow-y: auto; color: var(--on-surface, #111); font-size: 15px; line-height: 1.65; }
-  .tossBody p { margin: 0 0 10px; }
-  .tossBody ul { margin: 8px 0 0; padding-left: 20px; }
-  .tossBody li { margin-bottom: 8px; }
-  .tossFoot { padding: 14px 22px 20px; display: flex; gap: 10px; justify-content: flex-end; }
-  .tossBtn { border: none; border-radius: 12px; padding: 12px 22px; font-size: 15px; font-weight: 800; cursor: pointer; }
-  .tossBtn.pri { background: #2563EB; color: #fff; }
-  .tossBtn.ghost { background: var(--surface-hi, #eef1f6); color: var(--on-surface, #111); font-weight: 700; }
-  .tossStep { display: flex; gap: 11px; margin-bottom: 11px; }
-  .tossStep .n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #FA2E1E; color: #fff; font-weight: 800; text-align: center; line-height: 24px; font-size: 13px; }
-  .tossPath { margin-top: 14px; padding: 11px 14px; background: var(--surface-hi, #f2f4f8); border-radius: 10px; font-size: 13px; color: var(--on-surface-var, #556); word-break: break-all; }
+  /* 한글은 낱말 단위로만 줄바꿈('만/듭니다' 끊김 없게) — 경로(.tossPath)는 아래에서 break-all 로 따로 */
+  .tossBody { padding: 16px 20px; overflow-y: auto; color: var(--on-surface); font-size: 13.5px; line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; }
+  /* 본문 스크롤바 — 윈도 기본(흰 바탕·화살표) 대신 앱 스크롤바(두 테마 --scrollbar). 이미지 팝업·배치 슬롯 창도 같게 */
+  .tossBody::-webkit-scrollbar, .slotCard::-webkit-scrollbar, .imgPopBody::-webkit-scrollbar { width: 10px; height: 10px; }
+  .tossBody::-webkit-scrollbar-track, .slotCard::-webkit-scrollbar-track, .imgPopBody::-webkit-scrollbar-track { background: transparent; }
+  .tossBody::-webkit-scrollbar-thumb, .slotCard::-webkit-scrollbar-thumb, .imgPopBody::-webkit-scrollbar-thumb { background-color: var(--scrollbar); background-clip: padding-box; border: 2px solid transparent; border-radius: 6px; }
+  .tossBody::-webkit-scrollbar-button, .slotCard::-webkit-scrollbar-button, .imgPopBody::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .tossBody p { margin: 0 0 9px; }
+  .tossBody ul { margin: 6px 0 0; padding-left: 18px; }
+  .tossBody li { margin-bottom: 6px; }
+  .tossFoot { flex: none; padding: 12px 20px 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  /* 바닥 버튼 42→38px. 주 버튼 = 앱 파랑 그라디언트(근무표 주 버튼), 보조 = 회색 + 얇은 테두리 */
+  .tossBtn { height: 38px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; }
+  .tossBtn.pri { background: var(--accent-grad, var(--primary)); color: #fff; box-shadow: 0 4px 12px -4px rgba(49,130,246,.5); }
+  .tossBtn.pri:hover { background: var(--accent-grad, var(--primary)); filter: brightness(1.06); }
+  .tossBtn.ghost { background: var(--surface-hi); color: var(--on-surface); font-weight: 700; box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .tossBtn.ghost:hover { background: var(--btn-hover); }
+  .tossStep { display: flex; gap: 10px; margin-bottom: 10px; }
+  .tossStep .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #FA2E1E; color: #fff; font-weight: 800; text-align: center; line-height: 22px; font-size: 12px; }
+  .tossPath { margin-top: 12px; padding: 10px 12px; background: var(--surface-hi); border-radius: 10px; font-size: 12.5px; color: var(--pop-muted); word-break: break-all; }
+  /* 닫기·머리 아이콘 버튼 = 유리 원(근무표 .modal-close) — CG 구성·토스·배치 슬롯·이미지 팝업·API 설정 공통. 글자색 X 아이콘(SVG) */
+  .cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button {
+    flex: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--pop-x-bg); border: 1px solid var(--pop-x-line); color: var(--on-surface);
+    box-shadow: 0 2px 8px rgba(15,23,42,.12); backdrop-filter: blur(10px);
+  }
+  .cgsX:hover, .tossX:hover, .tossHeadIcon:hover, .slotHead .x:hover, .imgPopHead button:hover, .apiHead button:hover { background: var(--pop-x-hover); }
+  .cgsX svg, .tossX svg, .slotHead .x svg, .imgPopHead button svg, .apiHead button svg { width: 15px; height: 15px; display: block; }
+  .tossHeadIcon svg { width: 16px; height: 16px; display: block; }
+  .slotHead .x { width: 30px; height: 30px; }
+  .imgPopHead button { width: 28px; height: 28px; }
+  .imgPopHead button svg { width: 14px; height: 14px; }
+  .apiHead button { width: 26px; height: 26px; box-shadow: none; }
+  .apiHead button svg { width: 13px; height: 13px; }
+  /* 움직임 줄이기 설정이면 팝업 등장 움직임을 끈다(닫힘은 popAnimClose가 바로 처리) */
+  @media (prefers-reduced-motion: reduce) {
+    .tossOv, .tossCard, .confirmOverlay.on, .confirmOverlay.on .confirmCard, #slotOverlay.on, #slotOverlay.on .slotCard,
+    .imgPop.on, .imgPop.on .imgPopInner, #apiPop.on { animation: none; }
+  }
   /* 공지 목록·작성 */
-  .ntList { display: flex; flex-direction: column; gap: 12px; }
-  .ntItem { position: relative; border: 1px solid var(--outline-var, #e5e7eb); border-radius: 14px; padding: 14px 52px 14px 16px; background: var(--surface-hi, #f7f9fc); }
-  .ntItem .d { font-size: 12px; color: var(--on-surface-var, #6b7280); font-weight: 700; margin-bottom: 4px; }
-  .ntItem .t { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: var(--on-surface, #111); }
-  .ntItem .b { font-size: 14px; line-height: 1.6; color: var(--on-surface, #111); }
-  .ntDelete { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid rgba(229,72,77,.28); border-radius: 9px; background: rgba(229,72,77,.08); color: #E5484D; cursor: pointer; }
+  .ntList { display: flex; flex-direction: column; gap: 10px; }
+  .ntItem { position: relative; border: 1px solid var(--outline-var); border-radius: 14px; padding: 12px 44px 12px 14px; background: var(--cgs-card); }
+  .ntItem .d { font-size: 11.5px; color: var(--pop-muted); font-weight: 700; margin-bottom: 3px; }
+  .ntItem .t { font-size: 15px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 5px; color: var(--on-surface); }
+  .ntItem .b { font-size: 13px; line-height: 1.6; color: var(--on-surface); }
+  .ntDelete { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid rgba(229,72,77,.28); border-radius: 8px; background: rgba(229,72,77,.08); color: #E5484D; cursor: pointer; }
   .ntDelete:hover { background: #E5484D; color: #fff; border-color: #E5484D; }
   .ntDelete:focus-visible { outline: 3px solid rgba(229,72,77,.28); outline-offset: 2px; }
   .ntEmpty { color: var(--on-surface-var, #6b7280); text-align: center; padding: 26px 0; }
@@ -1683,7 +1788,7 @@
   .basemapBtn:hover { background: color-mix(in srgb, var(--surface-c, #0e1626) 82%, transparent); color: var(--on-surface, #eef); }
   .basemapBtn:active { transform: scale(.94); }
   .basemapBtn.sat { background: #1f7a52; color: #fff; box-shadow: 0 2px 10px rgba(31,122,82,.45); }   /* 위성모드 = 초록 틴트 */
-  .basemapPop { position: absolute; top: 12px; right: 46px; z-index: 45; min-width: 150px; padding: 8px; border-radius: 14px;
+  .basemapPop { position: absolute; top: 12px; right: 46px; z-index: 45; min-width: 150px; padding: 8px; border-radius: 16px;
     background: color-mix(in srgb, var(--surface-c, #12203a) 96%, #000); box-shadow: 0 10px 30px rgba(0,0,0,.4); border: 1px solid color-mix(in srgb, var(--on-surface,#fff) 10%, transparent); }
   .basemapPop .bmHead { font-size: 11px; font-weight: 700; color: var(--on-surface-var, #9fb0c8); padding: 2px 6px 6px; }
   .basemapPop .bmOpt { display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 9px; border: none; border-radius: 9px;
@@ -1709,8 +1814,10 @@
   #exportMask .emBarFill { display: block; height: 100%; width: 0%; border-radius: 999px;
     background: linear-gradient(90deg, #5B8CFF, #7C5CFF); transition: width .25s cubic-bezier(.4,0,.2,1); }
   #exportMask .emPct { margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--on-surface, #eef); font-variant-numeric: tabular-nums; }
-  .ntForm label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 5px; color: var(--on-surface, #111); }
-  .ntForm input, .ntForm textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--outline-var, #d1d5db); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: var(--surface, #fff); color: var(--on-surface, #111); margin-bottom: 12px; }
+  /* 작성 폼 — 라벨은 근무표 섹션 라벨처럼 12.5px/700 강조색, 칸은 흰(다크=#272727) 바탕 반경 12 */
+  .ntForm label { display: block; font-size: 12.5px; font-weight: 700; margin: 0 0 6px; color: var(--pop-label); }
+  .tossHead[data-tone="green"] + .tossBody .ntForm label { color: var(--ok); }   /* 라벨 색 = 머리 톤(근무표 공지 작성처럼) */
+  .ntForm input, .ntForm textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--outline); border-radius: 12px; padding: 9px 12px; font-size: 13px; font-family: inherit; background: var(--surface-field); color: var(--on-surface); margin-bottom: 12px; }
   .ntForm textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
   #noticeBtn, #helperBtn { position: relative; }
   #noticeBtn.hasNew::after, #helperBtn.hasNew::after { content: ''; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #E5484D; border: 1.5px solid var(--surface-c, #fff); }
@@ -1741,7 +1848,6 @@
 <!-- 맨 위 제목줄 — 데스크톱 앱에선 이 줄이 곧 창 제목표시줄(빈 곳 끌기=창 이동, 오른쪽 끝=윈도 창 버튼).
      메뉴 버튼들은 id·class·data-menu 를 그대로 둔다(드롭다운·타임라인·AE 보내기·둘러보기 JS가 이걸로 찾는다). -->
 <header class="titlebar" id="titlebar">
-  <img class="tbAppIcon" src="icon.svg" alt="" width="16" height="16" draggable="false">
   <nav class="tbMenus" aria-label="메뉴">
     <div class="tbGroup" id="menubar">
       <!-- CG 구성 = CG 종류(화면) + 지도 종류를 한 창(#cgSetupOv)에서 고른다. 드롭다운이 아니라 모달이라 menuBtn 이 아님 -->
@@ -1751,10 +1857,12 @@
       </button>
     </div>
     <div class="tbSep"></div>
+    <!-- 추출 3버튼 — 같은 폭(grid 균등 칸) + 채운 아이콘(사진·재생·보내기, currentColor라 .on/.pri 때 흰색으로 따라감).
+         글자는 .tbLbl 안에만 — JS가 글자를 잠깐 바꿀 땐(AE 여는 중…) 이 span 만 바꾼다(버튼 textContent 를 덮으면 아이콘 svg 가 지워짐) -->
     <div class="tbGroup" id="exportGroup">
-      <button class="menuBtn tbMenu tbAction" data-menu="out" title="이미지로 추출">이미지로 추출</button>
-      <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 추출 — 타임라인 열기/닫기">영상으로 추출</button>
-      <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)">AE로 보내기</button>
+      <button class="menuBtn tbMenu tbAction" data-menu="out" title="이미지로 추출"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm3.5 6.6a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM5.2 18.2h13.6l-4.4-6-3.4 4.4-2.4-3.1z"/></svg><span class="tbLbl">이미지로 추출</span></button>
+      <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 추출 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm-2.2 6v8l6.4-4z"/></svg><span class="tbLbl">영상으로 추출</span></button>
+      <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a1 1 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .72.73 1.2 1.39.91z"/></svg><span class="tbLbl">AE로 보내기</span></button>
     </div>
   </nav>
   <div class="tbFill"></div>
@@ -1788,13 +1896,13 @@
      창은 한 번만 만들어 두고 class 'on'으로 열고 닫는다(다시 만들면 #resBtns·#styleBtns 핸들러가 끊긴다). -->
 <div class="cgSetupOv" id="cgSetupOv" aria-hidden="true">
   <div class="cgSetupCard" role="dialog" aria-modal="true" aria-labelledby="cgsTitle" tabindex="-1">
+    <!-- 머리 = 근무표 최신 팝업처럼 옅은 틴트 + 제목·부제(아이콘 타일 없음) + 유리 원 닫기 -->
     <div class="cgsHead">
-      <span class="cgsHeadIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2.8" y="4" width="11.2" height="8.4" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M6.4 15.6h4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path fill="currentColor" d="M15.2 9.6l3.1-1.2 2.9 1.2v9.2l-2.9-1.2-3.1 1.2-2.6-1.2v-3.1l2.6 1.1z" opacity=".95"/></svg></span>
       <div class="cgsHeadTxt">
         <div class="cgsTitle" id="cgsTitle">CG 구성</div>
         <div class="cgsSub">CG 종류와 지도 종류를 고른 뒤 선택 완료를 누르세요</div>
       </div>
-      <button class="cgsX" id="cgsX" aria-label="닫기" title="닫기 (Esc)">&times;</button>
+      <button class="cgsX" id="cgsX" aria-label="닫기" title="닫기 (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     </div>
     <div class="cgsBody">
       <section class="cgsPane cgsPaneRes" aria-labelledby="cgsResTitle">
@@ -2018,12 +2126,12 @@
         <div class="bulBox">
           <p class="hint" style="margin-top:0">기상청 <b>통보문</b>의 강수량 부분을 그대로 붙여넣으면 <b>지금 보는 지도</b>에 자동으로 칠하고 숫자 라벨을 만듭니다. 시도군 지도에선 그 도의 시군을 전부 칠해 미세 조정할 수 있습니다.</p>
           <div class="btns" style="margin:0 0 8px">
-            <a class="btn linkBtn pri" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지에서 통보문을 복사하세요">기상청 단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
+            <a class="btn linkBtn pri" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지 열기 — 거기서 통보문을 복사하세요">단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
             <button type="button" id="bulHelpBtn" title="통보문에서 복사할 부분을 그림으로 보기">복사할 부분 보기</button>
           </div>
           <textarea id="bulPaste" rows="5" placeholder="- (수도권, 16일) 경기남서부: 5mm 안팎&#10;- (충청권) 대전.세종.충남, 충북: 20~60mm&#10;- (전라권) 전북, 광주.전남: 30~80mm&#10;..."></textarea>
           <div class="btns" style="margin:6px 0; flex-direction:column; align-items:stretch; gap:5px">
-            <label class="chk"><input type="checkbox" id="bulLabels" checked>숫자 라벨도 만들기 <span style="opacity:.6">(윗줄 지역명은 수치 라벨 탭에서 조절)</span></label>
+            <label class="chk"><input type="checkbox" id="bulLabels" checked><span>숫자 라벨도 만들기 <span style="opacity:.6">(윗줄 지역명은 수치 라벨 탭에서 조절)</span></span></label>
             <label class="chk"><input type="checkbox" id="bulSoft">부드러운 경계 (아사모사) — 색을 경계에서 흐릿하게 섞기</label>
           </div>
           <div class="btns" style="margin-bottom:2px"><button class="pri" id="bulApply">통보문으로 색칠</button></div>
@@ -2752,7 +2860,7 @@
   <span>API 설정</span>
 </button>
 <div id="apiPop">
-  <div class="apiHead">API 설정 <button id="apiClose" title="닫기">✕</button></div>
+  <div class="apiHead">API 설정 <button id="apiClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>
   <div class="apiBody">
     <p class="hint" style="margin-top:0"><b>기상청 API 허브</b>에서 로그인하고 인증키를 발급받으면 특보·예보를 가져올 수 있습니다.
 API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 신청 안 한 것은 안 나옵니다.</p>
@@ -2779,8 +2887,8 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 
 <!-- 통보문 복사 안내 팝업 (ImageSources/통보문 필요한 부분 복사.png -> img-data.js 의 bulHelp) -->
 <div id="bulHelpPop" class="imgPop">
-  <div class="imgPopInner">
-    <div class="imgPopHead"><span>통보문에서 이 부분을 복사하세요</span><button id="bulHelpClose" title="닫기">✕</button></div>
+  <div class="imgPopInner" role="dialog" aria-modal="true" aria-label="통보문에서 복사할 부분" tabindex="-1">
+    <div class="imgPopHead"><span>통보문에서 이 부분을 복사하세요</span><button id="bulHelpClose" title="닫기 (Esc)" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>
     <div class="imgPopBody"><img id="bulHelpImg" alt="통보문에서 복사할 부분 안내"></div>
   </div>
 </div>
@@ -10268,10 +10376,10 @@ function buildFctKindBtns() {
   w.textContent = '';
   for (const [k, v] of Object.entries(FCT_KINDS)) {
     const b = document.createElement('button');
-    // '단기 · 육상' -> '단기 / 육상' 두 줄. 글자가 좁은 칸에서 '육상'이 중간에 깨지지 않게.
-    b.innerHTML = v.label.replace(/\s*·\s*/, '<br>');
+    // '단기 · 육상' -> '단기 육상' 한 줄(두 줄이면 버튼이 1.5배 높아 보인다 — 세 칸이라 좌우 여백은 CSS에서 조금 줄임)
+    b.textContent = v.label.replace(/\s*·\s*/, ' ');
     b.dataset.k = k;
-    b.style.cssText = 'flex:1 0 30%; text-align:center; line-height:1.25; word-break:keep-all';
+    b.style.cssText = 'flex:1 0 30%; text-align:center';
     b.onclick = () => setFctKind(k);
     w.append(b);
   }
@@ -10788,7 +10896,7 @@ function closeCgSetup() {
   const tb = $('#cgSetupBtn'); if (tb) tb.classList.remove('on');
   // 고르던 것은 버린다 — 닫히는 애니메이션(블러+스케일) 동안엔 그대로 보이게 끝난 뒤에 비운다
   clearTimeout(_cgsResetT);
-  _cgsResetT = setTimeout(() => { if (!cgSetupIsOpen()) { pendingRes = null; pendingStyle = null; syncCgSetup(); } }, 320);
+  _cgsResetT = setTimeout(() => { if (!cgSetupIsOpen()) { pendingRes = null; pendingStyle = null; syncCgSetup(); } }, 360);
   const back = _cgsOpener; _cgsOpener = null;
   if (back && back.focus && document.contains(back) && !$('#tourWrap')?.classList.contains('on')) { try { back.focus({ preventScroll: true }); } catch (e) {} }
 }
@@ -10841,7 +10949,8 @@ function setupCgSetup() {
   let downOnOv = false;
   ov.addEventListener('pointerdown', (e) => { downOnOv = e.target === ov; });
   ov.addEventListener('click', (e) => { if (e.target === ov && downOnOv) closeCgSetup(); downOnOv = false; });
-  const aboveCgs = () => $('#tourWrap')?.classList.contains('on') || document.getElementById('tossOv') || $('#confirmOverlay')?.classList.contains('on') || $('#slotOverlay')?.classList.contains('on');
+  // 위에 떠 있는 다른 창 — 닫히는 중(.popClosing, .34초)인 창은 뺀다(안 그러면 그 사이 Esc 가 그냥 사라지고 Tab 가두기도 꺼진다)
+  const aboveCgs = () => $('#tourWrap')?.classList.contains('on') || document.querySelector('#tossOv:not(.popClosing)') || $('#confirmOverlay.on:not(.popClosing)') || $('#slotOverlay.on:not(.popClosing)');
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !cgSetupIsOpen()) return;
     // 위에 뜬 둘러보기·확인창·토스 모달이 먼저 Esc를 받는다
@@ -10851,16 +10960,7 @@ function setupCgSetup() {
   // 포커스 가두기 — 창이 떠 있는 동안 Tab / Shift+Tab 은 창 안에서만 돈다(뒤의 사이드바·제목줄 버튼으로 새어 Enter로 눌리지 않게)
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab' || !cgSetupIsOpen() || aboveCgs()) return;
-    const card = ov.querySelector('.cgSetupCard');
-    const list = [...card.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-      .filter((n) => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden');
-    const a = document.activeElement;
-    if (!list.length) { e.preventDefault(); card.focus(); return; }
-    const first = list[0], last = list[list.length - 1], inside = card.contains(a) && a !== card;
-    if (e.shiftKey ? (!inside || a === first) : (!inside && a !== card) || a === last) {
-      e.preventDefault();
-      (e.shiftKey ? last : first).focus();
-    }
+    popTrapTab(ov.querySelector('.cgSetupCard'), e);
   });
   // 창이 떠 있는 채 창 크기가 900px 를 넘나들면(좌우 ↔ 위아래) 안내 방향도 다시 맞춘다
   window.matchMedia('(max-width: 900px)').addEventListener('change', () => { if (cgSetupIsOpen()) syncCgSetup(); });
@@ -10963,24 +11063,72 @@ async function prepareOutput(base, ext, mime, label) {
   return { name: base + '.' + ext + ' (다운로드 폴더)', write: async (bytes) => download(new Blob([bytes], { type: mime || 'application/octet-stream' }), base + '.' + ext) };
 }
 
+// ===================== 팝업 닫힘 애니메이션 (근무표 .nd-closing 과 같은 결) =====================
+// 막은 페이드아웃, 카드는 아래로 34px 내려가며 사라진다(.34초, CSS .popClosing). 끝나면 done()(숨기기·지우기).
+// DOM은 그대로 두고 class만 바꾼다(재생성 없음). 닫히는 중에 다시 열면 popAnimCancel 이 취소한다. 움직임 줄이기 설정이면 바로 닫는다.
+function popAnimClose(ov, done) {
+  if (!ov) return;
+  clearTimeout(ov._popT);
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { ov._popT = 0; ov.classList.remove('popClosing'); done(); return; }
+  ov.classList.add('popClosing');
+  ov._popT = setTimeout(() => { ov._popT = 0; ov.classList.remove('popClosing'); done(); }, 340);
+}
+function popAnimCancel(ov) {
+  if (!ov) return;
+  if (ov._popT) { clearTimeout(ov._popT); ov._popT = 0; }
+  ov.classList.remove('popClosing');
+}
+// 팝업 안 Tab 가두기 — Tab / Shift+Tab 은 카드 안에서만 돈다(막 뒤 제목줄·사이드바 버튼으로 새어 Enter로 눌리지 않게).
+// 카드엔 tabindex="-1" — 열 때 카드 자체에 포커스를 두고(테두리 없이), 첫 Tab 에 첫 버튼으로. CG 구성·토스 모달·확인창·배치 지정하기·이미지 안내가 같이 쓴다.
+function popTrapTab(card, e) {
+  const list = [...card.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((n) => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden');
+  const a = document.activeElement;
+  if (!list.length) { e.preventDefault(); card.focus(); return; }
+  const first = list[0], last = list[list.length - 1], inside = card.contains(a) && a !== card;
+  if (e.shiftKey ? (!inside || a === first) : (!inside && a !== card) || a === last) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+  }
+}
+// 열 때: 연 버튼을 기억하고 포커스를 팝업 안(카드 또는 지정한 칸)으로. 닫을 때: 포커스가 팝업 안·body 에 있으면 연 버튼으로 돌려준다.
+function popFocusIn(ov, target, opener) {
+  ov._opener = opener !== undefined ? opener : document.activeElement;
+  if (target) { try { target.focus({ preventScroll: true }); } catch (e) {} }
+}
+function popFocusBack(ov) {
+  const back = ov._opener; ov._opener = null;
+  const a = document.activeElement;
+  if (!back || !back.isConnected || typeof back.focus !== 'function' || (a && a !== document.body && !ov.contains(a))) return;
+  if ($('#tourWrap')?.classList.contains('on')) return;   // 둘러보기 중엔 포커스를 옮기지 않는다(closeCgSetup 과 같게)
+  try { back.focus({ preventScroll: true }); } catch (e) {}
+}
+// 닫기 X 아이콘(유리 원 버튼 안) — 정적 문자열
+const POP_X_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+
 // ===================== 토스 카드 모달 (공지·안내 공통) =====================
-// 스케줄앱 토스 모달처럼 상단 컬러헤더 + 하단 내용. 반환값으로 각 영역을 넘겨 추가 조작.
-const BLUE_GRAD = 'linear-gradient(135deg,#2f6bff,#1e50e6)';
+// 근무표 최신 팝업처럼 옅은 틴트 머리(진한 색 띠 아님) + 기본색 제목 + 유리 닫기 + 아래 내용. 반환값으로 각 영역을 넘겨 추가 조작.
+// opt.tone: 'blue'(기본·안내) | 'red'(경고·문제) | 'green'(완료·작성) — 머리 틴트 색만 바뀐다.
 // 떠 있는 토스 모달을 조용히 치운다(새 모달로 바뀔 때) — onClose(공지 읽음 처리 등)는 부르지 않고 Esc 리스너만 함께 뗀다.
 // (DOM만 지우면 이전 모달의 Esc 리스너가 남아, 나중 Esc 한 번에 읽지도 않은 공지가 '읽음'이 됐다)
 let _tossDispose = null;
 function closeTossModal() { if (_tossDispose) _tossDispose(); const e = document.getElementById('tossOv'); if (e) e.remove(); }
 function tossModal(opt) {
   opt = opt || {};
+  // 연 버튼 — 떠 있던 토스 모달 안에서 새 모달로 바뀌면(그 안 버튼이 곧 지워지니) 처음 연 버튼을 이어받는다
+  const prevOv = document.getElementById('tossOv');
+  const opener = prevOv && prevOv.contains(document.activeElement) ? prevOv._opener : document.activeElement;
   closeTossModal();
+  const tone = opt.tone === 'red' || opt.tone === 'green' ? opt.tone : 'blue';
   const ov = document.createElement('div');
   ov.className = 'tossOv'; ov.id = 'tossOv';
   ov.innerHTML =
-    `<div class="tossCard${opt.wide ? ' wide' : ''}" role="dialog" aria-modal="true">`
-    + `<div class="tossHead" style="background:${opt.accent || BLUE_GRAD}">`
+    `<div class="tossCard${opt.wide ? ' wide' : ''}" role="dialog" aria-modal="true" tabindex="-1">`
+    + `<div class="tossHead" data-tone="${tone}">`
     +   `<div class="tossHeadTxt"><div class="tossTitle"></div>${opt.sub ? '<div class="tossSub"></div>' : ''}</div>`
     +   `<div class="tossHeadAct"></div>`
-    +   `<button class="tossX" aria-label="닫기">&times;</button>`
+    +   `<button class="tossX" aria-label="닫기" title="닫기 (Esc)">${POP_X_SVG}</button>`
     + `</div>`
     + `<div class="tossBody">${opt.bodyHTML || ''}</div>`
     + (opt.footHTML ? `<div class="tossFoot">${opt.footHTML}</div>` : '')
@@ -10989,14 +11137,19 @@ function tossModal(opt) {
   ov.querySelector('.tossTitle').textContent = opt.title || '';   // 제목·부제는 textContent로(주입 안전)
   if (opt.sub) ov.querySelector('.tossSub').textContent = opt.sub;
   let closed = false;
-  const dispose = () => { closed = true; ov.remove(); window.removeEventListener('keydown', onKey); if (_tossDispose === dispose) _tossDispose = null; };
-  const close = () => { if (closed) return; dispose(); if (opt.onClose) opt.onClose(); };
+  const detach = () => { closed = true; window.removeEventListener('keydown', onKey); if (_tossDispose === dispose) _tossDispose = null; };
+  const dispose = () => { detach(); clearTimeout(ov._popT); ov.remove(); };   // 새 모달로 바뀔 때 — 애니메이션 없이 바로
+  // 닫기 = 닫힘 애니메이션(.34초) 뒤 지운다. 그 사이 새 모달이 뜨면 closeTossModal 이 #tossOv 를 바로 치운다.
+  const close = () => { if (closed) return; detach(); popAnimClose(ov, () => ov.remove()); popFocusBack(ov); if (opt.onClose) opt.onClose(); };
   ov.querySelector('.tossX').onclick = close;
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const card = ov.querySelector('.tossCard');
+  // Esc = 닫기, Tab = 카드 안에서만(토스 모달이 맨 위 층 — 확인창(z 200)보다 위)
+  const onKey = (e) => { if (e.key === 'Escape') close(); else if (e.key === 'Tab') popTrapTab(card, e); };
   window.addEventListener('keydown', onKey);
   _tossDispose = dispose;
-  return { ov, close, card: ov.querySelector('.tossCard'), head: ov.querySelector('.tossHeadAct'), body: ov.querySelector('.tossBody'), foot: ov.querySelector('.tossFoot') };
+  popFocusIn(ov, card, opener);   // 포커스를 카드로(막 뒤 버튼이 Enter·Space 를 받지 않게) — 부르는 쪽이 입력칸 등에 다시 줘도 된다
+  return { ov, close, card, head: ov.querySelector('.tossHeadAct'), body: ov.querySelector('.tossBody'), foot: ov.querySelector('.tossFoot') };
 }
 
 // ===================== 공지사항 =====================
@@ -11070,7 +11223,7 @@ function noticeItemHTML(n) {
 // 공지 하나를 팝업으로 (부팅 자동 안내). 닫으면 전부 읽음 처리 → 다시 안 뜬다.
 function openNoticePopup(n) {
   const m = tossModal({
-    title: n.title || '공지', sub: n.date || '', accent: BLUE_GRAD,
+    title: n.title || '공지', sub: n.date || '', tone: 'blue',
     bodyHTML: n.body || '', footHTML: '<button class="tossBtn pri" data-ok>확인</button>',
     onClose: noticeMarkAllSeen,
   });
@@ -11080,7 +11233,7 @@ function openNoticePopup(n) {
 function openNoticeHistory() {
   const list = allNotices();
   const bodyHTML = list.length ? `<div class="ntList">${list.map(noticeItemHTML).join('')}</div>` : '<div class="ntEmpty">아직 공지가 없습니다.</div>';
-  const m = tossModal({ title: '공지사항', sub: '업데이트·안내 모아보기', accent: BLUE_GRAD, bodyHTML, wide: true });
+  const m = tossModal({ title: '공지사항', sub: '업데이트·안내 모아보기', tone: 'blue', bodyHTML, wide: true });
   const write = document.createElement('button');
   write.className = 'tossHeadIcon'; write.title = '공지 작성 (비밀번호)'; write.setAttribute('aria-label', '공지 작성');
   write.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M4 20h4L18 10l-4-4L4 16v4zM16.5 3.5l4 4L18.8 9.2l-4-4L16.5 3.5z"/></svg>';
@@ -11108,7 +11261,7 @@ function openNoticeWrite() {
   if (pw == null) return;
   if (pw !== NOTICE_PW) { flash('비밀번호가 틀립니다'); return; }
   const m = tossModal({
-    title: '공지 작성', sub: '저장하면 다음 실행 때 자동으로 뜹니다', accent: 'linear-gradient(135deg,#16a34a,#12833b)',
+    title: '공지 작성', sub: '저장하면 다음 실행 때 자동으로 뜹니다', tone: 'green',
     bodyHTML: '<div class="ntForm"><label>제목</label><input id="ntTitle" placeholder="예: 새 기능 안내" maxlength="80"><label>내용</label><textarea id="ntBody" placeholder="줄바꿈은 그대로 반영됩니다. (원하면 <b> 같은 HTML 태그도 사용 가능)"></textarea></div>',
     footHTML: '<button class="tossBtn ghost" data-cancel>취소</button><button class="tossBtn pri" data-save>저장</button>',
   });
@@ -11139,7 +11292,7 @@ function checkNoticeOnBoot() {
   if (un.length === 1) { openNoticePopup(un[0]); return; }
   // 안 읽은 공지가 여러 개면 한 팝업에 전부 쌓아서 보여준다(닫으면 전부 읽음).
   const m = tossModal({
-    title: '새 공지', sub: `안 읽은 공지 ${un.length}개`, accent: BLUE_GRAD, wide: true,
+    title: '새 공지', sub: `안 읽은 공지 ${un.length}개`, tone: 'blue', wide: true,
     bodyHTML: `<div class="ntList">${un.map(noticeItemHTML).join('')}</div>`,
     footHTML: '<button class="tossBtn pri" data-ok>확인</button>', onClose: noticeMarkAllSeen,
   });
@@ -11200,18 +11353,22 @@ function tossConfirm(opts = {}) {
   $('#confirmOk').textContent = opts.ok || '확인';
   $('#confirmOk').classList.toggle('warn', danger);
   $('#confirmCancel').textContent = opts.cancel || '취소';
+  const wasOpen = ov.classList.contains('on') && !ov.classList.contains('popClosing');
+  popAnimCancel(ov);   // 직전 확인창이 닫히는 중이면 취소하고 다시 연다
   ov.classList.add('on');
-  $('#confirmOk').focus();
+  popFocusIn(ov, $('#confirmOk'), wasOpen ? ov._opener : document.activeElement);
   return new Promise((resolve) => {
     const done = (v) => {
-      ov.classList.remove('on');
+      popAnimClose(ov, () => ov.classList.remove('on'));   // 닫힘 애니메이션(.34초) 뒤 숨김
       $('#confirmOk').onclick = $('#confirmCancel').onclick = ov.onclick = null;
       document.removeEventListener('keydown', onKey, true);
+      popFocusBack(ov);   // 연 버튼으로 포커스 돌려주기(이어서 다른 확인·입력창이 뜨면 그 창이 다시 가져간다)
       resolve(v);
     };
     const onKey = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
       else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(true); }
+      else if (e.key === 'Tab') { e.stopPropagation(); popTrapTab(ov.querySelector('.confirmCard'), e); }   // 확인창 안에서만(아래 창들의 가두기는 안 받게)
     };
     $('#confirmOk').onclick = () => done(true);
     $('#confirmCancel').onclick = () => done(false);
@@ -11231,17 +11388,25 @@ function tossPrompt(opts = {}) {
   inp.style.display = ''; inp.value = opts.value || '';
   $('#confirmOk').textContent = opts.ok || '확인'; $('#confirmOk').classList.remove('warn');
   $('#confirmCancel').textContent = opts.cancel || '취소';
+  const wasOpen = ov.classList.contains('on') && !ov.classList.contains('popClosing');
+  popAnimCancel(ov);
   ov.classList.add('on');
+  popFocusIn(ov, inp, wasOpen ? ov._opener : document.activeElement);
   setTimeout(() => { inp.focus(); inp.select(); }, 30);
   return new Promise((resolve) => {
     const clean = () => inp.value.trim();   // 기본값은 칸에 이미 채워져 있다 — 사용자가 지우면 빈 값 그대로(직전 값으로 되돌리지 않음)
     const done = (v) => {
-      ov.classList.remove('on'); inp.style.display = 'none';
+      // 닫힘 애니메이션 뒤 숨김 — 입력칸도 그때 숨긴다(먼저 숨기면 카드가 줄며 사라진다). 그 사이 다시 열리면 popAnimCancel 이 막는다
+      popAnimClose(ov, () => { ov.classList.remove('on'); inp.style.display = 'none'; });
       $('#confirmOk').onclick = $('#confirmCancel').onclick = ov.onclick = inp.onkeydown = null;
       document.removeEventListener('keydown', onKey, true);
+      popFocusBack(ov);
       resolve(v);
     };
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); } };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); }
+      else if (e.key === 'Tab') { e.stopPropagation(); popTrapTab(ov.querySelector('.confirmCard'), e); }
+    };
     inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); done(clean()); } };
     $('#confirmOk').onclick = () => done(clean());
     $('#confirmCancel').onclick = () => done(null);
@@ -11452,8 +11617,8 @@ function openPresetSlots() {
   let ov = $('#slotOverlay');
   if (!ov) {
     ov = document.createElement('div'); ov.id = 'slotOverlay';
-    ov.innerHTML = `<div class="slotCard">
-      <div class="slotHead">배치 지정하기<button class="x" id="slotX" aria-label="닫기">&times;</button></div>
+    ov.innerHTML = `<div class="slotCard" role="dialog" aria-modal="true" aria-label="배치 지정하기" tabindex="-1">
+      <div class="slotHead">배치 지정하기<button class="x" id="slotX" aria-label="닫기" title="닫기 (Esc)">${POP_X_SVG}</button></div>
       <div class="slotBody">
         <div class="slotGrid">
           <div class="slot" id="slotPersonal">
@@ -11474,8 +11639,16 @@ function openPresetSlots() {
         <div class="slotFootHint">· 이 브라우저에서 화면별로 <b>직접 저장한 배치</b>가 있으면 그 화면은 그게 먼저, 그다음 <b>개인 배치</b>(켜져 있을 때), <b>완전 기본 배치</b>, 배포 기본값 순입니다.<br>· 파일은 오른쪽 위 <b>설정</b>(렌치) 메뉴의 <b>"…기본값으로 굽기"</b>로 만든 default-presets.js(.json)입니다.</div>
       </div></div>`;
     document.body.appendChild(ov);
-    $('#slotX').onclick = () => ov.classList.remove('on');
-    ov.onclick = (e) => { if (e.target === ov) ov.classList.remove('on'); };
+    const closeSlots = () => popAnimClose(ov, () => ov.classList.remove('on'));   // 닫힘 애니메이션 뒤 숨김(DOM은 그대로)
+    const slotClose = () => { if (ov.classList.contains('popClosing')) return; closeSlots(); popFocusBack(ov); };
+    $('#slotX').onclick = slotClose;
+    ov.onclick = (e) => { if (e.target === ov) slotClose(); };
+    // Esc = 닫기, Tab = 카드 안에서만 — 다른 팝업과 같게(처음 만들 때 한 번만 붙인다). 위에 뜬 확인·입력창·토스 모달이 먼저 받는다
+    window.addEventListener('keydown', (e) => {
+      if ((e.key !== 'Escape' && e.key !== 'Tab') || !ov.classList.contains('on') || ov.classList.contains('popClosing')) return;
+      if ($('#confirmOverlay.on:not(.popClosing)') || document.querySelector('#tossOv:not(.popClosing)')) return;
+      if (e.key === 'Escape') { e.preventDefault(); slotClose(); } else popTrapTab(ov.querySelector('.slotCard'), e);
+    });
     for (const [id, which] of [['slotPersonal', 'personal'], ['slotMaster', 'master']]) {
       const el = document.getElementById(id);
       // 슬롯 위에선 전체창 '작업 파일 열기' 오버레이를 숨기고, 놓으면 창 쪽 드래그 상태도 함께 정리한다(안 그러면 오버레이가 확인창 위에 남는다).
@@ -11485,7 +11658,10 @@ function openPresetSlots() {
     }
   }
   renderSlotStates();
+  const wasOpen = ov.classList.contains('on') && !ov.classList.contains('popClosing');
+  popAnimCancel(ov);
   ov.classList.add('on');
+  if (!wasOpen) popFocusIn(ov, ov.querySelector('.slotCard'));
 }
 
 // 추출용 폰트 CSS — CG 텍스트는 전부 'SUITE CG'(FontNew OTF)로 그린다. 그런데 추출은 SVG를 <img>로 래스터하는데,
@@ -12040,7 +12216,7 @@ function wnsHelperOffNotice(mode, ctx) {
     const dm = tossModal(old
       ? {
         title: '앱을 최신 버전으로 업데이트해 주세요', sub: '데스크톱 앱 · 내장 기능 확장팩이 옛 버전',
-        accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)',
+        tone: 'red',
         bodyHTML: `이 데스크톱 앱에 들어 있는 기능 확장팩이 <b>옛 버전</b>이라 ${kma ? '<b>기상청 불러오기</b>가 안 돼요' : '새 기능 일부가 안 될 수 있어요'}.<br><br>`
           + '<b>최신 설치 파일</b>로 앱을 다시 설치(업데이트)한 뒤 다시 눌러 주세요. 다시 실행만으로는 바뀌지 않아요.'
           + (kma ? '<br><br>그동안은 특보 칸의 <b>‘기상청 특보현황 새 창으로 열기’</b> → 전체 복사 → 붙여넣기로 칠할 수 있어요.' : ''),
@@ -12048,7 +12224,7 @@ function wnsHelperOffNotice(mode, ctx) {
       }
       : {
         title: '내장 기능 확장팩이 응답하지 않아요', sub: '데스크톱 앱 · 기상청 불러오기 · MXF/MOV · AE',
-        accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)',
+        tone: 'red',
         bodyHTML: '데스크톱 앱에는 기능 확장팩이 <b>내장</b>돼 있어서 WNS_START를 따로 켤 필요가 없습니다.<br><br>응답이 없으면 앱을 <b>완전히 닫았다가 다시 실행</b>해 주세요.',
         footHTML: '<button class="tossBtn ghost" data-ok>닫기</button>',
       });
@@ -12068,11 +12244,11 @@ function wnsHelperOffNotice(mode, ctx) {
     + step(3, '열린 폴더의 <b>WNS_START</b> 파일을 <b>더블클릭</b>. (검은 창이 잠깐 떴다 사라짐 — 켜기·다시켜기를 한 번에 합니다)')
     + step(4, '이 창을 닫고 <b>다시 그 버튼</b>(불러오기·MXF·MOV)을 누르면 됩니다.')
     + `<div class="tossPath">${PATH}</div>`
-    + '<div style="margin-top:10px;color:var(--on-surface-var,#778);font-size:12.5px">한 번 하면 다음부턴 PC를 켤 때 자동으로 준비됩니다 — 다시 안 해도 돼요.</div>';
+    + '<div style="margin-top:10px;color:var(--pop-muted);font-size:12.5px">한 번 하면 다음부턴 PC를 켤 때 자동으로 준비됩니다 — 다시 안 해도 돼요.</div>';
   const m = tossModal({
     title: old ? '기능 확장팩 업데이트 — 다시 실행만 하면 끝나요' : '기능 확장팩 준비 — 딱 한 번만 하면 끝나요',
     sub: '기상청 불러오기 · MXF/MOV 렌더',
-    accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)', bodyHTML,
+    tone: 'red', bodyHTML,
     footHTML: '<button class="tossBtn pri" data-copy>폴더 경로 복사</button><button class="tossBtn ghost" data-ok>닫기</button>',
   });
   m.foot.querySelector('[data-ok]').onclick = m.close;
@@ -12097,7 +12273,7 @@ async function showHelperStatus() {
   const m = tossModal({
     title: '기능 확장팩 실행 중 · 최신이에요 ✓',
     sub: 'AE로 보내기 · MXF/MOV · 기상청 불러오기 준비됨',
-    accent: 'linear-gradient(135deg,#16A34A,#0E9E6E)',
+    tone: 'green',
     bodyHTML: WNS_DESKTOP
       ? '데스크톱 앱에 <b>내장된</b> 기능 확장팩이 <b>정상 실행 중</b>입니다(WNS_START 불필요).<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b>'
       : '기능 확장팩이 <b>정상 실행 중</b>이고 <b>최신 버전</b>입니다.<br><br>현재 버전 <b>' + st.ver + '</b> · 필요 버전 <b>' + HELPER_VER_MIN + '</b><br><br>이제 <b>AE로 보내기</b>를 눌러 리깅을 확인하세요. (버전이 여기 보이면 WNS_START로 교체가 <b>적용된 것</b>입니다.)',
@@ -12671,7 +12847,7 @@ async function aeIconBlob(color, past, td, forceDot, ex, cmp) {
 function pickAeVersion(versions) {
   return new Promise((resolve) => {
     let done = false;
-    const rows = versions.map((v, i) => `<button class="aeVerBtn" data-i="${i}" style="display:block;width:100%;box-sizing:border-box;text-align:left;margin:7px 0;padding:12px 15px;border:1px solid var(--outline-var,#d1d5db);border-radius:12px;background:var(--surface,#fff);color:var(--on-surface,#111);font-size:14px;font-weight:700;cursor:pointer"></button>`).join('');
+    const rows = versions.map((v, i) => `<button class="aeVerBtn" data-i="${i}" style="display:block;width:100%;box-sizing:border-box;text-align:left;margin:6px 0;padding:10px 14px;border:1px solid var(--outline-var,#d1d5db);border-radius:12px;background:var(--cgs-card,#fff);color:var(--on-surface,#111);font-size:13.5px;font-weight:700;cursor:pointer"></button>`).join('');
     const m = tossModal({
       title: 'After Effects 버전 선택',
       sub: '켜져 있는 AE가 없어요 — 어느 버전으로 열까요?',
@@ -12680,8 +12856,8 @@ function pickAeVersion(versions) {
     });
     m.body.querySelectorAll('.aeVerBtn').forEach((b) => {
       b.textContent = versions[+b.dataset.i].name || versions[+b.dataset.i].path;   // textContent = 주입 안전
-      b.onmouseenter = () => { b.style.background = 'color-mix(in srgb, var(--primary,#5B8CFF) 12%, var(--surface,#fff))'; };
-      b.onmouseleave = () => { b.style.background = 'var(--surface,#fff)'; };
+      b.onmouseenter = () => { b.style.background = 'color-mix(in srgb, var(--primary,#5B8CFF) 12%, var(--cgs-card,#fff))'; };
+      b.onmouseleave = () => { b.style.background = 'var(--cgs-card,#fff)'; };
       b.onclick = () => { done = true; const v = versions[+b.dataset.i]; m.close(); resolve((v && v.path) || null); };
     });
   });
@@ -12893,7 +13069,12 @@ async function sendToAE() {
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 열림'; }
     // AE가 켜지는 동안 재전송하면 '프로젝트 닫을까?' 창이 뜬다 → 잠깐 잠가 중복 전송 막기
     cooldown = true;
-    if (btn) { const lbl = btn.textContent; btn.textContent = 'AE 여는 중…'; setTimeout(() => { btn.disabled = false; btn.textContent = lbl; }, 9000); }
+    // 글자 span(.tbLbl)만 바꾼다 — 버튼 textContent 를 덮으면 채운 아이콘(svg)까지 지워져 안 돌아온다
+    if (btn) {
+      const lblEl = btn.querySelector('.tbLbl') || btn;
+      const lbl = lblEl.textContent; lblEl.textContent = 'AE 여는 중…';
+      setTimeout(() => { btn.disabled = false; lblEl.textContent = lbl; }, 9000);
+    }
   } catch (e) {
     status('AE 보내기 실패: ' + (e.message || e), true);
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE 보내기 실패'; }
@@ -13679,13 +13860,20 @@ function wire() {
   const openBulHelp = () => {
     const img = $('#bulHelpImg');
     if (!img.src && IMG.bulHelp) img.src = IMG.bulHelp;   // 처음 열 때만 이미지 붙인다
+    const wasOpen = bulHelpPop.classList.contains('on') && !bulHelpPop.classList.contains('popClosing');
+    popAnimCancel(bulHelpPop);
     bulHelpPop.classList.add('on');
+    if (!wasOpen) popFocusIn(bulHelpPop, bulHelpPop.querySelector('.imgPopInner'));   // 포커스를 안내 카드로(닫으면 '복사할 부분 보기'로 돌아감)
   };
-  const closeBulHelp = () => bulHelpPop.classList.remove('on');
+  const closeBulHelp = () => { if (!bulHelpPop.classList.contains('popClosing')) { popAnimClose(bulHelpPop, () => bulHelpPop.classList.remove('on')); popFocusBack(bulHelpPop); } };
   $('#bulHelpBtn').onclick = openBulHelp;
   $('#bulHelpClose').onclick = closeBulHelp;
   bulHelpPop.addEventListener('click', (e) => { if (e.target === bulHelpPop) closeBulHelp(); }); // 바깥 클릭 닫기
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bulHelpPop.classList.contains('on')) closeBulHelp(); });
+  window.addEventListener('keydown', (e) => {
+    if (!bulHelpPop.classList.contains('on') || bulHelpPop.classList.contains('popClosing')) return;
+    if (e.key === 'Escape') closeBulHelp();
+    else if (e.key === 'Tab') popTrapTab(bulHelpPop.querySelector('.imgPopInner'), e);   // Tab = 안내 카드 안에서만
+  });
   $('#fctTmfc').onchange = () => { buildFctEf(); buildFctList(); paintFct(); };
   $('#fctTmef').onchange = () => { buildFctList(); paintFct(); };
   $('#fctTaField').onchange = (e) => { fctTaField = e.target.value; buildFctList(); paintFct(); };
@@ -15048,7 +15236,7 @@ function titleBarH() { const t = $('#titlebar'); return t ? t.offsetHeight : 0; 
 const TITLEBAR_DIM = [
   ['#tourWrap.on', 'rgba(6, 8, 12, .76)'],
   ['#tossOv', ''], ['#confirmOverlay.on', ''], ['#slotOverlay.on', ''], ['#bulHelpPop.on', ''], ['#dropHint.on', ''],
-  ['#cgSetupOv.on', 'rgba(6, 10, 20, .62)'],   // CG 구성 창 — 막이 서서히 나타나 배경색 대신 최종 색을 직접 적는다(.cgSetupOv 배경과 같게)
+  ['#cgSetupOv.on', 'var(--pop-ov)'],   // CG 구성 창 — 막이 서서히 나타나 배경색 대신 최종 색(.cgSetupOv 배경과 같은 변수, 테마마다 다름)을 읽는다
 ];
 function titleBarDimLayers() {
   const out = [];
@@ -15057,7 +15245,8 @@ function titleBarDimLayers() {
     if (!el) continue;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-    out.push(col || cs.backgroundColor);
+    const v = /^var\((--[\w-]+)\)$/.exec(col);   // 캔버스는 var() 를 못 읽으니 지금 테마 값으로 바꿔 넣는다
+    out.push(v ? getComputedStyle(document.documentElement).getPropertyValue(v[1]).trim() : (col || cs.backgroundColor));
   }
   return out;
 }
@@ -15082,8 +15271,10 @@ function syncTitleBarColors() {
   if (!d || typeof d.setTitleBar !== 'function') return;
   const cs = getComputedStyle(document.documentElement), layers = titleBarDimLayers();
   const color = mixColorLayers(cs.getPropertyValue('--surface').trim(), layers);
-  // 막이 떠 있어도 창 버튼 기호는 보이게 — 어두워진 바탕 위에 밝은 기호(막은 모두 어두운 색). 평소엔 제목줄 글자색.
-  const symbolColor = layers.length ? mixColorLayers(color, ['rgba(255, 255, 255, .72)']) : cs.getPropertyValue('--on-surface').trim();
+  // 막이 떠 있어도 창 버튼 기호는 보이게 — 어두워진 바탕이면 밝은 기호, 밝은 테마의 옅은 막(바탕이 아직 밝음)이면 어두운 기호. 평소엔 제목줄 글자색.
+  const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
+  const symbolColor = !layers.length ? cs.getPropertyValue('--on-surface').trim()
+    : mixColorLayers(color, [lum(color) > 0.45 ? 'rgba(15, 23, 42, .8)' : 'rgba(255, 255, 255, .72)']);
   if (color + symbolColor === _tbColorKey) return;   // 같은 색이면 다시 안 보낸다
   _tbColorKey = color + symbolColor;
   d.setTitleBar({ color, symbolColor });
@@ -15573,9 +15764,9 @@ function setupMenus() {
     for (const c of drop.children) c.style.display = (c.dataset && c.dataset.sec === sec) ? '' : 'none';
     // 누른 메뉴 버튼(맨 위 제목줄의 글자 메뉴) 바로 아래에 연다 — 데스크톱 메뉴바처럼 거의 붙여서
     // 제목줄 오른쪽 묶음(설정=렌치)은 버튼 오른쪽 끝에 맞춰 왼쪽으로 펼친다(오른쪽 끝이라 화면 밖으로 나가지 않게)
-    const r = btn.getBoundingClientRect(), dw = drop.offsetWidth || 400;
+    const r = btn.getBoundingClientRect(), dw = drop.offsetWidth || 380;   // 대체값 = CSS .menuDrop 폭
     const alignR = !!btn.closest('.tbRight');
-    drop.style.left = (alignR ? Math.max(8, Math.min(r.right - dw, window.innerWidth - dw - 8)) : Math.max(8, Math.min(r.left, window.innerWidth - 412))) + 'px';
+    drop.style.left = (alignR ? Math.max(8, Math.min(r.right - dw, window.innerWidth - dw - 8)) : Math.max(8, Math.min(r.left, window.innerWidth - dw - 12))) + 'px';
     drop.style.top = (r.bottom + 6) + 'px';
     drop.classList.toggle('alignR', alignR);
     drop.classList.add('on'); btn.classList.add('on'); openSec = sec;
@@ -15744,7 +15935,7 @@ function tourPlace(step) {
   spot.style.left = x + 'px'; spot.style.top = y + 'px'; spot.style.width = w + 'px'; spot.style.height = h + 'px';
   tourBarSide({ x, y, w, h });   // 카드 자리(아래 .tourBar 비키기)를 정하기 전에 바부터 옮긴다
 
-  const cw = card.offsetWidth || 320, ch = card.offsetHeight || 180, gap = 18;
+  const cw = card.offsetWidth || 300, ch = card.offsetHeight || 180, gap = 18;   // 대체값 = CSS .tourCard 폭
   const tcx = x + w / 2, tcy = y + h / 2;
   let side, cx, cy;
   // 맨 위 제목줄 안의 버튼(밝기·둘러보기 등)은 카드를 바로 '아래'에 — 옆에 두면 화면 위로 잘려 화살표가 어긋난다
