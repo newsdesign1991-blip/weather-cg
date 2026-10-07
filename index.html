@@ -91,6 +91,7 @@
     --pin-top: #3d6480;      --pin-bot: #16222e;
     --danger: #ff6b6b;
     --ok: #2fb86c;   /* 정상·완료(초록) — 오류(danger)와 확실히 구분 */
+    --caution: #f0a43a;   /* 불러오긴 했지만 확인이 필요(주황) — 일부 줄을 못 읽음·지도에 없는 구역 */
   }
   :root[data-theme="light"] {
     --surface: #f1f4f8;
@@ -128,6 +129,7 @@
     --pin-top: #b9d9ef;      --pin-bot: #b0cfe6;
     --danger: #d32f2f;
     --ok: #16a34a;
+    --caution: #c27803;
   }
 
   /* html까지 overflow:hidden — 어떤 자식이 넘쳐도 문서 자체가 스크롤돼 앱이 위로 밀리지 않게 */
@@ -1078,6 +1080,7 @@
   .wrnRes[hidden] { display: none; }
   .wrnRes[data-tone="ok"] { --tone: var(--ok); }
   .wrnRes[data-tone="err"] { --tone: var(--danger); }
+  .wrnRes[data-tone="warn"] { --tone: var(--caution); }   /* 칠은 했지만 확인할 게 있음(주황) */
   .wrnResIc {
     flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center; color: #fff; background: var(--tone);
@@ -1104,12 +1107,13 @@
   .wrnEmpty .wrnResIc { background: var(--primary); }
   .wrnEmpty .t { font-size: 12.5px; font-weight: 700; color: var(--on-surface); word-break: keep-all; }
   .wrnEmpty .s { font-size: 11px; color: color-mix(in srgb, var(--on-surface) 50%, var(--on-surface-var)); margin-top: 2px; word-break: keep-all; }
-  /* 알림(#status) 색 점 — 정상=초록, 오류=빨강. 다른 알림(톤 없음)은 그대로. */
-  #status[data-tone="ok"], #status[data-tone="err"] { padding-left: 26px; }
-  #status[data-tone="ok"]::before, #status[data-tone="err"]::before {
+  /* 알림(#status) 색 점 — 정상=초록, 확인 필요=주황, 오류=빨강. 다른 알림(톤 없음)은 그대로. */
+  #status[data-tone="ok"], #status[data-tone="err"], #status[data-tone="warn"] { padding-left: 26px; }
+  #status[data-tone="ok"]::before, #status[data-tone="err"]::before, #status[data-tone="warn"]::before {
     content: ''; position: absolute; left: 11px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%;
   }
   #status[data-tone="ok"]::before { background: var(--ok); }
+  #status[data-tone="warn"]::before { background: var(--caution); }
   #status[data-tone="err"]::before { background: var(--danger); }
   #status[data-tone="err"] { border-color: color-mix(in srgb, var(--danger) 55%, var(--outline-var)); }
 
@@ -3262,6 +3266,11 @@ function setStyle(name) {
   renderFills();
   renderBrush();   // 브러쉬 획은 지도 종류별 — 같은 배치 그룹끼리 바꿔도(renderAll 안 탐) 이전 지도 브러쉬가 남지 않게
   markStyleBtns(); syncEyes(); syncMapAltHint();   // 태풍↔다른 지도 전환 시 Alt 조작법 표시 갱신
+  // 특보 ↔ 특보 + 해상: 보이는 칠 구역 수(바다 포함 여부)가 달라진다 — 목록 아래 안내와 결과 카드 숫자를 새 지도 기준으로 다시 센다
+  if (name === 'warn' || name === 'warnsea') {
+    if (wrnRows.length && $('#wrnInfo').textContent) syncWrnInfo();
+    wrnRefreshResult();
+  }
   let applied = true;
   if (before !== after) {
     _enterTyphoonApply = enteringTyphoon;   // 진입 때만 태풍 배치의 라벨/산 크기를 적용(직전 지도값 안 물려받게)
@@ -8264,7 +8273,8 @@ function mergeWrnOrder(prev, def) {
 //   helperOff 기능 확장팩(헬퍼)이 응답 없음         helperOld  확장팩이 옛 버전(기상청 연결 기능 없음, /api/kma 404)
 //   net       인터넷·사내망 연결 문제(시간 초과 등)   server     기상청 서버 오류(5xx 등)
 //   key       인증키 오류(401·403)                   quota      사용량(호출 횟수) 초과
-//   empty     빈 응답    format  특보 표가 아닌 응답(점검 페이지 등)    broken  한글 깨짐    other  그 밖의 문제
+//   empty     빈 응답    format  특보 표가 아닌 응답(점검 페이지·표 형식 바뀜 등)    broken  한글 깨짐    other  그 밖의 문제
+// 톤: ok(초록) · warn(주황 — 칠은 했지만 일부 줄을 못 읽었거나 지도에 없는 구역이 있음) · err(빨강 — 지도는 그대로)
 // 202610080420 -> '2026.10.08 04:20'
 function wrnTmText(t) {
   const s = String(t || '');
@@ -8286,24 +8296,43 @@ function wrnHttpFail(status, body) {
   if (status === 404) return { kind: 'helperOld', detail: 'HTTP 404' };
   const code = +((msg.match(/HTTP Error (\d{3})/) || [])[1] || 0);
   if (code === 429 || /초과|한도/.test(msg)) return { kind: 'quota', detail: msg };
-  if (code === 401 || code === 403) return { kind: 'key', detail: msg };
+  // 헬퍼는 기상청 오류 본문을 버리고 'HTTP Error 403: Forbidden'만 넘긴다 — 403만으로는 '키가 틀림'인지 '횟수 초과·권한 없음'인지 모른다.
+  // 단서(인증키 문구)가 없는 403은 두 원인을 같이 말한다(maybeQuota). 401은 키 문제로 본다.
+  if (code === 401 || code === 403) return { kind: 'key', detail: msg, maybeQuota: code === 403 && !/인증키|authKey|유효하지|등록되지/i.test(msg) };
   if (code) return { kind: 'server', detail: msg };   // 기상청이 HTTP 오류를 돌려줌(5xx 등)
   if (/timed? ?out|timeout|시간 초과/i.test(msg)) return { kind: 'net', detail: msg, timeout: true };
   if (status === 502 || status === 504) return { kind: 'net', detail: msg };   // 헬퍼가 기상청까지 못 감(주소 못 찾음·연결 거부 등)
   return { kind: 'other', detail: msg || ('HTTP ' + status) };
 }
-// 정상(200)으로 받은 글을 읽는다 → { kind:'rows', rows } (rows가 0개여도 정상 특보현황) 또는 오류 { kind, detail }.
+// 특보 줄로 읽지 못한 데이터 줄 — '#' 설명줄·빈 줄·'=' 꼬리만 있는 줄은 뺀다.
+// 실제 응답(2026-08-03 354줄 확인)은 모든 데이터 줄이 쉼표 10칸 + ',=' 꼬리라 0개다. 쉼표가 9칸 미만이면 형식이 바뀐 줄로 본다.
+function wrnUnreadLines(txt) {
+  const out = [];
+  for (const line of String(txt == null ? '' : txt).split(/\r?\n/)) {
+    const s = line.trim();
+    if (!s || s.startsWith('#') || /^[=\s]*$/.test(s)) continue;
+    if (s.split(',').length < 9) out.push(s);
+  }
+  return out;
+}
+// 정상(200)으로 받은 글을 읽는다 → { kind:'rows', rows, unread } (rows가 0개여도 정상 특보현황) 또는 오류 { kind, detail }.
+// unread = 특보 줄 모양이 아니라 못 읽은 줄 수(sample = 그 첫 줄 앞부분). 머리만 있고 못 읽은 줄만 있으면 '없음'이 아니라 형식 오류다.
 function wrnReadText(txt) {
   const t = String(txt == null ? '' : txt);
   if (!t.trim()) return { kind: 'empty' };
   const rows = parseWrn(t);
+  const bad = wrnUnreadLines(t);
   if (rows.length) {
     // 기상청 응답은 EUC-KR이라 UTF-8로 잘못 읽히면 한글이 통째로 깨져 특보종류를 못 알아본다
     if (!rows.some((r) => /[가-힣]/.test(r.wrn))) return { kind: 'broken' };
-    return { kind: 'rows', rows };
+    return bad.length ? { kind: 'rows', rows, unread: bad.length, sample: bad[0].slice(0, 80) } : { kind: 'rows', rows };
   }
-  // 특보현황 머리(#START7777 · REG_ID 열 설명)만 오고 줄이 없음 = 지금 특보가 하나도 없는 정상 응답 (실제 응답엔 #7777END도 없다)
-  if (/START7777|7777END|REG_ID|TM_FC/i.test(t)) return { kind: 'rows', rows: [] };
+  if (/START7777|7777END|REG_ID|TM_FC/i.test(t)) {
+    // 머리는 특보현황인데 데이터 줄을 하나도 못 읽음 = 표 형식이 바뀜(탭·공백 구분 등). '특보 없음'으로 단정하면 방송 사고라 오류로 돌린다.
+    if (bad.length) return { kind: 'format', drift: true, unread: bad.length, detail: bad[0].slice(0, 80) };
+    // 특보현황 머리(#START7777 · REG_ID 열 설명)만 오고 줄이 없음 = 지금 특보가 하나도 없는 정상 응답 (실제 응답엔 #7777END도 없다)
+    return { kind: 'rows', rows: [] };
+  }
   // 기상청 오류 응답 — {"result":{"status":401,"message":"유효한 인증키가 아닙니다."}} 꼴이거나 문구만
   const st = +((t.match(/"status"\s*:\s*"?(\d{3})/) || [])[1] || 0);
   const m = ((t.match(/"message"\s*:\s*"([^"]*)"/) || [])[1] || '').trim();
@@ -8341,21 +8370,55 @@ const WRN_FAIL = {
   net: (r) => ({ title: r.timeout ? '기상청 응답이 너무 늦어요' : '기상청에 연결되지 않아요',
     todo: '인터넷(사내망) 연결을 확인하고 잠시 뒤 다시 눌러 주세요.', actions: ['retry'] }),
   server: () => ({ title: '기상청 서버가 잠시 응답하지 않아요', todo: '기상청 쪽 문제예요. 1~2분 뒤 다시 눌러 주세요.', actions: ['retry'] }),
-  key: (r) => ({ title: '인증키가 맞지 않아요',
-    todo: r.noKey ? '오른쪽 아래 ‘API 설정’에 인증키를 넣어 주세요.' : '오른쪽 아래 ‘API 설정’에서 인증키를 확인해 주세요. 칸을 비우면 기본 키를 씁니다.',
+  // defKey = API 설정 칸이 비어 앱에 들어 있는 기본 인증키를 쓰는 중(여럿이 같이 써서 막히거나 횟수가 먼저 찰 수 있다)
+  key: (r) => (r.maybeQuota
+    ? { title: `${r.defKey ? '기본 인증키가' : '인증키가'} 막혔거나 오늘 조회 횟수를 넘었어요`,
+      todo: r.defKey
+        ? '여럿이 같이 쓰는 기본 인증키라 막혔을 수 있어요. 오른쪽 아래 ‘API 설정’에 개인 인증키를 넣으면 바로 됩니다. 아니면 잠시 뒤 다시 눌러 주세요.'
+        : '‘API 설정’에 넣은 인증키가 맞는지, 기상청 API허브에서 특보 API 사용 신청이 됐는지 확인해 주세요. 칸을 비우면 기본 키로 해 볼 수 있어요.',
+      actions: ['api', 'retry'] }
+    : { title: r.defKey ? '기본 인증키가 맞지 않아요' : '인증키가 맞지 않아요',
+      todo: (r.noKey || r.defKey) ? '오른쪽 아래 ‘API 설정’에 개인 인증키를 넣어 주세요.' : '오른쪽 아래 ‘API 설정’에서 인증키를 확인해 주세요. 칸을 비우면 기본 키를 씁니다.',
+      actions: ['api', 'retry'] }),
+  quota: (r) => ({ title: '오늘 쓸 수 있는 조회 횟수를 넘었어요',
+    todo: r.defKey === false
+      ? '넣어 둔 인증키의 오늘 횟수를 다 썼어요. 내일 다시 되거나, ‘API 설정’ 칸을 비우면 기본 키로 해 볼 수 있어요.'
+      : '잠시 뒤 다시 하거나, ‘API 설정’에 개인 인증키를 넣으면 바로 됩니다.',
     actions: ['api', 'retry'] }),
-  quota: () => ({ title: '오늘 쓸 수 있는 조회 횟수를 넘었어요', todo: '잠시 뒤 다시 하거나, ‘API 설정’에 개인 인증키를 넣으면 바로 됩니다.', actions: ['api', 'retry'] }),
   empty: (r) => (r.src === 'paste'
     ? { title: '붙여넣은 내용이 비어 있어요', todo: '새 창 글자를 전체 선택(Ctrl+A) → 복사(Ctrl+C)해서 아래 칸에 붙여넣어 주세요.', actions: ['open'] }
     : { title: '기상청이 빈 응답을 보냈어요', todo: '잠시 뒤 다시 눌러 주세요. 계속되면 아래 ‘기상청 특보현황 새 창으로 열기’로 확인해 보세요.', actions: ['retry', 'open'] }),
-  format: (r) => (r.src === 'paste'
-    ? { title: '붙여넣은 글에서 특보 표를 찾지 못했어요', todo: '새 창 글자를 전체 선택(Ctrl+A)해서 그대로 붙여넣었는지 확인해 주세요.', actions: ['open'] }
-    : { title: '특보 표가 아닌 응답이 왔어요', todo: '기상청이 점검 중이거나 주소가 바뀌었을 수 있어요. 잠시 뒤 다시 하거나 아래 ‘새 창으로 열기’로 확인해 보세요.', actions: ['retry', 'open'] }),
+  format: (r) => (r.partial   // 일부 줄만 읽혔고 읽힌 줄엔 발효 특보가 없음 — '없음'이 확실하지 않아 칠을 바꾸지 않는다
+    ? { title: '특보 표 일부를 읽지 못했어요',
+      todo: `읽지 못한 줄${r.unread ? ` ${r.unread}개` : ''} 때문에 특보가 정말 없는지 확실하지 않아요. 아래 ‘기상청 특보현황 새 창으로 열기’로 직접 확인해 주세요.`,
+      actions: ['open', 'retry'] }
+    : r.drift   // 특보현황 머리는 왔는데 데이터 줄 모양이 달라 하나도 못 읽음
+      ? { title: '특보 표 형식이 달라 읽지 못했어요',
+        todo: '기상청이 표 형식을 바꿨을 수 있어요. 특보가 없는 게 아니라 못 읽은 거예요 — 아래 ‘기상청 특보현황 새 창으로 열기’로 직접 확인해 주세요.',
+        actions: ['open', 'retry'] }
+      : r.src === 'paste'
+        ? { title: '붙여넣은 글에서 특보 표를 찾지 못했어요', todo: '새 창 글자를 전체 선택(Ctrl+A)해서 그대로 붙여넣었는지 확인해 주세요.', actions: ['open'] }
+        : { title: '특보 표가 아닌 응답이 왔어요', todo: '기상청이 점검 중이거나 주소가 바뀌었을 수 있어요. 잠시 뒤 다시 하거나 아래 ‘새 창으로 열기’로 확인해 보세요.', actions: ['retry', 'open'] }),
   broken: () => ({ title: '한글이 깨진 채로 들어왔어요', todo: '아래 ‘기상청 특보현황 새 창으로 열기’로 연 화면을 복사해 붙여넣으면 보통 정상입니다.', actions: ['open'] }),
   other: () => ({ title: '알 수 없는 문제가 생겼어요', todo: '잠시 뒤 다시 눌러 주세요.', actions: ['retry'] }),
 };
-// 결과 → 화면 문구 { tone:'ok'|'err'|'busy', title, meta, lines[], detail, actions[{id,label}], toast }
-// r: { kind, src:'fetch'|'paste', at(YYYYMMDDHHMM), now(지금 기준?), types, painted, pre[], up[], rel[], added[], cleared, detail, timeout, desktop, noKey }
+// 'YYYYMMDDHHMM' → 분 단위 수(시간대와 무관하게 두 시각의 차이만 잰다). 형식이 틀리면 NaN.
+function wrnTmMin(t) {
+  const s = String(t || '');
+  if (!/^\d{12}$/.test(s)) return NaN;
+  return Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12)) / 60000;
+}
+// 어느 시각·무엇을 기준으로 본 결과인지 한 줄. 붙여넣기는 글이 언제 것인지 모르므로 '칠한 시각'만 말한다.
+function wrnBasisText(r) {
+  const when = wrnTmText(r && r.at);
+  if (!when) return '';
+  if (r.src === 'paste') return r.now ? `붙여넣은 특보현황 · ${when}에 칠함` : `붙여넣은 특보현황 · ${when} 기준`;
+  return r.now ? `기상청 기준 ${when} 확인` : `${when} 기준 발효 현황`;
+}
+// 결과 → 화면 문구 { tone:'ok'|'warn'|'err'|'busy', title, meta, lines[], detail, actions[{id,label}], toast }
+// r: { kind, src:'fetch'|'paste', at(YYYYMMDDHHMM), now(지금 기준?), types, painted, pre[], preOn[], up[], rel[], added[], cleared,
+//      seaHidden(육상 지도라 안 보이는 바다 구역 수), seaNames[], seaMap, landEff(육상 발효 특보 줄 수), unknown(지도에 없는 구역 수), unknownNames[],
+//      offNames[](목록에서 꺼 둔 발효 특보), offAll, unread(못 읽은 줄 수), back(실패 때 되돌린 시각 표시), detail, timeout, desktop, defKey, maybeQuota }
 function wrnResultView(r) {
   r = r || {};
   const k = r.kind, paste = r.src === 'paste';
@@ -8364,32 +8427,70 @@ function wrnResultView(r) {
     return { tone: 'busy', title: t, meta: '', lines: [], detail: '', actions: [], toast: t };
   }
   if (k === 'ok' || k === 'none') {
-    const when = wrnTmText(r.at);
-    const meta = !when ? '' : paste ? `붙여넣은 특보현황 · ${when} 기준` : r.now ? `기상청 기준 ${when} 확인` : `${when} 기준 발효 현황`;
+    const meta = wrnBasisText(r);
     const done = paste ? '칠하기 완료' : '불러오기 완료';
     const lines = [];
-    let title;
+    let title, tone = 'ok';
+    const seaHidden = r.seaHidden > 0 ? r.seaHidden : 0;
     if (k === 'none') {
-      title = `${done} — ${r.now ? '지금' : '그 시각에'} 발효 중인 기상특보가 없습니다`;
+      title = `${done} — ${paste ? '붙여넣은 특보현황에는' : r.now ? '지금' : '그 시각에'} 발효 중인 기상특보가 없습니다`;
       if (r.preOn && r.preOn.length) lines.push(`오류가 아니에요. 발효 중인 특보는 없고, 켜 둔 예비특보(${wrnNameList(r.preOn)})만 칠했어요.`);
       else lines.push('오류가 아니에요. 칠할 특보가 없어서 지도가 비어 있는 게 정상입니다.');
       if (r.cleared > 0) lines.push(`지도에 있던 특보 색(${r.cleared}구역)은 지웠어요 — 되돌리려면 Ctrl+Z`);
     } else {
-      title = `${done} — 발효 중인 특보 ${r.types || 0}종` + (r.painted != null ? ` · ${r.painted}개 구역 칠함` : '');
+      const painted = r.painted != null ? r.painted : null;
+      // 육상 지도에 바다 특보만(또는 바다도) 있으면 '0개 구역 칠함'만 보고 고장으로 오해한다 — 육상/바다를 나눠 말한다
+      title = `${done} — 발효 중인 특보 ${r.types || 0}종` + (seaHidden
+        ? ` · 육상 ${painted || 0}구역 칠함 · 바다 ${seaHidden}구역`
+        : painted != null ? ` · ${painted}개 구역 칠함` : '');
+      if (seaHidden) {
+        if (!painted && r.landEff === 0) lines.push('육상에는 발효 중인 특보가 없어 이 지도(육상)는 비어 있어요 — 정상이에요.');
+        lines.push(`바다 특보(${wrnNameList(r.seaNames)}) ${seaHidden}구역은 이 지도에는 안 보여요 — ‘${r.seaMap || '특보 + 해상'}’ 지도로 바꾸면 보여요`);
+      }
+      if (r.offAll) lines.push('목록에서 특보를 모두 꺼 두어서 칠한 구역이 없어요 — 아래 목록의 눈 아이콘으로 켜세요');
+      else if (r.offNames && r.offNames.length) lines.push(`목록에서 꺼 둔 특보(${wrnNameList(r.offNames)})는 칠하지 않았어요`);
+      if (r.unknown > 0) {   // 발효 중인데 지도에 그릴 자리가 없음 — 방송 그림에서 빠지므로 주황으로 알린다
+        tone = 'warn';
+        lines.unshift(`지도에 없는 구역 ${r.unknown}곳${r.unknownNames && r.unknownNames.length ? `(${wrnNameList(r.unknownNames)})` : ''}은 칠하지 못했어요 — 기상청이 구역을 새로 나눴을 수 있어요. 아래 ‘기상청 특보현황 새 창으로 열기’로 확인해 보세요`);
+      }
+    }
+    if (r.unread > 0) {   // 일부 줄을 못 읽음 — 읽은 만큼은 칠했지만 빠진 특보가 있을 수 있다
+      tone = 'warn';
+      lines.unshift(`읽지 못한 줄이 ${r.unread}개 있어요 — 그 줄의 특보는 칠하지 못했을 수 있어요. 아래 ‘기상청 특보현황 새 창으로 열기’로 확인해 보세요`);
     }
     if (r.pre && r.pre.length) lines.push(`예비특보(${wrnNameList(r.pre)})는 아직 발효 전이라 꺼 두었어요 — 아래 목록에서 켤 수 있어요`);
     if (r.up && r.up.length) lines.push(`곧 발효될 특보(${wrnNameList(r.up)})가 있어요 — 위 ‘통보문’에서 ‘발효 예정’ 시각을 고르면 볼 수 있어요`);
     if (k === 'none' && r.rel && r.rel.length) lines.push(`이미 해제된 특보(${wrnNameList(r.rel)})는 칠하지 않았어요 — 위 ‘통보문’에서 지난 시각을 고르면 그때 모습을 볼 수 있어요`);
     if (r.added && r.added.length) lines.push(`처음 보는 특보(${wrnNameList(r.added)})는 회색으로 넣었어요 — 아래 ‘특보 종류별 색’에서 바꾸세요`);
-    return { tone: 'ok', title, meta, lines, detail: '', actions: [], toast: title };
+    const actions = tone === 'warn' ? [{ id: 'open', label: WRN_ACT_LABEL.open }] : [];
+    return { tone, title, meta, lines, detail: tone === 'warn' && r.sample ? `읽지 못한 줄: ${r.sample}` : '', actions, toast: title };
   }
   const f = (WRN_FAIL[k] || WRN_FAIL.other)(r);
   const title = `${paste ? '칠하지 못했어요' : '불러오지 못했어요'} — ${f.title}`;
   const actions = f.actions.filter((a) => !(paste && a === 'retry')).map((id) => ({ id, label: WRN_ACT_LABEL[id] }));
-  return {
-    tone: 'err', title, meta: '', lines: [f.todo, '지도 색은 바꾸지 않았어요 — 이전 그대로입니다.'],
-    detail: r.detail ? `기술 정보: ${r.detail}` : '', actions, toast: title,
-  };
+  const lines = [f.todo, '지도 색은 바꾸지 않았어요 — 이전 그대로입니다.'];
+  // 날짜·통보문을 바꿔 자동으로 다시 부르다 실패하면, 고른 시각 표시도 지도에 칠해진 시각으로 되돌린다(호출하는 쪽) — 그걸 알려 준다
+  if (r.back) lines.push(`날짜·시각 선택도 지도에 칠해진 시각(${r.back})으로 되돌렸어요.`);
+  return { tone: 'err', title, meta: '', lines, detail: r.detail ? `기술 정보: ${r.detail}` : '', actions, toast: title };
+}
+// 특보 목록 자리의 '발효 중인 특보 없음' 카드 문구 { title, sub, stale }. info = S.wrnNone, o = { nowTm, preOn(켜 둔 예비특보가 있나) }
+// 저장해 둔 0건 결과를 나중에 다시 열면 '지금 … 없습니다'가 거짓이 될 수 있다 — 1시간이 지났으면 '그때는 없었다'로 바꾸고 다시 확인을 권한다.
+const WRN_STALE_MIN = 60;
+function wrnEmptyView(info, o) {
+  info = info || {}; o = o || {};
+  const paste = info.src === 'paste';
+  const when = wrnTmText(info.at);
+  const stale = !!info.now && !!when && wrnTmMin(o.nowTm) - wrnTmMin(info.at) >= WRN_STALE_MIN;
+  const title = paste ? '붙여넣은 특보현황에는 발효 중인 기상특보가 없습니다'
+    : stale ? `${when} 확인 때는 발효 중인 기상특보가 없었습니다`
+      : info.now ? '지금 발효 중인 기상특보가 없습니다' : '이 시각에 발효 중인 기상특보가 없습니다';
+  const sub = [];
+  const basis = wrnBasisText(info);
+  if (basis) sub.push(basis);
+  if (stale) sub.push('지금 상태는 위 ‘기상청에서 불러오기’로 다시 확인하세요');
+  sub.push(o.preOn ? '발효 중인 특보는 없고, 켜 둔 예비특보만 칠했어요' : '칠할 구역이 없어 지도가 비어 있는 게 정상이에요');
+  if (!o.preOn && Array.isArray(info.pre) && info.pre.length) sub.push('아래 예비특보는 아직 발효 전이라 꺼 두었어요');
+  return { title, sub: sub.join(' · '), stale };
 }
 // ===================== 특보 불러오기 결과 — 판정·문구 끝 =====================
 
@@ -8498,12 +8599,23 @@ function wrnPaintedCount() {
   const st = S.style === 'warnsea' ? 'warnsea' : 'warn';
   return Object.keys((S.fillsByStyle || {})[st] || {}).length + (st === 'warnsea' ? Object.keys(S.seaFills || {}).length : 0);
 }
+// 특보 지도인데 '발효 중인 특보 없음'으로 불러와 칠이 비어 있나 — AE 보내기·타임라인 구성이 '먼저 칠하세요'(빠뜨린 것처럼) 대신 정상이라고 알리게
+function wrnNoneLeftMapEmpty() {
+  return (S.style === 'warn' || S.style === 'warnsea') && !!S.wrnNone && !wrnPaintedCount();
+}
+const wrnNoneEmptyText = (todo) => `발효 중인 기상특보가 없어 칠한 구역이 없어요 — 오류가 아니에요. 특보가 생기면 다시 불러온 뒤 ${todo}`;
 // 반환: 읽어서 칠했으면(발효 0건 포함) true, 못 읽었으면 false.
 // src: 'fetch'(기상청에서 불러오기) | 'paste'(붙여넣기, 기본). 결과는 #wrnResult 카드로 보여 준다(alert 안 씀).
-function applyWrn(txt, keepSel, src) {
+// extra: 실패 카드에 함께 넘길 것(fetchWrn의 retry·back·defKey).
+function applyWrn(txt, keepSel, src, extra) {
   src = src === 'fetch' ? 'fetch' : 'paste';
   const read = wrnReadText(txt);
-  if (read.kind !== 'rows') { showWrnResult({ kind: read.kind, detail: read.detail, src }); return false; }
+  if (read.kind !== 'rows') { showWrnResult({ ...read, ...extra, src }); return false; }
+  // 일부 줄을 못 읽었는데 읽은 줄엔 발효 특보가 없음 → '특보 없음'으로 지도를 비우면 안 된다(못 읽은 줄에 특보가 있을 수 있다)
+  if (read.unread) {
+    const at = (!keepSel || keepSel === '__NOW__') ? (wrnWhen || currentTm()) : keepSel;
+    if (!wrnSummarize(read.rows, at).eff) { showWrnResult({ kind: 'format', partial: true, unread: read.unread, detail: read.sample, ...extra, src }); return false; }
+  }
   // 정상 응답 — 발효 중인 특보가 0건이어도(헤더만 옴) '특보 없음'으로 칠을 비운다.
   // (오류로 끝내면 직전 시각의 특보 색이 새 시각 라벨 아래 그대로 남는다)
   const before = wrnPaintedCount();
@@ -8512,7 +8624,7 @@ function applyWrn(txt, keepSel, src) {
   // keepSel: 목록에서 특정 시각을 골라 '그 시각으로 재요청'한 경우 — 목록은 그대로 두고 그 시각 현황만 다시 칠한다.
   if (!keepSel) buildWrnBulletins();         // 최초 불러오기만 목록을 새로 만든다 (맨 위 '발효 현황'=기본, 아래 발효시각들)
   const sum = showWrnAsOf(keepSel || '__NOW__', src);   // 기본: 지금(또는 고른 시각) 발효 중인 특보 현황
-  showWrnResult({ ...sum, src, cleared: sum.kind === 'none' && !wrnPaintedCount() ? before : 0 });
+  showWrnResult({ ...sum, src, unread: read.unread || 0, sample: read.sample || '', cleared: sum.kind === 'none' && !wrnPaintedCount() ? before : 0 });
   return true;
 }
 // 고른 '발표시각(통보문)' 기준으로 특보를 계산·색칠. 반환: 결과 카드에 쓸 요약(kind:'ok'|'none' …). src: 'fetch'|'paste'
@@ -8538,18 +8650,14 @@ function showWrnAsOf(fc, src) {
   S.wrnOff = S.wrnOff || {};
   // 예비특보는 기본으로 꺼둔다(한 번도 안 건드린 것만).
   for (const r of wrnRows) { const k = wrnKeyOf(r); if (isPre(r.lvl) && S.wrnOff[k] === undefined) S.wrnOff[k] = 1; }
-  const preLabel = (on) => Array.from(new Set(wrnRows.filter((r) => isPre(r.lvl) && (!S.wrnOff[wrnKeyOf(r)]) === on).map((r) => `${r.wrn} ${r.lvl}`)));   // on=true: 켜 둔 예비 / false: 꺼 둔 예비
   const kind = sum.eff ? 'ok' : 'none';
   // 발효 0건(정상) 표시는 상태(S)에 둔다 — 실행 취소·저장/다시 열기에도 목록의 '특보 없음' 카드가 맞게 따라온다.
   if (kind === 'none') S.wrnNone = { at, now: isNow, src: src === 'fetch' ? 'fetch' : 'paste', pre: sum.pre, up: sum.up, rel: sum.rel };
   else delete S.wrnNone;
   buildWrnList();
   paintWrn();
-  const land = Object.keys(S.fillsByStyle.warn || {}).length, sea = Object.keys(S.seaFills || {}).length;
-  return {
-    kind, at, now: isNow, types: sum.types, painted: land + (S.style === 'warnsea' ? sea : 0),
-    pre: preLabel(false), preOn: preLabel(true), up: sum.up, rel: sum.rel, added,
-  };
+  // 칠한 구역 수·바다 구역·꺼 둔 특보·예비 켬/끔은 지금 지도 기준으로 센다(지도 종류를 바꾸거나 눈을 누르면 다시 센다)
+  return { kind, at, now: isNow, types: sum.types, up: sum.up, rel: sum.rel, added, ...wrnPaintStats() };
 }
 // '발효 현황' 드롭다운 항목 라벨 — 날짜·시각을 고르면 그 시각 기준으로 표시.
 function wrnEffLabel() { return wrnWhen ? `${tmShort(wrnWhen)} 발효 현황` : '발효 현황 (지금 유효한 특보)'; }
@@ -8599,12 +8707,11 @@ function paintWrn() {
   const known = new Set(MAP.styles.warn.zones.map((z) => z.id));
   const seaKnown = new Set((MAP.sea || []).map((z) => z.id));
   const best = {}; // id -> 가장 우선순위 높은 특보
-  const unknownId = new Set();
 
   for (const r of wrnRows) {
     if (S.wrnOff[wrnKeyOf(r)]) continue;                 // 목록에서 끈 것
     if (!wrnColorOf(r.wrn, r.lvl)) continue;
-    if (!known.has(r.id) && !seaKnown.has(r.id)) { unknownId.add(r.id); continue; }
+    if (!known.has(r.id) && !seaKnown.has(r.id)) continue;   // 지도에 없는 구역 — wrnPaintStats가 세어 안내한다
     const prev = best[r.id];
     if (!prev || wrnRank(r) < wrnRank(prev)) best[r.id] = r;
   }
@@ -8619,19 +8726,54 @@ function paintWrn() {
   S.fillsByStyle.warnsea = { ...F };
   S.seaFills = SF;
   renderFills(); renderSea(); renderVfBar();   // renderVfBar가 범례까지 재배치 (특보 수 → 제목 바 높이 + 범례)
-
-  const land = Object.keys(F).length, sea = Object.keys(SF).length, n = land + sea;
-  // 특보 지도(육상)에는 바다가 안 보인다 — 바다 구역 수를 섞어 세면 '칠했다는데 안 보인다'가 된다.
+  syncWrnInfo();
+  return Object.keys(F).length + Object.keys(SF).length;
+}
+// 들어온 특보(wrnRows) 중 지금 이 지도에 실제로 칠해진 것을 센다 — 결과 카드·목록 아래 안내가 같은 숫자를 쓰게.
+// 특보 지도(육상)에는 바다가 안 보인다 — 바다 구역 수를 섞어 세면 '칠했다는데 안 보인다'가 되므로 seaHidden으로 따로 센다.
+// 칠이 지워졌으면(특보 색 지우기·손으로 지움) 그 구역은 안 센다.
+function wrnPaintStats() {
+  const known = new Set(MAP.styles.warn.zones.map((z) => z.id));
+  const seaKnown = new Set((MAP.sea || []).map((z) => z.id));
+  const F = (S.fillsByStyle || {}).warn || {}, SF = S.seaFills || {};
+  const off = S.wrnOff || {};
   const seaShown = S.style === 'warnsea';
+  const label = (r) => `${r.wrn || ''} ${r.lvl || ''}`.trim();
+  const uniq = (a) => Array.from(new Set(a));
+  const on = (r) => !off[wrnKeyOf(r)];
+  const eff = wrnRows.filter((r) => !isPre(r.lvl));
+  const land = new Set(), sea = new Set(), seaNames = [], unknown = new Map();
+  for (const r of wrnRows) {
+    if (!on(r) || !wrnColorOf(r.wrn, r.lvl)) continue;
+    if (!known.has(r.id) && !seaKnown.has(r.id)) { unknown.set(r.id, r.ko || r.id); continue; }
+    if (String(r.id).startsWith('S')) { if (SF[r.id]) { sea.add(r.id); seaNames.push(label(r)); } }
+    else if (F[r.id]) land.add(r.id);
+  }
+  const preL = (want) => uniq(wrnRows.filter((r) => isPre(r.lvl) && on(r) === want).map(label));   // true: 켜 둔 예비 / false: 꺼 둔 예비
+  return {
+    painted: land.size + (seaShown ? sea.size : 0),
+    seaHidden: seaShown ? 0 : sea.size,
+    seaNames: uniq(seaNames),
+    seaMap: (MAP.styles.warnsea && MAP.styles.warnsea.label) || '특보 + 해상',
+    landEff: eff.filter((r) => !String(r.id).startsWith('S')).length,
+    unknown: unknown.size, unknownNames: uniq([...unknown.values()]),
+    offNames: uniq(eff.filter((r) => !on(r)).map(label)),
+    offAll: eff.length > 0 && !eff.some(on),
+    onCount: wrnRows.filter(on).length,
+    pre: preL(false), preOn: preL(true),
+  };
+}
+// 목록 아래 한 줄 안내(#wrnInfo) — 몇 구역 칠했는지 · 육상 지도에서 안 보이는 바다 구역 · 지도에 없는 구역
+function syncWrnInfo(st) {
+  const n = $('#wrnInfo'); if (!n) return;
+  st = st || wrnPaintStats();
   const parts = [];
-  const onCount = wrnRows.filter((r) => !S.wrnOff[wrnKeyOf(r)]).length;
-  if (!wrnRows.length || (S.wrnNone && !onCount)) { /* 발효 특보 0건 — 목록 자리의 '특보 없음' 카드가 설명한다 */ }
-  else if (!onCount) parts.push('켜 둔 특보가 없어 칠한 구역이 없어요 — 목록의 눈 아이콘으로 켜세요');
-  else parts.push(`${land + (seaShown ? sea : 0)}개 구역 칠함`);
-  if (!seaShown && sea) parts.push(`바다 특보 ${sea}구역은 ‘${(MAP.styles.warnsea && MAP.styles.warnsea.label) || '특보 + 해상'}’ 지도에서 보여요`);
-  if (unknownId.size) parts.push(`지도에 없는 구역 ${unknownId.size}개`);
-  $('#wrnInfo').textContent = parts.join(' · ');
-  return n;
+  if (!wrnRows.length || (S.wrnNone && !st.onCount)) { /* 발효 특보 0건 — 목록 자리의 '특보 없음' 카드가 설명한다 */ }
+  else if (!st.onCount) parts.push('켜 둔 특보가 없어 칠한 구역이 없어요 — 목록의 눈 아이콘으로 켜세요');
+  else parts.push(`${st.painted}개 구역 칠함`);
+  if (st.seaHidden) parts.push(`바다 특보 ${st.seaHidden}구역은 ‘${st.seaMap}’ 지도에서 보여요`);
+  if (st.unknown) parts.push(`지도에 없는 구역 ${st.unknown}개`);
+  n.textContent = parts.join(' · ');
 }
 
 // 결과 카드·빈 상태 카드 아이콘(흰 선, 바탕색은 CSS 톤) — 이모지 대신 SVG
@@ -8641,18 +8783,17 @@ const WRN_ICON = {
   busy: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="3"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
   info: '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="6.5" r="1.8" fill="currentColor"/><path d="M12 11v7.5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
 };
+WRN_ICON.warn = WRN_ICON.err;   // 확인 필요(주황)도 느낌표 — 바탕색으로 오류(빨강)와 구분
 // 목록 자리의 '발효 중인 특보 없음' 카드 — 정상 안내(파란 정보 톤). info = S.wrnNone
+// 켜 둔 예비특보가 있으면 '비어 있는 게 정상'이라고 하지 않고, 오래된(1시간+) '지금' 결과면 '그때는 없었다'로 쓴다(wrnEmptyView).
 function wrnEmptyCard(info) {
   const d = document.createElement('div');
   d.className = 'wrnEmpty';
   d.innerHTML = `<div class="wrnResIc">${WRN_ICON.info}</div><div style="flex:1;min-width:0"><div class="t"></div><div class="s"></div></div>`;
-  const when = wrnTmText(info.at);
-  d.querySelector('.t').textContent = info.now ? '지금 발효 중인 기상특보가 없습니다' : '이 시각에 발효 중인 기상특보가 없습니다';
-  const sub = [];
-  if (when) sub.push(info.src === 'paste' ? `붙여넣은 특보현황 · ${when} 기준` : info.now ? `기상청 기준 ${when} 확인` : `${when} 기준 발효 현황`);
-  sub.push('칠할 구역이 없어 지도가 비어 있는 게 정상이에요');
-  if (Array.isArray(info.pre) && info.pre.length) sub.push('아래 예비특보는 아직 발효 전이에요');
-  d.querySelector('.s').textContent = sub.join(' · ');
+  const off = S.wrnOff || {};
+  const v = wrnEmptyView(info, { nowTm: currentTm(), preOn: wrnRows.some((r) => isPre(r.lvl) && !off[wrnKeyOf(r)]) });
+  d.querySelector('.t').textContent = v.title;
+  d.querySelector('.s').textContent = v.sub;
   return d;
 }
 
@@ -8721,6 +8862,7 @@ function buildWrnList() {
       pushUndo();
       S.wrnOff[key] = S.wrnOff[key] ? 0 : 1;   // 그려 둔 값(on) 말고 지금 상태를 뒤집는다(실행 취소 뒤 헛클릭 방지)
       buildWrnList(); paintWrn(); renderLegend();   // 범례 자동 모드면 눈 상태에 맞춰 갱신
+      wrnRefreshResult();   // 결과 카드의 '몇 구역 칠함·켜 둔 예비' 숫자도 눈 상태에 맞춘다
     };
     const drag = d.querySelector('.wrnDrag');
     if (drag) {
@@ -9625,8 +9767,11 @@ function buildFctKindBtns() {
 // (옛 작업·남이 준 파일에 남은 주소로 헬퍼·시각(tm)을 건너뛰고 엉뚱한 특보를 받는 일 방지).
 // 불러오기 결과 카드(#wrnResult) — r=null이면 숨김. r: wrnResultView 입력 + retry(다시 시도 함수).
 // 정상(발효 0건 포함)은 초록 체크, 오류는 빨간 느낌표 + 원인별 '할 일' 버튼. 알림(#status)도 같은 톤 점으로 짧게 띄운다.
-function showWrnResult(r) {
+// quiet=true: 카드만 다시 그리고 알림은 안 띄운다(지도 종류 전환·눈 켜고 끄기로 숫자만 다시 맞출 때).
+let wrnResLast = null;   // 지금 카드에 보이는 결과(정상 결과면 숫자를 다시 셀 때 쓴다)
+function showWrnResult(r, quiet) {
   const box = $('#wrnResult'); if (!box) return;
+  wrnResLast = r && r.kind !== 'busy' ? r : null;
   if (!r) { box.hidden = true; box.textContent = ''; delete box.dataset.tone; delete box.dataset.kind; return; }
   const v = wrnResultView({ ...r, desktop: WNS_DESKTOP });
   box.dataset.tone = v.tone; box.dataset.kind = r.kind;
@@ -9642,7 +9787,7 @@ function showWrnResult(r) {
   const run = {
     retry: () => (r.retry ? r.retry() : fetchWrn()),
     helper: () => wnsHelperOffNotice(),
-    helperOld: () => wnsHelperOffNotice('old'),
+    helperOld: () => wnsHelperOffNotice('old', 'kma'),   // 기상청 불러오기가 막힌 상황에 맞는 안내(‘지금도 쓸 수 있어요’ 빼고)
     api: () => apiPop(true),
     open: () => $('#wrnOpen').click(),
   };
@@ -9655,17 +9800,29 @@ function showWrnResult(r) {
   }
   if (!v.actions.length) acts.remove();
   box.hidden = false;
-  status(v.toast, r.kind === 'busy', v.tone === 'busy' ? '' : v.tone);
+  if (!quiet) status(v.toast, r.kind === 'busy', v.tone === 'busy' ? '' : v.tone);
+}
+// 정상 결과 카드의 숫자(칠한 구역·바다 구역·꺼 둔 특보·켜 둔 예비)를 지금 지도·눈 상태로 다시 센다.
+// 특보 ↔ 특보 + 해상 전환이나 목록 눈 켜고 끄기 뒤에 카드와 목록 아래 안내가 서로 다른 숫자를 말하지 않게.
+function wrnRefreshResult() {
+  const r = wrnResLast, box = $('#wrnResult');
+  if (!r || (r.kind !== 'ok' && r.kind !== 'none') || !box || box.hidden) return;
+  showWrnResult({ ...r, ...wrnPaintStats() }, true);
 }
 
 // 반환: 칠했으면(발효 0건 포함) true, 못 불러왔으면 false, 더 새 요청에 밀려 버려졌으면 null.
 // retry: 결과 카드 '다시 시도'가 부를 함수(통보문 목록에서 고른 경우 그 고르기를 다시 하게). 없으면 같은 인자로 다시 부른다.
-async function fetchWrn(keepSel, retry) {
+// opts.back: 실패하면 호출한 쪽이 날짜·시각 표시를 되돌린다 — 되돌린 시각 표시('지금' 또는 'YYYY.MM.DD HH:MM')를 카드에 함께 쓴다.
+async function fetchWrn(keepSel, retry, opts) {
   const again = retry || (() => fetchWrn(keepSel));
-  if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); showWrnResult({ kind: 'key', noKey: true, src: 'fetch', retry: again }); return false; }
+  // 기본 인증키를 쓰는 중인지(API 설정 칸이 비었나) — 인증키·횟수 오류 문구를 나눈다
+  let defKey = false;
+  try { defKey = !(localStorage.getItem(WRN_KEY_STORE) || '').trim(); } catch (e) { /* 저장소를 못 읽으면 개인 키로 본다 */ }
+  const extra = { retry: again, back: (opts && opts.back) || '', defKey };
+  if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); showWrnResult({ kind: 'key', noKey: true, src: 'fetch', ...extra }); return false; }
   const seq = ++wrnFetchSeq;
   const stale = () => seq !== wrnFetchSeq;
-  const fail = (f) => { if (stale()) return null; showWrnResult({ ...f, src: 'fetch', retry: again }); return false; };
+  const fail = (f) => { if (stale()) return null; showWrnResult({ ...f, ...extra, src: 'fetch' }); return false; };
   showWrnResult({ kind: 'busy' });
   // 헬퍼가 떠 있는지 확인 — 꺼져 있으면 카드 + MXF와 같은 친절한 안내 모달
   const hp = await pingHelper();
@@ -9685,8 +9842,8 @@ async function fetchWrn(keepSel, retry) {
   if (stale()) return null;
   $('#wrnPaste').value = t.slice(0, 200000);
   const read = wrnReadText(t);
-  if (read.kind !== 'rows') return fail({ kind: read.kind, detail: read.detail });   // 기상청 오류 문구·빈 응답·형식 이상 — 지도는 그대로
-  return applyWrn(t, keepSel, 'fetch');
+  if (read.kind !== 'rows') return fail(read);   // 기상청 오류 문구·빈 응답·형식 이상(표 형식 바뀜 포함) — 지도는 그대로
+  return applyWrn(t, keepSel, 'fetch', extra);
 }
 
 // 특보 종류별 색 편집 줄
@@ -10066,12 +10223,12 @@ function applyPendingStyle() {
 
 // 평소엔 비어 있고, 알릴 게 있을 때만 잠깐 떴다가 사라진다.
 // hold=true면 다음 알림이 올 때까지 남긴다 (추출 중 같은 진행 표시용)
-// tone: 'ok'(초록 점) | 'err'(빨간 점) — 정상/오류를 글자만이 아니라 색으로도 구분. 안 주면 예전과 똑같다.
+// tone: 'ok'(초록 점) | 'warn'(주황 점, 확인 필요) | 'err'(빨간 점) — 정상/오류를 글자만이 아니라 색으로도 구분. 안 주면 예전과 똑같다.
 let statusT = 0;
 function status(m, hold, tone) {
   const n = $('#status');
   n.textContent = m;
-  if (m && (tone === 'ok' || tone === 'err')) n.dataset.tone = tone; else delete n.dataset.tone;
+  if (m && (tone === 'ok' || tone === 'warn' || tone === 'err')) n.dataset.tone = tone; else delete n.dataset.tone;
   n.style.opacity = m ? '1' : '0';
   clearTimeout(statusT);
   if (m && !hold) statusT = setTimeout(() => { n.style.opacity = '0'; }, 2600);
@@ -11192,23 +11349,36 @@ function updateWnsButtons() {
   g.style.display = (showMxf || showMov) ? '' : 'none';
 }
 // 헬퍼가 꺼져 있을 때 크게 보여주는 안내 (토스 카드)
-function wnsHelperOffNotice(mode) {
-  if (WNS_DESKTOP) {   // 데스크톱 앱: 확장팩이 앱에 내장돼 따로 켤 필요가 없다 → 재시작 안내만
-    const dm = tossModal({
-      title: '내장 기능 확장팩이 응답하지 않아요', sub: '데스크톱 앱 · 기상청 불러오기 · MXF/MOV · AE',
-      accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)',
-      bodyHTML: '데스크톱 앱에는 기능 확장팩이 <b>내장</b>돼 있어서 WNS_START를 따로 켤 필요가 없습니다.<br><br>응답이 없으면 앱을 <b>완전히 닫았다가 다시 실행</b>해 주세요.',
-      footHTML: '<button class="tossBtn ghost" data-ok>닫기</button>',
-    });
+// mode='old': 켜져 있지만 구버전. ctx='kma': 기상청 불러오기가 그 때문에 막힌 상황(결과 카드에서 엶) — '지금도 쓸 수 있어요'라고 하지 않는다.
+function wnsHelperOffNotice(mode, ctx) {
+  const old = mode === 'old';   // old=기능 확장팩이 켜져 있지만 구버전 → '다시 실행'(웹) / '앱 업데이트'(데스크톱) 안내
+  const kma = ctx === 'kma';
+  if (WNS_DESKTOP) {   // 데스크톱 앱: 확장팩이 앱에 내장돼 따로 켤 필요가 없다 → 재시작(꺼짐) / 앱 업데이트(구버전) 안내
+    const dm = tossModal(old
+      ? {
+        title: '앱을 최신 버전으로 업데이트해 주세요', sub: '데스크톱 앱 · 내장 기능 확장팩이 옛 버전',
+        accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)',
+        bodyHTML: `이 데스크톱 앱에 들어 있는 기능 확장팩이 <b>옛 버전</b>이라 ${kma ? '<b>기상청 불러오기</b>가 안 돼요' : '새 기능 일부가 안 될 수 있어요'}.<br><br>`
+          + '<b>최신 설치 파일</b>로 앱을 다시 설치(업데이트)한 뒤 다시 눌러 주세요. 다시 실행만으로는 바뀌지 않아요.'
+          + (kma ? '<br><br>그동안은 특보 칸의 <b>‘기상청 특보현황 새 창으로 열기’</b> → 전체 복사 → 붙여넣기로 칠할 수 있어요.' : ''),
+        footHTML: '<button class="tossBtn ghost" data-ok>닫기</button>',
+      }
+      : {
+        title: '내장 기능 확장팩이 응답하지 않아요', sub: '데스크톱 앱 · 기상청 불러오기 · MXF/MOV · AE',
+        accent: 'linear-gradient(135deg,#FA5A4E,#E5301F)',
+        bodyHTML: '데스크톱 앱에는 기능 확장팩이 <b>내장</b>돼 있어서 WNS_START를 따로 켤 필요가 없습니다.<br><br>응답이 없으면 앱을 <b>완전히 닫았다가 다시 실행</b>해 주세요.',
+        footHTML: '<button class="tossBtn ghost" data-ok>닫기</button>',
+      });
     dm.foot.querySelector('[data-ok]').onclick = dm.close;
     return;
   }
-  const old = mode === 'old';   // old=기능 확장팩이 켜져 있지만 구버전 → '다시 실행' 안내
   const PATH = 'R:\\[F]_Util\\WNS\\자동시작';
   const step = (n, html) => `<div class="tossStep"><span class="n">${n}</span><div>${html}</div></div>`;
   const bodyHTML =
     (old
-      ? '기능 확장팩이 <b>구버전</b>으로 켜져 있어요. 아래대로 <b>다시 실행</b>하면 최신으로 바뀝니다. (지금도 쓸 수는 있어요.)<br><br>'
+      ? (kma
+        ? '기능 확장팩이 <b>구버전</b>이라 <b>기상청 불러오기</b>가 안 돼요. 아래대로 <b>다시 실행</b>하면 최신으로 바뀝니다.<br><br>'
+        : '기능 확장팩이 <b>구버전</b>으로 켜져 있어요. 아래대로 <b>다시 실행</b>하면 최신으로 바뀝니다. (지금도 쓸 수는 있어요.)<br><br>')
       : '<b>기상청 불러오기</b>·<b>MXF/MOV 렌더</b> 같은 자동 기능을 쓰려면 <b>기능 확장팩</b>을 한 번 켜두면 됩니다. 아래 순서대로 하세요.<br><br>')
     + step(1, '아래 <b>[폴더 경로 복사]</b> 버튼을 누르세요.')
     + step(2, '키보드 <b>⊞Win + E</b> 로 <b>내 컴퓨터(파일 탐색기)</b>를 열고, 맨 위 <b>주소칸을 클릭</b>한 뒤 <b>Ctrl+V</b> 붙여넣고 <b>Enter</b>.')
@@ -11839,7 +12009,7 @@ async function sendToAE() {
   const F = fills();
   const warningDefs = aeWarningFillDefs();
   const hasBrush = (typeof brushStrokes === 'function') && brushStrokes().some((s) => !s.erase);   // 브러쉬로만 칠한 경우도 AE 허용(존 클릭 색이 없어도)
-  if (!isTyphoon() && !Object.keys(F).length && !warningDefs.length && !hasBrush) { status('칠한 색이 없습니다 — 먼저 색칠하세요', true); return; }
+  if (!isTyphoon() && !Object.keys(F).length && !warningDefs.length && !hasBrush) { status(wrnNoneLeftMapEmpty() ? wrnNoneEmptyText('보내세요') : '칠한 색이 없습니다 — 먼저 색칠하세요', true); return; }
   const btn = $('#aeSend'); if (btn) btn.disabled = true;
   let cooldown = false;
   try {
@@ -12717,7 +12887,8 @@ function wire() {
       wrnWhen = (v === '__NOW__') ? '' : v;
       reflectWhenToPicker();
       // __NOW__는 목록도 새로, 특정시각은 목록 유지(keepSel). 다시 시도 = 같은 시각을 다시 고르기.
-      const ok = await fetchWrn(v === '__NOW__' ? null : v, () => { bs.value = v; bs.onchange(); });
+      const back = wrnWhen === prevWhen ? '' : prevWhen ? wrnTmText(prevWhen) : '지금';   // 실패하면 아래에서 이 시각으로 되돌린다
+      const ok = await fetchWrn(v === '__NOW__' ? null : v, () => { bs.value = v; bs.onchange(); }, { back });
       if (ok === false) {
         // 못 불러왔으면 지도는 이전 그대로다 — 목록·시각 표시도 지도에 칠해진 시각으로 되돌려 서로 어긋나 보이지 않게
         wrnWhen = prevWhen; reflectWhenToPicker();
@@ -12732,21 +12903,35 @@ function wire() {
   syncKeyWarn();
 
   // 언제 특보 — '지금'이면 tm을 비우고, '지난 날짜'면 그 시각을 넣는다
+  // '발효 현황' 라벨만 새 시각으로 갱신. 실제 색칠은 '기상청에서 불러오기'가 그 시각으로 재요청해 정확히 받아온다.
+  // (한 번 받은 데이터를 다른 시각으로 로컬 재계산하면 열대야 자동해제 등이 안 맞아 틀림 → 재요청이 정답)
+  const syncNowLabel = () => {
+    if (!wrnLoaded) return;   // 한 번 읽었으면(발효 특보 0건이어도) 라벨 갱신
+    const sel = $('#wrnBulletinSel');
+    const opt = sel && [...sel.options].find((o) => o.value === '__NOW__');
+    if (opt) opt.textContent = wrnEffLabel();
+  };
+  // 날짜·시각 칸만 w 시각으로 보여 준다(지도에 칠해진 시각 wrnWhen은 그대로)
+  const showPickerAt = (w) => { const keep = wrnWhen; wrnWhen = w; reflectWhenToPicker(); wrnWhen = keep; };
   const syncWhen = (reapply) => {
+    const prevWhen = wrnWhen;   // 지금 지도에 칠해진 시각
     const past = $('#wrnPastRow').style.display !== 'none';
     $('#wrnWhenNow').classList.toggle('pri', !past);
     $('#wrnWhenPast').classList.toggle('pri', past);
     if (!past) { wrnWhen = ''; }
     else { const d = $('#wrnDate').value, t = $('#wrnTime').value || '00:00'; wrnWhen = d ? d.replace(/-/g, '') + t.replace(':', '') : ''; }
-    // '발효 현황' 라벨만 새 시각으로 갱신. 실제 색칠은 '기상청에서 불러오기'가 그 시각으로 재요청해 정확히 받아온다.
-    // (한 번 받은 데이터를 다른 시각으로 로컬 재계산하면 열대야 자동해제 등이 안 맞아 틀림 → 재요청이 정답)
-    if (wrnLoaded) {   // 한 번 읽었으면(발효 특보 0건이어도) 라벨 갱신
-      const sel = $('#wrnBulletinSel');
-      const opt = sel && [...sel.options].find((o) => o.value === '__NOW__');
-      if (opt) opt.textContent = wrnEffLabel();
-    }
+    syncNowLabel();
     // reapply=true면 그 시각으로 바로 재요청(picker 조작 시 사용자가 기대하는 동작).
-    if (reapply && wrnLoaded) fetchWrn();
+    if (reapply && wrnLoaded) {
+      const want = wrnWhen;
+      // 못 불러오면 지도는 이전 시각 그대로다 — 통보문 고르기처럼 '지금/지난 날짜'·날짜 칸·'발효 현황' 라벨도 지도 시각으로 되돌린다.
+      // 다시 시도 = 고르려던 시각을 칸에 다시 채우고 같은 동작 반복.
+      const back = want === prevWhen ? '' : prevWhen ? wrnTmText(prevWhen) : '지금';   // 같은 시각을 다시 부른 거면 되돌릴 게 없다
+      fetchWrn(null, () => { showPickerAt(want); syncWhen(true); }, { back }).then((ok) => {
+        if (ok !== false || wrnWhen !== want) return;   // 칠했거나, 그새 다른 시각을 골랐으면 그대로
+        wrnWhen = prevWhen; reflectWhenToPicker(); syncNowLabel();
+      });
+    }
   };
   $('#wrnWhenNow').onclick = () => { $('#wrnPastRow').style.display = 'none'; syncWhen(true); };
   $('#wrnWhenPast').onclick = () => {
@@ -13375,7 +13560,7 @@ function autoTracks() {
   for (const m of (S.mtns || [])) if (!m.off) push('mtn', m.id, startForFill(m.col), ANIM_FILL_LEN);
   // 제목 텍스트: 트랙 없음 -> 애니메이션 없이 계속 보인다. 경계선도 처음부터 그대로.
 
-  if (!tracks.length) { status('칠한 색도 라벨도 없습니다 — 먼저 CG를 만드세요', true); return; }
+  if (!tracks.length) { status(wrnNoneLeftMapEmpty() ? wrnNoneEmptyText('애니메이션을 만드세요') : '칠한 색도 라벨도 없습니다 — 먼저 CG를 만드세요', true); return; }
   pushUndo();
   A.tracks = tracks;
   const end = Math.max(...tracks.map((x) => x.start + x.len));
