@@ -14,6 +14,8 @@ const { spawn, execFile } = require('child_process');
 // WCG_APP_DIR: 다른 폴더(작업트리 등)의 웹앱을 띄울 때. WCG_TEST=1: 자동 점검용(창 안 보임·헬퍼 안 켬·단일 인스턴스 해제·임시 사용자 폴더)
 const APP_DIR = process.env.WCG_APP_DIR ? path.resolve(process.env.WCG_APP_DIR) : path.resolve(__dirname, '..');
 const TEST_MODE = process.env.WCG_TEST === '1';
+// 점검 모드에서만: 창 크기 지정(WCG_TEST_SIZE=1100x800) — 좁은 창 화면 점검용
+const TEST_SIZE = TEST_MODE ? /^(\d{3,4})x(\d{3,4})$/.exec(process.env.WCG_TEST_SIZE || '') : null;
 if (TEST_MODE) app.setPath('userData', path.join(require('os').tmpdir(), 'wcg-test-' + process.pid));
 const APP_HOST = 'weathercg';
 const APP_ORIGIN = `app://${APP_HOST}`;
@@ -127,10 +129,17 @@ function stopOwnExternalHelper() {
 }
 
 // ---------- 창 ----------
+// 창 제목표시줄 = 웹앱 맨 위 제목줄(#titlebar). 윈도 기본 제목줄은 숨기고 최소화·최대화·닫기 버튼만
+// 오른쪽 끝에 겹쳐 그린다(titleBarOverlay). 높이는 index.html 의 --tbH(36px)와 반드시 같게.
+// 색은 웹앱이 테마(밝기)에 맞춰 wcgDesktop.setTitleBar 로 다시 맞춘다 — 아래 값은 어두운 테마 기본.
+const TITLEBAR_H = 36;
+const TITLEBAR_DARK = { color: '#0f0f0f', symbolColor: '#f1f1f1' };
 function createWindow() {
   win = new BrowserWindow({
-    width: 1600, height: 1000, minWidth: 1100, minHeight: 700,
+    width: TEST_SIZE ? +TEST_SIZE[1] : 1600, height: TEST_SIZE ? +TEST_SIZE[2] : 1000,
+    minWidth: TEST_SIZE ? 400 : 1100, minHeight: TEST_SIZE ? 300 : 700,
     backgroundColor: '#0f0f0f', title: '날씨 CG', icon: path.join(APP_DIR, 'icon.ico'),
+    titleBarStyle: 'hidden', titleBarOverlay: { ...TITLEBAR_DARK, height: TITLEBAR_H },
     autoHideMenuBar: true, show: false, paintWhenInitiallyHidden: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -140,6 +149,7 @@ function createWindow() {
     },
   });
   win.once('ready-to-show', () => { if (TEST_MODE) return; win.maximize(); win.show(); });   // 점검 모드는 화면에 안 띄움
+  win.on('page-title-updated', (e) => e.preventDefault());   // 작업표시줄·Alt+Tab 창 이름은 늘 '날씨 CG' (웹 <title>로 안 바뀌게)
   // 외부 링크(기상청·JTWC 등)는 기본 브라우저로
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) { shell.openExternal(url); return { action: 'deny' }; }
@@ -148,7 +158,32 @@ function createWindow() {
   win.webContents.on('will-navigate', (e, url) => {
     if (!url.startsWith(APP_ORIGIN)) { e.preventDefault(); if (/^https?:/i.test(url)) shell.openExternal(url); }
   });
+  // 보기 단축키를 페이지 키 입력 단계에서 직접 처리 — 제목줄을 숨기면(titleBarStyle:'hidden') 메뉴바가 없는 창이 되므로
+  // 메뉴 단축키에만 기대지 않는다. preventDefault 하면 메뉴 단축키는 안 불려서 두 번 실행되지 않는다(Electron 문서).
+  win.webContents.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown') return;
+    const act = viewActionFor(input);
+    if (!act) return;
+    e.preventDefault();
+    if (!input.isAutoRepeat) act();   // 꾹 누르고 있어도 한 번만
+  });
   win.loadURL(`${APP_ORIGIN}/index.html`);
+}
+
+// 보기 동작 — 메뉴(단축키 표시)와 위의 키 입력 처리가 같은 함수를 쓴다.
+const VIEW = {
+  reload: () => win && win.webContents.reload(),
+  hardReload: () => win && win.webContents.reloadIgnoringCache(),
+  devtools: () => win && win.webContents.toggleDevTools(),
+  fullscreen: () => win && win.setFullScreen(!win.isFullScreen()),
+};
+function viewActionFor(input) {
+  // 한글 입력 상태에선 key 가 'ㄱ' 등이 되므로 물리 키(code)도 본다
+  const ctrl = input.control || input.meta, k = String(input.key || '').toLowerCase(), c = input.code;
+  if (ctrl && !input.alt && (k === 'r' || c === 'KeyR')) return input.shift ? VIEW.hardReload : VIEW.reload;
+  if (input.key === 'F12' || (ctrl && input.shift && (k === 'i' || c === 'KeyI'))) return VIEW.devtools;
+  if (input.key === 'F11') return VIEW.fullscreen;
+  return null;
 }
 
 // 최소 메뉴 — 기본 Edit 메뉴(실행취소 등)는 Ctrl+Z를 가로채 앱의 되돌리기를 막으므로 넣지 않는다.
@@ -156,18 +191,25 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([{
     label: '보기',
     submenu: [
-      { label: '새로고침', accelerator: 'CmdOrCtrl+R', click: () => win && win.webContents.reload() },
-      { label: '캐시 무시 새로고침', accelerator: 'CmdOrCtrl+Shift+R', click: () => win && win.webContents.reloadIgnoringCache() },
-      { label: '개발자 도구', accelerator: 'F12', click: () => win && win.webContents.toggleDevTools() },
-      { label: '개발자 도구', accelerator: 'CmdOrCtrl+Shift+I', visible: false, click: () => win && win.webContents.toggleDevTools() },
+      { label: '새로고침', accelerator: 'CmdOrCtrl+R', click: VIEW.reload },
+      { label: '캐시 무시 새로고침', accelerator: 'CmdOrCtrl+Shift+R', click: VIEW.hardReload },
+      { label: '개발자 도구', accelerator: 'F12', click: VIEW.devtools },
+      { label: '개발자 도구', accelerator: 'CmdOrCtrl+Shift+I', visible: false, click: VIEW.devtools },
       { type: 'separator' },
-      { label: '전체 화면', accelerator: 'F11', click: () => win && win.setFullScreen(!win.isFullScreen()) },
+      { label: '전체 화면', accelerator: 'F11', click: VIEW.fullscreen },
     ],
   }]));
 }
 
 // preload가 동기로 물어본다 — 페이지 스크립트가 시작하기 전에 헬퍼 주소가 정해져 있어야 함
 ipcMain.on('wcg:helper', (e) => { e.returnValue = { url: helperUrl, kind: helperKind, ver: HELPER_VER }; });
+// 밝기(테마)가 바뀌면 창 버튼(최소화·최대화·닫기) 바탕·기호 색도 제목줄에 맞춘다. 색은 #hex 만 받는다.
+const HEX = /^#[0-9a-f]{3,8}$/i;
+ipcMain.on('wcg:titlebar', (e, o) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || !o || !HEX.test(o.color) || !HEX.test(o.symbolColor)) return;
+  try { w.setTitleBarOverlay({ color: o.color, symbolColor: o.symbolColor, height: TITLEBAR_H }); } catch (err) { /* 오버레이 없는 창 */ }
+});
 
 // 렌더 성능 — GPU 블록리스트 때문에 가속이 꺼지는 PC에서도 GPU 래스터를 쓰게
 app.commandLine.appendSwitch('ignore-gpu-blocklist');

@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
   helperKind: helper.kind,     // 'embedded' | 'external'
   platform: process.platform,
   versions: { electron: process.versions.electron, chrome: process.versions.chrome },
+  // 창 버튼(최소화·최대화·닫기) 색을 앱 제목줄 색에 맞춘다 — { color: '#hex', symbolColor: '#hex' }
+  setTitleBar: (o) => { try { ipcRenderer.send('wcg:titlebar', { color: String(o && o.color || ''), symbolColor: String(o && o.symbolColor || '') }); } catch (e) {} },
 });
