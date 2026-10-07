@@ -24,7 +24,8 @@ const LAD = process.env.LOCALAPPDATA || app.getPath('temp');
 const exists = (p) => { try { return !!p && fs.existsSync(p); } catch (e) { return false; } };
 // 도구 위치 — desktop\helper 에 넣어 두면 그걸 우선(나중에 설치판에 번들), 없으면 기존 위치
 const FFMPEG = [path.join(__dirname, 'helper', 'ffmpeg.exe'), path.join(LAD, 'WNS_Helper', 'ffmpeg.exe'), 'R:\\[F]_Util\\WNS\\ffmpeg.exe'].find(exists) || 'ffmpeg';
-const FONT_DIRS = [path.join(__dirname, 'helper', 'fonts'), 'R:\\[F]_Util\\WNS\\fonts'].filter(exists);
+// SUITE 폰트 폴더 후보(helper.py 와 같은 목록) — 있는지는 AE 보낼 때 비동기로 본다(네트워크 경로로 시작이 멈추지 않게)
+const FONT_DIRS = require('./wns/find-tools').defaultFontsCandidates(__dirname);
 const FRAMES_DIR = path.join(LAD, 'WeatherCG', 'frames');
 // Python 헬퍼(대체용) 원본/실행 위치 — WNS_START.bat과 같은 방식
 const EXT_SRC_DIRS = [path.join(__dirname, 'helper'), 'R:\\[F]_Util\\WNS'];

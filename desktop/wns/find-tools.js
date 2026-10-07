@@ -16,8 +16,15 @@ function defaultFfmpegCandidates(desktopDir = path.resolve(__dirname, '..')) {
   ].filter(Boolean);
 }
 
+// SUITE 폰트 폴더 후보 — helper.py suite_font_dirs 와 같은 순서(desktop\helper 가 헬퍼 exe 옆 자리). R: 드라이브 = \\10.10.105.25\cg
 function defaultFontsCandidates(desktopDir = path.resolve(__dirname, '..')) {
-  return [path.join(desktopDir, 'helper', 'fonts'), 'R:\\[F]_Util\\WNS\\fonts'];
+  const la = process.env.LOCALAPPDATA;
+  return [
+    path.join(desktopDir, 'helper', 'fonts'),
+    la ? path.join(la, 'WNS_Helper', 'fonts') : null,
+    'R:\\[F]_Util\\WNS\\fonts',
+    '\\\\10.10.105.25\\cg\\[F]_Util\\WNS\\fonts',
+  ].filter(Boolean);
 }
 
 // 환경변수 읽기(윈도는 이름 대소문자 무시)

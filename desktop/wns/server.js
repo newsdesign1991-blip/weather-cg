@@ -2,13 +2,14 @@
 // WNS 헬퍼(R:\[F]_Util\WNS\_src\helper.py)의 HTTP 서버를 Node로 옮긴 내장판 — 데스크톱(Electron) 메인 프로세스 안에서 돈다.
 // 웹판은 기존 파이썬 헬퍼를 계속 쓰므로 응답 형식·상태코드·에러 문구·ffmpeg 인자를 파이썬과 똑같이 맞춘다.
 // 파이썬 흉내 부품: pyfmt(int/repr/str), pyjson(json.loads·utf-8 디코드 오류 문구), pyurl(urllib·parse_qs·프록시).
-// 일부러 다르게 둔 곳(보안): 점만으로 된 sid 거부, aePath 는 AfterFX.exe 로컬 파일만 인정.
+// 보안 규칙(출처 검사·본문 상한·점 sid 거부·aePath 는 로컬 AfterFX.exe 만)도 helper.py 와 같다.
 // API:
 //   GET  /ping                         -> {"ok":true,"ff":bool,"ver":N,"embedded":true}
 //   GET  /api/kma?u=<url>              -> 기상청/공공데이터 프록시(텍스트)
-//   POST /api/frame?sid=&index=&ext=   -> 프레임 저장 (index=0 이면 세션 리셋)
-//   POST /api/finalize {sid,mode,tail} -> ffmpeg 인코딩 → 파일 바이트 응답
-//   POST /api/ae {sid,aePath,...}      -> jsx 만들고 AfterFX -r 로 실행
+//   POST /api/frame?sid=&index=&ext=   -> 프레임 저장 (index=0 이면 세션 리셋 + 오래된 세션 폴더 정리), 본문 256MB까지
+//   POST /api/finalize {sid,mode,tail} -> ffmpeg 인코딩 → 파일 바이트 응답, 본문 16MB까지
+//   POST /api/ae {sid,aePath,...}      -> jsx 만들고 AfterFX -r 로 실행 → {"ok":true,"ae":..,"fontsOk":bool}, 본문 16MB까지
+// 출처(Origin): 없음=허용('*'), GitHub Pages·app://weathercg·localhost/127.0.0.1/[::1]=허용(반사+Vary), 'null'=GET만, 그 밖 403(CORS 헤더 없음).
 // 외부 npm 패키지 없이 Node 내장 모듈만 쓴다.
 const http = require('http');
 const fs = require('fs');
@@ -22,7 +23,7 @@ const PJ = require('./pyjson');
 const PU = require('./pyurl');
 const T = require('./find-tools');
 
-const HELPER_VER = 20260828;   // helper.py 의 HELPER_VER 과 맞춘다
+const HELPER_VER = 20261007;   // helper.py 의 HELPER_VER 과 맞춘다
 const FPS = '30000/1001';      // 29.97 방송 표준
 const PY_UA = 'Python-urllib/3.13';   // data.go.kr WAF가 다른 UA를 403으로 막음 → 파이썬 기본 UA 그대로
 
@@ -32,6 +33,29 @@ const CORS = [
   ['Access-Control-Allow-Headers', 'Content-Type'],
   ['Access-Control-Max-Age', '86400'],
 ];
+// 허용 출처 — GitHub Pages 배포판, 데스크톱 앱, 로컬 개발 서버(localhost·127.0.0.1·[::1], 포트 무관)
+const ALLOWED_ORIGINS = ['https://newsdesign1991-blip.github.io', 'app://weathercg'];
+const LOCAL_ORIGIN = /^(?:https?:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/\[::1\])(?::[0-9]{1,5})?$/;
+// 본문 상한(Content-Length 기준) — 넘으면 본문을 읽지 않고 413
+const BODY_MAX = new Map([['/api/frame', 256 * 1024 * 1024], ['/api/finalize', 16 * 1024 * 1024], ['/api/ae', 16 * 1024 * 1024]]);
+const REASONS = { 413: 'Content Too Large' };   // 파이썬 3.13 http.server 문구와 같게
+
+// 요청 출처 → 응답 CORS 헤더(없음='*', 허용=그 출처 반사+Vary), 거부면 null. 'null'(file://)은 GET만
+function corsFor(origin, method) {
+  if (origin === null || origin === undefined) return CORS;
+  if (origin === 'null' && method !== 'GET') return null;
+  if (origin === 'null' || ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN.test(origin)) {
+    return [['Access-Control-Allow-Origin', origin], ['Vary', 'Origin']].concat(CORS.slice(1));
+  }
+  return null;
+}
+
+// 같은 이름 헤더가 여럿이면 첫 값(파이썬 headers.get 처럼, Node 의 ', ' 합치기 대신)
+function firstHeader(req, name) {
+  const rh = req.rawHeaders;
+  for (let i = 0; i < rh.length; i += 2) if (rh[i].toLowerCase() === name) return rh[i + 1];
+  return null;
+}
 
 // ── 파이썬 동작 흉내 도우미 ──
 
@@ -102,9 +126,10 @@ function safe(s) {
   }
   return kept.slice(0, 80).join('') || 's';
 }
-// 보안: '.', '..' 같은 sid 는 FRAMES 밖(상위 폴더)을 가리킨다 → 파이썬은 그 폴더를 rmtree 하지만 여기선 거부
+// 보안: '.', '..' 같은 sid 는 FRAMES 자신이나 상위 폴더를 가리킨다 → 거부(helper.py bad_sid 와 같음)
+const badSid = (sid) => /^\.+$/.test(sid);
 function checkSid(sid) {
-  if (/^\.+$/.test(sid)) { const e = new Error('잘못된 sid'); e.httpStatus = 400; throw e; }
+  if (badSid(sid)) { const e = new Error('잘못된 sid'); e.httpStatus = 400; throw e; }
   return sid;
 }
 
@@ -115,14 +140,7 @@ function pyLoadsObj(buf) {
   return obj;
 }
 
-// `v and os.path.exists(v)` — 파이썬은 str 외에 정수(fd)도 받고, list/dict/float 은 TypeError
-function pyTruthyExists(v) {
-  if (!P.truthy(v)) return false;
-  if (typeof v === 'string') { try { return fs.existsSync(v); } catch (e) { return false; } }
-  if (typeof v === 'boolean' || (typeof v === 'number' && pyTypeName(v) === 'int')) return false;   // fd 검사 — 창 없는 헬퍼에선 거짓
-  throw pyErr('TypeError', '_path_exists: path should be string, bytes, os.PathLike or integer, not ' + pyTypeName(v));
-}
-// 보안: 앱이 넘긴 aePath 는 로컬의 AfterFX.exe 파일만 인정(아무 웹페이지나 POST 로 임의 실행파일을 띄우지 못하게)
+// 보안: 앱이 넘긴 aePath 는 로컬의 AfterFX.exe 파일만 인정(UNC 는 존재 확인도 안 함, 문자열 아니면 무시) — helper.py is_afterfx_exe
 function isAfterFxExe(p) {
   if (typeof p !== 'string' || /^[\\/]{2}/.test(p)) return false;
   if (ntBasename(p).toLowerCase() !== 'afterfx.exe') return false;
@@ -131,11 +149,12 @@ function isAfterFxExe(p) {
 
 const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch (e) { return false; } };
 
-// shutil.rmtree(d, ignore_errors=True) — 실패한 항목은 건너뛰고 나머지는 계속 지운다
+// shutil.rmtree(d, ignore_errors=True) — 실패한 항목은 건너뛰고 나머지는 계속 지운다. 링크(정션)·파일 자체는 지우지 않음(파이썬처럼)
 async function rmTree(d) {
+  try { const st = await fsp.lstat(d); if (st.isSymbolicLink() || !st.isDirectory()) return; } catch (e) { return; }
   let ents;
   try { ents = await fsp.readdir(d, { withFileTypes: true }); } catch (e) {
-    try { await fsp.unlink(d); } catch (_) { /* 무시 */ }
+    try { await fsp.rmdir(d); } catch (_) { /* 무시 */ }
     return;
   }
   for (const ent of ents) {
@@ -144,6 +163,20 @@ async function rmTree(d) {
     else { try { await fsp.unlink(p); } catch (e) { try { await fsp.rmdir(p); } catch (_) { /* 무시 */ } } }
   }
   try { await fsp.rmdir(d); } catch (e) { /* 무시 */ }
+}
+
+// 오래된 세션 폴더 정리 — 'ae…'(AE 보내기 이미지)는 14일, 그 밖(wns·mov 등 렌더 세션)은 1일 지난 것. keep 은 건드리지 않음(helper.py prune_frames)
+const PRUNE_AE_DAYS = 14, PRUNE_OTHER_DAYS = 1;
+async function pruneFrames(dir, keep = null, now = Date.now()) {
+  let names;
+  try { names = await fsp.readdir(dir); } catch (e) { return; }
+  for (const nm of names) {
+    if (nm === keep) continue;
+    let st;
+    try { st = await fsp.lstat(path.join(dir, nm)); } catch (e) { continue; }
+    if (st.isSymbolicLink() || !st.isDirectory()) continue;
+    if (now - st.mtimeMs > (nm.startsWith('ae') ? PRUNE_AE_DAYS : PRUNE_OTHER_DAYS) * 86400000) await rmTree(path.join(dir, nm));
+  }
 }
 
 // ntpath.join(a, *p) — 정규화하지 않는다(레지스트리 값 문자열을 파이썬과 같게)
@@ -298,7 +331,7 @@ const SUITE_FONTS = [
   ['SUITE-Heavy.otf', 'SUITE Heavy (OpenType)'],
 ];
 const FONTS_REG_KEY = 'HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts';
-const DEFAULT_FONTS_DIRS = ['R:\\[F]_Util\\WNS\\fonts'];
+const DEFAULT_FONTS_DIRS = T.defaultFontsCandidates();   // helper.py suite_font_dirs 와 같은 순서
 
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -334,7 +367,14 @@ function broadcastFontChange(timeoutMs = 15000) {
   return runCapture('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], timeoutMs).catch(() => null);
 }
 
-// fontsDirs 에서 SUITE 7종을 찾아 사용자 폰트 폴더로 복사 + HKCU 등록. 7종 모두 처리되면 true.
+// 원본 찾기 — 앞 후보에 있으면 뒤(네트워크 경로)는 보지 않고, 비동기라 네트워크가 느려도 창이 멈추지 않는다
+async function firstExisting(paths) {
+  for (const p of paths) { try { await fsp.access(p); return p; } catch (e) { /* 다음 후보 */ } }
+  return null;
+}
+
+// fontsDirs 에서 SUITE 7종(SUITE-*.otf 만 — WantedSans 가변폰트는 AE 폰트스캔을 멈추게 해서 절대 설치 안 함)을 찾아
+// 사용자 폰트 폴더로 복사 + HKCU 등록. 7종 모두 처리되면 true(→ /api/ae 의 fontsOk).
 // o.targetDir / o.register:false / o.broadcast(false|함수) / o.regQuery·o.regSet(가짜 레지스트리) / o.localAppData 는 테스트용
 async function ensureSuiteFonts(fontsDirs = DEFAULT_FONTS_DIRS, o = {}) {
   try {
@@ -345,7 +385,7 @@ async function ensureSuiteFonts(fontsDirs = DEFAULT_FONTS_DIRS, o = {}) {
     await fsp.mkdir(fontsDir, { recursive: true });
     let newly = false, installed = 0;
     for (const [filename, regName] of SUITE_FONTS) {
-      const src = (fontsDirs || []).map((d) => ntJoin(d, filename)).find((p) => fs.existsSync(p));
+      const src = await firstExisting((fontsDirs || []).map((d) => ntJoin(d, filename)));
       if (!src) continue;
       const dst = ntJoin(fontsDir, filename);
       if (!fs.existsSync(dst)) {
@@ -412,13 +452,26 @@ function createWnsServer(opts = {}) {
   function send(res, code, obj, ctype = 'application/json; charset=utf-8', body = null) {
     if (res.headersSent || res.destroyed) return;
     if (obj !== undefined && obj !== null) body = Buffer.from(pyDumps(obj), 'utf8');
-    for (const [k, v] of CORS) res.setHeader(k, v);
+    for (const [k, v] of (res.wnsCors || CORS)) res.setHeader(k, v);
     if (body !== null && body !== undefined) {
       res.setHeader('Content-Type', ctype);
       res.setHeader('Content-Length', String(body.length));
     }
-    res.writeHead(code);
+    res.writeHead(code, REASONS[code]);
     res.end(body !== null && body !== undefined ? body : undefined);
+  }
+
+  // 출처 검사 — 거부면 CORS 헤더 없이 403 을 보내고 false. 본문은 읽지 않고 연결을 끊는다(파이썬은 HTTP/1.0 이라 늘 끊음)
+  function originOk(req, res) {
+    const c = corsFor(firstHeader(req, 'origin'), req.method);
+    if (!c) {
+      res.wnsCors = [];
+      res.setHeader('Connection', 'close');
+      send(res, 403, { ok: false, error: '허용되지 않은 출처' });
+      return false;
+    }
+    res.wnsCors = c;
+    return true;
   }
 
   // send_error(code, message, explain) — 상태줄 사유 문구도 message, 연결은 닫는다
@@ -463,6 +516,12 @@ function createWnsServer(opts = {}) {
 
   async function doPost(req, res, p, query) {
     try {
+      const lim = BODY_MAX.get(p);
+      if (lim !== undefined && Number(req.headers['content-length'] || 0) > lim) {
+        res.setHeader('Connection', 'close');   // 본문은 읽지 않고 끊는다
+        return send(res, 413, { ok: false, error: '요청이 너무 큽니다' });
+      }
+
       if (p === '/api/frame') {
         const q = PU.parseQs(query);
         const sid = safe((q.sid || ['s'])[0]);
@@ -470,7 +529,10 @@ function createWnsServer(opts = {}) {
         let ext = (q.ext || ['png'])[0].toLowerCase();
         if (ext !== 'png' && ext !== 'jpg') ext = 'png';
         const d = path.join(cfg.framesDir, checkSid(sid));
-        if (idx === 0n && isDir(d)) await rmTree(d);
+        if (idx === 0n) {
+          await pruneFrames(cfg.framesDir, sid);   // 새 세션 시작 — 오래된 세션 폴더 정리(지금 sid 는 제외)
+          if (isDir(d)) await rmTree(d);
+        }
         await fsp.mkdir(d, { recursive: true });
         await pipeline(req, fs.createWriteStream(path.join(d, 'f_' + fmt05(idx) + '.' + ext)));   // 큰 본문도 스트리밍 저장
         return send(res, 200, { ok: true });
@@ -478,8 +540,11 @@ function createWnsServer(opts = {}) {
 
       if (p === '/api/finalize') {
         const obj = pyLoadsObj(await readBody(req));
-        if (!ffExists()) return send(res, 500, { ok: false, error: 'ffmpeg.exe 없음 (헬퍼 옆에 두세요)' });
         const sid = safe(P.or(obj.sid, 's'));
+        if (!ffExists()) {
+          if (!badSid(sid)) await rmTree(path.join(cfg.framesDir, sid));   // 인코딩을 못 해도 올라온 프레임은 지운다
+          return send(res, 500, { ok: false, error: 'ffmpeg.exe 없음 (헬퍼 옆에 두세요)' });
+        }
         const modeV = P.or(obj.mode, 'mxf');
         if (typeof modeV !== 'string') throw pyErr('AttributeError', "'" + pyTypeName(modeV) + "' object has no attribute 'lower'");
         const mode = modeV.toLowerCase();
@@ -500,7 +565,7 @@ function createWnsServer(opts = {}) {
           return send(res, 500, { ok: false, error: 'ffmpeg 실패\n' + tailErr });
         }
         const st = await fsp.stat(out);
-        for (const [k, v] of CORS) res.setHeader(k, v);
+        for (const [k, v] of (res.wnsCors || CORS)) res.setHeader(k, v);
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Content-Length', String(st.size));
         res.writeHead(200);
@@ -520,12 +585,10 @@ function createWnsServer(opts = {}) {
         if (!isDir(d) || !(await fsp.readdir(d)).length) {
           return send(res, 400, { ok: false, error: '레이어 이미지가 없습니다 (먼저 전송하세요)' });
         }
-        // AE 선택: (1) 앱이 고른 경로 → (2) 실행 중인 AE → (3) 설치 1개 → (4) 여러 개면 앱에 선택 요청
+        // AE 선택: (1) 앱이 고른 경로(aePath — 로컬 AfterFX.exe 만) → (2) 실행 중인 AE → (3) 설치 1개 → (4) 여러 개면 앱에 선택 요청
         let afx = null;
         const aePath = obj.aePath;
-        // 문자열이면 AfterFX.exe 로컬 파일인지만 본다(UNC 는 존재 확인도 안 함). 그 밖의 타입은 파이썬처럼(list/dict/float → TypeError)
-        const useGiven = typeof aePath === 'string' ? isAfterFxExe(aePath) : pyTruthyExists(aePath);
-        if (useGiven) {
+        if (isAfterFxExe(aePath)) {
           afx = aePath;
         } else {
           afx = await cfg.findRunningAfterFx();
@@ -536,13 +599,13 @@ function createWnsServer(opts = {}) {
             else return send(res, 200, { ok: false, choose: true, versions: vers });
           }
         }
-        // Wanted 가변폰트는 설치 안 함(AE 폰트스캔 멈춤 원인). SUITE만.
-        if (cfg.fontsInstall) await cfg.ensureSuiteFonts(cfg.fontsDirs);
+        // Wanted 가변폰트는 설치 안 함(AE 폰트스캔 멈춤 원인). SUITE만 — 결과는 fontsOk 로 앱에 알림
+        const fontsOk = cfg.fontsInstall ? !!(await cfg.ensureSuiteFonts(cfg.fontsDirs)) : false;
         const build = cfg.buildAeJsx || require('./ae-jsx').buildAeJsx;
         const jsx = String(await build(obj, d));
         const jsxpath = path.join(d, '_import.jsx');
         await fsp.writeFile(jsxpath, jsx.replace(/\n/g, '\r\n'), 'utf8');   // 파이썬 텍스트 모드 쓰기(\n → \r\n)
-        if (cfg.aeDryRun) return send(res, 200, { ok: true, ae: 'dry-run', jsx: jsxpath, afx });
+        if (cfg.aeDryRun) return send(res, 200, { ok: true, ae: 'dry-run', jsx: jsxpath, afx, fontsOk });
         // AfterFX -r <script> : AE가 켜져 있으면 그 인스턴스에서, 아니면 새로 켜서 실행
         if (cfg.spawnAe) await cfg.spawnAe(afx, ['-r', jsxpath]);   // 테스트용 가짜 실행
         else await new Promise((resolve, reject) => {
@@ -550,7 +613,7 @@ function createWnsServer(opts = {}) {
           cp.once('error', reject);
           cp.once('spawn', () => { cp.unref(); resolve(); });
         });
-        return send(res, 200, { ok: true, ae: ntBasename(ntDirname(ntDirname(afx))) });
+        return send(res, 200, { ok: true, ae: ntBasename(ntDirname(ntDirname(afx))), fontsOk });
       }
 
       req.resume();
@@ -571,11 +634,12 @@ function createWnsServer(opts = {}) {
       if (rh[i].length + 2 + rh[i + 1].length + 2 > 65536) { req.resume(); return sendError(req, res, 431, 'Line too long', 'got more than 65536 bytes when reading header line'); }
     }
     if (rh.length / 2 + 1 > 100) { req.resume(); return sendError(req, res, 431, 'Too many headers', 'got more than 100 headers'); }
-    if (req.method === 'OPTIONS') { req.resume(); return send(res, 204); }
+    if (req.method === 'OPTIONS') { req.resume(); return originOk(req, res) ? send(res, 204) : undefined; }
     if (req.method !== 'GET' && req.method !== 'POST') {
       req.resume();
       return sendError(req, res, 501, 'Unsupported method (' + P.pyRepr(req.method) + ')', 'Server does not support this operation');
     }
+    if (!originOk(req, res)) return undefined;   // 파이썬 do_GET/do_POST 첫 줄과 같은 순서(주소 해석 전)
     // urlparse(self.path) — http.server 는 앞의 // 를 / 하나로. 파싱 오류(예: Invalid IPv6 URL)면 응답 없이 연결을 끊는다
     let target = String(req.url || '');
     if (target.startsWith('//')) target = '/' + target.replace(/^\/+/, '');
@@ -601,12 +665,17 @@ function createWnsServer(opts = {}) {
   srv.requestTimeout = 0;   // 큰 업로드·긴 인코딩도 끊지 않음(파이썬 헬퍼도 제한 없음)
 
   let boundPort = null;
+  let pruned = Promise.resolve();
   return {
     listen(port = 3720, host = '127.0.0.1') {
       return new Promise((resolve, reject) => {
         try { fs.mkdirSync(cfg.framesDir, { recursive: true }); } catch (e) { /* 저장 시 다시 만든다 */ }
         const onErr = (e) => { srv.removeListener('listening', onOk); reject(e); };
-        const onOk = () => { srv.removeListener('error', onErr); boundPort = srv.address().port; resolve(boundPort); };
+        const onOk = () => {
+          srv.removeListener('error', onErr); boundPort = srv.address().port;
+          pruned = pruneFrames(cfg.framesDir).catch(() => {});   // 시작 때 오래된 세션 폴더 정리(기다리지 않고 바로 응답)
+          resolve(boundPort);
+        };
         srv.once('error', onErr);
         srv.once('listening', onOk);
         srv.listen(port, host);
@@ -620,6 +689,7 @@ function createWnsServer(opts = {}) {
       });
     },
     get port() { return boundPort; },
+    get pruned() { return pruned; },   // 시작 정리가 끝나면 풀리는 약속(테스트용)
     server: srv,
     config: cfg,
   };
@@ -629,5 +699,6 @@ module.exports = {
   createWnsServer,
   mxfArgs, movArgs, safe, afxName, listAfterFx, findRunningAfterFx, ensureSuiteFonts,
   urlopen, decodeKmaBody, kmaHostOk, pyParseQs, pyDumps, rmTree, ntJoin, resolveFfmpeg, parseRegQuery,
-  HELPER_VER, FPS, CORS, SUITE_FONTS, PY_UA,
+  corsFor, isAfterFxExe, pruneFrames,
+  HELPER_VER, FPS, CORS, SUITE_FONTS, PY_UA, ALLOWED_ORIGINS, BODY_MAX, DEFAULT_FONTS_DIRS,
 };
