@@ -113,8 +113,16 @@ test('P1/P4: 라인 모드·선 색/굵기·아이콘 크기는 F5/지도 전환
   assert.equal(ctx.S.typhoon.trackMode, 'full'); assert.equal(ctx.S.typhoon.lineWidth, 9.5);
 });
 
-test('P1: 옛 저장본 보강은 옛 기본 iconScale(0.75)일 때만 1.75로 바꾸고 사용자 값은 보존', () => {
-  assert.match(html, /legacyLineDefaults && \+S\.typhoon\.iconScale === 0\.75\) S\.typhoon\.iconScale = 1\.75/);
+test('P1: 라인 모드 전 저장본(배포값 0.7)은 새 아이콘 크기로 보강, 라인 모드 이후 저장본의 값은 보존', () => {
+  const ctx = sandbox(['TYPHOON_DEFAULTS', 'typhoonStyleDefaults', 'initTyphoonData'], { S: {} });
+  ctx.window.WCG_DEFAULTS = { typhoonStyle: { iconScale: 0.7 } };   // 지금 배포 기본값(lineWidth 없음)
+  ctx.S.typhoon = { issues: [{ points: [] }], sel: 0, iconScale: 0.7 };
+  ctx.initTyphoonData();
+  assert.equal(ctx.S.typhoon.iconScale, 1.75);
+  assert.equal(ctx.S.typhoon.lineWidth, 9.5);
+  ctx.S.typhoon = { issues: [{ points: [] }], sel: 0, iconScale: 1.2, lineWidth: 6 };
+  ctx.initTyphoonData();
+  assert.equal(ctx.S.typhoon.iconScale, 1.2);
 });
 
 test('C79/C80/C81/C83/P5: 라인 모드 범례·아이콘·재생 범위, JMA 현재 라벨, 클립 1회 설정', () => {
@@ -139,4 +147,7 @@ test('C78: VF 크기 축소 공간에서 3D 투영 — 투영/역투영이 서�
   const k = 0.86, ax = 1800, ay = 100, V = (x, y) => [ax + (x - ax) * k, ay + (y - ay) * k];
   const scr = V(p[0], p[1]), warp = ctx._camProjectRaw(...V(900, 600));
   assert.ok(Math.abs(scr[0] - warp[0]) < 1e-6 && Math.abs(scr[1] - warp[1]) < 1e-6);
+  // 미리보기 지도 래스터도 VF 크기가 바뀌면 다시 굽는다(사인에 k 포함, 슬라이더·그립에서 applyTilt)
+  assert.match(html, /\(_camVfScale\(\) \|\| \{\}\)\.k \|\| 1/);
+  assert.equal((html.match(/camTiltOn\(\)\) \{ renderTyphoon\(\); applyTilt\(\); \}/g) || []).length, 2);
 });

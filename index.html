@@ -3716,7 +3716,7 @@ function startVfScaleResize(e) {
       const nx = vx * start + dx, ny = vy * start + dy;
       setVfScale((nx * vx + ny * vy) / denom * 100);
       renderVfScale();
-      if (isTyphoon() && camTiltOn()) renderTyphoon();   // 3D 회전 중이면 라벨 투영도 VF 크기에 맞춰 갱신
+      if (isTyphoon() && camTiltOn()) { renderTyphoon(); applyTilt(); }   // 3D 회전 중이면 라벨 투영·지도 래스터도 VF 크기에 맞춰 갱신
     }, () => syncPanelFromState());
   });
 }
@@ -4517,7 +4517,8 @@ function initTyphoonData() {
   if (S.typhoon && S.typhoon.issues && S.typhoon.issues.length) {
     const legacyLineDefaults = S.typhoon.lineWidth == null;
     for (const k in DEF) if (S.typhoon[k] == null) S.typhoon[k] = DEF[k];   // 옛 데이터에 스타일 기본값 보강
-    if (legacyLineDefaults && +S.typhoon.iconScale === 0.75) S.typhoon.iconScale = 1.75;   // 라인 모드 도입 전 저장본: 옛 기본값(0.75)일 때만 새 기본 크기로 보강(사용자가 바꾼 값은 보존)
+    // 라인 모드 도입 전 저장본은 새 아이콘 기본 크기로 한 번 보강 — 그때 iconScale은 부팅마다 배포값(0.7 등)으로 덮여 사용자 값이 아니었다.
+    if (legacyLineDefaults) S.typhoon.iconScale = DEF.iconScale;
     if (!S.typhoon.places) S.typhoon.places = [];   // 지명표시(옛 저장 보강)
     return;
   }
@@ -7094,7 +7095,7 @@ function applyTilt() {
   updateCamCanvasTransform();
   // 지도 내용(S.map)이나 재생 프레임(animT)이 바뀔 때만 다시 래스터. 회전만 바뀌면 CSS transform만 갱신(부드럽게).
   // 드래그 중(',d')엔 저해상으로 굽고, 놓으면 사인이 바뀌어 고해상으로 다시 굽는다.
-  const sig = Math.round(S.map.x) + ',' + Math.round(S.map.y) + ',' + (+S.map.s).toFixed(4) + (animT != null ? ',' + animT.toFixed(2) : '') + (_camDragging ? ',d' : '');
+  const sig = Math.round(S.map.x) + ',' + Math.round(S.map.y) + ',' + (+S.map.s).toFixed(4) + ',' + ((_camVfScale() || {}).k || 1) + (animT != null ? ',' + animT.toFixed(2) : '') + (_camDragging ? ',d' : '');   // VF 전체 크기도 래스터에 들어가므로 사인에 포함
   if (sig !== _tiltRasterSig) { _tiltRasterSig = sig; if (!_camRasterBusy) rasterTiltCanvas(cv); }
 }
 // 틸트 미리보기 캔버스 재래스터 — 동시 1개만(coalesce). 드래그 중엔 저해상(0.5)으로 가볍게, 놓으면 고해상.
@@ -11788,7 +11789,7 @@ function wire() {
     setVfScale(e.target.value);
     $('#vfScaleV').textContent = S.vfScale + '%';
     renderVfScale();
-    if (isTyphoon() && camTiltOn()) renderTyphoon();   // 3D 회전 중이면 라벨·지시선·지명 투영이 VF 크기에 따라 바뀜
+    if (isTyphoon() && camTiltOn()) { renderTyphoon(); applyTilt(); }   // 3D 회전 중이면 라벨·지시선·지명 투영과 지도 래스터가 VF 크기에 따라 바뀜
   };
   // 노말 VF 제목 바 컨트롤
   $('#vfBarOn').onchange = (e) => { pushUndo(); (S.vfBar ||= {x:1140,y:150,w:640,h:110}).on = e.target.checked ? 1 : 0; renderVfBar(); };
