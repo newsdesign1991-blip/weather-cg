@@ -31,9 +31,10 @@
 <script src="font-data.js"></script>
 <style id="fontEmbed"></style>
 <script>try { document.getElementById('fontEmbed').textContent = (window.WANTED_FONT_CSS || '').replace('font-display:block', 'font-display:swap'); } catch (e) {}</script>
-<!-- 편집기 UI 글꼴 Pretendard(무료 OFL) — 쓰는 글자 조각만 받는 CDN. 오프라인이면 --ui-font 다음 순서(Segoe UI + 맑은 고딕)로 보인다. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<!-- 편집기 UI 글꼴 Pretendard(무료 OFL, FontNew/Pretendard-LICENSE.txt) — 앱에 직접 넣어 오프라인·첫 실행에도 바로 나온다 -->
+<link rel="preload" href="FontNew/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  @font-face { font-family: 'Pretendard Variable'; font-style: normal; font-display: swap; font-weight: 45 920; src: url('FontNew/PretendardVariable.woff2') format('woff2-variations'), url('FontNew/PretendardVariable.woff2') format('woff2'); }
   /* CG 출력 전용 글꼴. 편집기 UI는 아래 --ui-font(Pretendard)를 쓴다. */
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 300; src: url('FontNew/SUITE-Light.otf') format('opentype'); }
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 400; src: url('FontNew/SUITE-Regular.otf') format('opentype'); }
@@ -129,7 +130,7 @@
 
   /* html까지 overflow:hidden — 어떤 자식이 넘쳐도 문서 자체가 스크롤돼 앱이 위로 밀리지 않게 */
   html, body { height: 100%; margin: 0; overflow: hidden; }
-  /* 편집기 UI 글꼴 — Pretendard. 못 받으면 Segoe UI + 맑은 고딕(윈도), 맥은 시스템 글꼴 */
+  /* 편집기 UI 글꼴 — 앱에 넣은 Pretendard. 파일을 못 읽으면 Segoe UI + 맑은 고딕(윈도), 맥은 시스템 글꼴 */
   :root { --ui-font: 'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif; }
   body {
     font-family: var(--ui-font);

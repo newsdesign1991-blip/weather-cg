@@ -130,7 +130,10 @@ test('CG uses local SUITE weights while editor UI uses Pretendard', () => {
   const bodyRule = html.match(/^\s*body\s*\{[^}]*\}/m)?.[0] || '';
   assert.match(bodyRule, /font-family:\s*var\(--ui-font\)/);
   assert.match(html, /--ui-font:\s*'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic'/);
-  assert.match(html, /<link rel="stylesheet" href="https:\/\/cdn\.jsdelivr\.net\/gh\/orioncactus\/pretendard@v[\d.]+\/dist\/web\/variable\/pretendardvariable-dynamic-subset\.min\.css">/);
+  // Pretendard는 앱에 내장(CDN 안 씀) — 파일과 @font-face가 있어야 한다
+  assert.match(html, /@font-face\s*\{[^}]*font-family:\s*'Pretendard Variable'[^}]*FontNew\/PretendardVariable\.woff2/);
+  assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/orioncactus\/pretendard/);
+  assert.ok(fs.statSync('FontNew/PretendardVariable.woff2').size > 1e6);
   // UI 쪽에 Wanted Sans 직접 지정이 남지 않게(비교 이름표 CG 글꼴 선택지 CMP_FONTS는 예외)
   assert.doesNotMatch(html.replace(/const CMP_FONTS = [^\n]*/, ''), /font(-family)?:[^;}\n]*'Wanted Sans Variable'/);
   assert.match(html, /'font-family':\s*'"SUITE CG"/);
