@@ -398,7 +398,7 @@ test('결과 카드 숫자는 지도 전환·눈 켜고 끄기 뒤 다시 센다
   assert.match(show, /helperOld: \(\) => wnsHelperOffNotice\('old', 'kma'\)/);
   assert.match(show, /if \(!quiet\) status\(/);
   assert.match(show, /function wrnRefreshResult\(\) \{[\s\S]*?showWrnResult\(\{ \.\.\.r, \.\.\.wrnPaintStats\(\) \}, true\);/);
-  const notice = sliceBetween('function wnsHelperOffNotice(mode, ctx) {', '// 기능 확장팩 버튼(렌치)');
+  const notice = sliceBetween('function wnsHelperOffNotice(mode, ctx) {', 'async function showHelperStatus() {');   // 렌치가 설정 메뉴로 바뀌며 사이 주석이 바뀜 — 다음 함수 머리로 자른다
   // 데스크톱 구버전 = 앱 업데이트(재실행 안내 아님), 웹 구버전 + 기상청 = '지금도 쓸 수 있어요' 빼기
   assert.match(notice, /if \(WNS_DESKTOP\) \{[\s\S]*?old\s*\? \{\s*title: '앱을 최신 버전으로 업데이트해 주세요'/);
   assert.match(notice, /kma\s*\? '기능 확장팩이 <b>구버전<\/b>이라 <b>기상청 불러오기<\/b>가 안 돼요/);
