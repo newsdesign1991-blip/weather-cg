@@ -503,8 +503,11 @@
      #cg의 오버레이(제목·범례)는 그대로 위에 남는다. */
   #camCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; transform-origin: center center; }
   /* 3D 회전된 캔버스는 overflow로는 안 잘린다 → clip-path로 프레임(1920×1080)에 확실히 클립(추출과 동일하게).
+     클립은 캔버스 래퍼(#camClip)에만 건다 — .fit에 걸면 아트보드 밖(right:-48px)의 자물쇠·지도배경 버튼까지 잘려 사라진다.
      회전 시 지도 밖(먼 거리·모서리)은 바다색으로 채운다(투명 방지). 근처는 확장 렌더한 실제 지도가 덮는다. */
-  .fit.mapTilt { overflow: hidden; clip-path: inset(0); background: #0e2a4e; }   /* 바다 그라디언트 북쪽색 — 기울일 때 지도 밖으로 이어져 이음새 안 보임 */
+  #camClip { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  .fit.mapTilt #camClip { overflow: hidden; clip-path: inset(0); }
+  .fit.mapTilt { background: #0e2a4e; }   /* 바다 그라디언트 북쪽색 — 기울일 때 지도 밖으로 이어져 이음새 안 보임 */
   /* 1920×1080 프레임 경계 가이드 — 영상 추출(집중) 모드에서만. 추출물엔 안 나감(DOM 오버레이). */
   #frameGuide { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: none; box-sizing: border-box; border: 2px solid rgba(90,200,255,.9); }
   .app.tlFocus #frameGuide { display: block; }
@@ -2143,7 +2146,7 @@
       <button data-mt="nationwide" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#2b4a6e,#1c3350)"></span>전국 지도</button>
       <button data-mt="seoul" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a8a,#2b7a5b)"></span>서울 지도</button>
     </div>
-    <canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas>
+    <div id="camClip"><canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas></div>
     <svg id="cg" class="paintmode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
       <defs>
         <style id="fontStyle"></style>
@@ -2688,6 +2691,7 @@ function placeBrushImg(space, c) {
 }
 // 전체 다시 그리기 (되돌리기·불러오기·지우기·지도종류 바뀜 후)
 function renderBrush() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const all = brushStrokes();
   for (const space of brushSpaceKeys()) {
     const strokes = all.filter((s) => (s.space || 'main') === space);
@@ -2893,10 +2897,21 @@ function pushUndo(tag) {
   redoStack.length = 0;
   updateUndoBtns();
 }
+// 지도 내용 리비전 — 틸트 미리보기 캔버스가 칠·태풍·되돌리기 같은 '내용' 변경도 다시 굽게 서명에 넣는다
+let _mapContentRev = 0, _tiltContentTimer = 0;
+// 지도 레이어를 다시 그렸다 — 리비전을 올리고, 기울인 미리보기 중이면 잠깐 뒤 한 번 다시 굽는다(연속 변경은 1회로 묶음)
+function bumpMapContent() {
+  _mapContentRev++;
+  if (!document.querySelector('.fit.mapTilt')) return;
+  clearTimeout(_tiltContentTimer);
+  _tiltContentTimer = setTimeout(() => { if (typeof applyTilt === 'function') applyTilt(); }, 60);
+}
 function applyState(next) {
   const styleChanged = S.style !== next.style;
   const resChanged = S.res !== next.res;
   S = next; normStyle(); sel = []; lastTag = '';
+  // 타임라인이 닫혀 있으면 편집은 평면 — 타임라인에서 기울인 채 쌓인 기록을 되돌려도 틸트로 돌아가지 않게
+  if (!$('#timeline')?.classList.contains('on') && S.map3d && (+S.map3d.rx || +S.map3d.ry || +S.map3d.rz)) S.map3d = { on: 0, rx: 0, ry: 0, rz: 0, persp: S.map3d.persp || 2.2 };
   if (styleChanged) { buildZones(); markStyleBtns(); }
   buildBgBtns();   // 배경 목록은 해상도·교체 배경마다 다르다(VF 배경은 VF에서만)
   syncPanelFromState(); renderAll(); updateUndoBtns();
@@ -2905,6 +2920,7 @@ function applyState(next) {
     if (typeof tlNote === 'function') tlNote();
     updateFrameGuideLabel();
   }
+  if (typeof applyTilt === 'function') applyTilt();   // 되돌린 S.map3d·내용에 맞춰 틸트 클래스·캔버스도 갱신
 }
 // 불러오기·새로 시작 경계 스냅샷에 저장 대상 파일(projFileHandle) 전/후를 붙여 둔다 — 되돌리면 파일도 같이 되돌려
 // 불러온 파일 B를 옛 작업 A로 묻지 않고 덮어쓰지 않게.
@@ -3032,25 +3048,43 @@ function syncSeoulPaintTop() {
 
 // 자동 색칠 사이드바 표시: 기상특보 색칠은 특보용 지도(특보구역·특보+해상)에서만,
 // 기상예보 색칠은 예보용 지도(시도군·시도)에서만 — 그 지도에서만 실제로 쓰므로 헷갈리지 않게 숨긴다.
-function updateAutoPaintSecs() {
+// 지도 종류에 따라 숨길 카드인가 — updateAutoPaintSecs·renderSea와 창 닫기·도킹·기본 배치가 같은 기준을 쓴다.
+function secModeHidden(s) {
   const isWarn = S.style === 'warn' || S.style === 'warnsea';
   const isFct = S.style === 'sgg' || S.style === 'sido';
+  const isTy = isTyphoon(), isTyCmp = isTyphoonCompare();
+  switch (s) {
+    case 'wrn': return !isWarn;
+    case 'fct': return !isFct;
+    case 'legend': return !((isWarn || isTy) && !isTyCmp);   // 범례 탭: 특보용·단일 태풍. 비교 지도에선 숨김(각 태풍 탭 안에 범례 토글)
+    case 'label': return isTyCmp;                             // 기본 수치라벨 탭: 비교 지도에선 숨김(각 태풍 탭 안에 수치라벨)
+    case 'typhoon': case 'typhoonPlaces': return !(isTy && !isTyCmp);   // 단일 태풍 메뉴·지명표시는 단일 태풍 지도에서만
+    case 'typhoonCompare': return !isTyCmp;
+    case 'mtn': return isTy;                                  // 태풍 지도에선 산 표시 메뉴 숨김
+    case 'sea': return !(MAP.styles[S.style] && MAP.styles[S.style].sea);
+  }
+  return false;
+}
+// 카드 표시값 — 지도 종류로 숨김이거나, 떼어낸 창의 비활성 탭이면 'none'(창 탭이 겹쳐 보이지 않게)
+function secDisplay(s, n) {
+  if (secModeHidden(s)) return 'none';
+  const win = n && n.closest('.win');
+  if (win) { const on = win.querySelector('.wintab.on'); if (on && on.dataset.sec !== s) return 'none'; }
+  return '';
+}
+function updateAutoPaintSecs() {
   const isTy = isTyphoon();
-  const w = $('[data-sec="wrn"]'); if (w) w.style.display = isWarn ? '' : 'none';
-  const f = $('[data-sec="fct"]'); if (f) f.style.display = isFct ? '' : 'none';
   const isTyCmp = isTyphoonCompare();
-  const lg = $('[data-sec="legend"]'); if (lg) lg.style.display = ((isWarn || isTy) && !isTyCmp) ? '' : 'none';   // 범례 탭: 특보용·단일 태풍. 비교 지도에선 숨김(각 태풍 탭 안에 범례 토글)
-  const lb = $('[data-sec="label"]'); if (lb) lb.style.display = isTyCmp ? 'none' : '';   // 기본 수치라벨 탭: 비교 지도에선 숨김(각 태풍 탭 안에 수치라벨)
-  const ty = $('[data-sec="typhoon"]'); if (ty) ty.style.display = (isTy && !isTyCmp) ? '' : 'none';   // 단일 태풍 메뉴는 비교 지도에선 숨김
-  const tp = $('[data-sec="typhoonPlaces"]'); if (tp) tp.style.display = (isTy && !isTyCmp) ? '' : 'none';   // 지명표시: 단일 태풍 지도에서만
-  const tyc = $('[data-sec="typhoonCompare"]'); if (tyc) tyc.style.display = isTyCmp ? '' : 'none';
+  // 카드 노드만(.sec) — 창 탭(.wintab)도 data-sec를 가져서 그냥 [data-sec]로 찾으면 탭을 집는다
+  const secEl = (s) => document.querySelector(`.sec[data-sec="${s}"]`);
+  for (const s of ['wrn', 'fct', 'legend', 'label', 'typhoon', 'typhoonPlaces', 'typhoonCompare']) { const n = secEl(s); if (n) n.style.display = secDisplay(s, n); }
   if (!isTyCmp) { const panel = document.querySelector('#panel'); if (panel) panel.querySelectorAll('.sec[data-cmpsec]').forEach((n) => n.remove()); if (typeof clearRefImgLayer === 'function') clearRefImgLayer(); }   // 비교 지도 벗어나면 동적 태풍 탭·참고이미지 제거
-  const mt = $('[data-sec="mtn"]'); if (mt) mt.style.display = isTy ? 'none' : '';   // 태풍 지도에선 산 표시 메뉴 숨김
+  { const n = secEl('mtn'); if (n) n.style.display = secDisplay('mtn', n); }
   // 지도 위치·수치 라벨 섹션: 태풍이면 한국용 감추고 태풍용 컨트롤을 보인다 (컨트롤 자체를 옮겨 담았다)
   const swap = (secSel, korSel, tySel) => { const s = $(secSel); if (!s) return; s.querySelectorAll(korSel).forEach((k) => k.style.display = isTy ? 'none' : ''); s.querySelectorAll(tySel).forEach((t) => t.style.display = isTy ? '' : 'none'); };
-  swap('[data-sec="map"]', '.korMap', '.tyMap');
-  swap('[data-sec="label"]', '.korLabel', '.tyLabel');
-  swap('[data-sec="legend"]', '.lgWarnOnly', '.lgTyOnly');   // 범례: 특보용 목록 ↔ 태풍 강도/반경 선택 목록
+  swap('.sec[data-sec="map"]', '.korMap', '.tyMap');
+  swap('.sec[data-sec="label"]', '.korLabel', '.tyLabel');
+  swap('.sec[data-sec="legend"]', '.lgWarnOnly', '.lgTyOnly');   // 범례: 특보용 목록 ↔ 태풍 강도/반경 선택 목록
   if (isTy) { buildTyphoonPanel(); buildTyphoonLegendList(); }
   if (isTy && !isTyCmp) buildTyphoonPlacesPanel();   // 지명표시 목록/입력 배선
   if (isTyCmp) buildCompareSection();
@@ -3224,10 +3258,12 @@ function renderMapTransform() {
     const gx = clamp(S.map.x + h * 0.62 * S.map.s, 22, 1898);
     const gy = clamp(S.map.y + h * S.map.s, 22, 1058);
     g.setAttribute('transform', `translate(${gx} ${gy})`);
-    g.style.display = mode === 'move' ? '' : 'none';
+    g.style.display = (mode === 'move' && !S.mapLock) ? '' : 'none';   // 잠금 중엔 크기 핸들도 숨김
   }
   // 지도에 고정된 산은 지도가 옮겨가거나 커지면 같이 따라가야 한다
   if (S.mtns && S.mtns.some((m) => m.anchor)) renderMtns();
+  // 해상 구역(#seaT)은 #mapT 밖이라 따로 맞춘다(카메라·Alt 팬/줌·휠 경로 포함) — 페이드 마스크·선 굵기도 함께
+  if (MAP.styles[S.style] && MAP.styles[S.style].sea) renderSea();
   // 태풍 경로/반경/라벨도 경위도 기준이라 지도 이동·확대에 따라와야 한다
   if (typeof isTyphoon === 'function' && isTyphoon()) renderTyphoon();
   if (typeof syncMapPosUI === 'function') syncMapPosUI();   // 좌표 숫자 표시 항상 최신
@@ -3241,7 +3277,7 @@ function syncMapPosUI() {
   const btn = document.getElementById('mapLockBtn'); if (btn) { btn.classList.toggle('locked', !!S.mapLock); btn.title = S.mapLock ? '지도 잠김 — 눌러서 해제' : '지도 잠금 — 눌러서 잠그기'; }
 }
 // 지도 잠금 켜고/끄기(패널 체크박스·아트보드 자물쇠 버튼 공용).
-function setMapLock(v) { S.mapLock = v ? 1 : 0; syncMapPosUI(); status(S.mapLock ? '지도 잠금 켜짐 — 팬·줌·방향키 차단' : '지도 잠금 해제', true); }
+function setMapLock(v) { S.mapLock = v ? 1 : 0; syncMapPosUI(); { const g = $('#mapGrip'); if (g) g.style.display = (mode === 'move' && !S.mapLock) ? '' : 'none'; } status(S.mapLock ? '지도 잠금 켜짐 — 팬·줌·방향키 차단' : '지도 잠금 해제', true); }
 // 지도 위치 좌표 입력/복사/잠금 배선(1회).
 function wireMapPos() {
   const apply = () => {
@@ -3396,6 +3432,7 @@ function wireBasemap() {
 }
 
 function renderInsets() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   // '특보 + 해상' 지도는 도서 박스를 안 쓴다 — 섬이 전부 제자리에 있으므로 박스·핸들을 숨긴다
   const off = !!curStyle().noInsets;
   for (const key of Object.keys(S.insets)) {
@@ -3442,6 +3479,7 @@ function renderInsets() {
 }
 
 function renderFills() {
+  bumpMapContent();
   const F = fills();
   for (const [id, arr] of zoneEls) {
     const filled = !!F[id];
@@ -3517,6 +3555,7 @@ function renderZoneLines() {
 
 // 해상 특보구역. '특보 + 해상' 지도에서만 나온다. 안 칠한 구역은 기본 농도만큼만 비친다.
 function renderSea() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const on = !!curStyle().sea;
   $('#L_sea').style.display = on ? '' : 'none';
   // 가장자리 페이드 — 캔버스가 아니라 '바다 영역 자체'의 좌·우·하단에서 사라지게 한다.
@@ -3535,7 +3574,7 @@ function renderSea() {
     $('#seaFadeV1').setAttribute('offset', 1 - f);
     $('#L_sea').setAttribute('mask', 'url(#seaMask)');
   } else $('#L_sea').removeAttribute('mask');
-  $('[data-sec="sea"]').style.display = on ? '' : 'none';
+  { const n = document.querySelector('.sec[data-sec="sea"]'); if (n) n.style.display = secDisplay('sea', n); }   // 창 비활성 탭이면 숨김 유지
   if (!on) { for (const p of document.querySelectorAll('#seaT .sea')) p.setAttribute('pointer-events', 'none'); return; }
   $('#seaT').setAttribute('transform', `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`);
   for (const p of document.querySelectorAll('#seaT .sea')) {
@@ -3551,6 +3590,7 @@ function renderSea() {
 
 // 시도 경계선은 채운 조각들 위에 덧그린다 (같은 그룹 안에 있어야 인셋 transform을 따라감)
 function renderSidoLines() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const put = (node, sc) => {
     node.setAttribute('fill', 'none');
     node.setAttribute('stroke', S.sidoOn ? S.sidoCol : 'none');
@@ -3580,6 +3620,7 @@ function bgTypeOf() {
 function bgKey() { const t = bgTypeOf(); return S.cgLight ? (BG_LIGHT[t] || t) : t; }
 
 function renderBg() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const typh = isTyphoon();   // 태풍 지도는 한국 배경/이웃나라 대신 광역 바다·해안선을 쓴다
   const bg = $('#bgImg');
   const src = (bgUseFile && bgOverride) || IMG[bgKey()] || IMG.bg;
@@ -3793,6 +3834,7 @@ function applyVfClip() {
 }
 
 function renderShadow() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const s = S.shadow;
   const fx = $('#shadowFx');
   fx.setAttribute('dx', s.x); fx.setAttribute('dy', s.y);
@@ -4360,6 +4402,7 @@ const newMtn = (o) => Object.assign({
 }, o);
 
 function renderMtns() {
+  bumpMapContent();   // 틸트 미리보기 캔버스도 다시 굽게
   const L = $('#L_mtn');
   L.textContent = '';
   const k = mtnK();
@@ -4428,6 +4471,7 @@ function renderSel() {
 }
 
 function renderAll() {
+  bumpMapContent();
   renderBg(); renderShadow(); renderMapTransform(); renderInsets();
   renderBrush(); renderTexts(); renderLegend(); renderLabels(); renderMtns(); renderTyphoon(); renderSel(); renderVfScale();
 }
@@ -5024,6 +5068,13 @@ function shiftCompareLabelsBy(tx, ty, r) {
   const imgs = (S.typhoon && (S.typhoon.refImgs || (S.typhoon.refImg ? [S.typhoon.refImg] : []))) || [];   // 참고 이미지(기준점 포함) 모두 지도와 함께 이동·확대(정렬 유지)
   for (const ri of imgs) { ri.x = Math.round(tx + ri.x * r); ri.y = Math.round(ty + ri.y * r); ri.w = Math.round(ri.w * r); ri.h = Math.round(ri.h * r); if (ri.px != null) { ri.px = Math.round(tx + ri.px * r); ri.py = Math.round(ty + ri.py * r); } }
 }
+// 지도 이동·확대량만큼 태풍 라벨·비교 라벨·참고 이미지를 같이 옮긴다(평면 태풍 지도 — 틸트는 빌보드라 제외).
+// Alt 팬/줌·휠·이동 모드 드래그·방향키가 모두 이걸 써서 '지도에 붙은 채' 결과가 같다.
+function shiftMapAttached(tx, ty, r) {
+  if (!isTyphoon() || camActive3d()) return;
+  for (const b of labelList()) if (b && b.x != null) { b.x = Math.round(tx + b.x * r); b.y = Math.round(ty + b.y * r); }
+  shiftCompareLabelsBy(tx, ty, r);
+}
 // 비교 예보선들을 그린다(비교 지도 전용). 얇은 색선 + 솎은 작은 아이콘(아이콘 표시 토글·날짜범위 반영).
 // 비교 예보 아이콘을 어느 지점에 찍을지 index 집합. iconMode: 'even'(등간격 약10개)|'all'(실제 날짜별=전 지점)|'daily'(하루 하나).
 function compareIconIdxSet(c, cpts) {
@@ -5486,6 +5537,7 @@ function typhoonLandNoKorea() {
 }
 let _inTyphoonRender = false;
 function renderTyphoon() {
+  bumpMapContent();
   _inTyphoonRender = true;
   try { _renderTyphoon(); } finally { _inTyphoonRender = false; }
 }
@@ -7178,10 +7230,11 @@ function applyTilt() {
   if (cg) cg.style.transform = '';                 // 전체 SVG는 절대 안 기울인다
   fit.classList.toggle('mapTilt', on);
   if (typeof updatePlaceMarkers === 'function') updatePlaceMarkers();   // 지명표시를 현재 틸트/회전에 맞춤(토글·각도변경 포함)
-  if (!on) { fit.style.perspective = ''; if (cv) { cv.style.display = 'none'; cv.style.transform = ''; cv.style.maskImage = cv.style.webkitMaskImage = ''; } _tiltRasterSig = null; return; }
+  const pv = document.querySelector('#camClip') || fit;   // 원근은 캔버스의 부모(클립 래퍼)에 건다
+  if (!on) { pv.style.perspective = ''; if (cv) { cv.style.display = 'none'; cv.style.transform = ''; cv.style.maskImage = cv.style.webkitMaskImage = ''; } _tiltRasterSig = null; return; }
   const P = (m.persp == null ? 2.2 : +m.persp) * (cg ? cg.clientWidth || 1920 : 1920);
-  fit.style.perspective = P + 'px';
-  fit.style.perspectiveOrigin = 'center center';
+  pv.style.perspective = P + 'px';
+  pv.style.perspectiveOrigin = 'center center';
   if (!cv) return;
   cv.style.display = '';
   // 캔버스를 프레임보다 크게(중앙 정렬) — 밖의 여백(블리드)이 기울임·축소 때 채워지게. clip-path가 프레임으로 자른다.
@@ -7193,9 +7246,9 @@ function applyTilt() {
     cv.style.webkitMaskImage = cv.style.maskImage = g;
     cv.style.webkitMaskComposite = 'source-in'; cv.style.maskComposite = 'intersect'; }
   updateCamCanvasTransform();
-  // 지도 내용(S.map)이나 재생 프레임(animT)이 바뀔 때만 다시 래스터. 회전만 바뀌면 CSS transform만 갱신(부드럽게).
+  // 지도 위치(S.map)·재생 프레임(animT)·내용 리비전(칠·태풍·되돌리기)이 바뀔 때만 다시 래스터. 회전만 바뀌면 CSS transform만 갱신(부드럽게).
   // 드래그 중(',d')엔 저해상으로 굽고, 놓으면 사인이 바뀌어 고해상으로 다시 굽는다.
-  const sig = Math.round(S.map.x) + ',' + Math.round(S.map.y) + ',' + (+S.map.s).toFixed(4) + ',' + ((_camVfScale() || {}).k || 1) + (animT != null ? ',' + animT.toFixed(2) : '') + (_camDragging ? ',d' : '');   // VF 전체 크기도 래스터에 들어가므로 사인에 포함
+  const sig = Math.round(S.map.x) + ',' + Math.round(S.map.y) + ',' + (+S.map.s).toFixed(4) + ',' + ((_camVfScale() || {}).k || 1) + (animT != null ? ',' + animT.toFixed(2) : '') + (_camDragging ? ',d' : '') + ',' + _mapContentRev;   // VF 전체 크기·지도 내용 리비전도 래스터에 들어가므로 사인에 포함
   if (sig !== _tiltRasterSig) { _tiltRasterSig = sig; if (!_camRasterBusy) rasterTiltCanvas(cv); }
 }
 // 틸트 미리보기 캔버스 재래스터 — 동시 1개만(coalesce). 드래그 중엔 저해상(0.5)으로 가볍게, 놓으면 고해상.
@@ -7215,32 +7268,11 @@ function rasterTiltCanvas(cv) {
 }
 function zoomFit() { view.z = 1; view.x = 0; view.y = 0; applyView(); }
 
-// passive:false 라야 preventDefault가 먹는다 -> 크롬 기본 Ctrl+휠 확대도 같이 막힌다
-stage.addEventListener('wheel', (e) => {
-  e.preventDefault();
-
-  const r = fit.getBoundingClientRect();
-  const nz = clamp(view.z * (e.deltaY < 0 ? 1.12 : 1 / 1.12), 0.25, 12);
-  // .fit의 레이아웃 원점 (transform 적용 전 위치)
-  const Lx = r.left - view.x, Ly = r.top - view.y;
-  // 커서 아래의 지점이 그대로 있도록 translate를 다시 계산
-  const px = (e.clientX - r.left) / view.z, py = (e.clientY - r.top) / view.z;
-  view.x = e.clientX - Lx - px * nz;
-  view.y = e.clientY - Ly - py * nz;
-  view.z = nz;
-  applyView();
-}, { passive: false });
-
-// 가운데 버튼(휠 클릭) 드래그로 작업창 이동
-stage.addEventListener('pointerdown', (e) => {
-  if (e.button !== 1) return;
-  e.preventDefault();
-  const s = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
-  const mv = (ev) => { view.x = s.vx + ev.clientX - s.x; view.y = s.vy + ev.clientY - s.y; applyView(); };
-  const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
-  window.addEventListener('pointermove', mv);
-  window.addEventListener('pointerup', up);
-});
+// 아트보드 고정 — 작업창(아트보드) 휠 확대·가운데버튼 이동은 끈다(항상 화면 맞춤 z=1). 지도 확대/이동은 Alt+휠·이동 모드로.
+// 휠은 막지 않는다(메뉴 드롭다운·타임라인 스크롤이 살아야 함). Ctrl+휠 브라우저 확대만 막는다.
+stage.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+// 가운데 버튼(휠 클릭): 브라우저 자동 스크롤만 막는다(작업창 이동 없음)
+stage.addEventListener('pointerdown', (e) => { if (e.button === 1) e.preventDefault(); });
 
 // ===================== 더블클릭 인라인 편집 =====================
 function inlineEdit(kind, id) {
@@ -7285,10 +7317,12 @@ function inlineEdit(kind, id) {
 svg.addEventListener('dblclick', (e) => {
   const d = e.target.closest('.drag');
   if (!d) return;
+  const s = { kind: d.dataset.kind, id: d.dataset.id };
+  if (!s.kind || !itemOf(s)) return;   // 범례·지명 이름표 등 편집 불가 항목은 선택을 건드리지 않음
   e.preventDefault();
-  sel = [{ kind: d.dataset.kind, id: d.dataset.id }]; // 인라인 편집은 하나만
+  sel = [s]; // 인라인 편집은 하나만
   refreshPanel(); renderSel();
-  inlineEdit(d.dataset.kind, d.dataset.id);
+  inlineEdit(s.kind, s.id);
 });
 
 // ===== 카메라 조작 (영상 추출 모드 · Alt + 마우스) — 지도+태풍만 움직인다(제목·범례 고정) =====
@@ -7298,6 +7332,7 @@ function zoomMapAbout(cx, cy, news) {
   const pcx = (cx - S.map.x) / S.map.s, pcy = (cy - S.map.y) / S.map.s;
   S.map.s = news; S.map.x = cx - pcx * news; S.map.y = cy - pcy * news;
 }
+let _altGestureUntil = 0;   // Alt+오른쪽 줌 직후 시각 — 이때 오는 contextmenu는 무시
 const camMoveActive = () => camEditActive() || isTyphoon();   // 팬/줌은 작업창(태풍 지도)에서도, 3D 회전은 영상 추출 모드에서만
 // 카메라 조작 안내(#camGuide)를 타임라인 '바로 위'(좌하단)에 놓는다 — 타임라인 높이가 바뀌면 따라 올라간다.
 function syncCamGuidePos() {
@@ -7319,7 +7354,11 @@ svg.addEventListener('pointerdown', (e) => {
   const btn = e.button;                 // 0 왼쪽=3D회전(XYZ, 타임라인에서만), 1 휠클릭=팬, 2 오른쪽=줌
   if (btn === 0 && !camEditActive()) return;             // 3D 회전은 영상 추출 모드에서만
   if ((btn === 1 || btn === 2) && !camMoveActive()) return;
-  if ((btn === 1 || btn === 2) && S.mapLock) { e.preventDefault(); e.stopPropagation(); status('지도가 잠겨 있습니다 — 잠금을 풀어야 이동·확대됩니다', true); return; }   // 지도 잠금: 팬/줌 차단
+  if ((btn === 1 || btn === 2) && S.mapLock) {   // 지도 잠금: 팬/줌 차단
+    e.preventDefault(); e.stopPropagation(); status('지도가 잠겨 있습니다 — 잠금을 풀어야 이동·확대됩니다', true);
+    if (btn === 2) window.addEventListener('pointerup', () => { _altGestureUntil = performance.now() + 400; }, { once: true });   // 놓을 때 우클릭 메뉴·지우기 막기
+    return;
+  }
   e.preventDefault(); e.stopPropagation();
   const p0 = toUser(e), sx = e.clientX, sy = e.clientY;
   const m0 = { x: S.map.x, y: S.map.y, s: S.map.s }, r0 = camRot();
@@ -7329,7 +7368,7 @@ svg.addEventListener('pointerdown', (e) => {
     if (cv && cv.width) { _tiltPanCanvas = document.createElement('canvas'); _tiltPanCanvas.width = cv.width; _tiltPanCanvas.height = cv.height; _tiltPanCanvas.getContext('2d').drawImage(cv, 0, 0); _tiltPanBase = { x: S.map.x, y: S.map.y }; }
   }
   if ((btn === 1 || btn === 2) && !camActive3d()) setFlatPanLOD(true);  // 평면 팬/줌 드래그: 무거운 지형음영 숨기고 레이어 GPU 승격 → 빠르게
-  let rotReady = false, panRAF = 0, moved = false;
+  let rotReady = false, rotOn = false, panRAF = 0, moved = false;
   const move = (ev) => {
     if ((btn === 1 || btn === 2) && !moved) pushUndo('mapmove');   // 팬/줌 제스처당 undo 1회(실수 이동 되돌리기)
     if (btn === 1) {                    // 팬 — 지도+태풍만
@@ -7342,7 +7381,8 @@ svg.addEventListener('pointerdown', (e) => {
       const tilt = Math.max(0, Math.min(72, r0.rx + (sy - ev.clientY) * 0.22));
       const bearing = r0.rz + (ev.clientX - sx) * 0.3;
       setCamRot(tilt, 0, bearing);
-      if (!rotReady) { applyTilt(); rotReady = true; } else updateCamCanvasTransform();
+      const on = camActive3d();   // 평면↔틸트가 바뀔 때마다 applyTilt(캔버스 표시·mapTilt), 아니면 CSS 회전만
+      if (!rotReady || on !== rotOn) { applyTilt(); rotReady = true; rotOn = on; } else updateCamCanvasTransform();
       updateTyphoonLeaders();   // 회전 중에도 지시선이 지점을 따라오게(라벨 박스는 화면 고정)
     }
   };
@@ -7351,17 +7391,15 @@ svg.addEventListener('pointerdown', (e) => {
     if (panRAF) cancelAnimationFrame(panRAF);
     _camDragging = false;   // 드래그 끝 → 다음 applyTilt는 고해상으로 다시 굽는다(사인에서 ',d' 빠짐)
     _tiltPanCanvas = null; _tiltPanBase = null;   // 얼린 텍스처 해제 → 아래 applyTilt가 정확히 다시 굽는다
+    if (btn === 2) _altGestureUntil = performance.now() + 400;   // 오른쪽 줌을 놓으며 오는 contextmenu는 무시(구역 지우기·브라우저 메뉴 방지)
     if (moved && (btn === 1 || btn === 2)) {
       // 평면 팬/줌: 라벨 박스를 이동량만큼 실제로 옮겨 '지도에 붙은 채' 유지(놓을 때 원위치로 튀지 않게). 틸트는 빌보드라 제외.
-      if (!camActive3d() && isTyphoon()) {
-        const r = S.map.s / (m0.s || 1), tx = S.map.x - m0.x * r, ty = S.map.y - m0.y * r;
-        for (const b of labelList()) if (b && b.x != null) { b.x = Math.round(tx + b.x * r); b.y = Math.round(ty + b.y * r); }
-        shiftCompareLabelsBy(tx, ty, r);   // 비교 라벨도 지도와 함께 이동(팬 시 이름표 튐 방지)
-      }
+      { const r = S.map.s / (m0.s || 1); shiftMapAttached(S.map.x - m0.x * r, S.map.y - m0.y * r, r); }   // 비교 라벨도 함께(팬 시 이름표 튐 방지)
       if (btn === 2) renderStrokeScale();   // 줌: 경계선 굵기 보정(÷배율) 다시
       renderMapTransform();   // 최종 위치를 속성 transform(#bgMapT/#mapT)으로 확정 + 태풍 재구성(내부에서 renderTyphoon)
       applyTilt();
     }  // 끝날 때만 정확히 재구성
+    if (btn === 0 && rotReady) applyTilt();   // 회전을 놓을 때 최종 상태로 한 번 더 확정
     setFlatPanLOD(false);   // 지형음영 복원 + GPU(CSS) transform 해제 — 속성이 이미 최종값이라 안 튐
   };
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
@@ -7376,7 +7414,7 @@ function setFlatPanLOD(on) {
     if (on) { n.style.willChange = 'transform'; n.style.transformBox = 'view-box'; n.style.transformOrigin = '0 0'; }
     else { n.style.willChange = ''; n.style.transformBox = ''; n.style.transformOrigin = ''; n.style.transform = ''; }
   }
-  if (!on) { const bg = document.querySelector('#bgMapT'), mt = document.querySelector('#mapT'), mb = document.querySelector('#L_mapBase [data-blindmapt]'); if (bg) bg.style.transform = ''; if (mt) mt.style.transform = ''; if (mb) mb.style.transform = ''; }
+  if (!on) { for (const n of [document.querySelector('#bgMapT'), document.querySelector('#mapT'), document.querySelector('#L_mapBase [data-blindmapt]'), document.querySelector('#seaT')]) if (n) n.style.transform = ''; }
 }
 // 틸트 팬: 시작 때 얼려둔 #camCanvas 텍스처(블리드 포함, 평면)를 팬량만큼 즉시 옮겨 그린다 — SVG 재래스터가 없어 지연이 사라진다.
 // (평면 텍스처를 옮긴 뒤 CSS가 틸트를 입히므로 결과는 정확한 평면 팬. 놓을 때 up()에서 정확히 다시 굽는다.)
@@ -7390,18 +7428,18 @@ function tiltPanShift() {
 }
 // 드래그 중 초경량 팬/줌 — #bgMapT는 renderMapTransform(속성만), #L_typhoon은 변환으로만 이동(리렌더 없음). 틸트면 캔버스만 갱신.
 function lightPanZoom(base) {
-  const bg = $('#bgMapT'), mt = $('#mapT');
+  const bg = $('#bgMapT'), mt = $('#mapT'), se = $('#seaT');   // 해상 구역도 지도와 함께
   const mb = document.querySelector('#L_mapBase [data-blindmapt]');   // 블라인드 베이스 지도도 같이(재생 중 지도 이동 시 어긋남 방지)
   if (camActive3d()) {   // 틸트: 캔버스 렌더 기준이라 속성 transform 유지
     const t = `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`;
-    if (bg) bg.setAttribute('transform', t); if (mt) mt.setAttribute('transform', t); if (mb) mb.setAttribute('transform', t);
+    for (const n of [bg, mt, mb, se]) if (n) n.setAttribute('transform', t);
     if (_tiltPanCanvas) tiltPanShift();   // 팬: 얼린 텍스처를 즉시 이동(재래스터 지연 없음)
     else applyTilt();                      // 줌 등: 기존대로 재래스터
     updateTyphoonLeaders(); return;
   }
   // 평면 팬/줌: CSS transform(GPU 합성) — 거대한 path를 매 프레임 리페인트 안 하고 GPU 텍스처를 이동/스케일(초경량·부드러움).
   const t = `translate(${S.map.x}px, ${S.map.y}px) scale(${S.map.s})`;
-  if (bg) bg.style.transform = t; if (mt) mt.style.transform = t; if (mb) mb.style.transform = t;
+  for (const n of [bg, mt, mb, se]) if (n) n.style.transform = t;
   const r = S.map.s / (base.s || 1), tr = `translate(${S.map.x - base.x * r}px, ${S.map.y - base.y * r}px) scale(${r})`;
   const L = $('#L_typhoon'), LB = $('#L_typhoonLabels'), RI = $('#L_refImg');   // 지도·라벨·참고이미지 모두 지도와 함께 rigid 이동
   if (L) L.style.transform = tr;
@@ -7426,10 +7464,8 @@ svg.addEventListener('wheel', (e) => {
   clearTimeout(_wheelZoomTimer);
   _wheelZoomTimer = setTimeout(() => {
     const base = _wheelZoomBase; _wheelZoomBase = null;
-    if (isTyphoon() && base) {   // 라벨·참고이미지를 지도에 붙은 채 유지(확대량만큼 위치·크기 갱신)
-      const r = S.map.s / (base.s || 1), tx = S.map.x - base.x * r, ty = S.map.y - base.y * r;
-      for (const b of labelList()) if (b && b.x != null) { b.x = Math.round(tx + b.x * r); b.y = Math.round(ty + b.y * r); }
-      shiftCompareLabelsBy(tx, ty, r);   // 휠 줌에도 비교 라벨·참고 이미지 따라오게(확대/축소 반영)
+    if (base) {   // 라벨·비교 라벨·참고이미지를 지도에 붙은 채 유지(확대량만큼 위치·크기 갱신)
+      const r = S.map.s / (base.s || 1); shiftMapAttached(S.map.x - base.x * r, S.map.y - base.y * r, r);
     }
     renderMapTransform(); renderStrokeScale(); applyTilt(); setFlatPanLOD(false);
   }, 180);
@@ -7470,7 +7506,7 @@ svg.addEventListener('pointerdown', (e) => {
     if (e.target.closest('#vfScaleGrip')) { startVfScaleResize(e); return; } // VF 전체 크기
     if (e.target.closest('#vfBarGrip')) { startVfBarResize(e); return; }   // 제목 바 크기
     if (e.target.closest('#vfBarHit')) { startVfBarMove(e); return; }      // 제목 바 이동
-    if (e.target.closest('[data-mapgrip]')) { revealSec('map'); startScaleMap(e); return; }
+    if (e.target.closest('[data-mapgrip]')) { if (S.mapLock) { status('지도가 잠겨 있습니다', true); return; } revealSec('map'); startScaleMap(e); return; }
     const grip = e.target.closest('.insetGrip');
     if (grip && grip.dataset.inset) { startResizeInset(e, grip.dataset.inset); return; }
     // 박스든 그 안의 섬이든 집으면 박스째 움직인다
@@ -7478,6 +7514,7 @@ svg.addEventListener('pointerdown', (e) => {
     if (box) { startDragInset(e, box.dataset.inset); return; }
     if (e.target.closest('.zone') || e.target.closest('#L_bg')) {
       if (sel.length) deselect();   // 빈 곳(지도/배경) 클릭 = 선택 해제
+      if (S.mapLock) { status('지도가 잠겨 있습니다', true); return; }   // 지도 잠금: 이동 모드 드래그도 차단
       startDragMap(e);
       return;
     }
@@ -7572,6 +7609,7 @@ svg.addEventListener('pointerleave', hideBrushCursor);
 // SHIFT 누르고/떼는 순간 커서·배지 즉시 전환
 for (const ev of ['keydown', 'keyup']) window.addEventListener(ev, (e) => { if (e.key === 'Shift' && mode === 'brush' && brushLastPt) updateBrushCursor(brushLastPt.x, brushLastPt.y, e.shiftKey); });
 svg.addEventListener('contextmenu', (e) => {
+  if ((e.altKey && camMoveActive()) || performance.now() < _altGestureUntil) { e.preventDefault(); return; }   // Alt 줌 제스처 — 지우기·메뉴 없음
   const z = e.target.closest('.zone');
   if (z) { e.preventDefault(); pushUndo(); paint(z, true); }
 });
@@ -7809,7 +7847,9 @@ function startDragMap(e) {
   const o = [S.map.x, S.map.y];
   pushUndo();
   dragLoop(e, (dx, dy) => {
+    const px = S.map.x, py = S.map.y;
     S.map.x = Math.round(o[0] + dx); S.map.y = Math.round(o[1] + dy);
+    shiftMapAttached(S.map.x - px, S.map.y - py, 1);   // 태풍 라벨도 지도에 붙은 채(Alt 팬과 같게) — 이번 증분만
     renderMapTransform(); renderSea();
   });
 }
@@ -7822,6 +7862,7 @@ window.addEventListener('keydown', (e) => {
   // 입력창에서도 브라우저 기본 저장 대화상자를 막고 프로젝트를 저장한다.
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if ($('#tourWrap')?.classList.contains('on')) return;   // 투어 중 ←/→는 단계 넘기기 전용(지도·선택 이동 금지)
   // 브러쉬 크기: [ 줄이기, ] 키우기
   if (mode === 'brush' && (e.key === '[' || e.key === ']')) {
     e.preventDefault();
@@ -7852,7 +7893,7 @@ window.addEventListener('keydown', (e) => {
     for (const c of labelClip) {
       const d = { ...c.data }; delete d.id; delete d.bul; d.x = (d.x || 0) + 26; d.y = (d.y || 0) + 26;
       if (c.kind === 'label') { const nl = newLabel(d); labelList().push(nl); ns.push({ kind: 'label', id: nl.id }); }
-      else if (c.kind === 'text' && typeof newText === 'function') { const nt = newText(d); S.texts.push(nt); ns.push({ kind: 'text', id: nt.id }); }
+      else if (c.kind === 'text') { const nt = { ...d, id: 'x' + seq++ }; S.texts.push(nt); ns.push({ kind: 'text', id: nt.id }); }   // #addText와 같은 방식(새 id)
     }
     // 다음 붙여넣기가 겹치지 않게 클립보드 위치도 조금 민다
     for (const c of labelClip) { c.data.x = (c.data.x || 0) + 26; c.data.y = (c.data.y || 0) + 26; }
@@ -7870,10 +7911,11 @@ window.addEventListener('keydown', (e) => {
     if (!sel.length && S.mapLock) { status('지도가 잠겨 있습니다', true); return; }   // 잠금 시 화살표 지도이동 차단(라벨 선택 이동은 허용)
     pushUndo('arrow');
     if (sel.length) {
-      for (const { it } of selItems()) { it.x += dx; it.y += dy; }
-      renderTexts(); renderLabels(); if (isTyphoon()) renderTyphoon(); renderSel(); refreshPanel();
+      for (const { s, it } of selItems()) { it.x += dx; it.y += dy; if (s.kind === 'mtn' && it.anchor) delete it.anchor; }   // 산은 드래그처럼 앵커를 풀어야 옮긴 자리가 유지된다
+      renderTexts(); renderLabels(); renderMtns(); if (isTyphoon()) renderTyphoon(); renderSel(); refreshPanel();
     } else {
       S.map.x += dx; S.map.y += dy;
+      shiftMapAttached(dx, dy, 1);   // 태풍 라벨도 지도에 붙은 채
       renderMapTransform(); renderSea();
     }
     return;
@@ -11914,7 +11956,8 @@ function wire() {
     const r = $('#tlRuler').getBoundingClientRect();
     animStop();
     const pps = tlPxPerSec();
-    let t = (e.clientX - r.left + $('#tlGrid').scrollLeft) / pps;
+    let t = (e.clientX - r.left) / pps;   // 눈금자는 그리드와 함께 가로 스크롤 → rect.left에 scrollLeft가 이미 반영됨
+    t = Math.max(0, Math.min(anim().dur, t));
     if (e.shiftKey) {   // Shift = 모든 키(카메라·경로·라벨·클립)와 0초·끝에 스냅
       const snapTs = timelineSnapTimes();
       const thr = 10 / pps; let best = null, bd = thr;
@@ -12644,14 +12687,14 @@ function camAt(t) {
   }
   return pick(ks[ks.length - 1]);
 }
-function applyCam(t) {
+function applyCam(t, noTilt) {
   const c = camAt(t);
   if (!c) return;
   if (!_camSavedMap) _camSavedMap = { x: S.map.x, y: S.map.y, s: S.map.s, m3: S.map3d ? JSON.parse(JSON.stringify(S.map3d)) : null };
   S.map.x = c.x; S.map.y = c.y; S.map.s = c.s;
   setCamRot(c.rx, c.ry, c.rz);
   renderMapTransform();
-  applyTilt();
+  if (!noTilt) applyTilt();   // renderAnimFrame은 내용을 다 그린 뒤 직접 부른다
 }
 function restoreCamMap() {
   if (_camSavedMap) {
@@ -12813,7 +12856,13 @@ function teardownBlind() {
 
 // t초 시점의 화면. 재생·미리보기·영상 추출이 모두 이걸 쓴다.
 function renderAnimFrame(t) {
-  applyCam(t);   // 카메라 키프레임이 있으면 S.map을 보간 적용(지도+태풍만 이동, 제목·범례 고정)
+  renderAnimFrameBody(t);
+  // 틸트 미리보기는 이번 프레임 내용(animT·칠·태풍)까지 다 그린 뒤 한 번 굽는다(먼저 구우면 한 단계 옛 그림)
+  _mapContentRev++;
+  if (camActive3d() || fit.classList.contains('mapTilt')) applyTilt();
+}
+function renderAnimFrameBody(t) {
+  applyCam(t, true);   // 카메라 키프레임이 있으면 S.map을 보간 적용(지도+태풍만 이동, 제목·범례 고정)
   // 태풍 지도: 경로가 스으윽 이동(2초) → 각 지점 등장 시 라벨이 개별 생성. 프레임(t)마다 결정적으로 계산.
   if (isTyphoon()) {
     animT = t;
@@ -13123,7 +13172,7 @@ function tlNote() {
 
 function buildTimeline() {
   const A = anim();
-  if (!A.tracks.length && A.dur < 6) A.dur = 6;   // 빈 타임라인은 기본 6초
+  if (!A.tracks.length && !camKeys().length && !isTyphoon() && A.dur < 6) A.dur = 6;   // 빈 타임라인은 기본 6초(카메라 키·태풍이 있으면 정한 길이 유지)
   const tl = $('#timeline');
   tl.classList.toggle('empty', !A.tracks.length && !camKeys().length && !isTyphoon());   // 카메라 키만 있어도, 태풍(경로 애니 내재)이어도 타임라인 본문은 보인다
   $('#tlDur').value = A.dur;
@@ -13158,7 +13207,8 @@ function buildTimeline() {
     const info = trackInfo(tr);
     const nm = document.createElement('div');
     nm.className = 'tlName';
-    nm.innerHTML = `<div class="dot" style="background:${info.col}"></div><div class="nm"></div>`;
+    nm.innerHTML = '<div class="dot"></div><div class="nm"></div>';
+    nm.querySelector('.dot').style.background = info.col;   // 파일에서 온 색 문자열을 마크업에 넣지 않는다
     nm.querySelector('.nm').textContent = info.name;
     nm.title = info.name;
     names.append(nm);
@@ -13198,7 +13248,7 @@ function buildTimeline() {
     clip.style.background = info.col;
     // 클립 색이 밝으면 흰 글씨가 안 보인다 — 밝기 보고 고른다
     clip.style.color = lum(info.col) > 0.55 ? '#101317' : '#fff';
-    clip.innerHTML = `<span>${info.name}</span><div class="rz"></div>`;
+    { const sp = document.createElement('span'); sp.textContent = info.name; const rz = document.createElement('div'); rz.className = 'rz'; clip.append(sp, rz); }   // 이름은 사용자/파일 입력 — 텍스트로만
     clip.addEventListener('pointerdown', (e) => startClipDrag(e, tr, clip));
     row.append(clip);
     rows.append(row);
@@ -13317,7 +13367,7 @@ function openCamKeyPopover(id) {
   const bind = (cls, field, min) => { const el = pop.querySelector('.' + cls); if (!el) return; el.oninput = () => { const kk = K(); if (!kk) return; pushUndo('camkey'); let v = Number(el.value); if (min != null) v = Math.max(min, v); kk[field] = v; preview(); }; };
   bind('ck_x', 'x'); bind('ck_y', 'y'); bind('ck_s', 's', 0.02);
   bind('ck_rx', 'rx'); bind('ck_ry', 'ry'); bind('ck_rz', 'rz');
-  const tin = pop.querySelector('.ckt'); if (tin) tin.onchange = () => { const kk = K(); if (!kk) return; pushUndo('camkeyt'); kk.t = Math.max(0, +tin.value); buildTimeline(); if (animT != null) animSeek(animT); openCamKeyPopover(id); };
+  const tin = pop.querySelector('.ckt'); if (tin) tin.onchange = () => { const kk = K(); if (!kk) return; pushUndo('camkeyt'); kk.t = Math.max(0, +(+tin.value || 0).toFixed(2)); { const end = Math.max(anim().dur, ...camKeys().map((x) => +x.t)); if (end > anim().dur) anim().dur = Math.ceil((end + 0.4) * 2) / 2; /* 길이 밖 시각이면 다른 경로처럼 길이를 늘린다 */ } buildTimeline(); if (animT != null) animSeek(animT); openCamKeyPopover(id); };
   pop.querySelector('.ckpSeek').onclick = () => { const kk = K(); if (kk) animSeek(+kk.t); };
   pop.querySelector('.ckpDel').onclick = () => { const arr = camKeys(), idx = arr.findIndex((x) => x.id === id); if (idx >= 0) { pushUndo(); arr.splice(idx, 1); } camKeyEditorSel = null; pop.remove(); buildTimeline(); if (animT != null) animSeek(animT); };
   pop.querySelector('.ckpX').onclick = () => { camKeyEditorSel = null; pop.remove(); buildTimeline(); };
@@ -13546,11 +13596,12 @@ function renderWin(w) {
   }
   // 탭이 하나뿐이면 탭도 제목 노릇을 하니 그대로 둔다 (닫기 버튼과 균형)
   const body = el.querySelector('.winbody');
+  // 비활성 탭도 전부 이 창 body로 옮긴다 — 다른 창에 합쳐질 때 옛 창(.win)과 함께 지워지지 않게
   for (const s of w.secs) {
     const n = secNode(s);
     if (!n) continue;
-    if (s === w.active) { if (n.parentElement !== body) body.append(n); n.style.display = ''; }
-    else n.style.display = 'none';
+    if (n.parentElement !== body) body.append(n);
+    n.style.display = (s === w.active && !secModeHidden(s)) ? '' : 'none';   // 지도 종류로 숨긴 카드는 계속 숨김
   }
   return el;
 }
@@ -13575,7 +13626,7 @@ function dockSec(s, beforeSec) {
   const panel = $('#panel');
   const n = secNode(s);
   if (!n) return;
-  n.style.display = '';
+  n.style.display = secModeHidden(s) ? 'none' : '';   // 지도 종류로 숨긴 카드는 사이드바에서도 숨김 유지
   const want = beforeSec !== undefined ? beforeSec : (() => {
     const i = SEC_ORDER.indexOf(s);
     for (let j = i + 1; j < SEC_ORDER.length; j++) {
@@ -13663,9 +13714,11 @@ const overDock = (x) => {
 };
 
 // 지금 커서 위치에서 사이드바의 어느 항목 앞에 꽂힐지
+// 보이는 카드(.sec)만 본다 — 스크롤 여백·footer·머리표처럼 data-sec 없는 자식은 빼야 undefined(=안 붙음)가 안 나온다. 없으면 null(맨 뒤).
 function dockTargetAt(y) {
   const panel = $('#panel');
-  for (const n of panel.children) {
+  for (const n of panel.querySelectorAll(':scope > .sec[data-sec]')) {
+    if (n.style.display === 'none') continue;
     const r = n.getBoundingClientRect();
     if (y < r.top + r.height / 2) return n.dataset.sec;
   }
@@ -13678,7 +13731,9 @@ function showDockHint(y) {
   const line = $('#dockline');
   const t = dockTargetAt(y);
   const ref = t ? panel.querySelector(`.sec[data-sec="${t}"]`) : null;
-  const top = ref ? ref.getBoundingClientRect().top : (panel.lastElementChild?.getBoundingClientRect().bottom ?? pr.top);
+  const secs = [...panel.querySelectorAll(':scope > .sec[data-sec]')].filter((n) => n.style.display !== 'none');
+  const last = secs[secs.length - 1];   // 맨 뒤에 붙는 자리 = 마지막 카드 바로 아래(footer 아래가 아니라)
+  const top = ref ? ref.getBoundingClientRect().top : (last?.getBoundingClientRect().bottom ?? pr.top);
   line.style.left = pr.left + 'px';
   line.style.width = pr.width + 'px';
   line.style.top = Math.max(pr.top, Math.min(pr.bottom - 3, top)) + 'px';
@@ -13947,7 +14002,11 @@ function setupStartScreen() {
 }
 
 function resetLayout() {
-  for (const w of wins) for (const s of w.secs) { const n = secNode(s); if (n) n.style.display = ''; }
+  // 창에 든 카드는 전부 먼저 사이드바로 — SEC_ORDER 밖(태풍 카드 등)도 꺼내야 창과 함께 지워지지 않는다
+  for (const w of wins) for (const s of w.secs) {
+    const n = secNode(s); if (!n) continue;
+    if (SEC_ORDER.includes(s)) n.style.display = secModeHidden(s) ? 'none' : ''; else dockSec(s);
+  }
   wins = [];
   const panel = $('#panel');
   for (const s of SEC_ORDER) { const n = secNode(s); if (n) panel.append(n); }
