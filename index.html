@@ -2427,7 +2427,6 @@ const DEFAULTS = () => ({
   wrnColors: JSON.parse(JSON.stringify(WRN_COLORS)), // 특보 종류별 기본색 (주의보/경보 폴백)
   wrnLevelColors: { '폭염|중대경보': '#8B0000' }, // 들어온 특보에서 지정한 종류×정확한 단계별 색
   wrnOff: {},   // 목록에서 끈 특보 종류
-  wrnProxy: '', // 프록시 주소를 넣으면 자동 가져오기가 열린다
   texts: [
     { id: 't1', txt: '내일~모레',  x: 128, y: 300, size: 66, w: 700, col: '#FFFFFF', track: -2, align: 'start' },
     { id: 't2', txt: '예상 강수량', x: 128, y: 388, size: 66, w: 700, col: '#5BC5F2', track: -2, align: 'start' },
@@ -2914,6 +2913,7 @@ function applyState(next) {
   if (!$('#timeline')?.classList.contains('on') && S.map3d && (+S.map3d.rx || +S.map3d.ry || +S.map3d.rz)) S.map3d = { on: 0, rx: 0, ry: 0, rz: 0, persp: S.map3d.persp || 2.2 };
   if (styleChanged) { buildZones(); markStyleBtns(); }
   buildBgBtns();   // 배경 목록은 해상도·교체 배경마다 다르다(VF 배경은 VF에서만)
+  syncRuntimeListsFromState();   // 특보·예보 목록(런타임)도 되돌린 상태에 맞춘다
   syncPanelFromState(); renderAll(); updateUndoBtns();
   if (resChanged) {   // 해상도 적용(_apply)과 같은 해상도별 UI도 되돌린다
     markResBtns();
@@ -3111,6 +3111,7 @@ function applyVfDefaults() {
 // (평소 태풍은 해상도끼리 라벨크기를 '공유'하려고 skip하는데, 진입 때까지 skip하면 직전 지도(예: 특보 128%)의
 //  값이 그대로 남아 태풍 기본 100%가 안 먹었다).
 let _enterTyphoonApply = false;
+let _presetUsedKey = '';   // applyPreset이 실제로 쓴 배치 키(태풍은 다른 키를 빌려 올 수 있다)
 function setStyle(name) {
   if (!MAP.styles[name] || name === S.style) return;
   pushUndo();
@@ -3133,6 +3134,11 @@ function setStyle(name) {
     _enterTyphoonApply = enteringTyphoon;   // 진입 때만 태풍 배치의 라벨/산 크기를 적용(직전 지도값 안 물려받게)
     applied = applyPreset();
     _enterTyphoonApply = false;
+    // 비교 지도에 자기 배치가 없어 단일 태풍 배치를 빌려 썼으면, 범례는 비교 지도 기본(숨김)을 지킨다
+    // (비교 지도 자기 배치면 다른 CG 모드 것이어도 그대로 둔다)
+    if (applied && MAP.styles[name].compare && _presetUsedKey.split('|')[1] !== layoutGroup(name) && S.legend && S.legend.on) {
+      S.legend.on = 0; syncPanelFromState(); renderAll();
+    }
   }
   if (before !== after && !applied) {
     // 새 그룹에 저장된 게 없으면 지금 배치를 그대로 이어 쓴다
@@ -3150,7 +3156,8 @@ function setStyle(name) {
   status(MAP.styles[name].label);
   // 읽어둔 예보가 있으면 새 지도 단위에 맞춰 다시 칠한다.
   // (시도군 <-> 시도는 칠하는 단위가 달라서 그대로 두면 새 지도가 텅 빈다)
-  if (fctRows.length && (name === 'sgg' || name === 'sido')) paintFct();
+  // 단 그 지도가 비어 있거나 마지막 칠이 예보였을 때만 — 통보문·손칠·불러온 작업의 칠은 덮지 않는다.
+  if (fctRows.length && (name === 'sgg' || name === 'sido') && fctOwnsFills(name)) paintFct();
 }
 function markStyleBtns() {
   document.querySelectorAll('#styleBtns button').forEach((b) => b.classList.toggle('choicePending', b.dataset.style === pendingStyle));
@@ -6203,7 +6210,7 @@ function wireCompareSection() {
     const hot = (on) => { drop.classList.toggle('drophot', on); const h = $('#dropHint'); if (h && on) h.classList.remove('on'); };   // 박스 위에선 전체창 오버레이 숨기고 박스 강조
     ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; hot(true); }));
     drop.addEventListener('dragleave', (e) => { e.stopPropagation(); hot(false); });
-    drop.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); hot(false); const h = $('#dropHint'); if (h) h.classList.remove('on'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) loadRefImgFromFile(f); });
+    drop.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); hot(false); dropHintReset(); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) loadRefImgFromFile(f); });
     file.onchange = () => { if (file.files && file.files[0]) loadRefImgFromFile(file.files[0]); file.value = ''; };
   }
   const rShow = $('#tycRefShow'); if (rShow) rShow.onchange = () => { const ri = refImg(); if (!ri) return; pushUndo(); ri.show = rShow.checked ? 1 : 0; renderRefImg(); buildCompareSection(); };
@@ -8036,6 +8043,15 @@ const wrnCommandKind = (cmd) => {
   return 'announce';
 };
 const wrnEventTime = (r) => String(r.tmef || r.tmfc || '');
+// 같은 구역·종류라도 예비특보와 발효 특보(주의보/경보)는 따로 산다 — 한 키로 묶으면 늦게 온 예비가 발효 중인 주의보를 지운다.
+// 발효 쪽은 단계를 키에 안 넣어야 주의보→경보 '대치'·해제가 같은 키로 덮어쓰기·삭제된다.
+const wrnActiveKey = (r) => `${r.id}|${r.wrn}|${/예비/.test(r.lvl || '') ? 'pre' : 'eff'}`;
+function applyWrnEvent(active, r) {
+  const key = wrnActiveKey(r), kind = wrnCommandKind(r.cmd);
+  if (kind === 'release') { active.delete(key); return; }
+  if (kind === 'replace' && key.endsWith('|eff')) active.delete(key.slice(0, -3) + 'pre');   // 대치로 발효되면 그 예비특보는 끝난 것
+  active.set(key, r);
+}
 function activeWrnRows(rows, target) {
   const at = String(target || '999999999999');
   const events = rows.map((r, i) => ({ r, i }))
@@ -8043,11 +8059,7 @@ function activeWrnRows(rows, target) {
     .sort((a, b) => wrnEventTime(a.r).localeCompare(wrnEventTime(b.r))
       || String(a.r.tmfc || '').localeCompare(String(b.r.tmfc || '')) || a.i - b.i);
   const active = new Map();
-  for (const { r } of events) {
-    const key = `${r.id}|${r.wrn}`;
-    if (wrnCommandKind(r.cmd) === 'release') active.delete(key);
-    else active.set(key, r);
-  }
+  for (const { r } of events) applyWrnEvent(active, r);
   return Array.from(active.values());
 }
 // 선택한 '발표시각(통보문)' 기준의 유효 특보 — 그 발표까지의 이벤트를 발표시각 순으로 재생(발표=추가, 해제=제거).
@@ -8058,10 +8070,7 @@ function activeAtFc(rows, fc) {
     .filter(({ r }) => String(r.tmfc || '') <= at)
     .sort((a, b) => String(a.r.tmfc || '').localeCompare(String(b.r.tmfc || '')) || a.i - b.i);
   const active = new Map();
-  for (const { r } of evs) {
-    const key = `${r.id}|${r.wrn}`;
-    if (wrnCommandKind(r.cmd) === 'release') active.delete(key); else active.set(key, r);
-  }
+  for (const { r } of evs) applyWrnEvent(active, r);
   return Array.from(active.values());
 }
 function moveWrnOrder(order, from, to) {
@@ -8093,6 +8102,19 @@ function defaultWrnOrder(rows, warningTypes) {
     .sort((a, b) => ((typeRank.get(a.wrn) ?? 999) - (typeRank.get(b.wrn) ?? 999))
       || (levelRank(a) - levelRank(b)))
     .map(keyOf);
+}
+// 다시 불러와도 사용자가 드래그로 정한 겹침 순서는 지킨다 — 이전 순서(prev)를 그대로 두고,
+// 새로 나온 특보만 기본 순서(def)에서 바로 앞 특보 뒤에 끼운다. 지금 없는 특보 순서도 뒤에 남겨 다시 나올 때 쓴다.
+function mergeWrnOrder(prev, def) {
+  prev = Array.isArray(prev) ? prev : [];
+  const out = prev.filter((k) => def.includes(k));
+  def.forEach((k, i) => {
+    if (out.includes(k)) return;
+    let at = 0;
+    for (let j = i - 1; j >= 0; j--) { const p = out.indexOf(def[j]); if (p >= 0) { at = p + 1; break; } }
+    out.splice(at, 0, k);
+  });
+  return out.concat(prev.filter((k) => !out.includes(k)));
 }
 
 // ===================== API 주소 =====================
@@ -8178,25 +8200,50 @@ function restoreWrnRuntime() {
   wrnOrder = (Array.isArray(S.wrnOrder) && S.wrnOrder.length) ? S.wrnOrder.slice() : defaultWrnOrder(wrnRows, Object.keys(S.wrnColors));
   buildWrnList();   // 목록만 다시 그린다(색칠은 그대로)
 }
+// 실행 취소/다시 실행 뒤 — 특보·예보 목록(런타임)을 되돌린 S에 맞춘다(목록 눈·순서가 상태와 어긋나지 않게).
+function syncRuntimeListsFromState() {
+  if (wrnRows.length || S.style === 'warn' || S.style === 'warnsea') {
+    wrnRows = Array.isArray(S.wrnActive) ? S.wrnActive.map((r) => ({ id: r.id, wrn: r.wrn, lvl: r.lvl, tmfc: r.tmfc, tmef: r.tmef })) : [];
+    wrnOrder = (Array.isArray(S.wrnOrder) && S.wrnOrder.length) ? S.wrnOrder.slice() : defaultWrnOrder(wrnRows, Object.keys(S.wrnColors || {}));
+    S.wrnOff = S.wrnOff || {};
+    buildWrnList();
+  }
+  S.fctOff = S.fctOff || {}; S.fctColors = S.fctColors || {};
+  buildFctList();
+}
 
 let wrnAllEvents = [];   // 불러온 모든 특보 이벤트(발표/해제 등) — 통보문 드롭다운·발표시각 재생에 쓴다
 let wrnSelFc = '';       // 지금 지도에 표출 중인 '발효시각(통보문)'
+let wrnLoaded = false;   // 이 작업에서 특보를 한 번이라도 읽었는지(발효 특보 0건이어도 true)
+// 반환: 읽어서 칠했으면 true, 못 읽었으면 false
 function applyWrn(txt, keepSel) {
   const parsed = parseWrn(txt);
-  if (!parsed.length) { alert('특보 데이터를 못 읽었습니다. apihub 응답을 그대로 붙여넣었는지 확인해 주세요.'); return; }
+  if (!parsed.length) {
+    // 정상 응답인데 그 시각에 발효 중인 특보가 하나도 없는 경우(헤더·주석만 옴) — 오류가 아니라 '특보 없음'으로 칠을 비운다.
+    // (오류로 끝내면 직전 시각의 특보 색이 새 시각 라벨 아래 그대로 남는다)
+    if (/START7777|7777END|REG_ID|TM_FC/i.test(String(txt))) {
+      pushUndo();
+      wrnAllEvents = []; wrnLoaded = true;
+      if (!keepSel) buildWrnBulletins();
+      showWrnAsOf(keepSel || '__NOW__', true);
+      return true;
+    }
+    alert('특보 데이터를 못 읽었습니다. apihub 응답을 그대로 붙여넣었는지 확인해 주세요.'); return false;
+  }
   // 기상청 응답은 EUC-KR이라 UTF-8로 잘못 읽히면 한글이 통째로 깨진다.
   // 그 상태로는 특보종류를 못 알아봐서 아무것도 안 칠해지므로 미리 잡아준다.
   if (!parsed.some((r) => /[가-힣]/.test(r.wrn))) {
     alert('한글이 깨진 채로 들어왔습니다 (EUC-KR 응답).\n\n' +
       '크롬 주소창에 URL을 직접 넣어 뜬 화면을 복사하면 보통 정상입니다. ' +
       '그래도 깨지면 응답을 파일로 저장한 뒤 EUC-KR로 열어 복사해 주세요.');
-    return;
+    return false;
   }
   pushUndo();
-  wrnAllEvents = parsed;
+  wrnAllEvents = parsed; wrnLoaded = true;
   // keepSel: 목록에서 특정 시각을 골라 '그 시각으로 재요청'한 경우 — 목록은 그대로 두고 그 시각 현황만 다시 칠한다.
   if (!keepSel) buildWrnBulletins();         // 최초 불러오기만 목록을 새로 만든다 (맨 위 '발효 현황'=기본, 아래 발효시각들)
   showWrnAsOf(keepSel || '__NOW__', true);   // 기본: 지금(또는 고른 시각) 발효 중인 특보 현황
+  return true;
 }
 // 고른 '발표시각(통보문)' 기준으로 특보를 계산·색칠. announce=true면 안내 메시지도.
 function showWrnAsOf(fc, announce) {
@@ -8213,7 +8260,8 @@ function showWrnAsOf(fc, announce) {
   // 활성 특보 집합을 프로젝트(S)에 저장 — wrnRows는 런타임 변수라 저장/리로드 때 사라진다.
   // 이게 없으면 프로젝트를 다시 열었을 때 겹쳐 가려진 특보(예: 폭염 밑 열대야)가 AE 내보내기에서 빠진다.
   S.wrnActive = rows.map((r) => ({ id: r.id, wrn: r.wrn, lvl: r.lvl, tmfc: r.tmfc, tmef: r.tmef }));
-  wrnOrder = defaultWrnOrder(wrnRows, Object.keys(S.wrnColors));
+  // 기본 순서에, 사용자가 드래그로 바꾼 순서(이전 순서)를 그대로 얹는다 — 다시 불러와도 초기화되지 않게.
+  wrnOrder = mergeWrnOrder(wrnOrder.length ? wrnOrder : S.wrnOrder, defaultWrnOrder(wrnRows, Object.keys(S.wrnColors)));
   S.wrnOrder = wrnOrder.slice();   // 겹침 우선순위를 프로젝트에 저장(재오픈·AE 쌓임순서 보존)
   S.wrnOff = S.wrnOff || {};
   // 예비특보는 기본으로 꺼둔다(한 번도 안 건드린 것만).
@@ -8223,6 +8271,7 @@ function showWrnAsOf(fc, announce) {
   paintWrn();
   if (announce) {
     const msg = [fc === '__NOW__' ? (wrnWhen ? `${tmShort(wrnWhen)} 발효현황 표출` : '발효 현황 표출 (지금 유효한 특보)') : `${tmShort(fc)} 발효현황 표출`];
+    if (!rows.length) msg.push('발효 중인 특보 없음');
     if (pre) msg.push('예비특보는 꺼뒀습니다 — 필요하면 목록에서 켜세요');
     if (added.length) msg.push(`처음 보는 특보라 회색으로 넣음 — 아래에서 색 지정: ${added.join(', ')}`);
     status(msg.join(' · '));
@@ -8359,7 +8408,7 @@ function buildWrnList() {
     };
     d.querySelector('.eye').onclick = () => {
       pushUndo();
-      S.wrnOff[key] = on ? 1 : 0;
+      S.wrnOff[key] = S.wrnOff[key] ? 0 : 1;   // 그려 둔 값(on) 말고 지금 상태를 뒤집는다(실행 취소 뒤 헛클릭 방지)
       buildWrnList(); paintWrn(); renderLegend();   // 범례 자동 모드면 눈 상태에 맞춰 갱신
     };
     const drag = d.querySelector('.wrnDrag');
@@ -8414,6 +8463,12 @@ const FCT_KINDS = {
 let fctKind = 'dl';
 let fctRows = [];   // 붙여넣은 예보 전부
 let fctWhen = '';   // 발표일 (YYYYMMDD). 비어 있으면 오늘.
+let fctPaintSig = {};   // 지도별 '예보가 마지막으로 칠한 내용' — 그 뒤 통보문·손칠·불러오기로 바뀌었으면 예보로 덮지 않는다
+// 이 지도의 칠이 비어 있거나 아직 예보가 칠한 그대로면 true
+function fctOwnsFills(st) {
+  const cur = S.fillsByStyle[st] || {};
+  return !Object.keys(cur).length || fctPaintSig[st] === JSON.stringify(cur);
+}
 
 // 예보구역코드 -> 우리 지도 조각. build/06-fct-zones.js 가 구워 넣는다.
 // 예보 응답에는 구역코드만 있고 이름이 없어서, 이름표를 앱에서 따로 받아야 하는데
@@ -8611,22 +8666,32 @@ function bulDir(dir) {
 }
 // 한 토큰 -> {province,dir} 또는 {island}. 도 접두를 먼저 매칭('전북서부' -> 전북 + '서부').
 function bulToken(raw) {
-  const t = (raw || '').replace(/\s/g, '');
-  if (!t) return null;
+  let t = (raw || '').replace(/\s/g, '');
+  if (!t || /^\d+(?:\.\d+)?$/.test(t)) return null;   // 숫자만인 조각은 지역이 아니다
+  // '(남해안 제외)'·'남해안제외' — 제외 문구는 따로 뗀다. 방향으로 읽으면 '남'을 잡아 제외할 쪽만 칠한다.
+  let exclude = '';
+  const exM = t.match(/\(([^()]*)제외\)/);
+  if (exM) { exclude = exM[1]; t = t.replace(exM[0], ''); if (!t) return null; }
+  const withEx = (tk) => (exclude ? Object.assign(tk, { exclude }) : tk);
   if (BUL_ISLAND[t]) return { island: BUL_ISLAND[t] };
-  if (BUL_ALIAS[t]) return { province: BUL_ALIAS[t], dir: '' };
-  for (const p of BUL_PROVS) if (t.startsWith(p)) return { province: p, dir: t.slice(p.length) };
+  if (BUL_ALIAS[t]) return withEx({ province: BUL_ALIAS[t], dir: '' });
+  for (const p of BUL_PROVS) if (t.startsWith(p)) {
+    let dir = t.slice(p.length);
+    if (!exclude && dir.length > 2 && /제외$/.test(dir)) { exclude = dir.slice(0, -2); dir = ''; }
+    return withEx({ province: p, dir });
+  }
   return { province: null, dir: t };   // 도 없이 방향만(앞 도에 붙는다) 또는 미지
 }
 
 // 지역 문자열 -> 토큰들. 도 없는 방향(예: '경북중.북부'의 '북부')은 바로 앞 도에 이어붙인다.
-function bulTokens(regionStr) {
+// ctxProv: 앞에 도가 없을 때 붙일 도(예: '많은 곳 산지'는 그 줄의 도).
+function bulTokens(regionStr, ctxProv) {
   const raws = String(regionStr).split(/[.,·]/).map((r) => r.trim()).filter(Boolean);
-  const tokens = []; let cur = null;
+  const tokens = []; let cur = ctxProv || null;
   for (const r of raws) {
     const tk = bulToken(r); if (!tk) continue;
     if (tk.island) { tokens.push(tk); continue; }
-    if (tk.province) { cur = tk.province; tokens.push({ province: tk.province, dir: tk.dir }); }
+    if (tk.province) { cur = tk.province; tokens.push(tk.exclude ? { province: tk.province, dir: tk.dir, exclude: tk.exclude } : { province: tk.province, dir: tk.dir }); }
     else if (cur) tokens.push({ province: cur, dir: tk.dir });
     else tokens.push({ province: null, dir: tk.dir });   // 도 접두 없는 권역 표현(전라권서부 등) — applyBulletin에서 기준표로 해석
   }
@@ -8636,34 +8701,61 @@ function bulTokens(regionStr) {
 function parseBulletin(txt) {
   const groups = [];
   for (let line of String(txt).split(/\r?\n/)) {
-    line = line.trim();
+    // HWP·PDF 복사본의 긴 줄표(–—−)·전각 콜론(：)도 같은 줄로 읽는다(안 그러면 그 지역만 말없이 빠진다).
+    line = line.trim().replace(/：/g, ':').replace(/^[–—−]/, '-');
     if (!/^[-‐·•∙]/.test(line)) continue;         // 강수량 줄은 - 로 시작
     line = line.replace(/^[-‐·•∙]\s*/, '').replace(/^\([^)]*\)\s*/, '');  // 앞의 (권역, 날짜) 제거
-    for (const part of line.split('/')) {          // 한 줄에 값이 여러 개면 / 로 나뉜다
+    let carry = '';                                 // '대구/경북: …'처럼 지역을 / 로 나눈 앞 조각(콜론 없음)은 다음 조각 지역에 붙인다
+    for (let part of line.split('/')) {            // 한 줄에 값이 여러 개면 / 로 나뉜다
+      // 숫자가 든 조각('/ 많은 곳 100mm 이상 /' 등)은 지역이 아니니 붙이지 않는다(붙이면 다음 지역이 '못 찾음'이 된다).
+      if (part.indexOf(':') < 0) { if (part.trim() && !/\d/.test(part)) carry += part.trim() + '.'; continue; }
+      part = carry + part; carry = '';
       const c = part.indexOf(':');
-      if (c < 0) continue;
       let valStr = part.slice(c + 1);
       // 조각 앞머리의 (날짜/권역) 도 벗긴다. 예: "/ (22일) 대구.경북남부내륙" → "대구.경북남부내륙"
       // (안 벗기면 '대구'가 '(22일)대구'로 붙어 도 인식 실패 → 대구를 못 찾는다.)
       const regionStr = part.slice(0, c).trim().replace(/^\([^)]*\)\s*/, '');
       // '많은 곳 (지역) N(mm) 이상' = 국지적으로 더 많은 곳 → 본 구간과 '따로' 더 진하게 칠한다.
-      const many = valStr.match(/많은\s*곳\s*([가-힣A-Za-z0-9.·,\s]+?)\s*(\d+(?:\.\d+)?)\s*(?:mm|㎜|밀리|미리)?\s*이상/);
-      if (many) valStr = valStr.replace(/\(?\s*많은\s*곳[\s\S]*?이상\s*\)?/, ' ');   // 본 구간 값에서 그 문구 제거(150 안 섞이게)
+      // 지역은 '많은 곳' 뒤·앞에 오거나 아예 없다. 지역 칸엔 숫자를 안 받는다
+      // (받으면 '많은 곳 150mm'의 '1'을 지역으로 먹고 값이 '50'으로 잘린다).
+      const many = valStr.match(/([가-힣.·,\s]*?)\s*많은\s*곳\s*([가-힣A-Za-z.·,\s]*?)\s*(?<![\d.])(\d+(?:\.\d+)?)\s*(?:mm|㎜|밀리|미리|cm|㎝)?\s*이상/);
+      if (many) valStr = valStr.slice(0, many.index) + ' ' + valStr.slice(many.index + many[0].length);   // 본 구간 값에서 그 문구 제거(150 안 섞이게)
       const nums = (valStr.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter((n) => n >= 0);
       const tokens = bulTokens(regionStr);
+      let baseG = null;
       if (tokens.length && nums.length) {
         const labelTxt = nums.length > 1 ? `${Math.min(...nums)}~${Math.max(...nums)}` : `${nums[0]}`;
-        groups.push({ tokens, max: Math.max(...nums), labelTxt, regionText: regionStr });
+        groups.push(baseG = { tokens, max: Math.max(...nums), labelTxt, regionText: regionStr });
       }
       // 많은 곳 → 별도 그룹. 본 구간보다 뒤에 push 해서(우선순위 높게), max 를 크게 줘서 램프에서 가장 진한 색.
       if (many) {
-        const mtok = bulTokens(many[1]);
-        const mnum = Number(many[2]);
-        if (mtok.length && mnum >= 0) groups.push({ tokens: mtok, max: mnum + 0.5, labelTxt: `${many[2]}⬆`, regionText: `${many[1].trim()} ${many[2]}⬆`, many: true });
+        const mnum = Number(many[3]);
+        const provs = [...new Set(tokens.map((tk) => tk.province).filter(Boolean))];
+        const ctx = provs.length === 1 ? provs[0] : null;   // 도 없는 '산지' 등은 이 줄의 도에 붙인다
+        const clean = (s) => String(s || '').replace(/^[\s(.,·]+|[\s).,·]+$/g, '').trim();
+        // 지역으로 읽을 수 있는 토큰만(앞에 붙은 '예상' 같은 말을 지역으로 오인하지 않게)
+        const known = (tk) => tk.island
+          || (tk.province && (!tk.dir || bulDir(tk.dir) || /산지|해안|내륙|도서/.test(tk.dir) || termSiguns(tk.province + tk.dir)))
+          || (!tk.province && tk.dir && termSiguns(tk.dir));
+        // 지역은 '많은 곳' 뒤 → 앞 순. 둘 다 없으면 어디인지 몰라 덧칠하지 않는다
+        // (그 줄 지역 전체를 덧칠하면 본 구간 색·라벨이 통째로 덮여 '전역 150 이상'처럼 보인다).
+        let mreg = '', mtok = [];
+        for (const cand of [clean(many[2]), clean(many[1])]) {
+          if (!cand) continue;
+          const tk = bulTokens(cand, ctx);
+          if (tk.length && tk.every(known)) { mreg = cand; mtok = tk; break; }
+        }
+        if (mtok.length && mnum > 0) groups.push({ tokens: mtok, max: mnum + 0.5, labelTxt: `${many[3]}⬆`, regionText: `${mreg} ${many[3]}⬆`, many: true });
+        else if (baseG && mnum > 0) baseG.regionText += ` (많은 곳 ${many[3]}⬆)`;   // 자리를 몰라 덧칠은 안 하지만 색 목록엔 적어 둔다
       }
     }
   }
-  return groups;
+  // 같은 지역이 여러 줄(날짜별 등)이면 큰 값 하나만 남긴다 — 경로마다(기준표/방향/시도) 이기는 줄이 달라지고
+  // 진 쪽 색은 칠한 곳 없이 목록에만 남아 라벨이 사라졌다.
+  const keyOf = (g) => (g.many ? 'M|' : 'B|') + g.tokens.map((tk) => tk.island ? 'I:' + tk.island : `${tk.province || ''}:${termNorm(tk.dir || '')}:${tk.exclude || ''}`).sort().join(',');
+  const best = new Map();
+  for (const g of groups) { const k = keyOf(g), b = best.get(k); if (!b || g.max > b.max) best.set(k, g); }
+  return groups.filter((g) => best.get(keyOf(g)) === g);
 }
 
 // 한 도의 시군들을 방향 스펙에 나눠 담는다 — 각 시군을 '가장 잘 맞는 방향'에 배정(중심 좌표 기준).
@@ -8706,9 +8798,14 @@ function applyBulletin(txt) {
   let st = (S.style === 'sgg' || S.style === 'sido') ? S.style : 'sido';
   // 시도 지도인데 통보문이 한 도를 방향(서부·동부 등)으로 다른 값으로 쪼개면 표현 불가 → 시도군 지도로 넘어갈지 묻는다.
   if (st === 'sido') {
+    // 같은 도 안에서 '방향이 다르고' 값도 다를 때만 쪼개기다(같은 방향이 여러 줄이면 쪼개기가 아니다).
     const byProv = {};
-    for (const g of groups) for (const tk of g.tokens) if (tk.province && bulDir(tk.dir)) (byProv[tk.province] ||= new Set()).add(g.labelTxt);
-    const split = Object.keys(byProv).filter((p) => byProv[p].size >= 2);
+    // '(남해안 제외)'도 한 표현으로 센다 — '전남(남해안 제외)' + '전남남해안'이 값이 다르면 시도 지도로는 못 나눈다.
+    for (const g of groups) for (const tk of g.tokens) if (tk.province && (bulDir(tk.dir) || tk.exclude)) {
+      const e = (byProv[tk.province] ||= { dirs: new Set(), labels: new Set() });
+      e.dirs.add(termNorm(tk.dir) + (tk.exclude ? '-' + termNorm(tk.exclude) : '')); e.labels.add(g.labelTxt);
+    }
+    const split = Object.keys(byProv).filter((p) => byProv[p].dirs.size >= 2 && byProv[p].labels.size >= 2);
     if (split.length && confirm(`지금 '시도' 지도로는 ${split.join(', ')}을(를) 방향(서부·동부 등)으로 나눠 칠할 수 없습니다.\n\n'시도·군' 지도로 넘어가서 칠할까요?`)) st = 'sgg';
   }
   if (S.style !== st) setStyle(st);   // 지도 종류 맞추고 존을 렌더(중심 좌표 계산에 필요)
@@ -8743,7 +8840,12 @@ function applyBulletin(txt) {
         continue;
       }
       if (tk.province === '강원' && (tk.dir || '').includes('산지')) continue;   // 강원 '산지' 계열(산지/북부산지/강원산지 등)은 시군을 안 칠하고 산(▲)만 만든다(kma_place_terms에서 산지 분류는 전부 산 표시). 방위 표현(영서/영동 등)만 시군 색칠.
-      (provSpecs[sidoName(tk.province)] ||= []).push({ dir: bulDir(tk.dir), raw: tk.dir, col, gi, many: !!g.many });
+      const arr = (provSpecs[sidoName(tk.province)] ||= []);
+      const ex = tk.exclude || '';
+      // 같은 도·같은 표현이 다른 줄에도 있으면(일부만 겹치는 줄) 큰 값 하나만 — 경로마다 이기는 줄이 달라지지 않게.
+      const dup = arr.find((s) => s.raw === tk.dir && s.many === !!g.many && s.exclude === ex);
+      if (dup) { if (g.max > dup.max) Object.assign(dup, { col, gi, max: g.max }); continue; }
+      arr.push({ dir: bulDir(tk.dir), raw: tk.dir, col, gi, many: !!g.many, max: g.max, exclude: ex });
     }
   });
 
@@ -8764,6 +8866,21 @@ function applyBulletin(txt) {
   for (const [prov, specs] of Object.entries(provSpecs)) {
     const provAll = zonesByProv[prov] || [];
     if (!provAll.length) continue;
+    // '(남해안 제외)' 같은 제외 구역 — 기준표(도+표현, 또는 도로 시작해 그 표현으로 끝나는 항목들) → 해안표 → 방향 순으로 찾는다.
+    // 시도 지도는 도를 못 쪼개므로 도 전체로 둔다.
+    const exZones = (s) => {
+      if (!s.exclude || st === 'sido') return null;
+      if (s._ex) return s._ex;
+      const X = termNorm(s.exclude), set = new Set();
+      let names = termSiguns(prov + X);
+      if (!names) { const m = termMap(); const ks = Object.keys(m).filter((k) => k.startsWith(prov) && k.endsWith(X)); if (ks.length) names = ks.flatMap((k) => m[k]); }
+      const coast = COAST_ZONES[`${prov}|${X}`];
+      if (names && names.length) { const ns = new Set(names); for (const id of provAll) if (ns.has(zoneBase(id.split('/')[1] || ''))) set.add(id); }
+      else if (coast) { for (const id of provAll) if (coast.includes(id.split('/')[1])) set.add(id); }
+      else if (bulDir(X)) { for (const [, zids] of bulAssignDir(provAll, [{ dir: bulDir(X), raw: X }], 0.5)) zids.forEach((id) => set.add(id)); }
+      return (s._ex = set);
+    };
+    const excluded = (s, id) => { const ex = exZones(s); return !!(ex && ex.has(id)); };
 
     // ── 0) 기상청 기준표(JSON)로 '정확히' 매핑되는 표현 먼저 칠한다 (시도·군 지도에서만).
     //    예: 충남남부내륙 → 논산·금산·부여·청양, 강원북부산지 → 속초·인제·고성·양양·양구.
@@ -8802,12 +8919,18 @@ function applyBulletin(txt) {
       const hasFull = rest.some((s) => !s.dir);   // 방향 없는 스펙 = 도 전체 담당
       if (st === 'sido' || !dirSpecs.length) {
         const s = rest[rest.length - 1];   // 방향 구분 없음 -> 도(나머지) 한 색
-        for (const id of ids) put(id, s.col, s.gi, isVague(s.raw));
+        for (const id of ids) if (!excluded(s, id)) put(id, s.col, s.gi, isVague(s.raw));
       } else {
         // 방향 스펙 1개뿐 + 도 전체 스펙 없음 = '부분 예보'(예: 경남서부내륙) → 방향 맞는 존만 칠하고 나머지는 비운다.
         const partial = dirSpecs.length === 1 && !hasFull;
         const thresh = partial ? ((dirSpecs[0].raw || '').includes('내륙') ? 0.58 : 0.5) : null;
-        for (const [s, zids] of bulAssignDir(ids, rest, thresh)) for (const id of zids) put(id, s.col, s.gi, isVague(s.raw));
+        const left = [];   // 제외로 비운 [구역, 제외한 스펙]
+        for (const [s, zids] of bulAssignDir(ids, rest, thresh)) for (const id of zids) { if (excluded(s, id)) left.push([id, s]); else put(id, s.col, s.gi, isVague(s.raw)); }
+        // 제외한 구역은 같은 표현의 다른 줄('전남(남해안 제외)' + '전남남해안')이 맡는다 — 안 그러면 방향 배정이 갈라 놓은 광양 같은 곳이 빈다.
+        for (const [id, ex] of left) {
+          const s = rest.find((o) => !o.exclude && o.raw && termNorm(o.raw) === termNorm(ex.exclude));
+          if (s) put(id, s.col, s.gi, isVague(s.raw));
+        }
       }
     }
 
@@ -8815,7 +8938,7 @@ function applyBulletin(txt) {
     for (const s of overlaySpecs) {
       const names = coastNamesOf(prov, s.raw);
       if (names) { for (const id of all) if (names.includes(id.split('/')[1])) put(id, s.col, s.gi, true); }   // 해안 국지 = 애매 → 부드럽게
-      else if (!s.raw) { for (const id of all) put(id, s.col, s.gi, false); }                                  // 도 이름 그대로(예: 인천) → 도 전체(확실 → 또렷)
+      else if (!s.raw) { for (const id of all) if (!excluded(s, id)) put(id, s.col, s.gi, false); }           // 도 이름 그대로(예: 인천) → 도 전체(확실 → 또렷)
       else if (s.dir && st !== 'sido') {                                                                 // 방향 국지 → 그 방향 존만
         let pool = all;
         if ((s.raw || '').includes('내륙')) { const cz = provCoastSet(prov); pool = all.filter((id) => !cz.has(id.split('/')[1])); }   // 내륙 = 해안 제외
@@ -8838,7 +8961,10 @@ function applyBulletin(txt) {
     for (const id of zoneEls.keys()) if (st !== 'sido' && (id.split('/')[1] || '').startsWith(isp.island)) put(id, isp.col, isp.gi, false);
   }
 
-  if (!Object.keys(F).length) {
+  // '산지'(예: 강원내륙.산지) → 태백산맥 산 표시. 산은 강원 좌표라 '강원' 산지만(제주도산지·경북북동산지는 아님).
+  // 칠할 시군이 없어도 강원 산지가 있으면 산만 만들고 끝낸다(강원산지만 있는 통보문).
+  const sanji = groups.find((g) => g.tokens.some((tk) => tk.province === '강원' && (tk.dir || '').includes('산지')));
+  if (!Object.keys(F).length && !sanji) {
     const miss = [...new Set(unknown)];
     setBulInfo('', miss, '한 곳도 못 칠했습니다 — 지역명을 확인하세요');
     status('통보문 색칠 실패 — 지역을 못 찾았습니다' + (miss.length ? ` (${miss.join(', ')})` : ''), true); return;
@@ -8848,10 +8974,10 @@ function applyBulletin(txt) {
   (S.softZonesByStyle ||= {})[st] = [...softZones];   // 이번 통보문에서 '애매한' 구역만 저장(지도 종류별, 선별 블러용)
   renderFills();
 
-  // '산지'(예: 강원내륙.산지) → 태백산맥 산 표시 자동 추가(앱의 '강원' 프리셋). 색은 그 지역 강수 색.
+  // 태백산맥 산 표시 자동 추가(앱의 '강원' 프리셋). 색은 그 지역 강수 색.
   // 다시 붙여넣으면 이전에 통보문이 만든 산(bul)은 지우고 다시 만든다(손으로 만든 산은 안 건드림).
   S.mtns = (S.mtns || []).filter((m) => !m.bul);
-  const sanji = groups.find((g) => g.tokens.some((tk) => (tk.dir || '').includes('산지')));
+  let madeMtns = 0;
   if (sanji) {
     // 저장된 '강원 산지' 기본 배치(default-presets.js의 mtnGangwon)가 있으면 그걸, 없으면 코드 프리셋을 쓴다.
     const ov = (window.WCG_DEFAULTS && window.WCG_DEFAULTS.mtnGangwon) || null;
@@ -8862,10 +8988,10 @@ function applyBulletin(txt) {
     for (const anc of anchors) {
       const m = newMtn({ anchor: JSON.parse(JSON.stringify(anc)), size, col: mcol, bul: 1 });
       const a = mtnAnchorXY(m); m.x = a.x; m.y = a.y;
-      (S.mtns ||= []).push(m);
+      (S.mtns ||= []).push(m); madeMtns++;
     }
-    renderMtns();
   }
+  renderMtns();   // 산지가 없어도 다시 그린다 — 이전 통보문이 만든 산을 지웠으니 화면(PNG 추출)에서도 사라져야 한다
 
   // 숫자 라벨 — 값 범위마다 하나만(내용 같은 라벨 중복 X). 그 범위 색으로 칠한 조각 전부의 면적 가중 중심에.
   // 다시 붙여넣으면 이전 통보문 라벨은 지운다. 손으로 만든 라벨은 안 건드린다.
@@ -8904,6 +9030,7 @@ function applyBulletin(txt) {
 
   const parts = [`${Object.keys(F).length}개 ${st === 'sido' ? '시도' : '시군'} 칠함`, `${ranges.length}색 구분`];
   if (madeLabels) parts.push(`라벨 ${madeLabels}개`);
+  if (madeMtns) parts.push(`산 ${madeMtns}개`);
   const miss = [...new Set(unknown)];
   setBulInfo(parts.join(' · '), miss);
   status(`통보문 색칠 — ${parts.join(' · ')}` + (miss.length ? ` · 못 찾음: ${miss.join(', ')}` : ''), miss.length > 0);
@@ -8972,7 +9099,8 @@ function recolorBul(oldCol, newCol) {
   const A = anim();
   for (const tr of A.tracks) if (tr.kind === 'fill' && (tr.key || '').toUpperCase() === oldCol) tr.key = newCol;
   for (const s of bulSpecs) if ((s.col || '').toUpperCase() === oldCol) s.col = newCol;
-  renderFills(); renderLabels(); refreshPanel(); buildTimeline();
+  for (const m of S.mtns || []) if (m.bul && (m.col || '').toUpperCase() === oldCol) m.col = newCol;   // 통보문이 만든 산(▲)도 같은 색이면 함께
+  renderFills(); renderMtns(); renderLabels(); refreshPanel(); buildTimeline();
   renderBulList(); saveWork();
   status(`색 바꿈 ${oldCol} → ${newCol}`);
 }
@@ -9082,6 +9210,7 @@ function paintFct() {
   }
 
   S.fillsByStyle[st] = F;
+  fctPaintSig[st] = JSON.stringify(F);   // 이 지도의 마지막 칠이 예보였다는 표시(지도 전환 때 다시 칠해도 되는지 판단)
   if (S.style !== st) setStyle(st); else renderFills();
 
   const parts = [`${Object.keys(F).length}개 구역 칠함`];
@@ -9133,11 +9262,27 @@ function buildFctList() {
     };
     d.querySelector('.eye').onclick = () => {
       pushUndo();
-      S.fctOff[a.label] = on ? 1 : 0;
+      S.fctOff[a.label] = S.fctOff[a.label] ? 0 : 1;   // 지금 상태를 뒤집는다(실행 취소 뒤 헛클릭 방지)
       buildFctList(); paintFct();
     };
     w.append(d);
   });
+}
+
+// 다른 작업을 열거나 새로 시작할 때 — 특보·예보·통보문 런타임(목록·읽어둔 데이터)을 비운다.
+// 안 비우면 이전 작업의 특보 목록·예보가 남아, 눈/색/지도 전환 한 번에 새 작업의 칠을 덮어쓴다.
+function resetWorkRuntime() {
+  wrnRows = []; wrnOrder = []; wrnAllEvents = []; wrnSelFc = ''; wrnLoaded = false;
+  buildWrnList();
+  { const bs = $('#wrnBulletinSel'); if (bs) bs.textContent = ''; const br = $('#wrnBulletinRow'); if (br) br.style.display = 'none'; }
+  { const wi = $('#wrnInfo'); if (wi) wi.textContent = ''; }
+  fctRows = []; fctPaintSig = {};
+  for (const id of ['#fctTmfc', '#fctTmef']) { const n = $(id); if (n) n.textContent = ''; }
+  for (const id of ['#fctPickRow', '#fctEfRow']) { const n = $(id); if (n) n.style.display = 'none'; }
+  buildFctList();
+  { const fi = $('#fctInfo'); if (fi) fi.textContent = FCT_KINDS[fctKind].hint; }
+  bulSpecs = []; renderBulList(); setBulInfo('', []);
+  syncStyleUse();
 }
 
 function setFctKind(k) {
@@ -9164,13 +9309,13 @@ function buildFctKindBtns() {
 }
 
 // 특보를 '기상청에서 불러오기' — 태풍과 같은 내장 WNS 헬퍼(127.0.0.1:3720) /api/kma 프록시로 CORS 우회.
-// (직접 apihub를 부르면 CORS로 막힘.) S.wrnProxy가 설정돼 있으면 그 주소를 우선 사용(고급/수동).
+// (직접 apihub를 부르면 CORS로 막힘.) 예전 수동 프록시(S.wrnProxy)는 입력칸이 없어져 지울 수도 없으므로 읽지 않는다
+// (옛 작업·남이 준 파일에 남은 주소로 헬퍼·시각(tm)을 건너뛰고 엉뚱한 특보를 받는 일 방지).
 async function fetchWrn(keepSel) {
   if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); status('apihub 인증키가 필요합니다 (API 설정)', true); return; }
-  const override = (S.wrnProxy || '').trim();
   status('특보 가져오는 중…', true);
-  // 헬퍼가 떠 있는지 확인(수동 프록시가 없을 때만 필요)
-  if (!override) {
+  // 헬퍼가 떠 있는지 확인
+  {
     let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
     if (!up) {
       status('');
@@ -9180,7 +9325,7 @@ async function fetchWrn(keepSel) {
     }
   }
   try {
-    const url = override || (WNS_HELPER + '/api/kma?u=' + encodeURIComponent(WRN_URL()));
+    const url = WNS_HELPER + '/api/kma?u=' + encodeURIComponent(WRN_URL());
     const r = await fetch(url);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     // 프록시는 보통 UTF-8로 변환해 준다. 혹시 EUC-KR 원문이 오면 한글이 깨지므로 반대로 한 번 더 디코드.
@@ -9188,8 +9333,7 @@ async function fetchWrn(keepSel) {
     let t = new TextDecoder('utf-8').decode(buf);
     if (!/[가-힣]/.test(t)) t = new TextDecoder('euc-kr').decode(buf);
     $('#wrnPaste').value = t.slice(0, 200000);
-    applyWrn(t, keepSel);
-    status('특보 불러오기 완료', true);
+    if (applyWrn(t, keepSel)) status('특보 불러오기 완료', true); else status('');
   } catch (e) {
     status('');
     alert('가져오기 실패: ' + e.message + '\n\n아래 "기상청 특보현황 새 창으로 열기"로 열어 복사→붙여넣기 하면 확실합니다.');
@@ -9279,11 +9423,19 @@ function mergeVfBar(dst, src) {
   return c;
 }
 function savePreset() {
+  // 내가 저장한 것만 localStorage에 둔다(배포 기본배치는 복사하지 않는다).
+  const mine = userPresets();
+  const key = mergeCurrentPreset(mine);
+  localStorage.setItem('wcg_presets', JSON.stringify(mine));
+  showPresetInfo();
+  if (typeof syncPersonalSlot === 'function') syncPersonalSlot();   // 개인 슬롯이 있으면 방금 저장을 그 슬롯에도 바로 반영
+  status(`${presetLabel(key)} 배치로 저장됨 (위치는 밝은·어두운 공유)`);
+}
+// 지금 화면 배치를 mine(내 저장 배치 객체)에 합친다 — 저장소에는 안 쓴다(미리보기·취소 가능한 흐름용). 반환: 화면 키.
+function mergeCurrentPreset(mine) {
   const p = {};
   for (const k of PRESET_KEYS) p[k] = JSON.parse(JSON.stringify(S[k]));
   if (S.res !== '1920x1080-vf') delete p.vfScale; // VF 전용 값이 일반 화면 프리셋에 섞이지 않게
-  // 내가 저장한 것만 localStorage에 둔다(배포 기본배치는 복사하지 않는다).
-  const mine = userPresets();
   const key = presetKey();
   mine[key] = p;
   // 같은 화면·지도의 '다른 CG 모드'에도 위치는 똑같이 맞춘다(색은 그대로 둠 — 밝은 모드는 어두운 글씨).
@@ -9307,10 +9459,7 @@ function savePreset() {
       mine[other] = target;
     }
   }
-  localStorage.setItem('wcg_presets', JSON.stringify(mine));
-  showPresetInfo();
-  if (typeof syncPersonalSlot === 'function') syncPersonalSlot();   // 개인 슬롯이 있으면 방금 저장을 그 슬롯에도 바로 반영
-  status(`${presetLabel(key)} 배치로 저장됨 (위치는 밝은·어두운 공유)`);
+  return key;
 }
 // 이 브라우저에 '내가 직접 저장'한 배치만 (없으면 {}).
 function userPresets() {
@@ -9423,14 +9572,20 @@ function applyPreset() {
   const liveVfScale = S.vfScales && S.vfScales[vfScaleGroup()];
   let p = all[key];
   let full = !!p;
+  _presetUsedKey = p ? key : '';
   // 태풍 지도: 배치는 해상도별로 따로지만, 현재 해상도에 태풍 배치가 없으면
-  // (현재 모드→현재 res 다른 모드→노말 1920→아무 태풍 배치) 순으로 '태풍' 배치를 찾아 통째로 적용한다.
+  // (현재 모드→현재 res 다른 모드→같은 res 단일 태풍→노말 1920→아무 태풍 배치) 순으로 '태풍' 배치를 찾아 통째로 적용한다.
   // → 아직 안 구운 해상도에서도 옛 작업 배치 대신 구운 태풍 배치가 일관되게 뜬다.
+  // 단 VF는 VF 태풍 배치만 쓴다(일반 화면 배치를 쓰면 VF 배경·제목 위치가 통째로 노말 것으로 바뀐다). 일반 화면도 VF 배치는 안 빌린다.
   if (!p && isTyphoon()) {
-    const base = key.slice(0, -2);   // res|typhoon
-    const cands = [base + '|L', base + '|D', '1920x1080|typhoon|D', '1920x1080|typhoon|L'].concat(Object.keys(all).filter((k) => /\|typhoon\|/.test(k)));
+    const base = key.slice(0, -2);   // res|typhoon(또는 typhoonCompare)
+    const mode = key.slice(-1), alt = mode === 'L' ? 'D' : 'L';
+    const isVf = S.res === '1920x1080-vf';
+    let cands = [base + '|' + mode, base + '|' + alt, `${S.res}|typhoon|${mode}`, `${S.res}|typhoon|${alt}`];
+    if (isVf) cands = cands.concat(Object.keys(all).filter((k) => k.startsWith('1920x1080-vf|') && /\|typhoon\|/.test(k)));
+    else cands = cands.concat([`1920x1080|typhoon|${mode}`, `1920x1080|typhoon|${alt}`], Object.keys(all).filter((k) => /\|typhoon\|/.test(k) && !k.startsWith('1920x1080-vf|')));
     const found = cands.find((k) => all[k]);
-    if (found) { p = all[found]; full = true; }
+    if (found) { p = all[found]; full = true; _presetUsedKey = found; }
     else { showPresetInfo(); return false; }   // 어떤 태풍 배치도 없으면 현재 배치 유지
   }
   if (!p) {
@@ -9438,7 +9593,7 @@ function applyPreset() {
     // '위치'(지도·도서박스·제목·라벨배율·VF바)만 가져와 지도가 그 화면에 맞게 따라오게 한다.
     const base = key.split('|').slice(0, 2).join('|');   // res|group
     const altKey = Object.keys(all).find((k) => k !== key && (k === base || k.startsWith(base + '|')));
-    if (altKey) p = all[altKey];
+    if (altKey) { p = all[altKey]; _presetUsedKey = altKey; }
   }
   if (!p) { showPresetInfo(); return false; }
   // 태풍은 같은 콘텐츠라 해상도가 달라도 지도 뷰·라벨 크기를 '공유'한다(라벨값이 해상도마다 달라지지 않게).
@@ -9519,7 +9674,7 @@ function buildResBtns() {
         if (!isTyphoon()) { S.labScale = 92; S.mtnScale = 70; }   // VF는 라벨 92%·산 70%(태풍 제외 — 저장값 존중)
         if (!applied && !S.cgLight) { S.bg = 'bgVfDark'; S.showBg = 1; }
         renderAll();
-      }
+      } else if (!applied) renderAll();   // 배치가 없어도 다시 그린다 — VF에서 나올 때 VF 축소(#L_vfScale transform)·이동 핸들이 남지 않게
       buildBgBtns(); syncPanelFromState();   // 화면마다 배경 목록이 달라(VF 배경은 VF에서만) 다시 그리고 패널 동기화
       renderBg(); markResBtns();
       if (k === '1920x1080-vf' && S.legend && S.legend.on) ensureLegendInVfPanel();   // VF 범례가 패널 밖이면 안으로
@@ -9655,7 +9810,10 @@ async function prepareOutput(base, ext, mime, label) {
 // ===================== 토스 카드 모달 (공지·안내 공통) =====================
 // 스케줄앱 토스 모달처럼 상단 컬러헤더 + 하단 내용. 반환값으로 각 영역을 넘겨 추가 조작.
 const BLUE_GRAD = 'linear-gradient(135deg,#2f6bff,#1e50e6)';
-function closeTossModal() { const e = document.getElementById('tossOv'); if (e) e.remove(); }
+// 떠 있는 토스 모달을 조용히 치운다(새 모달로 바뀔 때) — onClose(공지 읽음 처리 등)는 부르지 않고 Esc 리스너만 함께 뗀다.
+// (DOM만 지우면 이전 모달의 Esc 리스너가 남아, 나중 Esc 한 번에 읽지도 않은 공지가 '읽음'이 됐다)
+let _tossDispose = null;
+function closeTossModal() { if (_tossDispose) _tossDispose(); const e = document.getElementById('tossOv'); if (e) e.remove(); }
 function tossModal(opt) {
   opt = opt || {};
   closeTossModal();
@@ -9675,11 +9833,13 @@ function tossModal(opt) {
   ov.querySelector('.tossTitle').textContent = opt.title || '';   // 제목·부제는 textContent로(주입 안전)
   if (opt.sub) ov.querySelector('.tossSub').textContent = opt.sub;
   let closed = false;
-  const close = () => { if (closed) return; closed = true; ov.remove(); if (opt.onClose) opt.onClose(); };
+  const dispose = () => { closed = true; ov.remove(); window.removeEventListener('keydown', onKey); if (_tossDispose === dispose) _tossDispose = null; };
+  const close = () => { if (closed) return; dispose(); if (opt.onClose) opt.onClose(); };
   ov.querySelector('.tossX').onclick = close;
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
-  const onKey = (e) => { if (e.key === 'Escape') { close(); window.removeEventListener('keydown', onKey); } };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
   window.addEventListener('keydown', onKey);
+  _tossDispose = dispose;
   return { ov, close, card: ov.querySelector('.tossCard'), head: ov.querySelector('.tossHeadAct'), body: ov.querySelector('.tossBody'), foot: ov.querySelector('.tossFoot') };
 }
 
@@ -9918,7 +10078,7 @@ function tossPrompt(opts = {}) {
   ov.classList.add('on');
   setTimeout(() => { inp.focus(); inp.select(); }, 30);
   return new Promise((resolve) => {
-    const clean = () => (inp.value.trim() || (opts.value || '').trim());
+    const clean = () => inp.value.trim();   // 기본값은 칸에 이미 채워져 있다 — 사용자가 지우면 빈 값 그대로(직전 값으로 되돌리지 않음)
     const done = (v) => {
       ov.classList.remove('on'); inp.style.display = 'none';
       $('#confirmOk').onclick = $('#confirmCancel').onclick = ov.onclick = inp.onkeydown = null;
@@ -9963,7 +10123,17 @@ function presetDiff(nw) {
   return { text: parts.join('\n') || '기존 기본값과 내용이 같습니다.', total: added.length + changed.length + removed.length };
 }
 // (토스 확인창 tossConfirm 은 위쪽 한 곳에만 정의 — 예전엔 여기 두 번째 정의가 있어 앞의 것을 덮어 danger 경고색·Enter 확인이 안 먹었다)
-function slotReload(msg) { status(msg || '적용되었습니다 — 새로고침합니다'); setTimeout(() => location.reload(), 550); }
+// 새로고침 뒤 부팅부가 하던 작업 위에 새 기본 배치를 한 번 다시 적용하도록 표시를 남긴다(안 그러면 지금 화면엔 옛 배치가 그대로).
+function slotReload(msg) { try { sessionStorage.setItem('wcg_reapply_preset', '1'); } catch (e) { /* 무시 */ } status(msg || '적용되었습니다 — 새로고침합니다'); setTimeout(() => location.reload(), 550); }
+// 이 브라우저에 직접 저장한 화면 배치(wcg_presets)는 슬롯보다 우선한다 — 슬롯을 바꿀 때 지울지 묻는다.
+// 안 지우면 그 화면들은 계속 내 저장 배치로 열려 슬롯 적용이 안 보인다. 반환: 지웠으면 true.
+async function offerDropLocalPresets() {
+  const n = Object.keys(userPresets()).length;
+  if (!n) return false;
+  const ok = await tossConfirm({ title: '내가 저장한 화면 배치', message: `이 브라우저에서 직접 저장한 화면 배치 ${n}개가 슬롯 배치보다 우선합니다.\n\n지우고 슬롯 배치로 맞출까요?\n(지우지 않으면 그 화면들은 내 저장 배치로 열립니다)`, ok: '지우고 맞추기', cancel: '내 저장 유지' });
+  if (ok) localStorage.removeItem('wcg_presets');
+  return ok;
+}
 // 저장한 사람 이름 입력(직전 이름 기억). 취소=null, 빈칸 허용=''.
 async function askSaverName(title) {
   const last = localStorage.getItem('wcg_last_by') || '';
@@ -9974,10 +10144,10 @@ async function askSaverName(title) {
 }
 // '지금 유효한 배치 전체'(기본배치+내가 저장한 화면) + 강원산지 + 태풍스타일을 담은 배치 객체.
 // bakeDefaults(파일로 굽기)와 '지금 배치로 채우기'가 공유한다. ※ bakeDefaults의 담는 내용과 항상 동일하게 유지할 것.
-function buildCurrentPresets() {
+function buildCurrentPresets(all) {
   // 주의: 여기서 savePreset()을 부르지 않는다(savePreset→syncPersonalSlot→buildCurrentPresets 무한재귀 방지).
-  // 호출부가 필요하면 먼저 savePreset() 한다.
-  const presets = normalizeBakedVfScales(loadPresets());
+  // 호출부가 필요하면 먼저 savePreset() 하거나, 지금 화면을 합친 배치(all)를 넘긴다.
+  const presets = normalizeBakedVfScales(all || loadPresets());
   if (!Object.keys(presets).length) return null;
   const bulMtns = (S.mtns || []).filter((m) => m.bul && !m.off);
   if (bulMtns.length) {
@@ -10011,16 +10181,21 @@ function buildCurrentPresets() {
 }
 // 개인 슬롯이 있으면 '현재 배치를 이 화면 기본값으로 저장'할 때마다 자동으로 그 슬롯을 최신 배치로 갱신한다(조용히·리로드 없음).
 // 개인 슬롯이 없으면 아무것도 안 한다(원치 않는 자동 생성 방지 — 슬롯은 사용자가 한 번 만든 뒤부터 연결됨).
+// 꺼진 개인 슬롯은 건드리지 않는다 — 꺼져 있으면 기본값이 완전 기본/배포라, 그걸로 개인 배치를 덮어 원래 개인 배치가 사라진다.
 function syncPersonalSlot() {
-  const per = slotGet(SLOT_PERSONAL); if (!per) return;
+  const per = slotGet(SLOT_PERSONAL); if (!per || !per.active) return;
   const presets = buildCurrentPresets(); if (!presets) return;
   localStorage.setItem(SLOT_PERSONAL, JSON.stringify({ presets, ts: Date.now(), active: per.active !== false, name: per.name || '현재 배치', by: per.by || '' }));
   if ($('#slotOverlay') && $('#slotOverlay').classList.contains('on')) renderSlotStates();   // 팝업 열려 있으면 표시 갱신
 }
 // 파일 없이 '지금 화면 배치'를 슬롯에 바로 담기. (개인=비번없음 / 완전기본=비번)
 async function fillSlotFromCurrent(which) {
-  savePreset();   // 지금 보고 있는 화면도 담기게 먼저 저장
-  const presets = buildCurrentPresets();
+  // 지금 보고 있는 화면도 담기게 '메모리에서만' 합친다 — 비번·확인·이름 입력을 모두 통과하기 전엔
+  // 내 저장 배치(wcg_presets)·개인 슬롯을 건드리지 않는다(취소·비번 오류에도 이미 덮어써지던 문제).
+  const mine = userPresets();
+  mergeCurrentPreset(mine);
+  const base = (window.WCG_DEFAULTS && typeof window.WCG_DEFAULTS === 'object') ? window.WCG_DEFAULTS : {};
+  const presets = buildCurrentPresets(JSON.parse(JSON.stringify({ ...base, ...mine })));
   if (!presets) { await tossConfirm({ title: '저장된 배치 없음', message: '각 화면에서 "현재 배치를 이 화면 기본값으로"를 먼저 저장해 주세요.', ok: '확인', cancel: '닫기' }); return; }
   const nm = which === 'master' ? '완전 기본 배치' : '개인 배치';
   if (which === 'master') {
@@ -10031,6 +10206,10 @@ async function fillSlotFromCurrent(which) {
   const ok = await tossConfirm({ title: nm + ' 채우기', message: `지금 화면 배치를 ${nm}으로 저장할까요?\n\n${d.text}\n\n앞으로 이 배치가 기본값이 됩니다.`, ok: '저장', cancel: '취소' });
   if (!ok) return;
   const by = await askSaverName(nm + ' 저장자'); if (by == null) return;
+  // 이제 확정 — 내 저장 배치가 있으면 지울지 묻고, 유지하면 지금 화면을 거기에도 저장한다(옛 저장본이 새 슬롯을 가리지 않게).
+  // 내 저장이 없으면 아무것도 안 쓴다(지금 화면은 슬롯에 들어갔으니 로컬에 따로 고정할 필요 없음).
+  const hadLocal = Object.keys(userPresets()).length > 0;
+  if (hadLocal && !(await offerDropLocalPresets())) localStorage.setItem('wcg_presets', JSON.stringify(mine));
   const rec = { presets, ts: Date.now(), by, name: '현재 배치' };
   if (which === 'personal') rec.active = true;
   localStorage.setItem(which === 'master' ? SLOT_MASTER : SLOT_PERSONAL, JSON.stringify(rec));
@@ -10055,6 +10234,7 @@ async function assignSlotFromFile(which, file) {
   const rec = { presets, ts: metaTs || Date.now(), by, name: file.name };
   if (which === 'personal') rec.active = true;
   localStorage.setItem(which === 'master' ? SLOT_MASTER : SLOT_PERSONAL, JSON.stringify(rec));
+  await offerDropLocalPresets();   // 내가 저장한 화면 배치가 새 슬롯을 가리지 않게(지울지 묻는다)
   slotReload(nm + ' 적용됨 — 새로고침합니다');
 }
 async function clearSlot(which) {
@@ -10066,11 +10246,13 @@ async function clearSlot(which) {
   const ok = await tossConfirm({ title: nm + ' 비우기', message: nm + '을 지우고 ' + (which === 'master' ? '배포 기본값으로' : '완전 기본 배치로') + ' 되돌릴까요?', warn: true, ok: '비우기', cancel: '취소' });
   if (!ok) return;
   localStorage.removeItem(which === 'master' ? SLOT_MASTER : SLOT_PERSONAL);
+  await offerDropLocalPresets();
   slotReload('되돌렸습니다 — 새로고침합니다');
 }
-function togglePersonalActive() {
+async function togglePersonalActive() {
   const p = slotGet(SLOT_PERSONAL); if (!p) return;
   p.active = !p.active; localStorage.setItem(SLOT_PERSONAL, JSON.stringify(p));
+  await offerDropLocalPresets();   // 끄거나 켠 배치가 실제로 보이게(내 저장 화면이 가리지 않게)
   slotReload(p.active ? '개인 배치 사용 — 새로고침합니다' : '개인 배치 끔 — 새로고침합니다');
 }
 const _flopEsc = (s) => String(s == null ? '' : s).replace(/[<&>]/g, (c) => ({ '<': '&lt;', '&': '&amp;', '>': '&gt;' }[c]));
@@ -10133,16 +10315,17 @@ function openPresetSlots() {
             <div class="slotBtns" id="slotMasterBtns"></div>
           </div>
         </div>
-        <div class="slotFootHint">· <b>개인 배치</b>가 켜져 있으면 최우선, 없으면 <b>완전 기본 배치</b>, 그것도 없으면 배포 기본값을 씁니다.<br>· 파일은 앱의 <b>"…기본값으로 굽기"</b>로 만든 default-presets.js(.json)입니다.</div>
+        <div class="slotFootHint">· 이 브라우저에서 화면별로 <b>직접 저장한 배치</b>가 있으면 그 화면은 그게 먼저, 그다음 <b>개인 배치</b>(켜져 있을 때), <b>완전 기본 배치</b>, 배포 기본값 순입니다.<br>· 파일은 앱의 <b>"…기본값으로 굽기"</b>로 만든 default-presets.js(.json)입니다.</div>
       </div></div>`;
     document.body.appendChild(ov);
     $('#slotX').onclick = () => ov.classList.remove('on');
     ov.onclick = (e) => { if (e.target === ov) ov.classList.remove('on'); };
     for (const [id, which] of [['slotPersonal', 'personal'], ['slotMaster', 'master']]) {
       const el = document.getElementById(id);
-      el.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add('drag'); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; });
+      // 슬롯 위에선 전체창 '작업 파일 열기' 오버레이를 숨기고, 놓으면 창 쪽 드래그 상태도 함께 정리한다(안 그러면 오버레이가 확인창 위에 남는다).
+      el.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add('drag'); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; const h = $('#dropHint'); if (h) h.classList.remove('on'); });
       el.addEventListener('dragleave', (e) => { e.stopPropagation(); el.classList.remove('drag'); });
-      el.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.remove('drag'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) assignSlotFromFile(which, f); });
+      el.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.remove('drag'); dropHintReset(); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) assignSlotFromFile(which, f); });
     }
   }
   renderSlotStates();
@@ -10641,7 +10824,10 @@ async function checkHelperFreshOnBoot() {
   if (b) b.classList.toggle('hasNew', st.up && st.old);
   if (st.up && st.old && !sessionStorage.getItem('wcg_helper_old_seen')) {
     sessionStorage.setItem('wcg_helper_old_seen', '1');
-    if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice('old');
+    // 공지 팝업 등 다른 토스 모달이 떠 있으면 그게 닫힌 뒤에 띄운다(덮어써서 공지를 못 읽는 일 방지)
+    const show = () => { if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice('old'); };
+    if (!document.getElementById('tossOv')) show();
+    else { const t = setInterval(() => { if (!document.getElementById('tossOv')) { clearInterval(t); show(); } }, 400); }
   }
 }
 // 깃헙(https) 배포본에서도 로컬 헬퍼(127.0.0.1)는 호출 가능하다(브라우저가 localhost는 예외 허용).
@@ -11774,16 +11960,17 @@ function loadProjectData(data, handle) {
     normStyle();   // 없는 지도 종류(데이터 파일 로드 실패)면 시도군으로
     bumpSeq();   // 불러온 작업 id 뒤에서 새 id 발급
     sel = [];
+    resetWorkRuntime();    // 이전 작업의 특보·예보·통보문 목록을 비운다(새 작업 칠·범례·AE를 덮어쓰지 않게)
     buildZones(); markStyleBtns(); markResBtns();
     buildBgBtns(); markCgMode();
+    restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게) — renderAll 앞이라야 자동 범례가 빈 채로 안 그려진다
     syncPanelFromState(); renderAll();
-    restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게)
     buildTimeline();
   } catch (e) {
     // 그리다 깨지면 원래 작업으로 되돌린다(깨진 S가 자동저장되지 않게)
     undoStack.pop(); updateUndoBtns();
     S = prevS; sel = [];
-    try { buildZones(); markStyleBtns(); markResBtns(); buildBgBtns(); markCgMode(); syncPanelFromState(); renderAll(); restoreWrnRuntime(); buildTimeline(); } catch (_) {}
+    try { resetWorkRuntime(); buildZones(); markStyleBtns(); markResBtns(); buildBgBtns(); markCgMode(); restoreWrnRuntime(); syncPanelFromState(); renderAll(); buildTimeline(); } catch (_) {}
     throw e;
   }
   _tiltRasterSig = null; applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거·새 작업 기준으로
@@ -12125,7 +12312,6 @@ function wire() {
       reflectWhenToPicker();
       fetchWrn(v === '__NOW__' ? null : v);   // __NOW__는 목록도 새로, 특정시각은 목록 유지(keepSel)
     }; }
-  { const wp = $('#wrnProxy'); if (wp) wp.oninput = (e) => { S.wrnProxy = e.target.value; }; }   // 프록시 입력칸은 제거됨(내장 헬퍼 사용). 남아있을 때만 바인딩.
 
   // 인증키는 이 브라우저에만 둔다 — 프로젝트 JSON이나 배포 파일에 섞여 나가면 안 된다.
   // 넣는 곳은 API 설정 한 군데뿐이고, 특보·예보 항목은 없으면 그리로 보내기만 한다.
@@ -12142,13 +12328,13 @@ function wire() {
     else { const d = $('#wrnDate').value, t = $('#wrnTime').value || '00:00'; wrnWhen = d ? d.replace(/-/g, '') + t.replace(':', '') : ''; }
     // '발효 현황' 라벨만 새 시각으로 갱신. 실제 색칠은 '기상청에서 불러오기'가 그 시각으로 재요청해 정확히 받아온다.
     // (한 번 받은 데이터를 다른 시각으로 로컬 재계산하면 열대야 자동해제 등이 안 맞아 틀림 → 재요청이 정답)
-    if (wrnAllEvents.length) {
+    if (wrnLoaded) {   // 한 번 읽었으면(발효 특보 0건이어도) 라벨 갱신
       const sel = $('#wrnBulletinSel');
       const opt = sel && [...sel.options].find((o) => o.value === '__NOW__');
       if (opt) opt.textContent = wrnEffLabel();
     }
     // reapply=true면 그 시각으로 바로 재요청(picker 조작 시 사용자가 기대하는 동작).
-    if (reapply && wrnAllEvents.length) fetchWrn();
+    if (reapply && wrnLoaded) fetchWrn();
   };
   $('#wrnWhenNow').onclick = () => { $('#wrnPastRow').style.display = 'none'; syncWhen(true); };
   $('#wrnWhenPast').onclick = () => {
@@ -12438,6 +12624,7 @@ function wire() {
     S = DEFAULTS();
     S.res = keepRes; S.style = keepStyle; S.cgLight = keepLight;
     sel = [];
+    resetWorkRuntime();   // 이전 작업의 특보·예보·통보문 목록도 비운다
     buildZones(); markStyleBtns(); markResBtns();
     if (!applyPreset()) {
       // 저장해 둔 배치가 없으면 최소한 그 모드 기본 색 세트라도 맞춰 준다.
@@ -14173,10 +14360,13 @@ function wireTour() {
 }
 
 // 파일을 창에 끌어다 놓으면 열기 (더블클릭 대안 — file://에서도 동작). .wcg.png / .json 모두.
+// 자기 drop에서 전파를 막는 곳(배치 슬롯 등)이 창 쪽 드래그 카운트·오버레이를 정리할 때 부른다.
+let dropHintReset = () => { const h = $('#dropHint'); if (h) h.classList.remove('on'); };
 function setupDropOpen() {
   const hint = $('#dropHint');
   const hasFile = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
   let over = 0;
+  dropHintReset = () => { over = 0; hint.classList.remove('on'); };
   window.addEventListener('dragenter', (e) => { if (!hasFile(e)) return; e.preventDefault(); over++; hint.classList.add('on'); });
   window.addEventListener('dragover', (e) => { if (hasFile(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
   window.addEventListener('dragleave', (e) => { if (!hasFile(e)) return; over = Math.max(0, over - 1); if (!over) hint.classList.remove('on'); });
@@ -14237,7 +14427,12 @@ window.addEventListener('resize', () => applyView());
 // 앱을 '새 창으로 켜면'(=이 창 세션의 첫 실행) 늘 빈 화면(시작 안내)으로 시작한다.
 // 지난 지도를 자동으로 띄우지 않는다. 새로고침(F5)일 때만(=세션 플래그 있음) 하던 작업을 이어 붙인다.
 migrateLegacyVfScaleState();   // 옛 빌드가 일반 화면에서 자동 생성한 VF 100% 값을 한 번만 제거
+// 기본 배치(배포 파일·슬롯)가 지난번과 달라졌는지 — 서명을 덮어쓰기 전에 비교해 둔다.
+const _prevDeploySig = (() => { try { return localStorage.getItem(DEPLOY_DEFAULTS_KEY) || ''; } catch (e) { return ''; } })();
 preferUpdatedDeploymentDefaults();
+const defaultsChanged = deploymentDefaultsSignature() !== _prevDeploySig;
+// 슬롯 적용 뒤 새로고침이면, 이어서 여는 작업에도 새 기본 배치를 한 번 적용한다.
+const slotReapply = (() => { try { const v = sessionStorage.getItem('wcg_reapply_preset'); sessionStorage.removeItem('wcg_reapply_preset'); return !!v; } catch (e) { return false; } })();
 const freshOpen = !sessionStorage.getItem('wcg_open');
 sessionStorage.setItem('wcg_open', '1');
 // '새로 시작' 후엔 선택 화면 대기 상태(새로고침에도 유지). 자동저장된 빈 작업을 로드하지 않고 시작화면을 띄운다.
@@ -14251,9 +14446,13 @@ if (work) {
   buildZones(); markStyleBtns(); markResBtns();
   // 태풍 지도로 저장돼 있으면, 스타일 전환과 '똑같은' 배치가 나오도록 부팅에서도 배치를 재적용한다.
   // (안 그러면 저장된 옛 제목 위치가 남아, 특보/예보 갔다와야 제대로 바뀌는 경로 의존 버그가 생김)
-  if (typeof isTyphoon === 'function' && isTyphoon()) { const ap = applyPreset(); applyTyphoonStyle(); if (!ap) setTyphoonDefaultView(); }   // 구운 태풍 뷰가 있으면 그대로, 없으면 자동맞춤
+  // 단 기본 배치가 그대로인 평범한 F5에서는 재적용하지 않는다 — 편집한 제목 내용·위치·범례가 배치값으로 덮였다.
+  if (typeof isTyphoon === 'function' && isTyphoon()) {
+    if (defaultsChanged || slotReapply) { const ap = applyPreset(); applyTyphoonStyle(); if (!ap) setTyphoonDefaultView(); }   // 구운 태풍 뷰가 있으면 그대로, 없으면 자동맞춤
+    else applyTyphoonStyle();
+  } else if (slotReapply) applyPreset();   // 슬롯 적용 직후 — 지금 화면에도 새 기본 배치가 바로 보이게
+  restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게) — renderAll 앞이라야 자동 범례가 빈 채로 안 그려진다
   syncPanelFromState(); renderAll();
-  restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게)
   showPresetInfo();
   flash('하던 작업 이어서 열었습니다');
 } else {
