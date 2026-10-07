@@ -31,8 +31,10 @@
 <script src="font-data.js"></script>
 <style id="fontEmbed"></style>
 <script>try { document.getElementById('fontEmbed').textContent = (window.WANTED_FONT_CSS || '').replace('font-display:block', 'font-display:swap'); } catch (e) {}</script>
+<!-- 편집기 UI 글꼴 Pretendard(무료 OFL) — 쓰는 글자 조각만 받는 CDN. 오프라인이면 --ui-font 다음 순서(Segoe UI + 맑은 고딕)로 보인다. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
-  /* CG 출력 전용 글꼴. 편집기 UI는 아래 --ui-font(Segoe UI + 맑은 고딕)를 쓴다. */
+  /* CG 출력 전용 글꼴. 편집기 UI는 아래 --ui-font(Pretendard)를 쓴다. */
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 300; src: url('FontNew/SUITE-Light.otf') format('opentype'); }
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 400; src: url('FontNew/SUITE-Regular.otf') format('opentype'); }
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 500; src: url('FontNew/SUITE-Medium.otf') format('opentype'); }
@@ -127,8 +129,8 @@
 
   /* html까지 overflow:hidden — 어떤 자식이 넘쳐도 문서 자체가 스크롤돼 앱이 위로 밀리지 않게 */
   html, body { height: 100%; margin: 0; overflow: hidden; }
-  /* 편집기 UI 글꼴 — ChatGPT 윈도 앱·뉴스 플레이어와 같은 조합(영문 Segoe UI + 한글 맑은 고딕), 맥은 시스템 글꼴로 */
-  :root { --ui-font: 'Segoe UI', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif; }
+  /* 편집기 UI 글꼴 — Pretendard. 못 받으면 Segoe UI + 맑은 고딕(윈도), 맥은 시스템 글꼴 */
+  :root { --ui-font: 'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif; }
   body {
     font-family: var(--ui-font);
     background: var(--surface); color: var(--on-surface);
