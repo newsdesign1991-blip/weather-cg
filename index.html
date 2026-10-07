@@ -511,6 +511,8 @@
   #frameGuide::before { content: attr(data-label); position: absolute; top: 5px; left: 7px; font-size: 11px; font-weight: 700; color: #eaf6ff; background: rgba(20,110,170,.85); padding: 1px 7px; border-radius: 6px; }
   #frameGuide::after { content: ''; position: absolute; inset: 5%; border: 1px dashed rgba(255,255,255,.3); }   /* 타이틀 세이프(90%) */
   .fit.mapTilt #L_bg, .fit.mapTilt #L_sea, .fit.mapTilt #L_map, .fit.mapTilt #L_boxes, .fit.mapTilt #L_mtn, .fit.mapTilt #L_typhoon { visibility: hidden; }
+  .fit.mapTilt #L_vfPreview { visibility: hidden; }   /* 노말 VF 가짜영상이 #cg 안에서 뒤의 기울인 지도(#camCanvas)를 덮지 않게 */
+  .fit.mapTilt #L_mapBase { visibility: hidden; }     /* 블라인드 베이스 지도도 기울인 캔버스(L_map과 함께)에 그려지므로 평면 원본은 숨김 */
 
   /* 사이드바 자동 강조 — 카드 배경(그라디언트)을 안 건드리게 링으로 */
   @keyframes flashSec {
@@ -3213,6 +3215,7 @@ function renderMapTransform() {
   const t = `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`;
   $('#mapT').setAttribute('transform', t);
   $('#bgMapT').setAttribute('transform', t);
+  document.querySelector('#L_mapBase [data-blindmapt]')?.setAttribute('transform', t);   // 블라인드 베이스 지도도 카메라를 따라간다
   // 지도 전체 크기 핸들 — 본토 오른쪽 아래 모서리에 붙인다.
   // 캔버스 밖으로 나가면 잘려서(overflow:hidden) 못 잡으므로 프레임 안에 붙잡아 둔다.
   const g = $('#mapGrip');
@@ -4551,6 +4554,17 @@ function typhoonRangeWindow(pts) {
   }
   return { lo, hi };
 }
+// 라인 모드(비교 지도 제외) — 경로 시각 라벨을 안 그리고 현재 위치에서 멈춘다.
+function typhoonLineMode() { return !isTyphoonCompare() && !!(S.typhoon && S.typhoon.trackMode === 'line'); }
+// 애니가 실제로 훑을 구간 — 라인 모드는 예상 지점으로 넘어가지 않고 현재 위치(nowIdx)에서 끝난다.
+// 애니 확인(playTyphoon)·타임라인 재생·영상 추출(renderAnimFrame)·라벨 기본 키가 같은 규칙을 쓴다.
+function typhoonAnimWindow(pts) {
+  const win = typhoonRangeWindow(pts);
+  if (!typhoonLineMode()) return win;
+  return { lo: win.lo, hi: Math.max(win.lo, Math.min(win.hi, typhoonNowIdx(pts))) };
+}
+// 진행 폭 — 라인 모드는 구간이 한 점(현재=시작)이면 0(제자리, 예보로 갔다 튀지 않게), 일반 모드는 최소 1.
+function typhoonAnimSpan(lo, hi) { return typhoonLineMode() ? Math.max(0, hi - lo) : Math.max(1, hi - lo); }
 // 굽힌 배포 기본값(WCG_DEFAULTS.typhoonStyle)이 있으면 그걸 우선한 태풍 스타일 기본값.
 function typhoonStyleDefaults() {
   const baked = (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {};
@@ -5137,7 +5151,7 @@ function drawTyphoonTrack(L, pts) {
   const lineMode = !cmpMode && T && T.trackMode === 'line';
   let sp = typhoonScreenPts(pts);
   if (T && T.rangeOn) sp = sp.filter((p) => p.head || typhoonIdxInRange(pts, p.idx));   // 표시 날짜 범위 밖 지점 제외
-  if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 현재 이후 예상경로는 제외(선두 head도 현재 지점을 못 넘음 — 예보로 갔다 튀는 것 방지)
+  if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 현재 이후 예상경로는 제외(진행 중 선두도 현재 위치를 넘지 않게 — 예보로 갔다 튀는 것 방지)
   const add = (e) => L.appendChild(e);
   // 독도 — 줌아웃하면 실제로는 안 보이므로 '있는듯 없는듯' 작은 점 하나로 표시(시청자 민감 이슈).
   // 크기는 울릉도 화면 반경의 1/4 정도로 비례, 색은 남한 강조 스트로크색. 남한 강조 끄면 같이 숨김.
@@ -5415,17 +5429,16 @@ function playTyphoon() {
   const pts = curTyphoonPoints();
   if (pts.length < 2) { typhoonProg = null; renderTyphoon(); return; }
   const N = pts.length;
-  const win = typhoonRangeWindow(pts), lo = win.lo;
-  const lineMode = !!(S.typhoon && S.typhoon.trackMode === 'line');
-  const hi = lineMode ? Math.min(win.hi, typhoonNowIdx(pts)) : win.hi;
-  const span = lineMode ? Math.max(0, hi - lo) : Math.max(1, hi - lo);   // 라인 모드는 예상 지점으로 넘어가지 않고 현재 위치에서 멈춘다(현재=시작이면 제자리)
+  const { lo, hi } = typhoonAnimWindow(pts);
+  const span = typhoonAnimSpan(lo, hi);   // 라인 모드는 예상 지점으로 넘어가지 않고 현재 위치에서 멈춘다(현재=시작이면 제자리)
+  const lineMode = typhoonLineMode();  // 라인 모드는 경로 시각 라벨을 안 그린다 → 라벨 키로 길이를 늘리지 않음
   const _tt = anim().tracks.find((x) => x.kind === 'typhoon');   // 경로 키 + 라벨별 키(미리보기도 타임라인과 동일)
   ensureTyphoonKeys(_tt);
   const ps = _tt ? +_tt.ps : 0, pe = _tt ? +_tt.pe : ps + 2.0;
   const psM = ps * 1000, peM = pe * 1000;
   const lab = (_tt && _tt.lab) || {};
   const map = {}; let labEnd = 0;   // 라벨별 등장 절대시각(ms) + 리더/스케일 시간
-  for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
+  if (!lineMode) for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
     const e = lab[b.id]; if (!e) continue;
     const dur = Math.max(0.05, e.e - e.s) * 1000;
     map[b.id] = { st: e.s * 1000, LINE: dur * 0.6, SCALE: dur * 0.7 };
@@ -6201,6 +6214,7 @@ function wireTyphoonPanel() {
     pushUndo(); T().trackMode = b.dataset.tm === 'line' ? 'line' : 'full';
     document.querySelectorAll('#typTrackMode button').forEach((x) => x.classList.toggle('on', x === b));
     renderTyphoon(); renderLegend();   // 라인 모드는 범례의 반경 항목도 빠짐
+    buildTimeline();   // 라인 모드면 라벨 하위 행을 빼고, 일반 모드면 다시 보인다
   }; });
   bindCol('#typLineColor', '#typLineColorHex', (v) => T().lineColor = v);
   const lineW = $('#typLineWidth'); if (lineW) lineW.oninput = () => { pushUndo('typlinew'); T().lineWidth = +lineW.value; const v = $('#typLineWidthV'); if (v) v.textContent = lineW.value + 'px'; renderTyphoon(); };
@@ -7362,7 +7376,7 @@ function setFlatPanLOD(on) {
     if (on) { n.style.willChange = 'transform'; n.style.transformBox = 'view-box'; n.style.transformOrigin = '0 0'; }
     else { n.style.willChange = ''; n.style.transformBox = ''; n.style.transformOrigin = ''; n.style.transform = ''; }
   }
-  if (!on) { const bg = document.querySelector('#bgMapT'), mt = document.querySelector('#mapT'); if (bg) bg.style.transform = ''; if (mt) mt.style.transform = ''; }
+  if (!on) { const bg = document.querySelector('#bgMapT'), mt = document.querySelector('#mapT'), mb = document.querySelector('#L_mapBase [data-blindmapt]'); if (bg) bg.style.transform = ''; if (mt) mt.style.transform = ''; if (mb) mb.style.transform = ''; }
 }
 // 틸트 팬: 시작 때 얼려둔 #camCanvas 텍스처(블리드 포함, 평면)를 팬량만큼 즉시 옮겨 그린다 — SVG 재래스터가 없어 지연이 사라진다.
 // (평면 텍스처를 옮긴 뒤 CSS가 틸트를 입히므로 결과는 정확한 평면 팬. 놓을 때 up()에서 정확히 다시 굽는다.)
@@ -7377,16 +7391,17 @@ function tiltPanShift() {
 // 드래그 중 초경량 팬/줌 — #bgMapT는 renderMapTransform(속성만), #L_typhoon은 변환으로만 이동(리렌더 없음). 틸트면 캔버스만 갱신.
 function lightPanZoom(base) {
   const bg = $('#bgMapT'), mt = $('#mapT');
+  const mb = document.querySelector('#L_mapBase [data-blindmapt]');   // 블라인드 베이스 지도도 같이(재생 중 지도 이동 시 어긋남 방지)
   if (camActive3d()) {   // 틸트: 캔버스 렌더 기준이라 속성 transform 유지
     const t = `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`;
-    if (bg) bg.setAttribute('transform', t); if (mt) mt.setAttribute('transform', t);
+    if (bg) bg.setAttribute('transform', t); if (mt) mt.setAttribute('transform', t); if (mb) mb.setAttribute('transform', t);
     if (_tiltPanCanvas) tiltPanShift();   // 팬: 얼린 텍스처를 즉시 이동(재래스터 지연 없음)
     else applyTilt();                      // 줌 등: 기존대로 재래스터
     updateTyphoonLeaders(); return;
   }
   // 평면 팬/줌: CSS transform(GPU 합성) — 거대한 path를 매 프레임 리페인트 안 하고 GPU 텍스처를 이동/스케일(초경량·부드러움).
   const t = `translate(${S.map.x}px, ${S.map.y}px) scale(${S.map.s})`;
-  if (bg) bg.style.transform = t; if (mt) mt.style.transform = t;
+  if (bg) bg.style.transform = t; if (mt) mt.style.transform = t; if (mb) mb.style.transform = t;
   const r = S.map.s / (base.s || 1), tr = `translate(${S.map.x - base.x * r}px, ${S.map.y - base.y * r}px) scale(${r})`;
   const L = $('#L_typhoon'), LB = $('#L_typhoonLabels'), RI = $('#L_refImg');   // 지도·라벨·참고이미지 모두 지도와 함께 rigid 이동
   if (L) L.style.transform = tr;
@@ -10146,8 +10161,36 @@ const CAM_BLEED = 1.0;   // 3D 기울임 시 프레임 밖(특히 북쪽)까지 
 const CAM_EDGE_FADE = 26;   // 틸트 지도 가장자리 페이드 폭(캔버스 %). 바깥 블리드가 이 폭만큼 바다색으로 부드럽게 사라진다(하드컷 방지). 프레임(가운데)은 안 건드림.
 const CAM_VOID_COL = '#0e2a4e';   // 3D 회전 시 지도 밖(먼 거리)을 채우는 색 = 바다 그라디언트 '가장 북쪽' 색과 동일 → 이음새 안 보임
 const camBleedViewBox = () => `${-1920 * CAM_BLEED} ${-1080 * CAM_BLEED} ${1920 * (1 + 2 * CAM_BLEED)} ${1080 * (1 + 2 * CAM_BLEED)}`;
+// 조상에 걸린 clip-path(노말 VF 패널 vfClip·블라인드 슬랫 bclipN/bclipHide 등)를 캔버스 클립으로 옮긴다.
+// 글자는 래스터에서 빼고 캔버스에 따로 그리므로, 이걸 안 하면 SVG에선 잘린 글자가 추출물에만 찍힌다.
+// clips = [[참조노드, 클립id], ...]. 빈 클립(도형 없음 = 다 가림)이면 false → 그 글자는 건너뛴다.
+const _EXPORT_FONT_DEF = '"SUITE CG", "Malgun Gothic", sans-serif';
+function applyExportTextClips(cx, clips, rootInv, sx, sy) {
+  for (const [n, id] of clips) {
+    const cp = document.getElementById(id);
+    if (!cp || (cp.getAttribute('clipPathUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') continue;   // 앱 클립은 전부 userSpaceOnUse
+    const kids = [...cp.children].filter((k) => /^(rect|path|circle)$/.test(k.tagName));
+    if (!kids.length) return false;
+    let cm; try { cm = rootInv ? rootInv.multiply(n.getScreenCTM()) : n.getCTM(); } catch (e) { cm = null; } if (!cm) continue;
+    cx.setTransform(sx * cm.a, sy * cm.b, sx * cm.c, sy * cm.d, sx * cm.e, sy * cm.f);   // 클립 좌표 = 참조 노드의 유저 좌표계
+    const P = new Path2D(); let rule = 'nonzero';
+    for (const k of kids) {
+      const num = (a) => parseFloat(k.getAttribute(a)) || 0;
+      let sub = new Path2D();
+      if (k.tagName === 'rect') sub.rect(num('x'), num('y'), num('width'), num('height'));
+      else if (k.tagName === 'circle') sub.arc(num('cx'), num('cy'), num('r'), 0, Math.PI * 2);
+      else sub = new Path2D(k.getAttribute('d') || '');
+      let tm = null; try { const c = k.transform && k.transform.baseVal && k.transform.baseVal.consolidate(); if (c) { const q = c.matrix; tm = new DOMMatrix([q.a, q.b, q.c, q.d, q.e, q.f]); } } catch (e) { tm = null; }
+      if (tm) P.addPath(sub, tm); else P.addPath(sub);   // 블라인드 슬랫은 rotate가 걸려 있다
+      if (kids.length === 1 && k.getAttribute('clip-rule') === 'evenodd') rule = 'evenodd';
+    }
+    cx.clip(P, rule);
+  }
+  return true;
+}
 // 추출 글자를 '캔버스에 직접' SUITE로 그린다 — 크롬에서 <img> 안 SVG의 임베드 폰트가 안 먹는 문제를 확실히 우회.
 // 라이브 SVG의 각 <text>의 실제 위치(getCTM)를 읽어 그대로 캔버스에 옮긴다. 폰트는 document.fonts에 올려둔 SUITE.
+// 글자에 지정된 서체(font-family)·외곽선(stroke·paint-order)·fill-opacity와 조상 clip-path도 화면처럼 반영한다.
 function solidFill(f) { if (!f || f === 'none') return '#FFFFFF'; if (String(f).indexOf('url') === 0) return '#FFFFFF'; return f; }
 function drawExportTextOverlay(cx, keep, W, H) {
   const vb = (svg.viewBox && svg.viewBox.baseVal) || null;
@@ -10160,7 +10203,7 @@ function drawExportTextOverlay(cx, keep, W, H) {
   for (const t of els) {
     const txt = t.textContent; if (!txt || !txt.trim()) continue;
     // 숨김(레이어/요소) 스킵 + 조상 그룹 opacity 누적(라벨 등장 애니 = 그룹 opacity. 이걸 반영해야 숫자도 박스와 같이 페이드인 — 안 그러면 텍스트만 처음부터 100%로 찍힘)
-    let hide = false, op = 1;
+    let hide = false, op = 1; const clips = [];
     for (let n = t; n && n !== svg; n = n.parentNode) {
       if (!n.getAttribute) continue;
       if (n.getAttribute('display') === 'none') { hide = true; break; }
@@ -10168,6 +10211,8 @@ function drawExportTextOverlay(cx, keep, W, H) {
       if (st && (st.display === 'none' || st.visibility === 'hidden')) { hide = true; break; }
       const so = (st && st.opacity !== '' && st.opacity != null) ? st.opacity : n.getAttribute('opacity');   // style 우선, 없으면 속성
       if (so != null && so !== '') { const v = parseFloat(so); if (!isNaN(v)) op *= v; }
+      const cpa = n.getAttribute('clip-path'); const cm = cpa && /url\(\s*['"]?#([^'")\s]+)/.exec(cpa);
+      if (cm) clips.push([n, cm[1]]);
     }
     if (hide || op <= 0.001) continue;
     let m; try { m = rootInv ? rootInv.multiply(t.getScreenCTM()) : t.getCTM(); } catch (e) { m = null; } if (!m) continue;
@@ -10178,32 +10223,45 @@ function drawExportTextOverlay(cx, keep, W, H) {
     const ls = parseFloat(t.getAttribute('letter-spacing')) || parseFloat(cs.letterSpacing) || 0;
     const domB = t.getAttribute('dominant-baseline') || cs.dominantBaseline || '';
     const x = parseFloat(t.getAttribute('x')) || 0, y = parseFloat(t.getAttribute('y')) || 0;
+    const fam = t.getAttribute('font-family') || _EXPORT_FONT_DEF;   // 지정 서체(예: 비교 이름표 Wanted Sans) — 없으면 SUITE
+    const setFont = (w) => { cx.font = `${w} ${fs}px ${_EXPORT_FONT_DEF}`; cx.font = `${w} ${fs}px ${fam}`; };   // 지정값이 이상하면 SUITE로 남는다
+    const fOp = parseFloat(t.getAttribute('fill-opacity')); const fillA = op * (isNaN(fOp) ? 1 : fOp);
+    const stCol = t.getAttribute('stroke'), stW = parseFloat(t.getAttribute('stroke-width')) || 0;
+    const sOp = parseFloat(t.getAttribute('stroke-opacity')); const strokeA = op * (isNaN(sOp) ? 1 : sOp);
+    const hasStroke = !!stCol && stCol !== 'none' && stW > 0;
+    const strokeFirst = /^\s*stroke/.test(t.getAttribute('paint-order') || '');
+    // 한 조각 그리기 — paint-order가 stroke면 외곽선 먼저(글자 위를 안 덮음), 아니면 채움 먼저
+    const paint = (s, px, py, fill) => {
+      const doStroke = () => { if (!hasStroke) return; cx.globalAlpha = strokeA; cx.strokeStyle = solidFill(stCol); cx.lineWidth = stW; cx.lineJoin = t.getAttribute('stroke-linejoin') || 'miter'; cx.strokeText(s, px, py); };
+      const doFill = () => { cx.globalAlpha = fillA; cx.fillStyle = solidFill(fill); cx.fillText(s, px, py); };
+      if (strokeFirst) { doStroke(); doFill(); } else { doFill(); doStroke(); }
+    };
     cx.save();
+    if (clips.length && !applyExportTextClips(cx, clips, rootInv, sx, sy)) { cx.restore(); continue; }   // 클립에 완전히 가려진 글자
     cx.globalAlpha = op;   // 그룹 등장 opacity를 텍스트에도 적용
     cx.setTransform(sx * m.a, sy * m.b, sx * m.c, sy * m.d, sx * m.e, sy * m.f);   // local → canvas
-    cx.font = `${fw} ${fs}px "SUITE CG", "Malgun Gothic", sans-serif`;
+    setFont(fw);
     cx.textAlign = anchor === 'middle' ? 'center' : (anchor === 'end' ? 'right' : 'left');
     cx.textBaseline = /central|middle/.test(domB) ? 'middle' : 'alphabetic';
     try { cx.letterSpacing = ls + 'px'; } catch (e) {}
     const tspans = t.querySelectorAll('tspan');
     if (tspans.length) {   // 부분 색/굵기 — 각 tspan을 이어서 그린다
       const segs = []; let total = 0;
-      for (const ts of tspans) { const s = ts.textContent || ''; cx.font = `${ts.getAttribute('font-weight') || fw} ${fs}px "SUITE CG","Malgun Gothic",sans-serif`; const w = cx.measureText(s).width; segs.push({ s, w, fill: ts.getAttribute('fill') || t.getAttribute('fill'), fw: ts.getAttribute('font-weight') || fw }); total += w; }
+      for (const ts of tspans) { const s = ts.textContent || ''; setFont(ts.getAttribute('font-weight') || fw); const w = cx.measureText(s).width; segs.push({ s, w, fill: ts.getAttribute('fill') || t.getAttribute('fill'), fw: ts.getAttribute('font-weight') || fw }); total += w; }
       let startX = x; if (cx.textAlign === 'center') startX = x - total / 2; else if (cx.textAlign === 'right') startX = x - total;
       cx.textAlign = 'left';
       let px = startX;
-      for (const seg of segs) { cx.font = `${seg.fw} ${fs}px "SUITE CG","Malgun Gothic",sans-serif`; cx.fillStyle = solidFill(seg.fill); cx.fillText(seg.s, px, y); px += seg.w; }
+      for (const seg of segs) { setFont(seg.fw); paint(seg.s, px, y, seg.fill); px += seg.w; }
     } else {
-      cx.fillStyle = solidFill(t.getAttribute('fill') || cs.fill);
-      cx.fillText(txt, x, y);
+      paint(txt, x, y, t.getAttribute('fill') || cs.fill);
     }
     cx.restore();
   }
   cx.setTransform(1, 0, 0, 1, 0, 0);
 }
-// 추출용 복제본에서 편집 UI(선택·가이드·핸들·브러쉬 커서·브러쉬 영역 강조) 제거. <img> 안 SVG엔 문서 CSS가 없어 남기면 검게 찍힌다.
-// (svgToImage·svgBlob·previewPng 공용 — 목록을 한 곳에서 관리)
-const EXPORT_STRIP = ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor'];
+// 추출용 복제본에서 편집 UI(선택·가이드·핸들·VF 가짜영상·브러쉬 커서·브러쉬 영역 강조·참고 이미지(대고 그리기용, 편집 핸들 포함)) 제거.
+// <img> 안 SVG엔 문서 CSS가 없어 남기면 검게 찍힌다. (svgToImage·svgBlob·previewPng 공용 — 목록을 한 곳에서 관리)
+const EXPORT_STRIP = ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor', '#L_refImg'];
 function stripExportUi(clone) {
   for (const s of EXPORT_STRIP) clone.querySelector(s)?.remove();
   clone.querySelectorAll('.brushSelHi').forEach((n) => n.remove());
@@ -10232,6 +10290,7 @@ async function svgToImage(W, H, keep, viewBox, stripText) {
   if (viewBox) clone.setAttribute('viewBox', viewBox);
   stripExportUi(clone);
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
+  if (keep && !keep.includes('L_map')) clone.querySelector('#L_mapBase')?.remove();   // 블라인드 베이스 지도는 L_map과 같이 빠진다(3D 오버레이·정적 캐시)
   // 실시간 Mapbox 타일: 외부 URL은 래스터에서 안 뜨므로 캐시된 data URI로 바꿔 끼운다. 없으면 제거(빈 참조 방지).
   clone.querySelectorAll('#typhoonTiles image[data-url]').forEach((im) => {
     const durl = _tileData[im.getAttribute('data-url')];
@@ -10335,12 +10394,14 @@ async function drawExportFrame(cx, W, H) {
   cx.clearRect(0, 0, W, H);
   if (!camActive3d()) {
     // 카메라 애니(지도 이동)가 없으면 지도·제목·범례는 매 프레임 동일 → 1회만 굽고, 변하는 태풍 레이어만 프레임마다 합성(전체 재래스터 ~100ms → ~40ms).
-    if (isTyphoon() && !camKeys().length) {
+    // 노말 VF는 래퍼(L_vfWrap)에 진입 슬라이드·페이드가 프레임마다 걸리므로 캐시하면 첫 프레임(투명) 상태로 굳는다 → 매 프레임 전체 래스터.
+    if (isTyphoon() && !camKeys().length && S.res !== '1920x1080-vf') {
       if (!_expBaseBelow) _expBaseBelow = await _rasterCanvasLayers(W, H, ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn']);
       if (!_expBaseAbove) _expBaseAbove = await _rasterCanvasLayers(W, H, ['L_vfBar', 'L_labels', 'L_title', 'L_legend']);
       cx.drawImage(_expBaseBelow, 0, 0);
       const typh = await svgToImage(W, H, ['L_typhoon', 'L_typhoonLabels'], null, true);   // 글자 빼고
       cx.drawImage(typh, 0, 0, W, H);
+      drawExportTextOverlay(cx, ['L_typhoon'], W, H);   // 아이콘 안 글자('저'·강도 숫자) — 위에서 글자를 뺐으니 다시 그린다(제목·범례보다 아래)
       cx.drawImage(_expBaseAbove, 0, 0);
       drawExportTextOverlay(cx, ['L_typhoonLabels'], W, H);   // 태풍 라벨 글자는 캔버스에 SUITE로 (제목·범례는 _expBaseAbove에 이미 그려짐)
       return;
@@ -10348,7 +10409,7 @@ async function drawExportFrame(cx, W, H) {
     const img = await svgToImage(W, H, null, null, true); cx.drawImage(img, 0, 0, W, H);   // 글자 빼고
     drawExportTextOverlay(cx, null, W, H); return;   // 모든 글자 캔버스에 SUITE로
   }
-  cx.fillStyle = CAM_VOID_COL; cx.fillRect(0, 0, W, H);   // 회전 시 지도 밖은 바다색으로(투명 방지 · 미리보기와 동일)
+  if (S.res !== '1920x1080-vf') { cx.fillStyle = CAM_VOID_COL; cx.fillRect(0, 0, W, H); }   // 회전 시 지도 밖은 바다색으로(투명 방지 · 미리보기와 동일). 노말 VF는 알파 출력이라 패널 밖은 투명 유지
   const exW = Math.round(W * (1 + 2 * CAM_BLEED)), exH = Math.round(H * (1 + 2 * CAM_BLEED));
   const mapImg = await svgToImage(exW, exH, CAM_MAP_LAYERS, camBleedViewBox());   // 프레임 밖 여백까지 렌더(지도만 — 글자 없음)
   warpTilt3D(cx, mapImg, W, H);                        // 지도(+태풍)만 3D 회전(밖 여백은 CAM_VOID_COL=바다 북쪽색으로 이어짐)
@@ -10407,7 +10468,7 @@ function buildMp4(W, H, timescale, frameDur, samples, avcc) {
 async function bakeMp4() {
   if (S.res === '1920x1080-vf') { status('노말 VF의 MOV(알파) 추출은 아직 준비 중입니다 — "PNG 시퀀스로 추출"을 쓰세요', true); return; }
   const A = anim();
-  if (!A.tracks.length) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
+  if (!hasAnim()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   if (typeof VideoEncoder === 'undefined') { status('이 브라우저는 WebCodecs 인코딩을 지원 안 합니다 — 크롬 최신판을 쓰세요', true); return; }
   animStop();
   const [W, H] = RES[S.res].size;
@@ -10472,7 +10533,7 @@ async function bakeMp4() {
 // 느려도 상관없다 — 한 장씩 확실히 뽑아 편집 툴(프리미어/AE)에서 fps 지정해 합친다.
 async function exportPngSeq() {
   const A = anim();
-  if (!A.tracks.length) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
+  if (!hasAnim()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   const [W, H] = RES[S.res].size;
   const n = Math.round(A.dur * A.fps);
   const vf = S.res === '1920x1080-vf';   // VF는 투명(알파) PNG로 뽑아 AE에서 QuickTime Animation(RGB+Alpha)로 렌더
@@ -10613,7 +10674,7 @@ async function showHelperStatus() {
 }
 async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const A = anim();
-  if (!A.tracks.length) { status('트랙이 없습니다 — “지금 화면으로 자동 구성”을 먼저 누르세요', true); return; }
+  if (!hasAnim()) { status('트랙이 없습니다 — “지금 화면으로 자동 구성”을 먼저 누르세요', true); return; }
   // 헬퍼 살아있는지 확인 — 꺼져 있으면 큰 팝업 안내
   let up = false;
   try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
@@ -10814,10 +10875,18 @@ const EXPORT_TARGETS = [
   { key: 'map', label: '지도만 (베이스색만, 투명)', sub: '북한 실루엣 포함' },
   { key: 'sidoline', label: '시·도 선만 (투명)', sub: '시도 경계선만' },
   { key: 'fills', label: '특보·예보 색칠만 (투명)', sub: '칠한 구역만' },
+  { key: 'mtn', label: '산 표시만 (투명)', sub: '칠한 산 색·테두리·이름 (색칠 위에 얹기)' },
   { key: 'labels', label: '수치 라벨만 (투명)', sub: '여러 개면 각각 한 장씩' },
   { key: 'typhoon', label: '태풍 라인만 (투명)', sub: '경로·아이콘·반경·라벨·지명 (태풍 지도)' },
 ];
 let exportPick = new Set(['full']);
+// 항목별 뽑힐 장수(exportBlobs와 같은 규칙) — 굽기 전에 저장 대상(png 한 장 / zip)을 정하는 데 쓴다.
+function exportCount(key) {
+  if (key === 'labels') return S.labels.filter((b) => !b.off).length;
+  if (key === 'typhoon') return isTyphoon() ? 1 : 0;
+  if (key === 'mtn') return (!isTyphoon() && (S.mtns || []).some((m) => !m.off)) ? 1 : 0;   // 태풍 지도는 산 레이어를 숨긴다
+  return EXPORT_TARGETS.some((t) => t.key === key) ? 1 : 0;
+}
 
 async function exportBlobs(key) {
   const F = fills();
@@ -10863,6 +10932,10 @@ async function exportBlobs(key) {
       p.removeAttribute('mask'); p.removeAttribute('opacity');
     });
   }) }];
+  if (key === 'mtn') {   // 산 표시만 — 칠한 산 색 그대로(지도만=베이스색, 색칠만=산 없음이라 분리 추출에서 산 색이 빠지던 것 보완)
+    if (!exportCount('mtn')) return [];
+    return [{ name: '산', blob: await svgBlob((c) => { keepLayers(c, ['L_mtn']); c.querySelector('#L_mtn')?.removeAttribute('filter'); }, true) }];
+  }
   if (key === 'typhoon') {   // 태풍 라인만 — 경로·아이콘·반경·수치라벨·지명(투명 배경)
     if (!isTyphoon()) return [];
     return [{ name: '태풍', blob: await svgBlob((c) => keepLayers(c, ['L_typhoon', 'L_typhoonLabels']), true) }];
@@ -10881,6 +10954,8 @@ async function exportBlobs(key) {
         blob: await svgBlob((c) => {
           keepLayers(c, ['L_labels']);
           c.querySelectorAll('#L_labels > g').forEach((g) => { if (g.dataset.id !== id) g.remove(); });
+          // 지시선 라벨의 선·앵커(박스 g 밖 형제)도 이 라벨 것만 남긴다 — 안 그러면 모든 장에 남의 지시선이 중복
+          c.querySelectorAll('#L_labels > [data-fleader-id], #L_labels > [data-fanchor-id]').forEach((n) => { if ((n.getAttribute('data-fleader-id') || n.getAttribute('data-fanchor-id')) !== id) n.remove(); });
         }),
       });
     }
@@ -11013,6 +11088,7 @@ async function aeLabelBgBlob(ld) {
   keepLayers(clone, ['L_labels']);
   const scaleLayer = clone.querySelector('#L_vfScale'); if (scaleLayer) scaleLayer.removeAttribute('transform'); // 아래 캔버스 확대와 중복 금지
   clone.querySelectorAll('#L_labels > g').forEach((g) => { if (g.dataset.id !== ld.id) g.remove(); });
+  clone.querySelectorAll('#L_labels > [data-fleader-id], #L_labels > [data-fanchor-id]').forEach((n) => n.remove());   // 지시선·앵커는 박스 g 밖 형제 — 박스 배경에 섞이지 않게(베이스 레이어에 있음)
   clone.querySelectorAll(`#L_labels > g[data-id="${ld.id}"] text`).forEach((t) => t.remove());   // 텍스트 제거 → 배경만
   clone.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
   const W = Math.max(1, Math.round(vfScaledSize(box.w))), H = Math.max(1, Math.round(vfScaledSize(box.h)));
@@ -11345,26 +11421,27 @@ async function doExport() {
   const [W, H] = RES[S.res].size;
   const btn = $('#doExport');
   btn.disabled = true;
-  status('굽는 중…', true);
   try {
-    // 먼저 전부 굽는다 (폴더 쓰기는 그 다음)
+    // 저장 대상을 '굽기 전에' 준비 — 폴더 권한 요청·저장창은 클릭 직후(사용자 활성화 안)에만 뜬다. 굽기가 길면 활성화가 끝나 다운로드로 새던 문제.
+    // 폴더 선택기(directory picker)는 file://·다운로드·바탕화면 같은 '시스템 폴더'를 막는다.
+    // → 파일 저장 대화상자(showSaveFilePicker)로 '이름 + 위치'를 고르게 한다(파일 저장은 다운로드 폴더도 허용).
+    //   미지원(file:// 일부)이면 그 이름 그대로 다운로드 폴더로 받는다. 여러 장이면 ZIP 한 개로 묶는다.
+    const total = keys.reduce((a, k) => a + exportCount(k), 0);
+    if (!total) { status('뽑을 게 없습니다 (라벨이 없을 수 있음)', true); return; }
+    const single = total === 1;
+    const out = single ? await prepareOutput(dateTag(), 'png', 'image/png', '이미지(PNG)') : await prepareOutput(dateTag(), 'zip', 'application/zip', '이미지 묶음(zip)');
+    if (!out) { status('저장을 취소했습니다'); return; }
+    status('굽는 중…', true);
     const files = [];
     for (const k of keys) for (const f of await exportBlobs(k)) files.push({ name: `${f.name}.png`, blob: f.blob });
     if (!files.length) { status('뽑을 게 없습니다 (라벨이 없을 수 있음)', true); return; }
 
-    // 폴더 선택기(directory picker)는 file://·다운로드·바탕화면 같은 '시스템 폴더'를 막는다.
-    // → 파일 저장 대화상자(showSaveFilePicker)로 '이름 + 위치'를 고르게 한다(파일 저장은 다운로드 폴더도 허용).
-    //   미지원(file:// 일부)이면 그 이름 그대로 다운로드 폴더로 받는다. 여러 장이면 ZIP 한 개로 묶는다.
-    if (files.length === 1) {
-      const out = await prepareOutput(dateTag(), 'png', 'image/png', '이미지(PNG)');
-      if (!out) { status('저장을 취소했습니다'); return; }
+    if (single && files.length === 1) {
       await out.write(await files[0].blob.arrayBuffer());
       $('#exInfo').textContent = `${out.name} 저장됨`; status('저장됨: ' + out.name); flashDone('이미지 저장 완료');
     } else {
       const zf = [];
       for (const f of files) zf.push({ name: f.name, data: await blobBytes(f.blob) });
-      const out = await prepareOutput(dateTag(), 'zip', 'application/zip', '이미지 묶음(zip)');
-      if (!out) { status('저장을 취소했습니다'); return; }
       await out.write(zipStore(zf));
       $('#exInfo').textContent = `${files.length}장을 ${out.name} 로 저장 (압축 풀어서 사용)`;
       status(`${files.length}장 저장됨 · ${out.name}`); flashDone('이미지 저장 완료');
@@ -12466,7 +12543,8 @@ function typhoonLabels() { return labelList().filter((b) => !b.off && b.idx != n
 // 트랙 start/len 을 경로키+라벨키의 최소~최대로 동기화(기존 저장/로직 호환)
 function syncTyphoonSpan(tr) {
   let mn = tr.ps, mx = tr.pe;
-  for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (!e) continue; mn = Math.min(mn, e.s); mx = Math.max(mx, e.e); }
+  // 라인 모드는 라벨이 안 보이므로 경로 키만으로 길이를 잡는다
+  if (!typhoonLineMode()) for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (!e) continue; mn = Math.min(mn, e.s); mx = Math.max(mx, e.e); }
   tr.start = +Math.max(0, mn).toFixed(2);
   tr.len = +Math.max(0.05, mx - tr.start).toFixed(2);
 }
@@ -12478,11 +12556,12 @@ function ensureTyphoonKeys(tr) {
   tr.lab = tr.lab || {};
   const labs = typhoonLabels();
   const pts = curTyphoonPoints();
-  const { lo, hi } = typhoonRangeWindow(pts); const span = Math.max(1, hi - lo);
+  const { lo, hi } = typhoonAnimWindow(pts); const span = Math.max(1, hi - lo);
+  const lineMode = typhoonLineMode();   // 라인 모드: 안 보이는 라벨 키는 새로 만들지 않는다(기존 키는 일반 모드 복귀용으로 보존)
   const ids = {};
   for (const b of labs) {
     ids[b.id] = 1;
-    if (!tr.lab[b.id]) {   // 새로 붙은 라벨: 경로가 그 지점을 지나는 시각에 등장하도록 기본값
+    if (!tr.lab[b.id] && !lineMode) {   // 새로 붙은 라벨: 경로가 그 지점을 지나는 시각에 등장하도록 기본값
       const frac = span > 0 ? Math.min(1, Math.max(0, (b.idx - lo) / span)) : 0;
       const st = tr.ps + easeInOutCInv(frac) * Math.max(0.001, tr.pe - tr.ps);
       tr.lab[b.id] = { s: +st.toFixed(2), e: +(st + 0.9).toFixed(2) };
@@ -12535,6 +12614,8 @@ const trackProg = (tr, t) => clamp01((t - tr.start) / Math.max(tr.len, 0.001));
 
 // ===== 카메라(위치·확대 키프레임) — 재생/추출 때 S.map을 보간해 지도+태풍만 움직인다(제목·범례·가이드 고정) =====
 const camKeys = () => ((anim().cam ||= { keys: [] }).keys);
+// 재생·추출 가능 여부(공통) — 트랙이 있거나, 카메라 키만 있거나, 태풍(경로 애니 내재)이면 된다.
+const hasAnim = () => !!(anim().tracks.length || camKeys().length || isTyphoon());
 let _camSavedMap = null;      // 재생/추출 들어가기 전 '작업 뷰'(S.map + 틸트) 백업
 // 카메라 3D 회전은 S.map3d의 rx/ry/rz(도)에 담는다. 지도만 기울인다(미리보기 CSS, 추출 메시 워프).
 const CAM3D_DEFAULT = () => ({ on: 0, rx: 0, ry: 0, rz: 0, persp: 2.2 });
@@ -12610,7 +12691,7 @@ function autoTracks() {
   const A = anim();
   if (isTyphoon()) {
     // 태풍은 칠/라벨 트랙 대신 '경로 애니메이션' 트랙 하나. 길이 = 홀드 + 경로2초 + 라벨1.2초 + 꼬리1초.
-    const hold = animStart(), PATHs = 2.0, LABELs = 1.2, tail = 1.0;
+    const hold = animStart(), PATHs = 2.0, LABELs = typhoonLineMode() ? 0 : 1.2, tail = 1.0;   // 라인 모드는 경로 시각 라벨이 없다
     pushUndo();
     A.tracks = [{ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: +hold.toFixed(2), len: +(PATHs + LABELs).toFixed(2), ps: +hold.toFixed(2), pe: +(hold + PATHs).toFixed(2) }];   // 라벨별 키(lab)는 ensureTyphoonKeys가 채움
     for (const c of ((S.typhoon && S.typhoon.compare) || [])) A.tracks.push({ id: 'k' + seq++, kind: 'typcmp', key: c.id, start: +hold.toFixed(2), len: +PATHs.toFixed(2) });   // 비교 예보마다 타임라인 트랙(끌어서 타이밍 조정)
@@ -12684,6 +12765,7 @@ function ensureBlind() {
   if (document.getElementById('L_mapBase')) return;
   // 밑에 깔 베이스색 지도 (L_map 복제, id는 전부 떼서 중복 안 나게)
   const base = document.getElementById('L_map').cloneNode(true);
+  base.querySelector('#mapT')?.setAttribute('data-blindmapt', '1');   // 카메라 이동 때 renderMapTransform이 같이 옮길 표시(id는 아래서 지워짐)
   base.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
   base.id = 'L_mapBase';
   base.removeAttribute('filter');
@@ -12740,10 +12822,7 @@ function renderAnimFrame(t) {
     ensureTyphoonKeys(_tt);
     const pts = curTyphoonPoints();
     const N = Math.max(2, pts.length);
-    const { lo, hi: winHi } = typhoonRangeWindow(pts);   // '표시 날짜 범위' 구간만
-    const lineMode = !!(S.typhoon && S.typhoon.trackMode === 'line');   // 라인 모드는 미리보기(playTyphoon)처럼 현재 지점까지만 진행
-    const hi = lineMode ? Math.min(winHi, typhoonNowIdx(pts)) : winHi;
-    const span = lineMode ? Math.max(0, hi - lo) : Math.max(1, hi - lo);
+    const { lo, hi } = typhoonAnimWindow(pts); const span = typhoonAnimSpan(lo, hi);   // '표시 날짜 범위' 구간만(라인 모드는 현재 위치까지 — playTyphoon과 동일)
     if (!_tt) { typhoonProg = null; typhoonCmpProg = null; typhoonLabelAnim = null; renderTyphoon(); applyVfEnter(t); return; }   // 트랙 없으면 정적 전체 표시
     const ps = +_tt.ps, pe = +_tt.pe, lab = _tt.lab || {};
     // 경로: [ps,pe] 동안 등속(이징) 진행
@@ -12751,7 +12830,7 @@ function renderAnimFrame(t) {
     typhoonProg = pathK >= 1 ? null : lo + easeInOutC(pathK) * span;
     // 라벨: 각 라벨의 [s,e] 키로 등장(리더+스케일 시간은 그 길이에 비례). 절대시각(ms) 기준.
     const map = {};
-    for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
+    if (!typhoonLineMode()) for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
       const e = lab[b.id]; if (!e) continue;
       const dur = Math.max(0.05, e.e - e.s) * 1000;
       map[b.id] = { st: e.s * 1000, LINE: dur * 0.6, SCALE: dur * 0.7 };
@@ -12772,6 +12851,10 @@ function renderAnimFrame(t) {
 
   const colProg = {};
   for (const tr of A.tracks) if (tr.kind === 'fill') colProg[tr.key] = easeOut(trackProg(tr, t));
+  const progOf = (kind, id) => {
+    const tr = A.tracks.find((x) => x.kind === kind && x.key === id);
+    return tr ? trackProg(tr, t) : 1;   // 트랙이 없으면 계속 보이는 것으로
+  };
 
   let blindProg = null, blindIdx = null;   // 블라인드일 때 색별 진행도/클립 인덱스 (아래 산에서도 쓴다)
   if (reveal === 'blinds') {
@@ -12780,6 +12863,15 @@ function renderAnimFrame(t) {
     ensureClip('bclipHide');   // 빈 클립(rect 없음) = 아무것도 안 보임 — 시작 전 산을 숨긴다
     const prog = {}, idx = {};
     for (const c in colProg) prog[c] = colProg[c];    // colProg = 색(대문자) -> easeOut 진행도
+    // 지도 칠에 없는 산 색은 자기 '산' 트랙 진행도로 슬랫을 연다(번짐과 같은 타이밍 — 안 그러면 0초부터 다 보임).
+    // 같은 색 산이 여럿이면 가장 늦은 진행도. 지도 존은 F 색만 보므로 영향 없음.
+    const fcols = new Set(Object.values(F).map((c) => (c || '').toUpperCase()));
+    for (const m of (S.mtns || [])) {
+      if (m.off) continue;
+      const k = (m.col || '').toUpperCase(); if (!k || k in colProg || fcols.has(k)) continue;
+      const v = easeOut(clamp01(progOf('mtn', m.id)));
+      prog[k] = prog[k] == null ? v : Math.min(prog[k], v);
+    }
     // 진행 중(0<gp<1)인 색만 슬랫 클립을 만든다 (시작 전엔 베이스, 다 열리면 클립 없이 그냥 색)
     let ci = 0;
     for (const c in prog) if (prog[c] > 0 && prog[c] < 0.999) { idx[c] = ci; paintBlindClip(ensureClip('bclip' + ci), prog[c]); ci++; }
@@ -12834,11 +12926,6 @@ function renderAnimFrame(t) {
     }
   }
 
-  const progOf = (kind, id) => {
-    const tr = A.tracks.find((x) => x.kind === kind && x.key === id);
-    return tr ? trackProg(tr, t) : 1;   // 트랙이 없으면 계속 보이는 것으로
-  };
-
   // 수치 라벨 — 밑에서 올라오며 opacity로 나타난다 (제자리, ease-out)
   for (const g of document.querySelectorAll('#L_labels > g')) {
     const p = progOf('label', g.dataset.id);
@@ -12848,6 +12935,14 @@ function renderAnimFrame(t) {
     const dy = (1 - e) * 26;   // 26px 아래에서 올라온다
     g.setAttribute('transform', `translate(${it.x} ${it.y + dy})`);
     g.setAttribute('opacity', clamp01(e).toFixed(3));
+    // 지시선 라벨 — 선·앵커는 박스 g 밖 형제라 같이 페이드시키고, 선 끝은 올라오는 박스를 따라간다
+    const line = svg.querySelector(`#L_labels > [data-fleader-id="${g.dataset.id}"]`), anc = svg.querySelector(`#L_labels > [data-fanchor-id="${g.dataset.id}"]`);
+    if (line || anc) {
+      const b = S.labels.find((x) => x.id === g.dataset.id);
+      if (line && b && b._w && b.ax != null) line.setAttribute('d', typhoonLeaderGeom(b.ax, b.ay, it.x, it.y + dy, b._w, b._h).d);
+      if (line) line.setAttribute('opacity', clamp01(e).toFixed(3));
+      if (anc) anc.setAttribute('opacity', clamp01(e).toFixed(3));
+    }
   }
 
   // 브러쉬 덧칠 — 색별 이미지가 각자 자기 브러쉬 트랙 진행도로 들어온다(색별로 따로 등장).
@@ -12944,7 +13039,7 @@ function animPlay() {
   if (typeof typhoonRaf !== 'undefined' && typhoonRaf) { cancelAnimationFrame(typhoonRaf); typhoonRaf = 0; }   // '애니메이션 확인' 미리보기 루프가 살아 있으면 정리(겹쳐 재생돼 번쩍이는 것 방지)
   const A = anim();
   // 태풍 지도는 경로 애니가 내재적(renderAnimFrame이 시각으로 계산)이라 트랙/카메라 키가 없어도 재생된다.
-  if (!A.tracks.length && !isTyphoon()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
+  if (!hasAnim()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   animPlaying = true;
   $('#tlPlay').textContent = '멈춤';
   // 재생헤드가 끝(또는 거의 끝)에 있으면 처음부터 재생 — 카메라 키를 편집하면 헤드가 마지막 키에 가 있어
@@ -12973,7 +13068,7 @@ function timelineSnapTimes() {
   const out = [0, +A.dur];
   for (const k of camKeys()) out.push(+k.t);
   for (const tr of A.tracks) {
-    if (tr.kind === 'typhoon') { ensureTyphoonKeys(tr); out.push(+tr.ps, +tr.pe); for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (e) out.push(+e.s, +e.e); } }
+    if (tr.kind === 'typhoon') { ensureTyphoonKeys(tr); out.push(+tr.ps, +tr.pe); if (!typhoonLineMode()) for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (e) out.push(+e.s, +e.e); } }
     else { out.push(+tr.start, +(tr.start + tr.len)); }
   }
   return out;
@@ -13092,7 +13187,8 @@ function buildTimeline() {
         srow.append(bar, kA, kB); rows.append(srow);
       };
       addSub('경로', 'path', { get: () => tr.ps, set: (v) => tr.ps = v }, { get: () => tr.pe, set: (v) => tr.pe = v });
-      for (const b of typhoonLabels()) { const id = b.id; if (!tr.lab[id]) continue; addSub(b.txt || '라벨', 'label', { get: () => tr.lab[id].s, set: (v) => tr.lab[id].s = v }, { get: () => tr.lab[id].e, set: (v) => tr.lab[id].e = v }); }
+      // 라인 모드는 경로 시각 라벨이 안 보이므로 라벨 하위 행을 만들지 않는다
+      if (!typhoonLineMode()) for (const b of typhoonLabels()) { const id = b.id; if (!tr.lab[id]) continue; addSub(b.txt || '라벨', 'label', { get: () => tr.lab[id].s, set: (v) => tr.lab[id].s = v }, { get: () => tr.lab[id].e, set: (v) => tr.lab[id].e = v }); }
       return;
     }
     const clip = document.createElement('div');
