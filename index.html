@@ -14,6 +14,8 @@
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
+  // 데스크톱 앱(Electron)이면 html.isDesktop — 맨 위 제목줄이 곧 창 제목표시줄(창 끌기·창 버튼 자리)이 된다. 그려지기 전에 붙인다.
+  if (window.wcgDesktop && window.wcgDesktop.isDesktop) document.documentElement.classList.add('isDesktop');
 </script>
 <!-- 모두의 기본 배치 (fresh install 때 이 배치로 열린다). 없으면 그냥 빈 값. -->
 <script src="default-presets.js" onerror="window.WCG_DEFAULTS=window.WCG_DEFAULTS||{}"></script>
@@ -130,8 +132,8 @@
     background: var(--surface); color: var(--on-surface);
     font-size: 12px; letter-spacing: -0.01em; overflow: hidden;
   }
-  /* 뷰포트에 완전히 고정 — 브라우저 창/북마크바에 상단이 잘리지 않도록 */
-  .app { position: fixed; inset: 0; display: flex; }
+  /* 뷰포트에 완전히 고정 — 브라우저 창/북마크바에 상단이 잘리지 않도록. 맨 위 제목줄(#titlebar, --tbH) 아래부터. */
+  .app { position: fixed; inset: var(--tbH, 0px) 0 0 0; display: flex; }
 
   .panel {
     /* 카드들이 뜨는 바닥. 폭 288px 고정 + zoom(--pz)으로 통째 확대. */
@@ -144,7 +146,7 @@
   /* 사이드바 크기 조절 손잡이 (안쪽 모서리). 위치는 JS가 잡는다.
      갤럭시탭 분할화면 손잡이처럼 가운데에 알약 그립을 '항상' 띄워서 조절 가능함을 알린다. */
   .panelResize {
-    position: fixed; top: 0; bottom: 0; width: 12px; z-index: 20; cursor: ew-resize;
+    position: fixed; top: var(--tbH, 0px); bottom: 0; width: 12px; z-index: 20; cursor: ew-resize;
     display: flex; align-items: center; justify-content: center;
     background: var(--surface-c);   /* 투명(체커 비침) 대신 어두운 배경 바로 채운다 */
     border-left: 1px solid var(--outline-var); transition: background .15s;
@@ -551,6 +553,70 @@
   }
   .tbGrip:hover { opacity: .9; background-color: var(--state-hover); }
   .tbGrip:active { cursor: grabbing; }
+
+  /* ===== 맨 위 제목줄 (데스크톱 앱 창 제목표시줄 겸용) =====
+     왼쪽: 앱 아이콘 + 글자 메뉴(테두리 없는 데스크톱 메뉴바식), 오른쪽: 확대 비율·밝기·둘러보기·공지·확장팩.
+     플로팅 바(#topbar)엔 칠하기·브러쉬·이동·되돌리기·다시만 남는다.
+     데스크톱(html.isDesktop): 빈 곳을 끌면 창 이동·더블클릭 최대화, 오른쪽 끝엔 윈도 창 버튼이 겹쳐 그려진다
+     (Window Controls Overlay) — env(titlebar-area-*)로 그 자리를 비운다. 웹에선 env 값이 없어 평소 여백.
+     높이 --tbH 는 desktop/main.js 의 TITLEBAR_H 와 같아야 한다. */
+  :root { --tbH: 36px; }
+  .titlebar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--tbH);
+    display: flex; align-items: center; gap: 2px; overflow: hidden; white-space: nowrap;
+    padding: 0 calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px) 0 12px;
+    background: var(--surface); color: var(--on-surface); font-size: 13px; user-select: none;
+  }
+  .titlebar .tbAppIcon { width: 16px; height: 16px; flex: none; margin-right: 6px; -webkit-user-drag: none; }
+  .titlebar .tbMenus, .titlebar .tbGroup, .titlebar .tbRight { display: flex; align-items: center; flex: none; }
+  .titlebar .tbMenus, .titlebar .tbGroup { gap: 1px; }
+  .titlebar .tbRight { gap: 4px; }
+  .titlebar .tbFill { flex: 1 1 auto; min-width: 8px; align-self: stretch; }   /* 빈 곳 = 창 끌기 자리 */
+  .titlebar .tbSep { width: 1px; height: 14px; flex: none; margin: 0 6px; background: var(--outline-var); }
+  /* 글자 메뉴 — 테두리·알약 없이 글자만, 올리면 둥근 배경, 메뉴가 열려 있으면 눌린 배경 */
+  #titlebar .tbMenu {
+    height: 26px; padding: 0 9px; display: inline-flex; align-items: center; gap: 0;
+    background: none; border: 0; border-radius: 7px; box-shadow: none; filter: none;
+    color: var(--on-surface); font-size: 13px; font-weight: 500; letter-spacing: -.01em;
+  }
+  /* 테두리 없는 글자 메뉴라 호버 배경이 '누를 수 있음'의 유일한 신호 — --state-hover(4~6%)는 너무 옅어서 9%, 열림(.on 13%)보단 옅게 */
+  #titlebar .tbMenu:hover { background: color-mix(in srgb, var(--on-surface) 9%, transparent); }
+  #titlebar .tbMenu.on { background: color-mix(in srgb, var(--on-surface) 13%, transparent); }
+  #titlebar .tbMenu.pri { background: var(--nav-active-bg); color: var(--nav-active-fg); font-weight: 600; }   /* 영상으로 추출(타임라인) 켜짐 */
+  #titlebar .tbMenu:disabled { opacity: .4; background: none; }
+  #titlebar .zoomInfo { font-size: 12px; min-width: 38px; font-variant-numeric: tabular-nums; }
+  #titlebar .tourInfoBtn {
+    width: 28px; height: 28px; border: 0; border-radius: 7px; background: none;
+    color: var(--on-surface-var);
+  }
+  #titlebar .tourInfoBtn:hover { background: color-mix(in srgb, var(--on-surface) 9%, transparent); color: var(--on-surface); }
+  #titlebar .tourInfoBtn svg { width: 17px; height: 17px; }
+  /* 밝은 테마: --on-surface-var(#94a3b8)는 제목줄 바탕(#f1f4f8)에서 대비 2.3:1이라 흐리다 → 글자색 쪽으로 당겨 약 4.7:1 */
+  html[data-theme="light"] #titlebar .zoomInfo,
+  html[data-theme="light"] #titlebar .tourInfoBtn:not(:hover) { color: color-mix(in srgb, var(--on-surface) 75%, var(--surface)); }
+  #titlebar #noticeBtn.hasNew::after, #titlebar #helperBtn.hasNew::after { top: 2px; right: 2px; border-color: var(--surface); }
+  #titlebar .themeToggle .tgTrack { width: 40px; height: 20px; }
+  #titlebar .themeToggle .tgThumb { width: 16px; height: 16px; }
+  html[data-theme="light"] #titlebar .themeToggle .tgThumb { transform: translateX(20px); }
+  html.isDesktop .titlebar { -webkit-app-region: drag; }
+  html.isDesktop .titlebar button, html.isDesktop .titlebar input { -webkit-app-region: no-drag; }
+  /* 드롭다운이 열려 있는 동안엔 제목줄 전체를 끌기 영역에서 뺀다 — 끌기 영역 클릭은 페이지에 안 와서
+     빈 곳·확대 비율·아이콘을 눌러도 메뉴가 안 닫히기 때문(윈도 메뉴바처럼 닫히게). 닫히면 다시 창 끌기. */
+  html.isDesktop.menuOpen .titlebar { -webkit-app-region: no-drag; }
+  /* 좁은 창 — 글자 메뉴 여백부터 줄여 한 줄에 다 들어가게 (창 버튼·서로 안 겹치게) */
+  @media (max-width: 1280px) {
+    #titlebar .tbMenu { padding: 0 7px; }
+    .titlebar .tbSep { margin: 0 4px; }
+  }
+  @media (max-width: 1040px) {
+    #titlebar .tbMenu { padding: 0 5px; font-size: 12.5px; }
+    .titlebar { padding-left: 8px; }
+  }
+  /* 구분선·오른쪽 묶음 간격은 정말 좁을 때만 줄인다(1000px 안팎에선 자리가 남아 4px 유지 — 글자에 붙어 보이지 않게) */
+  @media (max-width: 860px) {
+    .titlebar .tbSep { margin: 0 2px; }
+    .titlebar .tbRight { gap: 2px; }
+  }
   /* 조작 안내 — 스테이지(캔버스) 우하단 */
   .ctrlHint {
     position: absolute; left: 16px; bottom: 16px; z-index: 9; pointer-events: none;
@@ -632,8 +698,7 @@
   .mode button { border: none; border-radius: 0; }
   .mode button.on { background: var(--accent-grad, var(--primary)); color: var(--on-primary); }
   #cgMode button { flex: 1; }   /* 어두운/밝은 버튼이 폭을 반씩 채우게 (한쪽 쏠림 방지) */
-  /* 상단 메뉴바 (포토샵식) — 출력화면·지도종류·추출·프로젝트를 아이콘+이름으로 */
-  .menubar { display: flex; gap: 8px; }
+  /* 메뉴 버튼 — 출력화면·지도종류·프로젝트·추출. 지금은 맨 위 제목줄(#titlebar .tbMenu)에서 글자 메뉴로 보인다 */
   .menuBtn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding-left: 12px; padding-right: 12px; }
   .menuBtn svg { flex: none; opacity: .85; }
   .menuBtn.on { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
@@ -695,7 +760,8 @@
     transition: left .34s cubic-bezier(.4, 0, .15, 1), top .34s cubic-bezier(.4, 0, .15, 1),
       width .34s cubic-bezier(.4, 0, .15, 1), height .34s cubic-bezier(.4, 0, .15, 1), opacity .2s;
   }
-  .tourBar { position: fixed; top: 16px; right: 16px; left: auto; z-index: 9996; display: flex; gap: 8px; pointer-events: auto; }
+  /* 제목줄 아래에 — 데스크톱에선 제목줄이 창 끌기 영역이라 거기 겹치면 눌리지 않는다 */
+  .tourBar { position: fixed; top: calc(var(--tbH, 0px) + 12px); right: 16px; left: auto; z-index: 9996; display: flex; gap: 8px; pointer-events: auto; }
   /* 어두운 투어 배경 위에서도 확실히 보이게 — 밝은 알약 + 테두리 + 그림자 + 굵게 */
   .tourBar .tourX, .tourBar .tourNever {
     background: #FFFFFF; color: #10131A; border: 1.5px solid rgba(0,0,0,.12);
@@ -1347,6 +1413,48 @@
   .selGrip:hover circle { fill: #60a5fa; }
 </style>
 
+<!-- 맨 위 제목줄 — 데스크톱 앱에선 이 줄이 곧 창 제목표시줄(빈 곳 끌기=창 이동, 오른쪽 끝=윈도 창 버튼).
+     메뉴 버튼들은 id·class·data-menu 를 그대로 둔다(드롭다운·타임라인·AE 보내기·둘러보기 JS가 이걸로 찾는다). -->
+<header class="titlebar" id="titlebar">
+  <img class="tbAppIcon" src="icon.svg" alt="" width="16" height="16" draggable="false">
+  <nav class="tbMenus" aria-label="메뉴">
+    <div class="tbGroup" id="menubar">
+      <button class="menuBtn tbMenu" data-menu="out0" title="출력 화면">출력 화면</button>
+      <button class="menuBtn tbMenu" data-menu="style" title="지도 종류">지도 종류</button>
+      <button class="menuBtn tbMenu" data-menu="proj" title="프로젝트">프로젝트</button>
+    </div>
+    <div class="tbSep"></div>
+    <div class="tbGroup" id="exportGroup">
+      <button class="menuBtn tintBtn tbMenu" data-menu="out" title="이미지로 추출">이미지로 추출</button>
+      <button id="tlToggle" class="hasIcon tintBtn tbMenu" title="영상으로 추출 — 타임라인 열기/닫기">영상으로 추출</button>
+      <button id="aeSend" class="hasIcon tintBtn tbMenu" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)">AE로 보내기</button>
+    </div>
+  </nav>
+  <div class="tbFill"></div>
+  <div class="tbRight">
+    <span class="zoomInfo" id="zoomV">100%</span>
+    <div class="tbSep"></div>
+    <button id="theme" class="themeToggle" role="switch" title="사이드바 밝기 (작업물과 무관)" aria-label="밝기 전환">
+      <span class="tgTrack"><span class="tgThumb">
+        <svg class="tgSun" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 100 10 5 5 0 000-10zM12 1a1 1 0 011 1v2a1 1 0 11-2 0V2a1 1 0 011-1zm0 18a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1zM2 11h2a1 1 0 110 2H2a1 1 0 110-2zm18 0h2a1 1 0 110 2h-2a1 1 0 110-2zM4.2 4.2a1 1 0 011.4 0L7 5.6A1 1 0 015.6 7L4.2 5.6a1 1 0 010-1.4zm12.4 12.4a1 1 0 011.4 0L19.8 18a1 1 0 01-1.4 1.4L17 18a1 1 0 010-1.4zM19.8 4.2a1 1 0 010 1.4L18.4 7A1 1 0 0117 5.6l1.4-1.4a1 1 0 011.4 0zM7 17a1 1 0 010 1.4L5.6 19.8A1 1 0 014.2 18.4L5.6 17A1 1 0 017 17z"/></svg>
+        <svg class="tgMoon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.5 13.2A9 9 0 1110.8 2.5a7 7 0 0010.7 10.7z"/></svg>
+      </span></span>
+    </button>
+    <div class="tbSep"></div>
+    <span id="tbInfoGroup" style="display:inline-flex;gap:2px;align-items:center">
+    <button id="tourBtn" class="tourInfoBtn" title="둘러보기 — 각 기능 설명 다시 보기" aria-label="둘러보기">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="8.1" r="1.3" fill="currentColor"/><rect x="10.9" y="10.8" width="2.2" height="6.4" rx="1.1" fill="currentColor"/></svg>
+    </button>
+    <button id="noticeBtn" class="tourInfoBtn" title="공지사항 — 업데이트·안내 모아보기" aria-label="공지사항">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 002.4-2.2H9.6A2.4 2.4 0 0012 22zm6.3-6.1V11a6.3 6.3 0 00-4.8-6.12V4.2a1.5 1.5 0 10-3 0v.68A6.3 6.3 0 005.7 11v4.8L4 17.6v.9h16v-.9l-1.7-1.7z"/></svg>
+    </button>
+    <button id="helperBtn" class="tourInfoBtn" title="렌더·불러오기 기능 확장팩 — 켜는 방법 보기" aria-label="기능 확장팩 안내">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+    </button>
+    </span>
+  </div>
+</header>
+
 <div class="app">
   <div class="panelResize" id="panelResize" title="끌어서 사이드바 크기 조절"></div>
   <aside class="panel" id="panel">
@@ -1938,19 +2046,9 @@
   </aside>
 
   <div class="stage" id="stage">
+   <!-- 플로팅 바 — 칠하기·브러쉬·이동 + 되돌리기·다시만. 나머지 메뉴는 맨 위 제목줄(#titlebar)로 옮김 -->
    <div class="topbar" id="topbar">
      <div class="tbGrip" id="tbGrip" title="끌어서 좌우로 이동"></div>
-     <div class="menubar" id="menubar">
-       <button class="menuBtn" data-menu="out0" title="출력 화면"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M3 4h18v12H3zm2 2v8h14V6zM8 20h8v-2H8z"/></svg>출력 화면</button>
-       <button class="menuBtn" data-menu="style" title="지도 종류"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 3l9 5-9 5-9-5zm0 2.3L6.7 8 12 10.7 17.3 8zM3 12l9 5 9-5-1.9-1.05L12 14.7 4.9 10.95z"/></svg>지도 종류</button>
-       <button class="menuBtn" data-menu="proj" title="프로젝트"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M3 5h6l2 2h10v12H3zm2 2v10h14V9h-8.8l-2-2z"/></svg>프로젝트</button>
-     </div>
-     <div class="exportGroup" id="exportGroup">
-       <button class="menuBtn tintBtn" data-menu="out" title="이미지로 추출"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M11 3h2v8h3l-4 5-4-5h3zM4 18h16v2H4z"/></svg>이미지로 추출</button>
-       <button id="tlToggle" class="hasIcon tintBtn" title="영상으로 추출 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 4h16v3H4zm0 5h16v11H4zm3 2v7l6-3.5z"/></svg>영상으로 추출</button>
-       <button id="aeSend" class="hasIcon tintBtn" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm2.6 5.2l2.2 7.6h1.5l.5-1.8h2.3l.5 1.8h1.5l-2.2-7.6h-1.6zm2.9 1.7l.8 2.8h-1.6z"/></svg>AE로 보내기</button>
-     </div>
-     <div class="sep"></div>
      <div class="mode">
        <button id="mPaint" class="on">칠하기</button>
        <button id="mBrush" title="영역을 골라 그 안에만 부드럽게 덧칠">브러쉬</button>
@@ -1959,27 +2057,6 @@
      <div class="sep"></div>
      <button id="undo" class="iconBtn" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 8h9a5 5 0 010 10H8M4 8l4-4M4 8l4 4"/></svg></button>
      <button id="redo" class="iconBtn" title="다시 (Ctrl+Shift+Z)" aria-label="다시"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 8h-9a5 5 0 000 10h5M20 8l-4-4M20 8l-4 4"/></svg></button>
-     <div class="sep"></div>
-     <span class="zoomInfo" id="zoomV">100%</span>
-     <div class="sep"></div>
-     <button id="theme" class="themeToggle" role="switch" title="사이드바 밝기 (작업물과 무관)" aria-label="밝기 전환">
-       <span class="tgTrack"><span class="tgThumb">
-         <svg class="tgSun" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 100 10 5 5 0 000-10zM12 1a1 1 0 011 1v2a1 1 0 11-2 0V2a1 1 0 011-1zm0 18a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1zM2 11h2a1 1 0 110 2H2a1 1 0 110-2zm18 0h2a1 1 0 110 2h-2a1 1 0 110-2zM4.2 4.2a1 1 0 011.4 0L7 5.6A1 1 0 015.6 7L4.2 5.6a1 1 0 010-1.4zm12.4 12.4a1 1 0 011.4 0L19.8 18a1 1 0 01-1.4 1.4L17 18a1 1 0 010-1.4zM19.8 4.2a1 1 0 010 1.4L18.4 7A1 1 0 0117 5.6l1.4-1.4a1 1 0 011.4 0zM7 17a1 1 0 010 1.4L5.6 19.8A1 1 0 014.2 18.4L5.6 17A1 1 0 017 17z"/></svg>
-         <svg class="tgMoon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.5 13.2A9 9 0 1110.8 2.5a7 7 0 0010.7 10.7z"/></svg>
-       </span></span>
-     </button>
-     <div class="sep"></div>
-     <span id="tbInfoGroup" style="display:inline-flex;gap:6px;align-items:center">
-     <button id="tourBtn" class="tourInfoBtn" title="둘러보기 — 각 기능 설명 다시 보기" aria-label="둘러보기">
-       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="8.1" r="1.3" fill="currentColor"/><rect x="10.9" y="10.8" width="2.2" height="6.4" rx="1.1" fill="currentColor"/></svg>
-     </button>
-     <button id="noticeBtn" class="tourInfoBtn" title="공지사항 — 업데이트·안내 모아보기" aria-label="공지사항">
-       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 002.4-2.2H9.6A2.4 2.4 0 0012 22zm6.3-6.1V11a6.3 6.3 0 00-4.8-6.12V4.2a1.5 1.5 0 10-3 0v.68A6.3 6.3 0 005.7 11v4.8L4 17.6v.9h16v-.9l-1.7-1.7z"/></svg>
-     </button>
-     <button id="helperBtn" class="tourInfoBtn" title="렌더·불러오기 기능 확장팩 — 켜는 방법 보기" aria-label="기능 확장팩 안내">
-       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
-     </button>
-     </span>
    </div>
    <div class="menuDrop" id="menuDrop"></div>
    <div id="status"></div>
@@ -7348,6 +7425,9 @@ function syncCamGuidePos() {
   const h = (tl && tl.classList.contains('on')) ? tl.getBoundingClientRect().height : 0;
   g.style.top = 'auto';
   g.style.bottom = (h + 10) + 'px';
+  // 타임라인을 높이 끌어 올려 안내가 맨 위 제목줄까지 닿으면 숨긴다(제목줄 메뉴를 가리지 않게) — 다시 내리면 보인다
+  const fits = window.innerHeight - h - 10 - g.offsetHeight >= titleBarH() + 8;
+  g.style.visibility = fits ? '' : 'hidden';
 }
 // 좌하단 조작법 힌트에 'Alt 지도 조작법'을 보인다 — Alt 조작이 실제로 되는 태풍/추출 모드에서만. 3D회전은 추출 모드에서만.
 function syncMapAltHint() {
@@ -12220,7 +12300,7 @@ function wire() {
   $('#tlGrip').addEventListener('pointerdown', (e) => {
     const y0 = e.clientY, h0 = tlH;
     const mv = (ev) => {
-      tlH = Math.max(120, Math.min(window.innerHeight - 120, h0 - (ev.clientY - y0)));
+      tlH = Math.max(120, Math.min(window.innerHeight - titleBarH() - 120, h0 - (ev.clientY - y0)));   // 제목줄 높이만큼 덜 — 플로팅 바·제목줄 쪽으로 너무 안 올라오게
       $('#timeline').style.height = tlH + 'px';
       syncCamGuidePos();   // 타임라인 높이 바뀌면 카메라 안내도 따라 올라가게
     };
@@ -12255,9 +12335,11 @@ function wire() {
     document.documentElement.dataset.theme = t;
     localStorage.setItem('wcg_theme', t);
     $('#theme').setAttribute('aria-checked', t === 'light' ? 'true' : 'false');
+    syncTitleBarColors();   // 데스크톱: 창 버튼 색도 제목줄에 맞춤
   };
   setTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
   $('#theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  watchTitleBarDim();   // 데스크톱: 모달·둘러보기 막이 뜨면 창 버튼 자리도 같이 어둡게
 
   $('#resApply').onclick = applyPendingRes;
   $('#styleApply').onclick = applyPendingStyle;
@@ -13614,9 +13696,16 @@ function openCamKeyPopover(id) {
   pop.querySelector('.ckpSeek').onclick = () => { const kk = K(); if (kk) animSeek(+kk.t); };
   pop.querySelector('.ckpDel').onclick = () => { const arr = camKeys(), idx = arr.findIndex((x) => x.id === id); if (idx >= 0) { pushUndo(); arr.splice(idx, 1); } camKeyEditorSel = null; pop.remove(); buildTimeline(); if (animT != null) animSeek(animT); };
   pop.querySelector('.ckpX').onclick = () => { camKeyEditorSel = null; pop.remove(); buildTimeline(); };
-  // 선택된 다이아몬드(카메라 헤더 행) 위쪽에 배치
+  // 선택된 다이아몬드(카메라 헤더 행) 위쪽에 배치 — 맨 위 제목줄(데스크톱=창 끌기·창 버튼 자리)엔 안 올라가게,
+  // 타임라인을 높이 끌어 올려 위에 자리가 없으면 키 아래로 뒤집는다.
   const mk = document.querySelector('.tlCamRow.tlCamHead .tlCamKey.sel') || document.querySelector('.tlCamKey.sel');
-  if (mk) { const r = mk.getBoundingClientRect(); pop.style.left = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left + r.width / 2 - pop.offsetWidth / 2)) + 'px'; pop.style.top = Math.max(8, r.top - pop.offsetHeight - 12) + 'px'; }
+  if (mk) {
+    const r = mk.getBoundingClientRect(), ph = pop.offsetHeight, minTop = titleBarH() + 8;
+    let top = r.top - ph - 12;
+    if (top < minTop) top = (r.bottom + 12 + ph <= window.innerHeight - 8) ? r.bottom + 12 : minTop;
+    pop.style.left = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left + r.width / 2 - pop.offsetWidth / 2)) + 'px';
+    pop.style.top = Math.max(minTop, top) + 'px';
+  }
   else { pop.style.left = '50%'; pop.style.top = '40%'; }
 }
 function startCamKeyDrag(e, k, mk) {
@@ -13793,6 +13882,68 @@ function applyToolbarPos() {
   const x = toolbarX == null ? center : clamp(toolbarX, 16, max);
   tb.style.left = Math.round(x) + 'px';
 }
+// 플로팅 바 모양 판번호 — 2: 메뉴를 맨 위 제목줄로 옮겨 칠하기·브러쉬·이동·되돌리기만 남은 좁은 바.
+// 옛 넓은 바 기준으로 저장된 위치(toolbarX)는 안 맞으니 한 번 버리고 가운데에서 시작한다.
+const TOOLBAR_V = 2;
+// 맨 위 제목줄 높이(px) — 떼어낸 창·둘러보기 카드가 그 위(데스크톱에선 창 끌기 영역)로 올라가지 않게.
+function titleBarH() { const t = $('#titlebar'); return t ? t.offsetHeight : 0; }
+// 창 전체(제목줄 포함)를 덮는 어두운 막들 — [선택자, 막 색('' = 그 요소의 배경색)].
+// 둘러보기는 어두운 막이 .tourSpot 그림자라 배경색이 없어 색을 직접 적는다(.tourSpot box-shadow 바깥색과 같게).
+const TITLEBAR_DIM = [
+  ['#tourWrap.on', 'rgba(6, 8, 12, .76)'],
+  ['#tossOv', ''], ['#confirmOverlay.on', ''], ['#slotOverlay.on', ''], ['#bulHelpPop.on', ''], ['#dropHint.on', ''],
+];
+function titleBarDimLayers() {
+  const out = [];
+  for (const [sel, col] of TITLEBAR_DIM) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    out.push(col || cs.backgroundColor);
+  }
+  return out;
+}
+// 바탕색 위에 반투명 막들을 차례로 얹은 색(#rrggbb). CSS 색 문법(rgba·color-mix 결과 등)은 캔버스가 해석·합성한다.
+let _tbMixCtx = null;
+function mixColorLayers(base, layers) {
+  if (!_tbMixCtx) { const c = document.createElement('canvas'); c.width = c.height = 1; _tbMixCtx = c.getContext('2d', { willReadFrequently: true }); }
+  const x = _tbMixCtx;
+  x.clearRect(0, 0, 1, 1);
+  x.fillStyle = '#000'; x.fillStyle = base; x.fillRect(0, 0, 1, 1);
+  for (const l of layers) { x.fillStyle = 'transparent'; x.fillStyle = l; x.fillRect(0, 0, 1, 1); }
+  const d = x.getImageData(0, 0, 1, 1).data;
+  return '#' + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+// 데스크톱 앱: 창 버튼(최소화·최대화·닫기) 바탕·기호 색을 제목줄(--surface 바탕, --on-surface 글자)에 맞춘다.
+// 모달·둘러보기의 어두운 막이 떠 있으면 OS가 그리는 창 버튼 자리는 그 막에 안 덮이므로, 막을 합성한 색으로 바탕을 같이 어둡게 한다.
+// (막이 떠 있는 동안에도 제목줄 빈 곳은 창 끌기 그대로 — 모달을 띄운 채 창을 옮길 수 있다)
+// 웹(window.wcgDesktop 없음)에선 아무 것도 안 한다. 테마를 바꿀 때·막이 생기고 사라질 때 부른다(부팅 때 한 번 포함).
+let _tbColorKey = '';
+function syncTitleBarColors() {
+  const d = window.wcgDesktop;
+  if (!d || typeof d.setTitleBar !== 'function') return;
+  const cs = getComputedStyle(document.documentElement), layers = titleBarDimLayers();
+  const color = mixColorLayers(cs.getPropertyValue('--surface').trim(), layers);
+  // 막이 떠 있어도 창 버튼 기호는 보이게 — 어두워진 바탕 위에 밝은 기호(막은 모두 어두운 색). 평소엔 제목줄 글자색.
+  const symbolColor = layers.length ? mixColorLayers(color, ['rgba(255, 255, 255, .72)']) : cs.getPropertyValue('--on-surface').trim();
+  if (color + symbolColor === _tbColorKey) return;   // 같은 색이면 다시 안 보낸다
+  _tbColorKey = color + symbolColor;
+  d.setTitleBar({ color, symbolColor });
+}
+// 어두운 막이 생기고 사라지는 걸 지켜본다 — 모달(#tossOv·#slotOverlay)은 body에 붙었다 떨어지고, 나머지는 class 'on'으로 켜진다.
+function watchTitleBarDim() {
+  if (!window.wcgDesktop || typeof window.wcgDesktop.setTitleBar !== 'function' || typeof MutationObserver !== 'function') return;
+  const mo = new MutationObserver(() => { watch(); syncTitleBarColors(); });
+  const watch = () => {
+    for (const [sel] of TITLEBAR_DIM) {
+      const el = document.getElementById(sel.slice(1).split('.')[0]);
+      if (el && !el._tbDimWatched) { el._tbDimWatched = true; mo.observe(el, { attributes: true, attributeFilter: ['class', 'style'] }); }
+    }
+  };
+  mo.observe(document.body, { childList: true });
+  watch(); syncTitleBarColors();
+}
 const secNode = (s) => document.querySelector(`.sec[data-sec="${s}"]`);
 const winOf = (s) => wins.find((w) => w.secs.includes(s));
 const secTitle = (s) => { const h = secNode(s)?.querySelector('h3'); return h ? h.firstChild.textContent.trim() : s; };
@@ -13800,7 +13951,7 @@ const secTitle = (s) => { const h = secNode(s)?.querySelector('h3'); return h ? 
 function saveLayout() {
   try {
     const docked = [...$('#panel').children].map((n) => n.dataset.sec).filter(Boolean);
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ docked, wins, dockSide, toolbarX, panelZoom }));
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ docked, wins, dockSide, toolbarX, toolbarV: TOOLBAR_V, panelZoom }));
   } catch (e) { /* 용량 초과 등 — 배치는 없어도 앱은 돌아간다 */ }
 }
 
@@ -13928,7 +14079,7 @@ function popOut(s, x, y) {
     id: 'w' + winSeq++,
     // 화면 밖에 생기면 못 찾는다 — 처음부터 안쪽으로 잡는다
     x: Math.round(Math.max(0, Math.min(x, window.innerWidth - W - 8))),
-    y: Math.round(Math.max(0, Math.min(y, window.innerHeight - 140))),
+    y: Math.round(Math.max(titleBarH(), Math.min(y, window.innerHeight - 140))),
     w: W, h: 380, secs: [s], active: s,
   };
   wins.push(w);
@@ -14041,7 +14192,7 @@ function startWinDrag(e, w, already) {
   let target = null, dockAt = undefined;
   const mv = (ev) => {
     w.x = Math.round(ev.clientX - dx);
-    w.y = Math.max(0, Math.round(ev.clientY - dy));
+    w.y = Math.max(titleBarH(), Math.round(ev.clientY - dy));   // 제목줄 위로는 못 올린다(데스크톱에선 창 끌기 영역)
     el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
     hideHints();
     target = winBarUnder(ev.clientX, ev.clientY, w.id);
@@ -14130,7 +14281,7 @@ function loadLayout() {
   let L = null;
   try { L = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) { /* 깨졌으면 기본 배치 */ }
   if (!L || !Array.isArray(L.docked)) return;
-  if (L.toolbarX !== undefined) toolbarX = L.toolbarX;
+  if (L.toolbarX !== undefined && L.toolbarV === TOOLBAR_V) toolbarX = L.toolbarX;   // 옛 넓은 바 위치는 버림(가운데)
   if (L.panelZoom) panelZoom = L.panelZoom;
   dockSide = L.dockSide === 'left' ? 'left' : 'right';   // 저장에 없으면(옛 파일) 기본 오른쪽
   applyDockSide();   // 저장 안 함 — 방금 읽은 걸 도로 덮어쓰지 않게 (applyPanelSize도 부른다)
@@ -14144,7 +14295,7 @@ function loadLayout() {
   // 화면 밖으로 나간 창은 끌어올 수가 없으니 들여놓는다 (창 크기를 줄인 채로 열었을 때)
   for (const w of wins) {
     w.x = Math.min(Math.max(0, w.x), Math.max(0, window.innerWidth - 120));
-    w.y = Math.min(Math.max(0, w.y), Math.max(0, window.innerHeight - 40));
+    w.y = Math.min(Math.max(titleBarH(), w.y), Math.max(titleBarH(), window.innerHeight - 40));
   }
   const inWin = new Set(wins.flatMap((w) => w.secs));
   const panel = $('#panel');
@@ -14161,7 +14312,7 @@ function loadLayout() {
   renderWins();
 }
 
-// 상단 메뉴바 — 설정 4개 섹션(출력화면·지도종류·추출·프로젝트)을 드롭다운으로 올린다.
+// 상단 메뉴바(맨 위 제목줄의 글자 메뉴) — 설정 4개 섹션(출력화면·지도종류·추출·프로젝트)을 드롭다운으로 올린다.
 function setupMenus() {
   const drop = $('#menuDrop');
   if (!drop) return;
@@ -14198,6 +14349,7 @@ function setupMenus() {
   };
   const close = () => {
     drop.classList.remove('on'); openSec = null;
+    document.documentElement.classList.remove('menuOpen');   // 데스크톱: 제목줄 창 끌기 다시 켬
     document.querySelectorAll('.menuBtn.on').forEach((b) => b.classList.remove('on'));
     clearPendingChoices();
   };
@@ -14205,10 +14357,13 @@ function setupMenus() {
     if (openSec === sec) { close(); return; }
     close();
     for (const c of drop.children) c.style.display = (c.dataset && c.dataset.sec === sec) ? '' : 'none';
+    // 누른 메뉴 버튼(맨 위 제목줄의 글자 메뉴) 바로 아래에 연다 — 데스크톱 메뉴바처럼 거의 붙여서
     const r = btn.getBoundingClientRect();
     drop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 412)) + 'px';
-    drop.style.top = (r.bottom + 14) + 'px';
+    drop.style.top = (r.bottom + 6) + 'px';
     drop.classList.add('on'); btn.classList.add('on'); openSec = sec;
+    // 열려 있는 동안 제목줄 빈 곳(데스크톱=창 끌기 영역)을 눌러도 아래 '바깥 클릭 닫기'가 받게
+    document.documentElement.classList.add('menuOpen');
     if (sec === 'out0') showPresetInfo();
   };
   _openMenu = openMenu; _closeMenu = close;   // 투어가 실제 드롭다운을 그대로 열고 닫을 수 있게 노출
@@ -14307,7 +14462,7 @@ function tourStepList() {
       target: () => $('#tbInfoGroup'), setup: () => tourMenuClose(), delay: 260 },
     { title: '왼쪽 사이드바 — 지도 조정', body: '이 카드들로 지도의 색 · 글자 · 경계선 · 산 표시 같은 세부를 조정합니다. 카드를 누르면 펼쳐져 세부 설정이 나와요.',
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
-    { title: '카드 떼어내기 (포토샵처럼)', body: '자주 쓰는 카드는 <b>제목을 잡고 사이드바 밖으로 끌어내면</b> 별도 창으로 떠서 원하는 자리에 놓고 쓸 수 있어요. 다시 다 모으려면 상단바의 <b>기본 배치</b>를 누르면 됩니다. 사이드바 위치는 <b>사이드바 ←/→</b>로 좌우를 바꿔요.',
+    { title: '카드 떼어내기 (포토샵처럼)', body: '자주 쓰는 카드는 <b>제목을 잡고 사이드바 밖으로 끌어내면</b> 별도 창으로 떠서 원하는 자리에 놓고 쓸 수 있어요. 다시 다 모으려면 사이드바 맨 아래의 <b>기본 배치</b>(되돌리기 아이콘)를 누르면 됩니다. 사이드바 위치는 그 옆 <b>화살표</b>로 좌우를 바꿔요.',
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
     { title: '기상특보 자동 색칠', body: '‘기상청에서 불러오기’를 누르면(또는 특보 통보문을 붙여넣으면) 특보가 지역별로 자동 색칠됩니다. 이 카드는 특보 지도에서 나와요.',
       target: () => secNode('wrn'), setup: () => { tourMenuClose(); tourShowSec('wrn'); }, delay: 540 },
@@ -14342,12 +14497,26 @@ function tourPlace(step) {
   const cw = card.offsetWidth || 320, ch = card.offsetHeight || 180, gap = 18;
   const tcx = x + w / 2, tcy = y + h / 2;
   let side, cx, cy;
-  if (vw - (x + w) >= cw + gap + 8) { side = 'right'; cx = x + w + gap; cy = tcy - ch / 2; }
+  // 맨 위 제목줄 안의 버튼(밝기·둘러보기 등)은 카드를 바로 '아래'에 — 옆에 두면 화면 위로 잘려 화살표가 어긋난다
+  const inTitleBar = !!(el.closest && el.closest('#titlebar'));
+  if (inTitleBar && vh - (y + h) >= ch + gap + 8) { side = 'below'; cy = y + h + gap; cx = tcx - cw / 2; }
+  else if (vw - (x + w) >= cw + gap + 8) { side = 'right'; cx = x + w + gap; cy = tcy - ch / 2; }
   else if (x >= cw + gap + 8) { side = 'left'; cx = x - cw - gap; cy = tcy - ch / 2; }
   else if (vh - (y + h) >= ch + gap + 8) { side = 'below'; cy = y + h + gap; cx = tcx - cw / 2; }
   else { side = 'above'; cy = y - ch - gap; cx = tcx - cw / 2; }
   cx = Math.max(12, Math.min(cx, vw - cw - 12));
-  cy = Math.max(12, Math.min(cy, vh - ch - 12));
+  cy = Math.max(titleBarH() + 8, Math.min(cy, vh - ch - 12));   // 제목줄(데스크톱=창 끌기 영역) 아래로
+  // 닫기·'다시 보지 않기' 바(.tourBar — 카드보다 위에 그려짐)가 카드 모서리를 덮지 않게.
+  // 위/아래 카드는 화살표가 대상을 계속 가리킬 수 있는 한 바 옆으로 비켜 놓고, 안 되면 바 아래로 내린다.
+  const bb = document.querySelector('.tourBar')?.getBoundingClientRect();
+  const hitBar = (X, Y) => !!bb && bb.width > 0 && X < bb.right + 8 && X + cw > bb.left - 8 && Y < bb.bottom + 8 && Y + ch > bb.top - 8;
+  if (hitBar(cx, cy)) {
+    const arrowIn = (X) => tcx - X - 9 >= 14 && tcx - X - 9 <= cw - 24;
+    const xs = (side === 'below' || side === 'above')
+      ? [bb.left - 12 - cw, bb.right + 12].filter((X) => X >= 12 && X <= vw - cw - 12 && arrowIn(X)) : [];
+    if (xs.length) cx = xs.sort((a, b) => Math.abs(a - cx) - Math.abs(b - cx))[0];
+    else cy = Math.max(cy, Math.min(bb.bottom + 10, vh - ch - 12));
+  }
   card.style.left = cx + 'px'; card.style.top = cy + 'px';
   card.className = 'tourCard tourUI show pos-' + side;
   if (side === 'right' || side === 'left') { arrow.style.cssText = `top:${Math.max(14, Math.min(tcy - cy - 9, ch - 24))}px`; }
