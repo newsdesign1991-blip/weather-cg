@@ -57,6 +57,29 @@ test('future-effective warning does not appear before its effective time', () =>
   assert.equal(activeWrnRows(rows, '202607261600').length, 1);
 });
 
+test('a later preliminary warning does not hide an effective advisory in the same zone', () => {
+  const { activeWrnRows, activeAtFc } = timelineContext();
+  const rows = [
+    { id: 'L1', wrn: '호우', lvl: '주의보', tmfc: '202607260900', tmef: '202607261000', cmd: '발표' },
+    { id: 'L1', wrn: '호우', lvl: '예비', tmfc: '202607261030', tmef: '202607261100', cmd: '발표' },
+  ];
+  assert.equal(activeWrnRows(rows, '202607261200').length, 2);
+  assert.equal(activeAtFc(rows, '202607261200').length, 2);
+  // 예비 해제는 예비만 지운다
+  const rel = rows.concat([{ id: 'L1', wrn: '호우', lvl: '예비', tmfc: '202607261130', tmef: '202607261130', cmd: '해제' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(activeWrnRows(rel, '202607261200'))), [rows[0]]);
+});
+
+test('reloaded warnings keep the dragged order and slot new ones by default priority', () => {
+  const { mergeWrnOrder } = timelineContext();
+  const prev = ['열대야|주의보', '폭염|경보'];
+  const def = ['폭염|경보', '호우|주의보', '열대야|주의보'];
+  assert.deepEqual(JSON.parse(JSON.stringify(mergeWrnOrder(prev, def))), ['열대야|주의보', '폭염|경보', '호우|주의보']);
+  assert.deepEqual(JSON.parse(JSON.stringify(mergeWrnOrder([], def))), def);
+  // 지금 없는 특보 순서도 뒤에 남는다
+  assert.deepEqual(JSON.parse(JSON.stringify(mergeWrnOrder(['강풍|주의보', '폭염|경보'], ['폭염|경보']))), ['폭염|경보', '강풍|주의보']);
+});
+
 test('existing warning priority is used by default and a drag move only changes the current result', () => {
   const { defaultWrnOrder, moveWrnOrder } = timelineContext();
   const rows = [
