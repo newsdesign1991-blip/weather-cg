@@ -286,9 +286,29 @@
     opacity: .55; transform: translateY(-2px) rotate(45deg);
   }
   #panel > .sec.closed > h3::after { transform: rotate(-45deg); }
-  /* 펼친 내용 — 카드 없이 바닥에 바로, 열린 항목 아래로 이어지게 */
-  #panel > .sec > .body > .bodyInner > .bodyPad { padding: 12px 6px 16px; }
-  #panel > .sec:not(.closed) { margin-bottom: 4px; }
+  /* 펼친 항목 = '눌린' 블록. 머리(h3)+내용을 사이드바 바탕보다 한 톤 어두운 바탕 + 은은한 안쪽 그림자로 한 덩어리로 감싼다
+     → 아래 내용이 '그 메뉴 안'이라는 게 한눈에 보인다. 닫힌 항목은 예전처럼 바탕 없이 납작한 목록.
+     바탕은 ::before 한 겹(불투명도만 전환) — 색 자체에 트랜지션을 걸면 테마 전환 때 이전 색이 남는 크로미움 버그를 피한다. */
+  :root, :root[data-theme="dark"] {
+    --sec-well: #161616;
+    --sec-well-sh: inset 0 1px 3px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.035);
+  }
+  :root[data-theme="light"] {
+    --sec-well: #eef1f5;
+    --sec-well-sh: inset 0 1px 3px rgba(15,23,42,.09), inset 0 0 0 1px rgba(15,23,42,.05);
+  }
+  #panel > .sec { position: relative; isolation: isolate; border-radius: 14px; }
+  #panel > .sec::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    border-radius: inherit; background: var(--sec-well); box-shadow: var(--sec-well-sh);
+    opacity: 0; transition: opacity .26s ease;
+  }
+  #panel > .sec:not(.closed)::before { opacity: 1; }
+  /* 밝은 테마: 블록 안의 카드·목록칸(surface-hi)은 흰색으로 띄워 회색 바탕과 구분 (어두운 테마는 원래 값이 이미 더 밝다) */
+  :root[data-theme="light"] #panel > .sec:not(.closed) { --surface-hi: #ffffff; }
+  /* 펼친 내용 — 블록 안쪽 여백(가장자리에 붙지 않게) */
+  #panel > .sec > .body > .bodyInner > .bodyPad { padding: 10px 10px 14px; }
+  #panel > .sec:not(.closed) { margin: 3px 0 6px; }
   #panel > .grpHead { margin: 10px 4px 4px; }
   /* 열 때 깜빡이는 강조 — 납작한 목록이라 카드 그림자 없이 얇은 링만 */
   @keyframes flashSecFlat {
@@ -487,10 +507,17 @@
     position: relative;  /* topbar·status 의 기준 */
     flex: 1; display: flex; align-items: center; justify-content: center;
     /* 캔버스 밖 핸들이 들어갈 여백 */
-    padding: 26px 74px; overflow: hidden; background: var(--stage);
+    padding: 26px 74px; overflow: hidden;
+  }
+  /* 작업 영역 바탕(체커 무늬) — 작업 영역뿐 아니라 앱 바닥(.app) 전체에 깔아 플로팅 사이드바 뒤·옆까지 한 장으로 잇는다.
+     셋 다 background-attachment: fixed(창 기준)라 어느 요소가 그리든 무늬 칸이 딱 맞물려 경계가 안 보인다.
+     레이아웃(캔버스 중앙 맞춤·.stage 크기)은 그대로 — 바탕만 이어진다. */
+  .app, .stage, .startOverlay {
+    background-color: var(--stage);
     background-image: linear-gradient(45deg, var(--stage-check) 25%, transparent 25%), linear-gradient(-45deg, var(--stage-check) 25%, transparent 25%),
                       linear-gradient(45deg, transparent 75%, var(--stage-check) 75%), linear-gradient(-45deg, transparent 75%, var(--stage-check) 75%);
     background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    background-attachment: fixed;
   }
   .fit {
     aspect-ratio: 1920 / 1080; max-width: 100%; max-height: 100%;
@@ -728,10 +755,7 @@
   .startOverlay {
     position: absolute; inset: 0; z-index: 9; display: none;
     align-items: center; justify-content: center; padding: 26px 74px;
-    background: var(--stage);
-    background-image: linear-gradient(45deg, var(--stage-check) 25%, transparent 25%), linear-gradient(-45deg, var(--stage-check) 25%, transparent 25%),
-                      linear-gradient(45deg, transparent 75%, var(--stage-check) 75%), linear-gradient(-45deg, transparent 75%, var(--stage-check) 75%);
-    background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    /* 바탕(체커)은 위 .app·.stage 공용 규칙 — 창 기준으로 맞물린다 */
   }
   .startOverlay.on { display: flex; }
   /* 빈 아트보드 — 실제 .fit과 같은 16:9·그림자. 포토샵처럼 캔버스는 떠 있는 채로 선택 안내 */
@@ -851,7 +875,7 @@
   .winclose:hover { background: var(--state-hover); color: var(--on-surface); }
   .winbody { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
   /* 떼어낸 창도 아이콘+제목 헤더(h3)를 그대로 보여준다 (사이드바와 같은 모양). */
-  .winbody > .sec { border-bottom: none; border-left-width: 4px; }
+  .winbody > .sec { border-bottom: none; }
   .winbody > .sec > h3 { cursor: default; }
   .winbody > .sec > h3:hover { background: none; }
   .winbody > .sec > h3::after { display: none; }   /* 접기 화살표는 창에선 의미 없음(항상 펼침) */
@@ -1161,7 +1185,6 @@
     padding: 11px 12px; border-radius: 14px;
     background: color-mix(in srgb, var(--primary) 13%, var(--surface-hi));
     border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--outline-var));
-    border-left: 4px solid var(--primary);
   }
   .bulBox .hint code { background: var(--surface); }
   /* 기상청 예보 API 박스 — 통보문(파랑 계열)과 성격이 다름을 배경색으로 확실히 구분(예보 전용색) */
@@ -1169,8 +1192,9 @@
     padding: 11px 12px; border-radius: 14px; margin-bottom: 12px;
     background: var(--surface);
     border: 1px solid var(--outline-var);
-    border-left: 4px solid var(--fc-line);
   }
+  /* 밝은 테마: 열린 섹션 바탕(연회색)과 --surface가 거의 같아 상자가 묻힌다 → 흰 카드로 띄운다 */
+  :root[data-theme="light"] .fctBox { background: var(--surface-c); }
   .fctBox .subhead { margin-top: 10px; }
   .fctBox .subhead:first-of-type { margin-top: 2px; }
   /* 링크형 버튼 (a 태그지만 버튼처럼 보이게 — button 요소 스타일을 안 물려받으므로 직접 준다) */
@@ -4463,7 +4487,7 @@ function addMtnPreset(preset) {
   renderMtns();
   sel = added.map((m) => ({ kind: 'mtn', id: m.id })); // 만든 산 전부 선택 (한 번에 옮기기 쉽게)
   refreshPanel(); renderSel();
-  if (sel.length === 1) revealSec('mtn');
+  if (sel.length === 1) revealSecFor('mtn');
   status(`${preset.label} 산 ${added.length}개 추가 — 지도를 옮기면 따라갑니다`);
 }
 function buildMtnPresets() {
@@ -5130,14 +5154,14 @@ function drawPointHandles(L, c) {
     g.appendChild(_te('circle', { r: 7, fill: '#0A1526', 'fill-opacity': 0.55, stroke: c.color, 'stroke-width': 1.4, 'stroke-dasharray': '2 2' }));
     g.appendChild(_te('path', { d: 'M-3.2 0H3.2M0 -3.2V3.2', stroke: '#FFFFFF', 'stroke-width': 1.7, 'stroke-linecap': 'round' }));
     const ii = i;
-    g.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); pushUndo(); c.points.splice(ii + 1, 0, { lon: (pts[ii].lon + pts[ii + 1].lon) / 2, lat: (pts[ii].lat + pts[ii + 1].lat) / 2, ws: 30, r15: 0, r25: 0, r70: 0, tmef: '', label: '', fcst: false }); (c.labels || []).forEach((l) => { if (l.idx > ii) l.idx++; }); buildCompareSection(); renderTyphoon(); });   // 뒤쪽 라벨은 같은 지점을 따라 한 칸 밀기
+    g.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); revealSecFor('cmp', c.id); pushUndo(); c.points.splice(ii + 1, 0, { lon: (pts[ii].lon + pts[ii + 1].lon) / 2, lat: (pts[ii].lat + pts[ii + 1].lat) / 2, ws: 30, r15: 0, r25: 0, r70: 0, tmef: '', label: '', fcst: false }); (c.labels || []).forEach((l) => { if (l.idx > ii) l.idx++; }); buildCompareSection(); renderTyphoon(); });   // 뒤쪽 라벨은 같은 지점을 따라 한 칸 밀기
     L.appendChild(g);
   }
   scr.forEach((xy, i) => {   // 점 핸들 = 드래그 이동 / 더블클릭 삭제
     const g = _te('g', { transform: `translate(${xy[0].toFixed(1)} ${xy[1].toFixed(1)})`, style: 'cursor:move' }); g.style.pointerEvents = 'auto';
     g.appendChild(_te('circle', { r: 9, fill: '#FFFFFF', 'fill-opacity': 0.92, stroke: c.color, 'stroke-width': 3 }));
     g.appendChild(_te('circle', { r: 3, fill: c.color }));
-    g.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); const p = c.points[i]; const [sx, sy] = typhoonXY(p.lon, p.lat); pushUndo(); dragLoop(e, (dx, dy) => { const ll = xyToLonLat(sx + dx, sy + dy); p.lon = ll.lon; p.lat = ll.lat; renderTyphoon(); }); });
+    g.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); revealSecFor('cmp', c.id); const p = c.points[i]; const [sx, sy] = typhoonXY(p.lon, p.lat); pushUndo(); dragLoop(e, (dx, dy) => { const ll = xyToLonLat(sx + dx, sy + dy); p.lon = ll.lon; p.lat = ll.lat; renderTyphoon(); }); });
     g.addEventListener('dblclick', (e) => { e.stopPropagation(); e.preventDefault(); if (c.points.length <= 2) { status('점이 2개뿐이라 못 지웁니다', true); return; } pushUndo(); c.points.splice(i, 1); c.labels = (c.labels || []).filter((l) => l.idx !== i); c.labels.forEach((l) => { if (l.idx > i) l.idx--; }); buildCompareSection(); renderTyphoon(); });   // 지운 지점 라벨 삭제, 뒤쪽 라벨은 한 칸 당김
     L.appendChild(g);
   });
@@ -5220,7 +5244,7 @@ function drawCompareLabels(LB) {
       if (!pos) { const last = full[full.length - 1]; const [x, y] = camProjectXY(last.x, last.y); pos = { x: x + 13, y: y - 4 }; }
       const g = _te('g', { transform: `translate(${(+pos.x).toFixed(1)} ${(+pos.y).toFixed(1)})`, style: 'cursor:move' }); g.style.pointerEvents = 'auto';
       const t = mkText((c.labelCol || c.color), (c.labelSize || 34), (c.labelWeight || 800), c.labelFont); t.textContent = c.name || ''; g.appendChild(t);
-      g.addEventListener('pointerdown', (e) => { e.stopPropagation(); const o = { x: +pos.x, y: +pos.y }; pushUndo(); dragLoop(e, (dx, dy) => { c.labelPos = { x: Math.round(o.x + dx), y: Math.round(o.y + dy) }; renderTyphoon(); }); });
+      g.addEventListener('pointerdown', (e) => { e.stopPropagation(); revealSecFor('cmp', c.id); const o = { x: +pos.x, y: +pos.y }; pushUndo(); dragLoop(e, (dx, dy) => { c.labelPos = { x: Math.round(o.x + dx), y: Math.round(o.y + dy) }; renderTyphoon(); }); });
       g.addEventListener('dblclick', (e) => { e.stopPropagation(); const nv = prompt('예보선 이름', c.name || ''); if (nv != null) { pushUndo(); c.name = nv; buildCompareSection(); renderTyphoon(); renderLegend(); } });
       LB.appendChild(g);
     }
@@ -5272,7 +5296,7 @@ function drawCompareLabels(LB) {
       const line = _te('path', { d: geom.d, stroke: '#DCE8F7', 'stroke-width': 2.6, fill: 'none', 'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
       if (_rv < 1) { line.setAttribute('stroke-dasharray', geom.len); line.setAttribute('stroke-dashoffset', (geom.len * (1 - _rv)).toFixed(1)); }
       LB.insertBefore(line, g);   // 지시선은 박스 아래
-      g.addEventListener('pointerdown', (e) => { e.stopPropagation(); const o = { x: lb.x, y: lb.y }; pushUndo(); dragLoop(e, (dx, dy) => { lb.x = Math.round(o.x + dx); lb.y = Math.round(o.y + dy); renderTyphoon(); }); });
+      g.addEventListener('pointerdown', (e) => { e.stopPropagation(); revealSecFor('cmp', c.id); const o = { x: lb.x, y: lb.y }; pushUndo(); dragLoop(e, (dx, dy) => { lb.x = Math.round(o.x + dx); lb.y = Math.round(o.y + dy); renderTyphoon(); }); });
       g.addEventListener('dblclick', (e) => { e.stopPropagation(); const nv = prompt('라벨 내용', b.txt); if (nv != null) { pushUndo(); lb.txt = nv; buildCompareSection(); renderTyphoon(); } });
     }
   }
@@ -5476,6 +5500,7 @@ function drawSubPlace(L, LB, pl, fx, fy, szBase) {
 function startPlaceDotDrag(e, pl, dot, g, line, w, h) {
   e.stopPropagation();
   if (e.button != null && e.button !== 0) return;
+  revealSecFor('place');   // 지명표시 섹션(놓을 때 연다)
   pushUndo('place');
   const [fx0, fy0] = typhoonXY(pl.lon, pl.lat);
   dragLoop(e, (dx, dy) => {
@@ -5493,6 +5518,7 @@ function startPlaceDotDrag(e, pl, dot, g, line, w, h) {
 function startPlaceLabelDrag(e, pl, g, line, sx, sy, w, h) {
   e.stopPropagation();
   if (e.button != null && e.button !== 0) return;
+  revealSecFor('place');   // 지명표시 섹션(놓을 때 연다)
   pushUndo('place');
   const ox0 = pl.ox == null ? 0 : pl.ox, oy0 = pl.oy == null ? -52 : pl.oy;
   dragLoop(e, (dx, dy) => {
@@ -6175,6 +6201,8 @@ function renderRefImg() {
   if (!isTyphoonCompare()) return;
   const arr = refImgs(); if (!arr.length) return;
   const g = el('g', { id: 'L_refImg' }); svg.appendChild(g);
+  // 참고 이미지(본체·모서리·회전·기준점 어느 핸들이든) → '태풍 비교' 섹션. 핸들들이 전파를 막으므로 캡처 단계에서.
+  g.addEventListener('pointerdown', (e) => { if (e.button === 0) revealSecFor('refImg'); }, true);
   const editing = !penMode && !penExtendId;   // 트레이싱(펜) 중엔 핸들 숨기고 클릭이 통과되게(대고 그리기)
   const sel = refSelIdx();
   arr.forEach((ri, i) => {
@@ -7025,22 +7053,165 @@ function revealSec(name, scroll = true) {
   }
   const sec = panel.querySelector(`.sec[data-sec="${name}"]`);
   if (!sec) return;
-  collapseOtherTools(name);        // 다른 도구는 접는다
+  openPanelSec(sec, name, scroll);
+}
+// 사이드바 섹션 노드를 연다(아코디언: 다른 도구는 접음) → 깜빡 → (scroll이면) 보이게 스크롤.
+// keep = 접지 않고 둘 도구 이름(태풍 비교의 태풍별 탭처럼 도구가 아니면 null — 도구는 전부 접힌다).
+function openPanelSec(sec, keep, scroll) {
+  const wasOpen = !sec.classList.contains('closed');
+  collapseOtherTools(keep);        // 다른 도구는 접는다
   sec.classList.remove('closed');
   flashSec(sec);
   if (!scroll) return;             // 수동 클릭 — 그 자리에서 펴기만
-  // 맨 위까지 올리면 앞뒤 맥락이 사라져서 지금 어디쯤인지 감이 안 온다. 두 번째 칸에 세운다.
-  const prev = sec.previousElementSibling;
-  let top = sec.offsetTop - panel.offsetTop;
-  if (prev && prev.classList.contains('sec')) {   // 묶음 머리표(비-.sec)면 건너뛴다
-    const prevTop = prev.offsetTop - panel.offsetTop;
-    // 앞 항목이 짧으면 통째로 보여줘서 진짜 '두 번째'가 되게 한다.
-    // 앞 항목이 길면 그렇게 못 한다 — 이 항목이 화면 밖으로 밀려나므로 제목 한 칸만 띄운다.
-    top = (top - prevTop <= panel.clientHeight * 0.45)
-      ? prevTop
-      : top - prev.querySelector('h3').offsetHeight;
+  if (wasOpen && secInView(sec)) {   // 이미 펴져 있고 보이는 중 — 강조만 (아래로 내려 편집하던 자리를 빼앗지 않게)
+    if (_secScrollStop) _secScrollStop();   // 진행 중이던 옛 스크롤도 여기서 끝(이미 보이는 중이니)
+    _secScrollGen++;                        // 손 뗀 옛 스크롤의 밀린 프레임이 나중에 끌고 가지 않게
+    return;
   }
-  panel.scrollTo({ top, behavior: 'smooth' });
+  scrollPanelToSec(sec);
+}
+// 사이드바 위·아래에 붙어 있는(sticky) 머리·꼬리가 가리는 높이 — 스크롤 목표를 그만큼 비켜 잡는다.
+// 실제 화면 위치로 잰다(sticky top·패딩 계산에 기대지 않게). 사이드바는 zoom이 걸려 있어 화면 px ÷ 배율 = scrollTop 단위.
+const panelZoomK = (panel) => (panel.getBoundingClientRect().width / (panel.offsetWidth || 1)) || 1;
+function panelStickyH(panel) {
+  const hd = panel.querySelector(':scope > .appHeader');
+  if (!hd || !hd.offsetParent) return 0;
+  const k = panelZoomK(panel), top = panel.getBoundingClientRect().top + panel.clientTop * k;
+  return Math.max(0, (hd.getBoundingClientRect().bottom - top) / k);
+}
+function panelFooterH(panel) {
+  const ft = panel.querySelector(':scope > .panelFooter');
+  if (!ft || !ft.offsetParent) return 0;
+  const k = panelZoomK(panel), bot = panel.getBoundingClientRect().top + (panel.clientTop + panel.clientHeight) * k;
+  return Math.max(0, (bot - ft.getBoundingClientRect().top) / k);
+}
+// 섹션이 지금 보이는 중인가 — 머리(h3)가 화면 안에 있거나, 긴 섹션을 읽는 중이라 화면을 통째로 채우고 있으면 '보이는 중'.
+// (아랫부분만 살짝 걸친 건 안 보이는 것으로 친다 → 머리가 보이게 스크롤)
+function secInView(sec) {
+  const panel = $('#panel');
+  if (!sec.offsetParent) return false;
+  const v0 = panel.scrollTop + panelStickyH(panel), v1 = panel.scrollTop + panel.clientHeight - panelFooterH(panel);
+  const a = sec.offsetTop, b = a + sec.offsetHeight, h = sec.querySelector(':scope > h3');
+  const headIn = a >= v0 - 1 && a + (h ? h.offsetHeight : 0) <= v1 + 1;
+  return headIn || (a <= v0 && b >= v1);
+}
+// 섹션이 보이게 사이드바를 부드럽게 스크롤. 다른 섹션이 접히는 애니메이션(.34s) 동안 위치가 계속 바뀌므로
+// 처음 한 번 잰 값으로 가면 엇나간다 → 매 프레임 목표를 다시 재며 따라간다(끝나면 정확히 그 자리).
+let _secScrollStop = null, _secScrollGen = 0;
+function scrollPanelToSec(sec0) {
+  const panel = $('#panel');
+  if (_secScrollStop) _secScrollStop();
+  const gen = ++_secScrollGen;   // 더 새 스크롤이 시작되면 이 회차의 밀린 프레임은 아무것도 안 한다
+  // 태풍 비교의 태풍별 탭은 패널 갱신 때 통째로 다시 만들어진다 → 매번 이름으로 다시 찾는다(떨어져 나간 옛 노드를 따라가지 않게)
+  const key = sec0.dataset.sec ? `:scope > .sec[data-sec="${sec0.dataset.sec}"]` : `:scope > .sec[data-cmpsec="${sec0.dataset.cmpsec}"]`;
+  const want = () => {
+    const sec = sec0.isConnected ? sec0 : (panel.querySelector(key) || sec0);
+    const head = panelStickyH(panel) + 4;
+    let top = sec.offsetTop - head;
+    // 맨 위까지 올리면 앞뒤 맥락이 사라져서 지금 어디쯤인지 감이 안 온다. 두 번째 칸에 세운다.
+    let prev = sec.previousElementSibling;
+    while (prev && prev.classList.contains('sec') && !prev.offsetParent) prev = prev.previousElementSibling;   // 지금 지도에서 숨긴 항목은 건너뛴다
+    if (prev && prev.classList.contains('sec')) {   // 머리(로고 등 비-.sec)면 두 번째 칸 계산 없이
+      const prevTop = prev.offsetTop - head;
+      // 앞 항목이 짧으면 통째로 보여줘서 진짜 '두 번째'가 되게 한다.
+      // 앞 항목이 길면 그렇게 못 한다 — 이 항목이 화면 밖으로 밀려나므로 제목 한 칸만 띄운다.
+      top = (top - prevTop <= (panel.clientHeight - head) * 0.45) ? prevTop : top - prev.querySelector('h3').offsetHeight;
+    }
+    return Math.max(0, Math.min(top, panel.scrollHeight - panel.clientHeight));
+  };
+  const from = panel.scrollTop, t0 = performance.now(), DUR = 440;
+  const sb = panel.style.scrollBehavior;
+  panel.style.scrollBehavior = 'auto';   // CSS의 smooth를 잠깐 끈다 — 매 프레임 직접 옮긴다
+  let raf = 0, fin = 0, rel = 0, done = false;
+  // 접기·펴기 애니메이션이 늦게 끝나도(창이 가려져 프레임이 멈췄던 경우 등) 끝나는 순간 제자리로 한 번 더 맞춘다
+  const onTe = (ev) => { if (!done && gen === _secScrollGen && ev.propertyName === 'grid-template-rows') panel.scrollTop = want(); };
+  const release = () => {   // 손 떼기 — 리스너·스크롤 방식 원복 (남은 마지막 프레임은 그대로 둔다)
+    clearTimeout(fin); clearTimeout(rel);
+    panel.style.scrollBehavior = sb;
+    panel.removeEventListener('wheel', stop); panel.removeEventListener('pointerdown', stop);
+    panel.removeEventListener('transitionend', onTe);
+    if (_secScrollStop === stop) _secScrollStop = null;
+  };
+  // 즉시 멈춤 — 사용자가 직접 스크롤·클릭했거나 새 스크롤이 시작될 때
+  function stop() { done = true; cancelAnimationFrame(raf); release(); }
+  _secScrollStop = stop;
+  panel.addEventListener('wheel', stop, { passive: true });   // 사용자가 직접 스크롤하면 바로 양보
+  panel.addEventListener('pointerdown', stop);
+  panel.addEventListener('transitionend', onTe);
+  const step = (now) => {
+    if (done || gen !== _secScrollGen) return;
+    const k = Math.min(1, (now - t0) / DUR), e = 1 - Math.pow(1 - k, 3);
+    panel.scrollTop = from + (want() - from) * e;
+    if (k < 1) raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+  // 프레임이 멈춘 창에서도 끝 위치는 보장. (밀린 프레임이 나중에 와도 마지막 단계가 같은 자리로 다시 맞춘다)
+  fin = setTimeout(() => { if (!done && gen === _secScrollGen) panel.scrollTop = want(); }, DUR + 120);
+  rel = setTimeout(release, 1600);   // 그 뒤로는 손을 뗀다(사용자 스크롤 자유)
+}
+
+// ===== 화면(캔버스) 요소 → 사이드바 섹션 자동 열기 — 연결은 전부 여기 한 곳에서 =====
+// kind = 캔버스에서 누른 것. 지도 종류마다 섹션 구성이 달라 '어느 섹션'인지는 여기서만 정한다.
+// 반환: data-sec 이름 | { cmp: 태풍 비교의 태풍 id }(태풍별 탭) | null(연결 없음)
+function secForKind(kind, id) {
+  const cmp = isTyphoonCompare();
+  switch (kind) {
+    case 'text': case 'vfBar': return 'text';                   // 제목 텍스트 · VF 제목 바/전체 크기(설정이 제목 텍스트 안)
+    case 'label': return cmp ? null : 'label';                  // 수치 라벨(일반·지시선·앵커·태풍 라벨)
+    case 'mtn': return 'mtn';                                   // 산 표시
+    case 'legend': return cmp ? 'typhoonCompare' : 'legend';    // 범례 — 비교 지도는 범례 토글이 '태풍 비교' 안
+    case 'map': return 'map';                                   // 지도 크기 손잡이
+    case 'paint': return 'pal';                                 // 칠하기·브러쉬·스포이드·산 색칠
+    case 'place': return 'typhoonPlaces';                       // 지명 이름표·원
+    case 'typhoon': return cmp ? (id ? { cmp: id } : 'typhoonCompare') : 'typhoon';   // 태풍 경로·아이콘·반경
+    case 'cmp': return id ? { cmp: id } : 'typhoonCompare';     // 비교 이름표·수치라벨·점 편집
+    case 'refImg': return 'typhoonCompare';                     // 참고 이미지
+  }
+  return null;
+}
+// how: 'soft' = 연속 작업(칠하기 등) — 접혀 있을 때만 편다. 이미 펴져 있으면 아무것도 안 해서 칠할 때마다 사이드바가 안 튄다.
+//      'click' = 끌지 않고 딱 눌렀다 뗐을 때만(끌어도 아무 동작 없는 태풍 경로 등).
+// 캔버스를 누르고 있는 동안(끌기 중)엔 열지 않고, 손을 뗄 때 마지막 요청 하나만 연다.
+let _canvasPress = null;   // { x, y, moved, pending }
+function revealSecFor(kind, id, how) {
+  const target = secForKind(kind, id);
+  if (!target) return;
+  if (_canvasPress) { _canvasPress.pending = { target, how }; return; }
+  revealSecTarget(target, how);
+}
+function revealSecTarget(target, how) {
+  const soft = how === 'soft';
+  if (typeof target === 'object') {   // 태풍 비교: 태풍별 탭(.sec[data-cmpsec]) — 없으면 '태풍 비교'
+    const sec = document.querySelector(`#panel > .sec[data-cmpsec="${target.cmp}"]`);
+    if (!sec) { revealSecTarget('typhoonCompare', how); return; }
+    if (soft && !sec.classList.contains('closed')) return;
+    const c = typeof compareById === 'function' && compareById(target.cmp);
+    if (c) c._open = true;   // 탭 접힘 상태 기억(재빌드 때 유지)
+    openPanelSec(sec, null, true);
+    return;
+  }
+  if (secModeHidden(target)) return;   // 지금 지도에서 숨긴 섹션 — 열어도 안 보인다
+  if (soft && !secClosed(target)) return;
+  revealSec(target);
+}
+// 캔버스 누름 추적(캡처 단계 — 요소 핸들러가 전파를 막아도 먼저 본다)
+window.addEventListener('pointerdown', (e) => {
+  _canvasPress = (e.button === 0 && e.target && e.target.closest && e.target.closest('#cg')) ? { x: e.clientX, y: e.clientY, moved: false, pending: null } : null;
+}, true);
+window.addEventListener('pointermove', (e) => {
+  const p = _canvasPress;
+  if (p && !p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 4) p.moved = true;
+}, true);
+{
+  const endPress = () => {
+    const p = _canvasPress; _canvasPress = null;
+    if (!p || !p.pending) return;
+    if (p.pending.how === 'click' && p.moved) return;   // 끌었으면 '클릭 전용' 연결은 건너뛴다
+    setTimeout(() => revealSecTarget(p.pending.target, p.pending.how), 0);   // 끌기 끝 처리(패널 동기화) 뒤에
+  };
+  window.addEventListener('pointerup', endPress, true);
+  window.addEventListener('pointercancel', endPress, true);
+  window.addEventListener('blur', () => { _canvasPress = null; });
 }
 
 function select(kind, id, additive) {
@@ -7052,7 +7223,7 @@ function select(kind, id, additive) {
     sel = [{ kind, id }];
   }
   refreshPanel(); renderSel();
-  if (sel.length === 1) revealSec({ text: 'text', mtn: 'mtn' }[kind] || 'label');
+  if (sel.length === 1) revealSecFor(kind === 'text' || kind === 'mtn' ? kind : 'label');
 }
 const deselect = () => { sel = []; refreshPanel(); renderSel(); };
 
@@ -7569,14 +7740,18 @@ svg.addEventListener('pointerdown', (e) => {
   if (animT != null) { animStop(); animOff(); }
 
   // Alt+클릭 = 스포이드: 그 자리 색을 팔레트 색으로 집는다 (색이 있으면 그걸로, 없으면 그냥 진행)
-  if (e.altKey) { const col = colorAtPoint(e); if (col) { setActive(col); if (secClosed('pal')) revealSec('pal'); status('스포이드 · ' + col + ' 선택', true); return; } }
+  if (e.altKey) { const col = colorAtPoint(e); if (col) { setActive(col); revealSecFor('paint', null, 'soft'); status('스포이드 · ' + col + ' 선택', true); return; } }
 
   if (e.target.closest('.selGrip')) { startResizeSel(e); return; }
-  if (e.target.closest('#legendGrip')) { startLegendResize(e); revealSec('legend'); return; }   // 범례 크기 핸들 (어느 모드에서나)
+  if (e.target.closest('#legendGrip')) { startLegendResize(e); revealSecFor('legend'); return; }   // 범례 크기 핸들 (어느 모드에서나)
+
+  // 태풍 경로·아이콘·반경(비교 지도면 그 예보선) — 그 태풍 섹션을 연다. 끌어도 하는 일이 없는 곳이라 '딱 클릭'일 때만.
+  // (아래 모드별 동작은 그대로 이어간다)
+  if (e.target.closest('#L_typhoon')) { const cg = e.target.closest('[data-cmp]'); revealSecFor('typhoon', cg && cg.dataset.cmp, 'click'); }
 
   const d = e.target.closest('.drag');
   if (d) {
-    if (d.dataset.kind === 'legend') { startLegendMove(e); revealSec('legend'); return; }   // 범례는 통째로 이동
+    if (d.dataset.kind === 'legend') { startLegendMove(e); revealSecFor('legend'); return; }   // 범례는 통째로 이동
     // 산은 칠하기 모드에선 팔레트 색으로 칠하고, 이동 모드에서만 움직인다.
     if (d.dataset.kind === 'mtn' && mode === 'paint') {
       const m = itemOf({ kind: 'mtn', id: d.dataset.id });
@@ -7584,7 +7759,7 @@ svg.addEventListener('pointerdown', (e) => {
         pushUndo();
         m.col = activeColor;
         renderMtns(); buildMtnList();
-        if (secClosed('pal')) revealSec('pal');
+        revealSecFor('paint', null, 'soft');
       }
       return;
     }
@@ -7593,10 +7768,10 @@ svg.addEventListener('pointerdown', (e) => {
   }
 
   if (mode === 'move') {
-    if (e.target.closest('#vfScaleGrip')) { startVfScaleResize(e); return; } // VF 전체 크기
-    if (e.target.closest('#vfBarGrip')) { startVfBarResize(e); return; }   // 제목 바 크기
-    if (e.target.closest('#vfBarHit')) { startVfBarMove(e); return; }      // 제목 바 이동
-    if (e.target.closest('[data-mapgrip]')) { if (S.mapLock) { status('지도가 잠겨 있습니다', true); return; } revealSec('map'); startScaleMap(e); return; }
+    if (e.target.closest('#vfScaleGrip')) { startVfScaleResize(e); revealSecFor('vfBar'); return; } // VF 전체 크기
+    if (e.target.closest('#vfBarGrip')) { startVfBarResize(e); revealSecFor('vfBar'); return; }   // 제목 바 크기
+    if (e.target.closest('#vfBarHit')) { startVfBarMove(e); revealSecFor('vfBar'); return; }      // 제목 바 이동
+    if (e.target.closest('[data-mapgrip]')) { if (S.mapLock) { status('지도가 잠겨 있습니다', true); return; } revealSecFor('map'); startScaleMap(e); return; }
     const grip = e.target.closest('.insetGrip');
     if (grip && grip.dataset.inset) { startResizeInset(e, grip.dataset.inset); return; }
     // 박스든 그 안의 섬이든 집으면 박스째 움직인다
@@ -7620,6 +7795,7 @@ svg.addEventListener('pointerdown', (e) => {
     const keys = brushKeysIn(space);
     if (!keys.length) { flash('SHIFT+클릭으로 칠할 시도를 먼저 고르세요'); if (sel.length) deselect(); return; }
     startBrush(e, keys, space, brushErase || e.ctrlKey || e.metaKey);   // Ctrl = 임시 지우개
+    revealSecFor('paint', null, 'soft');   // 브러쉬 설정(크기·진하기)은 색 팔레트 안 — 접혀 있을 때만 펴 준다
     if (sel.length) deselect();
     return;
   }
@@ -7628,8 +7804,8 @@ svg.addEventListener('pointerdown', (e) => {
   if (z) {
     pushUndo(); // 한 획(드래그) 전체를 한 번에 되돌린다
     painting = true;
-    // 색을 칠하기 시작하면 색 팔레트를 펴 준다 (접혀 있을 때만 — 매번 깜빡이면 성가시다)
-    if (secClosed('pal')) revealSec('pal');
+    // 색을 칠하기 시작하면 색 팔레트를 펴 준다 (접혀 있을 때만 — 매번 깜빡이면 성가시다. 끌어 칠하는 중엔 놓을 때 한 번)
+    revealSecFor('paint', null, 'soft');
     // 이미 같은 색이면 지우기 (한 번 더 누르면 취소). Alt는 항상 지우기.
     paintErase = e.altKey || fillOf(z) === activeColor;
     paint(z, paintErase);
@@ -8039,7 +8215,7 @@ function setMode(m) {
   $('#brushHint').style.display = m === 'brush' ? '' : 'none';
   syncMapAltHint();   // 부팅·모드전환 때도 Alt 조작법 표시 갱신
   if (m !== 'brush') { clearBrushRegions(); hideBrushCursor(); }
-  else if (secClosed('pal')) revealSec('pal');   // 브러쉬 모드 켜면 색 팔레트 펴 준다
+  else revealSecFor('paint', null, 'soft');   // 브러쉬 모드 켜면 색 팔레트 펴 준다(접혀 있을 때만)
   renderInsets();
   renderMapTransform();
   renderVfBar();   // 이동 모드 전환에 맞춰 제목 바 핸들 표시/숨김
