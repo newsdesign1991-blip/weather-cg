@@ -60,3 +60,24 @@ test('데스크톱 창 제목표시줄 — 높이·창 버튼 색 연동', () =>
   assert.match(html, /env\(titlebar-area-width/);
   assert.match(html, /function syncTitleBarColors\(\)/);
 });
+
+test('제목줄 검토 수정 — 메뉴 열림 중 끌기 해제·창 버튼 어둡게·제목줄 위로 안 올라가기', () => {
+  // 드롭다운이 열려 있으면 제목줄 전체 no-drag(빈 곳 클릭으로 닫히게), 닫히면 다시 drag
+  assert.match(html, /html\.isDesktop\.menuOpen \.titlebar \{ -webkit-app-region: no-drag; \}/);
+  assert.match(html, /classList\.add\('menuOpen'\)/);
+  assert.match(html, /classList\.remove\('menuOpen'\)/);
+  // 모달·둘러보기 막이 뜨면 창 버튼 자리도 같이 어둡게 (막 감시 → syncTitleBarColors)
+  assert.match(html, /function watchTitleBarDim\(\)/);
+  assert.match(html, /watchTitleBarDim\(\);/);
+  assert.match(html, /\['#tourWrap\.on', 'rgba\(6, 8, 12, \.76\)'\]/);
+  assert.match(html, /0 0 0 9999px rgba\(6, 8, 12, \.76\)/, '둘러보기 막 색은 .tourSpot 그림자와 같아야 한다');
+  // 둘러보기 카드는 닫기 바(.tourBar)를 비켜 놓는다
+  const place = /function tourPlace\(step\) \{[\s\S]*?\n\}/.exec(html)[0];
+  assert.match(place, /\.tourBar/);
+  // 카메라 키 팝오버·카메라 안내·타임라인 최대 높이는 제목줄 높이를 뺀다
+  const pop = /function openCamKeyPopover\(id\) \{[\s\S]*?\n\}/.exec(html)[0];
+  assert.match(pop, /titleBarH\(\) \+ 8/);
+  const guide = /function syncCamGuidePos\(\) \{[\s\S]*?\n\}/.exec(html)[0];
+  assert.match(guide, /titleBarH\(\)/);
+  assert.match(html, /window\.innerHeight - titleBarH\(\) - 120/);
+});
