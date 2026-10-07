@@ -2464,6 +2464,12 @@ const selItems = () => sel.map((s) => ({ s, it: itemOf(s) })).filter((x) => x.it
 const one = () => (sel.length === 1 ? sel[0] : null); // 단일 선택일 때만 편집 패널을 연다
 let customCols = [];
 let seq = 1;
+// 저장본·배치를 불러오면 seq를 그 안의 id(x·cmp·c·k + 숫자) 최댓값 뒤로 맞춘다 — 새 라벨/텍스트 id가 옛 것과 겹치지 않게
+function bumpSeq() {
+  let m = 0;
+  try { for (const r of JSON.stringify(S).matchAll(/"id":"(?:x|cmp|c|k)(\d+)"/g)) { const n = +r[1]; if (n > m) m = n; } } catch (e) {}
+  seq = Math.max(seq, m + 1);
+}
 let mode = 'paint';
 let bgOverride = null; // 사용자가 교체한 배경 (data URI). 그 세션 한정 — 저장 안 된다.
 let bgUseFile = 0;     // 교체한 것을 쓰는 중인가 (0이면 S.bg 의 기본 배경)
@@ -2866,8 +2872,12 @@ function applyState(next) {
   if (styleChanged) { buildZones(); markStyleBtns(); }
   syncPanelFromState(); renderAll(); updateUndoBtns();
 }
-function undo() { if (!undoStack.length) return; redoStack.push(snap()); applyState(undoStack.pop()); status('되돌림'); }
-function redo() { if (!redoStack.length) return; undoStack.push(snap()); applyState(redoStack.pop()); status('다시 실행'); }
+// 불러오기·새로 시작 경계 스냅샷에 저장 대상 파일(projFileHandle) 전/후를 붙여 둔다 — 되돌리면 파일도 같이 되돌려
+// 불러온 파일 B를 옛 작업 A로 묻지 않고 덮어쓰지 않게.
+const _undoFileMark = new WeakMap();
+function markUndoFileSwap(before, after) { const top = undoStack[undoStack.length - 1]; if (top) _undoFileMark.set(top, { before, after }); }
+function undo() { if (!undoStack.length) return; const cur = snap(), prev = undoStack.pop(), m = _undoFileMark.get(prev); if (m) { _undoFileMark.set(cur, m); projFileHandle = m.before; } redoStack.push(cur); applyState(prev); status('되돌림'); }
+function redo() { if (!redoStack.length) return; const cur = snap(), next = redoStack.pop(), m = _undoFileMark.get(next); if (m) { _undoFileMark.set(cur, m); projFileHandle = m.after; } undoStack.push(cur); applyState(next); status('다시 실행'); }
 function updateUndoBtns() { $('#undo').disabled = !undoStack.length; $('#redo').disabled = !redoStack.length; }
 
 // ===================== SVG 구성 =====================
@@ -5974,11 +5984,21 @@ function loadRefImgFromFile(file) {
     const im = new Image();
     im.onload = () => {
       const maxW = 1920 * 0.6, sc = Math.min(1, maxW / im.width), w = Math.round(im.width * sc), h = Math.round(im.height * sc);
+      // 원본 data URI를 그대로 S에 넣으면 undo 스냅샷·자동저장(localStorage)이 수 MB씩 커져 저장이 멈춘다 →
+      // 긴 변 1920px 이하로 줄여 webp(투명 유지)로 다시 인코딩한다. 실패하면 원본.
+      let href = rd.result;
+      try {
+        const k = Math.min(1, 1920 / Math.max(im.width, im.height)), cw = Math.max(1, Math.round(im.width * k)), ch = Math.max(1, Math.round(im.height * k));
+        const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+        cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
+        const enc = cv.toDataURL('image/webp', 0.88);
+        if (/^data:image\/webp/.test(enc) && enc.length < href.length) href = enc;
+      } catch (e) { /* 원본 유지 */ }
       pushUndo();
       const arr = refImgs();
       const off = arr.length * 24;   // 겹치지 않게 살짝 어긋나게
       const rx0 = Math.round(960 - w / 2 + off), ry0 = Math.round(540 - h / 2 + off);
-      arr.push({ href: rd.result, x: rx0, y: ry0, w, h, rot: 0, op: 0.6, show: 1, px: Math.round(rx0 + w / 2), py: Math.round(ry0 + h / 2) });
+      arr.push({ href, x: rx0, y: ry0, w, h, rot: 0, op: 0.6, show: 1, px: Math.round(rx0 + w / 2), py: Math.round(ry0 + h / 2) });
       S.typhoon.refSel = arr.length - 1;
       buildCompareSection(); renderRefImg();
       status('참고 이미지 추가 (' + arr.length + '/' + MAX_REF + ') — 노란 기준점 기준으로 크기(Shift=정비율)·회전, 본체 드래그=이동, Delete=삭제', true);
@@ -6005,7 +6025,7 @@ function wireCompareSection() {
   const add = $('#tycAdd'); if (add) add.onclick = () => addCompareForecast();
   const pen = $('#tycPen'); if (pen) pen.onclick = startPen;
   const play = $('#tycPlay'); if (play) play.onclick = playTyphoon;
-  const which = $('#tycWhichSel'); if (which) which.onchange = () => selectTyphoonFromApi(+which.value);   // 비교 지도: 목록에서 고르면 그 태풍도 비교에 추가
+  const which = $('#tycWhichSel'); if (which) which.onchange = () => { pushUndo(); selectTyphoonFromApi(+which.value, { fromSel: true }); };   // 비교 지도: 목록에서 고르면 그 태풍도 비교에 추가(되돌리기 가능)
   const lg = $('#tycLegend'); if (lg) lg.onchange = () => { pushUndo(); (S.legend ||= {}).on = lg.checked ? 1 : 0; renderLegend(); };
   // 참고 이미지
   const drop = $('#tycRefDrop'), file = $('#tycRefFile');
@@ -6090,7 +6110,7 @@ function wireTyphoonPanel() {
   const rF = $('#typRangeFrom'); if (rF) rF.onchange = () => { pushUndo(); T().rangeFrom = rF.value; renderTyphoon(); };
   const rT = $('#typRangeTo'); if (rT) rT.onchange = () => { pushUndo(); T().rangeTo = rT.value; renderTyphoon(); };
   const kin = $('#typKey'); if (kin) { kin.value = typKey(); kin.oninput = (e) => localStorage.setItem(TYP_KEY_STORE, e.target.value.trim()); }
-  const which = $('#typWhichSel'); if (which) which.onchange = () => selectTyphoonFromApi(+which.value, { fromSwitch: true });
+  const which = $('#typWhichSel'); if (which) which.onchange = () => { pushUndo(); selectTyphoonFromApi(+which.value, { fromSwitch: true, fromSel: true }); };   // 전환도 되돌리기 가능
   const nmeIn = $('#typName');   // 이름 입력 → 번호별 저장 + 라벨/제목/드롭다운 즉시 반영
   if (nmeIn) nmeIn.oninput = (e) => {
     const T = S.typhoon; if (!T) return;
@@ -6147,22 +6167,37 @@ function parseTdRows(text) {
   return rows;
 }
 
+// opts.fromSel: 드롭다운 전환 — 메모리 원본(typhoonRaw, 비영속·다른 불러오기일 수 있음) 대신 S에 저장된 목록(지점 포함)으로 고른다.
 function selectTyphoonFromApi(idx, opts) {
-  if (!typhoonRaw || !typhoonRaw.whichList[idx]) return;
-  const w = typhoonRaw.whichList[idx];
+  const prev = S.typhoon || {};
+  let list = null, src = '';
+  if (opts && opts.fromSel) {
+    const sl = prev.whichList, sw = sl && sl[idx];
+    const rw = typhoonRaw && typhoonRaw.whichList && typhoonRaw.whichList[idx];
+    if (sw && sw.points) { list = sl; src = prev.src || 'kma'; }
+    else if (sw && rw && rw.tno === sw.tno && rw.name === sw.name && typhoonRaw.whichList.length === sl.length) { list = typhoonRaw.whichList; src = typhoonRaw.src === 'apihub' ? 'kma' : (typhoonRaw.src || 'kma'); }   // 옛 저장본(지점 없음) — 같은 불러오기일 때만
+  } else if (typhoonRaw && typhoonRaw.whichList[idx]) { list = typhoonRaw.whichList; src = typhoonRaw.src === 'apihub' ? 'kma' : (typhoonRaw.src || 'kma'); }
+  if (!list) {   // 전환할 지점 자료가 없으면 드롭다운 표시를 현재 태풍으로 되돌리고 안내
+    buildTyphoonPanel(); if (isTyphoonCompare()) buildCompareSection();
+    status('이 태풍으로 바꾸려면 다시 불러오기를 눌러 주세요', true);
+    return;
+  }
+  const w = list[idx];
   const rows = w.points || (w.rows ? w.rows.map(typPointFromRow) : []);
   const anal = rows.filter((r) => !r.fcst).sort((a, b) => (a.tmef > b.tmef ? 1 : (a.tmef < b.tmef ? -1 : 0)));
   const fcst = rows.filter((r) => r.fcst).sort((a, b) => (a.tmef > b.tmef ? 1 : (a.tmef < b.tmef ? -1 : 0)));
-  const pts = anal.concat(fcst);   // 분석(과거~현재) + 예측(미래). nowIdx=마지막 분석
-  const prev = S.typhoon || {}, DEF = typhoonStyleDefaults();
+  const pts = JSON.parse(JSON.stringify(anal.concat(fcst)));   // 분석(과거~현재) + 예측(미래). nowIdx=마지막 분석 (목록 지점과 따로 복사)
+  const DEF = typhoonStyleDefaults();
   const style = {};
   for (const k of TYPHOON_STYLE_KEYS) { const v = (prev[k] != null ? prev[k] : DEF[k]); if (v !== undefined) style[k] = v; }   // 아이콘/범례 등 스타일 키 모두 보존
   S.typhoon = Object.assign({
     name: w.name, issues: [{ tmfc: '', label: '실황 + 예상경로', points: pts }], sel: 0, fromApi: true,
-    src: (typhoonRaw && typhoonRaw.src === 'apihub') ? 'kma' : ((typhoonRaw && typhoonRaw.src) || 'kma'),   // 반경 이름을 나라별로 바꾸는 데 씀
-    whichList: typhoonRaw.whichList.map((x) => ({ tno: x.tno, year: x.year, td: x.td, name: x.name })), whichSel: idx, nowIdx: null, labelSel: null,
+    src,   // 반경 이름을 나라별로 바꾸는 데 씀
+    // 지점까지 저장 — 새로고침·파일 열기·되돌리기 뒤에도 드롭다운 전환이 S만으로 된다
+    whichList: list.map((x) => ({ tno: x.tno, year: x.year, td: x.td, name: x.name, points: JSON.parse(JSON.stringify(x.points || (x.rows ? x.rows.map(typPointFromRow) : []))) })), whichSel: idx, nowIdx: null, labelSel: null,
     compare: prev.compare || [],   // 비교 목록은 불러오기(트랙 교체)에도 보존 — 여러 기관 누적 비교 가능
     refImgs: prev.refImgs || (prev.refImg ? [prev.refImg] : []), refSel: prev.refSel,   // 대고 그리는 참고 이미지는 통보문/예보 불러와도 보존(간섭 방지)
+    places: prev.places || [], placeSize: prev.placeSize,   // 지명표시(사용자 입력)도 보존
   }, style);
   autoTodayTyphoonLabel();   // 오늘 지점 라벨 하나 자동 표시
   buildTyphoonPanel(); renderTyphoon();
@@ -9165,20 +9200,30 @@ function preferUpdatedDeploymentDefaults() {
   } catch (e) { /* noop */ }
   return false;
 }
+let _saveWarned = false, _failedWork = '';
 function saveWork() {
+  // 시작 화면이 떠 있는 동안은 저장하지 않는다 — 빈 시작 지도가 '직전 작업 이어보기'용 작업을 덮어쓰지 않게
+  const ov = document.getElementById('startOverlay');
+  if (ov && ov.classList.contains('on')) return;
+  let s;
   try {
-    const s = JSON.stringify(S);
-    if (s === lastWork) return; // 안 바뀌었으면 쓰지 않는다
-    lastWork = s;
+    s = JSON.stringify(S);
+    if (s === lastWork || s === _failedWork) return; // 안 바뀌었으면(또는 방금 같은 내용이 실패했으면) 쓰지 않는다
     localStorage.setItem(WORK_KEY, s);
-  } catch (e) { /* 용량 초과 등 — 조용히 넘어간다 */ }
+    lastWork = s;   // 성공한 뒤에만 기록 — 실패하면 내용이 바뀔 때 다시 시도
+    _failedWork = ''; _saveWarned = false;
+  } catch (e) {
+    if (s) _failedWork = s;
+    // 용량 초과 등 — 한 번만 알린다(조용히 멈추면 새로고침 때 작업이 사라짐)
+    if (!_saveWarned) { _saveWarned = true; status('자동 저장 실패(저장 공간 부족) — 참고 이미지를 줄이거나 지우고, 프로젝트 저장(Ctrl+S)으로 보관하세요', true); }
+  }
 }
 function loadWork() {
   try {
     const raw = localStorage.getItem(WORK_KEY);
     if (!raw) return null;
     const w = JSON.parse(raw);
-    if (!w || !w.map) return null;
+    if (!isWorkData(w)) return null;
     lastWork = raw;
     return Object.assign(DEFAULTS(), w);
   } catch (e) { return null; }
@@ -9222,6 +9267,7 @@ function applyPreset() {
     if (p.vfBar !== undefined) S.vfBar = mergeVfBar(S.vfBar, p.vfBar);   // 위치만 따라오고 그림자는 지금 모드 것 유지
     if (p.texts) S.texts = mergeTextPos(S.texts, p.texts);
   }
+  bumpSeq();   // 배치에 구워진 텍스트 id와 겹치지 않게
   applyPresetVfScale(p, liveVfScale);
   // 특보 범례: 이 그룹 배치가 범례를 갖고 있으면 그대로, 없으면(옛/배포 프리셋) 기본값으로 리셋한다.
   // 안 그러면 특보구역↔특보+해상처럼 그룹을 옮길 때 이전 그룹의 범례 위치가 그대로 남는다.
@@ -11420,32 +11466,57 @@ async function buildRecentList() {
 }
 async function openRecent(rec) {
   try {
-    let data = rec.data;
+    let data = rec.data, fromSnap = false;
     if (rec.handle && rec.handle.queryPermission) {
-      let p = await rec.handle.queryPermission({ mode: 'read' });
-      if (p !== 'granted') p = await rec.handle.requestPermission({ mode: 'read' });
-      if (p === 'granted') { const file = await rec.handle.getFile(); data = (await readProjectFile(file)).data; }
+      // 원본이 옮겨졌거나 지워졌으면(NotFoundError 등) 저장해 둔 스냅샷으로 연다
+      try {
+        let p = await rec.handle.queryPermission({ mode: 'read' });
+        if (p !== 'granted') p = await rec.handle.requestPermission({ mode: 'read' });
+        if (p === 'granted') { const file = await rec.handle.getFile(); data = (await readProjectFile(file)).data; }
+      } catch (err) { data = rec.data; fromSnap = true; }
     }
-    if (!data || !data.map) { status('열 수 없습니다 (파일이 옮겨졌거나 삭제됨)', true); return; }
-    const keepH = (rec.handle && /\.png$/i.test(rec.name || '')) ? rec.handle : null;   // PNG 핸들만 덮어쓰기에
+    if (!isWorkData(data)) { status('열 수 없습니다 (파일이 옮겨졌거나 삭제됨)', true); return; }
+    const keepH = (!fromSnap && rec.handle && /\.png$/i.test(rec.name || '')) ? rec.handle : null;   // PNG 핸들만 덮어쓰기에(스냅샷으로 열었으면 없는 파일에 쓰지 않게)
     loadProjectData(data, keepH);
-    await addRecent(rec.name, rec.handle || null, data);   // 방금 연 걸 맨 위로
+    await addRecent(rec.name, fromSnap ? null : (rec.handle || null), data);   // 방금 연 걸 맨 위로
     $('#recentList').classList.remove('on');
-    status('열림: ' + rec.name);
+    status(fromSnap && rec.handle ? '원본 파일을 못 찾아 마지막 저장 스냅샷으로 열었습니다: ' + rec.name : '열림: ' + rec.name, fromSnap && !!rec.handle);
   } catch (e) { status('열기 실패: ' + rec.name + ' — 파일이 옮겨졌거나 지워졌을 수 있어요', true); }
 }
 // 프로젝트 데이터를 화면에 적용 (불러오기·최근파일 공용)
+// 작업 파일 최소 검사 — 아무 JSON이나 열려 현재 작업이 빈 기본값으로 바뀌거나 렌더 예외로 멈추지 않게
+function isWorkData(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return false;
+  const m = d.map;
+  if (!m || typeof m !== 'object' || ![m.x, m.y, m.s].every((v) => v != null && Number.isFinite(+v))) return false;
+  return ['texts', 'labels', 'mtns'].every((k) => d[k] == null || Array.isArray(d[k]));
+}
 function loadProjectData(data, handle) {
+  if (!isWorkData(data)) throw new Error('날씨 CG 작업 파일이 아닙니다');
+  stopAnimForSwap();   // 옛 작업의 재생·카메라 백업을 먼저 걷는다(작업 뷰로 되돌린 뒤 undo 스냅샷)
+  const prevS = S, prevHandle = projFileHandle;
   pushUndo();
-  S = Object.assign(DEFAULTS(), data);
-  sel = [];
-  buildZones(); markStyleBtns(); markResBtns();
-  buildBgBtns(); markCgMode();
-  syncPanelFromState(); renderAll();
-  restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게)
-  buildTimeline();
+  try {
+    S = Object.assign(DEFAULTS(), data);
+    bumpSeq();   // 불러온 작업 id 뒤에서 새 id 발급
+    sel = [];
+    buildZones(); markStyleBtns(); markResBtns();
+    buildBgBtns(); markCgMode();
+    syncPanelFromState(); renderAll();
+    restoreWrnRuntime();   // 특보 지도면 저장된 특보 목록·우선순위 복원(재오픈 후 편집 가능하게)
+    buildTimeline();
+  } catch (e) {
+    // 그리다 깨지면 원래 작업으로 되돌린다(깨진 S가 자동저장되지 않게)
+    undoStack.pop(); updateUndoBtns();
+    S = prevS; sel = [];
+    try { buildZones(); markStyleBtns(); markResBtns(); buildBgBtns(); markCgMode(); syncPanelFromState(); renderAll(); restoreWrnRuntime(); buildTimeline(); } catch (_) {}
+    throw e;
+  }
+  _tiltRasterSig = null; applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거·새 작업 기준으로
+  updateFrameGuideLabel();              // 새 작업 해상도에 맞춰 프레임 비율
   showPresetInfo();
   projFileHandle = handle || null;   // 핸들 있으면 이후 Ctrl+S가 같은 파일로
+  markUndoFileSwap(prevHandle, projFileHandle);   // 불러오기를 되돌리면 저장 대상 파일도 되돌린다
   // '예전 작업 불러오기'로 시작화면에서 열었다면 시작화면을 닫는다 (이제 작업이 있으니)
   const ov = document.getElementById('startOverlay');
   if (ov && ov.classList.contains('on')) { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); }
@@ -12079,7 +12150,10 @@ function wire() {
 
   $('#newWork').onclick = () => {
     if (!confirm('지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작할까요?')) return;
+    stopAnimForSwap();   // 옛 작업의 카메라 백업이 새 작업 지도에 덮이지 않게
     pushUndo();
+    markUndoFileSwap(projFileHandle, null);
+    projFileHandle = null;   // 새 작업의 첫 저장은 위치를 다시 묻는다(이전 파일 덮어쓰기 방지)
     localStorage.removeItem(WORK_KEY);
     lastWork = '';
     // 출력화면(res)·레이아웃(style)·CG모드(cgLight)는 유지해야 프리셋 키가 맞아
@@ -12094,6 +12168,7 @@ function wire() {
       applyCgDefaults(keepLight);
       markCgMode(); buildBgBtns(); syncPanelFromState(); renderAll(); showPresetInfo();
     }
+    _tiltRasterSig = null; applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거
     localStorage.removeItem('wcg_started');           // 다시 빈 화면 + 선택 안내부터
     localStorage.setItem('wcg_pending_start', '1');   // 새로고침해도 '출력화면·지도종류 선택' 화면이 계속 뜨게(자동저장된 빈 작업을 로드하지 않도록)
     showStartScreen();
@@ -12669,6 +12744,14 @@ function animOff() {
   clearVfEnter();    // VF 진입 슬라이드/페이드 잔재 제거
   restoreCamMap();   // 카메라로 바꾼 S.map을 작업 뷰로 되돌린다
   renderAll();
+}
+// 다른 작업으로 갈아끼우기(불러오기·새로 시작) 직전 — 재생 루프·미리보기·카메라 백업을 걷어
+// 옛 작업의 뷰(_camSavedMap)가 나중에 새 작업 S.map에 덮이지 않게 한다.
+function stopAnimForSwap() {
+  animStop();
+  if (typeof typhoonRaf !== 'undefined' && typhoonRaf) { cancelAnimationFrame(typhoonRaf); typhoonRaf = 0; }
+  animOff();
+  tlHeadT = 0;
 }
 
 function animSeek(t) {
@@ -13832,6 +13915,7 @@ const pendingStart = !!localStorage.getItem('wcg_pending_start');
 const work = (freshOpen || pendingStart) ? null : loadWork();
 if (work) {
   S = work;
+  bumpSeq();           // 저장본 id 뒤에서 새 id 발급
   applyVfDefaults();   // 이어서 열 때 VF면 라벨 92%·산 70% 강제
   buildZones(); markStyleBtns(); markResBtns();
   // 태풍 지도로 저장돼 있으면, 스타일 전환과 '똑같은' 배치가 나오도록 부팅에서도 배치를 재적용한다.
