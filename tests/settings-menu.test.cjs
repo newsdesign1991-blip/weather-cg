@@ -72,7 +72,15 @@ test('setupMenus — cfg 섹션을 드롭다운으로, 배치 지정하기는 fo
 
 test('확장팩 상태 — 데스크톱은 빨간 점 없음, 웹판 꺼짐·구버전은 기존 안내(showHelperStatus)로', () => {
   const a = fn('applyHelperState');
-  assert.match(a, /classList\.toggle\('hasNew', !WNS_DESKTOP && st\.up && st\.old\)/);
+  assert.match(a, /const dot = !WNS_DESKTOP && st\.up && st\.old;/);
+  assert.match(a, /classList\.toggle\('hasNew', dot\)/);
+  // 빨간 점의 뜻 — 점이 뜨면 렌치 툴팁이 이유를 말하고, 없어지면 원래 문구로
+  assert.match(a, /dot \? '설정 — 기능 확장팩 구버전: 메뉴 맨 아래에서 다시 실행' : HELPER_BTN_TIP/);
+  assert.match(html, /const HELPER_BTN_TIP = '설정 — 배치·설정 옮기기';/);
+  // 메뉴 안 '구버전' 점은 렌치 빨간 점과 같은 색
+  assert.match(html, /\.helperRow\[data-st="old"\] \.hrDot \{ background: #E5484D;/);
+  // 밝은 테마에선 상태 줄 글자를 진하게(--on-surface-var 는 바탕과 대비 약 2.35:1)
+  assert.match(html, /html\[data-theme="light"\] \.helperRow,\s*html\[data-theme="light"\] \.helperRow\.static:hover \{ color: color-mix\(in srgb, var\(--on-surface\) 75%, var\(--surface-hi\)\); \}/);
   assert.match(a, /앱에 내장됨/);
   assert.match(a, /act = showHelperStatus/);
   assert.match(fn('checkHelperFreshOnBoot'), /applyHelperState\(st\)/);
@@ -87,6 +95,10 @@ test('둘러보기 — 렌치는 설정으로 설명하고, 배치 지정하기�
   assert.match(t, /title: '배치 지정하기'[\s\S]*?target: \(\) => \$\('#cfgPresetGroup'\), setup: \(\) => tourMenu\('cfg'\)/);
   assert.match(t, /title: '설정 옮기기'[\s\S]*?target: \(\) => \$\('#cfgMoveGroup'\), setup: \(\) => tourMenu\('cfg'\)/);
   assert.equal(t.split("title: '배치 지정하기'").length - 1, 1);
-  // 닫기 바가 오른쪽 위 메뉴를 가리면 비킨다
+  // 닫기 바가 오른쪽 위 메뉴를 가리면 비킨다 — 비추는 곳뿐 아니라 열린 드롭다운 전체도 피한다
   assert.match(fn('tourPlace'), /tourBarSide\(\{ x, y, w, h \}\)/);
+  assert.match(fn('tourBarSide'), /\$\('#menuDrop'\)[\s\S]*?classList\.contains\('on'\)[\s\S]*?Math\.min\(a\.x, r\.left\)/);
+  // 묶음 사이 구분선은 묶음 상자 바깥(::before, 위 여백)에 — 스포트라이트 안에 선이 같이 잡히지 않게
+  assert.doesNotMatch(html, /\.cfgGroup \+ \.cfgGroup \{[^}]*border-top/);
+  assert.match(html, /\.cfgGroup \+ \.cfgGroup::before \{[^}]*top: -14px/);
 });

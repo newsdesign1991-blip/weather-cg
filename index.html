@@ -829,8 +829,10 @@
   .menuDrop.alignR { transform-origin: top right; }
   #titlebar #helperBtn svg { opacity: 1; }
   #titlebar #helperBtn.on { background: color-mix(in srgb, var(--on-surface) 13%, transparent); color: var(--on-surface); }
-  /* 묶음(배치 · 설정 옮기기) 사이 구분선 — 묶음 첫 줄 .subhead 는 :first-child 라 자체 선이 없다 */
-  .cfgGroup + .cfgGroup { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--outline-var); }
+  /* 묶음(배치 · 설정 옮기기) 사이 구분선 — 묶음 첫 줄 .subhead 는 :first-child 라 자체 선이 없다.
+     선은 묶음 상자 '바깥'(위 여백)에 그린다 — 둘러보기가 묶음을 비출 때(스포트 여백 8px + 테두리 3px) 선이 강조 상자 안에 같이 잡히지 않게. */
+  .cfgGroup + .cfgGroup { position: relative; margin-top: 27px; }
+  .cfgGroup + .cfgGroup::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 1px; background: var(--outline-var); pointer-events: none; }
   .cfgGroup .btns + .btns { margin-top: 7px; }
   /* 맨 아래 '기능 확장팩' 상태 한 줄 — 웹판: 꺼짐·구버전이면 눌러서 켜는 방법 / 데스크톱: 앱에 내장(누를 것 없음) */
   .helperRow {
@@ -843,12 +845,17 @@
   .helperRow.static:hover { background: var(--surface-hi); color: var(--on-surface-var); }
   .helperRow .hrDot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--on-surface-var); opacity: .55; }
   .helperRow[data-st="ok"] .hrDot { background: #16A34A; opacity: 1; }
-  .helperRow[data-st="old"] .hrDot { background: #F59E0B; opacity: 1; }
+  .helperRow[data-st="old"] .hrDot { background: #E5484D; opacity: 1; }   /* 구버전 = 렌치에 붙는 빨간 점(.hasNew)과 같은 색 → 점의 원인이 이 줄이라는 게 바로 이어진다 */
   .helperRow[data-st="off"] .hrDot { background: #E5484D; opacity: 1; }
   .helperRow .hrText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .helperRow .hrText b { color: var(--on-surface); font-weight: 600; }
   .helperRow .hrGo { flex: none; width: 14px; height: 14px; opacity: .6; }
   .helperRow.static .hrGo { display: none; }
+  /* 밝은 테마: --on-surface-var(#94a3b8)는 바탕 --surface-hi(#f2f5f9)에서 대비 약 2.35:1이라 흐리다 → 제목줄 보정과 같은 방식으로 글자색 쪽으로 당긴다.
+     '꺼져 있음 — 켜는 방법' 같은 행동 안내라 읽혀야 한다. */
+  html[data-theme="light"] .helperRow,
+  html[data-theme="light"] .helperRow.static:hover { color: color-mix(in srgb, var(--on-surface) 75%, var(--surface-hi)); }
+  html[data-theme="light"] .helperRow:not(.static):hover { color: var(--on-surface); }
 
   /* ===== 떼어낸 창 (포토샵식) =====
      .sec 노드를 '그대로 옮겨' 담는다. 다시 만들면 지금까지 연결한 핸들러가 전부 끊어진다. */
@@ -10947,8 +10954,16 @@ async function pingHelper() {
 }
 // 헬퍼 상태를 화면에 반영 — 제목줄 렌치(설정) 버튼의 빨간 점(구버전, 웹판만) + 설정 메뉴 맨 아래 '기능 확장팩' 한 줄.
 // 데스크톱 앱은 확장팩이 앱에 내장이라 점을 띄우지 않고, 한 줄도 '앱에 내장됨'만(누를 것 없음).
+const HELPER_BTN_TIP = '설정 — 배치·설정 옮기기';
 function applyHelperState(st) {
-  const b = $('#helperBtn'); if (b) b.classList.toggle('hasNew', !WNS_DESKTOP && st.up && st.old);
+  const b = $('#helperBtn');
+  if (b) {
+    const dot = !WNS_DESKTOP && st.up && st.old;
+    b.classList.toggle('hasNew', dot);
+    // 빨간 점이 무슨 뜻인지 렌치에 마우스만 올려도 알 수 있게 — 점이 없어지면 원래 문구로 되돌린다
+    const tip = dot ? '설정 — 기능 확장팩 구버전: 메뉴 맨 아래에서 다시 실행' : HELPER_BTN_TIP;
+    b.title = tip; b.setAttribute('aria-label', tip);
+  }
   const row = $('#helperRow'); if (!row) return;
   const k = !st.up ? 'off' : st.old ? 'old' : 'ok';
   let html, act = null;
@@ -14534,7 +14549,7 @@ function tourStepList() {
       target: () => { const b = document.getElementById('mPaint'); return b ? b.closest('.mode') : null; }, setup: () => tourMenuClose(), delay: 280 },
     { title: '밝기 전환 (다크 · 라이트)', body: '사이드바를 어둡게/밝게 바꿉니다. 편한 쪽으로 쓰면 되고, 작업물(방송에 나가는 지도)에는 영향이 없습니다.',
       target: () => $('#theme'), setup: () => tourMenuClose(), delay: 260 },
-    { title: '둘러보기 · 공지 · 설정', body: '오른쪽 위 세 버튼이에요. <b>둘러보기</b>는 지금 이 설명을 다시 봅니다. <b>공지사항</b>은 업데이트·안내를 모아 보고, 빨간 점이 있으면 새 소식이 있다는 뜻이에요. <b>설정</b>(렌치)을 누르면 <b>배치 지정하기 · 기본값 굽기 · 설정 옮기기</b>가 모인 메뉴가 열립니다.',
+    { title: '둘러보기 · 공지 · 설정', body: '오른쪽 위 세 버튼이에요. <b>둘러보기</b>는 지금 이 설명을 다시 봅니다. <b>공지사항</b>은 업데이트·안내를 모아 보고, 빨간 점이 있으면 새 소식이 있다는 뜻이에요. <b>설정</b>(렌치)을 누르면 <b>배치 지정하기 · 기본값 굽기 · 설정 옮기기</b>가 모인 메뉴가 열립니다. 웹판에서 렌치에 빨간 점이 뜨면 기능 확장팩이 구버전이라는 뜻 — 메뉴 맨 아래 줄을 눌러 다시 실행하세요.',
       target: () => $('#tbInfoGroup'), setup: () => tourMenuClose(), delay: 260 },
     // 설정(렌치) 드롭다운을 실제로 열어 그 안의 버튼을 비춘다 (예전엔 사이드바 맨 아래·프로젝트 메뉴에 있던 것들)
     { title: '배치 지정하기', body: '오른쪽 위 <b>설정</b>(렌치) 메뉴 맨 위에 있어요. 구워 둔 배치 파일(default-presets.js)을 슬롯에 끌어다 놓아 <b>기본값</b>으로 지정합니다. <b>개인 배치</b>는 이 브라우저에만 적용(비번 없음), <b>완전 기본 배치</b>는 모두의 기본값이라 바꿀 때 비밀번호가 필요해요(“지금 배치로 채우기”로 현재 화면 배치를 바로 담을 수도 있어요). 그 아래 <b>모두의 기본값으로 굽기</b>는 배포용 배치 파일을 만듭니다.',
@@ -14556,14 +14571,25 @@ function tourStepList() {
 
 // 닫기·다시보지않기 바는 '사이드바가 없는 쪽' 위에 둔다 (사이드바 왼쪽=바 오른쪽, 오른쪽 도킹이면 반대).
 // 단 비추는 곳(spot={x,y,w,h})을 가리면 반대쪽으로 비킨다 — 오른쪽 위 설정(렌치) 메뉴를 비출 때.
+// 드롭다운이 열려 있으면 비추는 곳과 '드롭다운 전체'를 합친 영역으로 본다 — 스포트가 메뉴 아래쪽 묶음만 비춰도
+// 바가 메뉴 오른쪽 위 모서리를 덮지 않게(그래야 '배치 지정하기'·'설정 옮기기' 두 단계 모두 바가 한쪽에 머문다).
 function tourBarSide(spot) {
   const bar = document.querySelector('.tourBar'); if (!bar) return;
   const dockRight = document.querySelector('.app')?.classList.contains('dockR');
   const put = (left) => { bar.style.left = left ? '16px' : 'auto'; bar.style.right = left ? 'auto' : '16px'; };
   put(dockRight);
   if (!spot) return;
+  let a = spot;
+  const d = $('#menuDrop');
+  if (d && d.classList.contains('on')) {
+    const r = d.getBoundingClientRect();
+    if (r.width && r.height) {
+      const x1 = Math.min(a.x, r.left), y1 = Math.min(a.y, r.top);
+      a = { x: x1, y: y1, w: Math.max(a.x + a.w, r.right) - x1, h: Math.max(a.y + a.h, r.bottom) - y1 };
+    }
+  }
   const b = bar.getBoundingClientRect();
-  if (b.width && b.left < spot.x + spot.w && b.right > spot.x && b.top < spot.y + spot.h && b.bottom > spot.y) put(!dockRight);
+  if (b.width && b.left < a.x + a.w && b.right > a.x && b.top < a.y + a.h && b.bottom > a.y) put(!dockRight);
 }
 
 function tourPlace(step) {
@@ -14779,7 +14805,7 @@ if (tourWillOpen) setTimeout(() => tourOpen(false), 650);
 // 안 읽은 공지가 있으면 팝업 — 새로고침·새 접속 어느 쪽이든 매번 확인(닫으면 읽음처리돼 다신 안 뜸).
 // 투어가 뜨는 첫 방문이면 투어 뒤에 겹쳐 뜨도록 조금 늦춘다.
 setTimeout(checkNoticeOnBoot, tourWillOpen ? 1500 : 600);
-// 구버전 헬퍼가 켜져 있으면 기능 확장팩 버튼에 빨간 점 + 세션 첫 회 안내(공지 팝업 뒤에 오도록 조금 더 늦춤)
+// 구버전 헬퍼면 렌치(설정) 버튼에 빨간 점(웹판만) + 세션 첫 회 안내(공지 팝업 뒤에 오도록 조금 더 늦춤)
 setTimeout(checkHelperFreshOnBoot, tourWillOpen ? 2400 : 1300);
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
