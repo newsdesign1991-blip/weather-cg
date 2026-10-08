@@ -9,9 +9,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const appSource = require('../tools/app-source.cjs');   // js/·css/로 나뉜 앱을 '한 파일' 텍스트로 합쳐 읽는다(MODULES.md)
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+const html = appSource(path.join(__dirname, '..', 'index.html')).replace(/\r\n/g, '\n');
 const fn = (name) => html.match(new RegExp(`function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}`))?.[0] || '';
 const SEC_A = html.indexOf('// ===================== 브러쉬 덧칠 =====================');
 const SEC_B = html.indexOf('\nfunction projLL(');

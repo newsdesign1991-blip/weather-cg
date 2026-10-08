@@ -1,10 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const appSource = require('../tools/app-source.cjs');   // js/·css/로 나뉜 앱을 '한 파일' 텍스트로 합쳐 읽는다(MODULES.md)
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = appSource(path.join(__dirname, '..', 'index.html'));
 const noticeStart = html.indexOf('const NOTICE_SEEN_KEY');
 const noticeEnd = html.indexOf('function exportProgress(', noticeStart);
 assert.notEqual(noticeStart, -1, 'notice script start must exist');

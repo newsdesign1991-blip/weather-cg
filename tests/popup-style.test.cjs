@@ -4,9 +4,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const appSource = require('../tools/app-source.cjs');   // js/·css/로 나뉜 앱을 '한 파일' 텍스트로 합쳐 읽는다(MODULES.md)
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+const html = appSource(path.join(__dirname, '..', 'index.html')).replace(/\r\n/g, '\n');
 // 줄 맨 앞(들여쓰기 뒤)에서 시작하는 그 선택자 규칙 — '.confirmOverlay.on .confirmCard {' 같은 하위 규칙과 헷갈리지 않게
 const rule = (sel) => {
   const i = html.indexOf('\n  ' + sel + ' {');
