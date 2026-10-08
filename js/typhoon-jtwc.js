@@ -46,9 +46,12 @@ function jtwcIssuedUtc(dd, hhmm, ref) {
 }
 const jtwcUnesc = (s) => String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&amp;/g, '&');
 
-// 활동 중인 태풍 목록(RSS) 해석 → { valid, built, storms }. valid=false면 RSS가 아니다(오류 페이지 등 — '태풍 없음'과 구별).
+// 활동 중인 태풍 목록(RSS) 해석 → { valid, built, storms, titled }. valid=false면 RSS가 아니다(오류 페이지 등 — '태풍 없음'과 구별).
 // 태풍 = 통보문(.tcw) 링크 하나. 그 앞의 제목('Typhoon  27W (Koguma) Warning #15')·'Issued at 08/1500Z'를 짝짓는다(제목 형식이 바뀌어도
 // .tcw만 있으면 파일 이름으로 목록에 올린다). 같은 태풍이 두 해역 item에 나오면 한 번만. 정렬: 서태평양(wp) → 북서태평양 item의 다른 해역 태풍 → 나머지.
+// 링크는 미해군 사이트 것만 읽는다 — www 있음/없음·http/https, 그리고 같은 사이트의 S3 주소(채널 <link>가 이미 s3.amazonaws.com/www.metoc.navy.mil/…).
+// 어느 주소로 적혀 있든 받기는 늘 파일 이름(products/xxNNYY.tcw)으로 메인의 허용 주소에서 한다.
+// titled = 태풍 경보 제목 수. 제목은 있는데 .tcw를 하나도 못 찾았으면 링크 형식이 바뀐 것 — '태풍 없음'으로 보이면 안 된다(fetchJtwc가 형식 안내).
 function parseJtwcRss(xml) {
   const t = String(xml || '');
   const valid = /<rss[\s>]/i.test(t) && /<channel[\s>]/i.test(t);
@@ -58,13 +61,15 @@ function parseJtwcRss(xml) {
   const storms = [], seen = new Set();
   const TITLE = /((?:super\s+)?typhoon|tropical\s+storm|tropical\s+depression|tropical\s+cyclone|subtropical\s+(?:storm|depression)|hurricane|cyclone)\s+(\d{1,2})([A-Z])\b\s*(?:\(([^)<]{0,40})\))?\s*warning\s*#?\s*(\d+)/gi;
   const ISSUED = /issued\s+at\s+(\d{2})\/(\d{4})\s*Z/gi;
-  const TCW = /https:\/\/www\.metoc\.navy\.mil\/jtwc\/products\/([a-z]{2})(\d{2})(\d{2})\.tcw/gi;
+  const TCW = /https?:\/\/(?:(?:www\.)?metoc\.navy\.mil|s3\.amazonaws\.com\/www\.metoc\.navy\.mil)\/jtwc\/products\/([a-z]{2})(\d{2})(\d{2})\.tcw/gi;
+  let titled = 0;
   for (const it of t.matchAll(/<item[\s>][\s\S]*?<\/item>/gi)) {
     const item = it[0];
     const area = ((/<guid[^>]*>([^<]*)<\/guid>/i.exec(item) || [])[1] || '').trim();
     const dm = /<description>\s*(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))\s*<\/description>/i.exec(item);
     const desc = dm ? (dm[1] != null ? dm[1] : jtwcUnesc(dm[2] || '')) : '';
     const titles = [...desc.matchAll(TITLE)], issued = [...desc.matchAll(ISSUED)];
+    titled += titles.length;
     let prevAt = -1;
     for (const lk of desc.matchAll(TCW)) {
       const at = lk.index, basin = lk[1].toLowerCase(), num = lk[2], yy = lk[3], code = basin + num + yy;
@@ -87,7 +92,7 @@ function parseJtwcRss(xml) {
     }
   }
   storms.sort((a, b) => a.rank - b.rank);   // 같은 순위 안은 RSS 순서 그대로(안정 정렬)
-  return { valid, built: builtStr, builtKo: ref ? fmtKST(jtwcIssuedUtc(ref.d, String(ref.hh).padStart(2, '0') + String(ref.mi).padStart(2, '0'), ref)) : '', storms };
+  return { valid, built: builtStr, builtKo: ref ? fmtKST(jtwcIssuedUtc(ref.d, String(ref.hh).padStart(2, '0') + String(ref.mi).padStart(2, '0'), ref)) : '', storms, titled };
 }
 
 // 실패 → 한 줄 안내
@@ -96,6 +101,7 @@ function jtwcErrText(r) {
   if (r.err === 'timeout') return '미해군 사이트가 15초 동안 응답하지 않았어요.';
   if (r.err === 'http') return `미해군 사이트가 요청을 받지 않았어요 (응답 ${r.status || '오류'}).`;
   if (r.err === 'too-big') return '받은 자료가 너무 커서 멈췄어요 — 사이트 형식이 바뀐 것 같아요.';
+  if (r.err === 'format' && r.what === 'links') return '활동 중인 태풍은 있는데 통보문(.tcw) 링크를 찾지 못했어요 — 사이트에서 직접 받아 주세요.';
   if (r.err === 'format') return r.what === 'tcw' ? '받은 통보문(.tcw)을 읽지 못했어요 — 형식이 바뀌었을 수 있어요.' : '받은 태풍 목록(RSS)을 읽지 못했어요 — 형식이 바뀌었을 수 있어요.';
   if (r.err === 'denied') return '허용되지 않은 주소라 받지 않았어요.';
   return '인터넷 연결을 확인해 주세요' + (r.detail ? ` (${r.detail})` : '') + '.';
@@ -126,13 +132,15 @@ function jtwcSyncButtons() {
 }
 
 // 고르기 팝업(토스 카드). 열자마자 띄우고 내용은 상태별로 바꾼다. alive(): 사람이 닫지 않았고 다른 팝업에 밀리지 않았나
+// m.onGone: 사람이 닫을 때 한 번 부른다(받는 중에 닫으면 작업 중 효과를 바로 끄려고 — fetchJtwc)
 function jtwcModal() {
   const st = { closed: false };
-  const m = tossModal({
+  let m = null;
+  m = tossModal({
     title: '미해군(JTWC) 태풍 불러오기', sub: '지금 활동 중인 태풍 · 미해군 합동태풍경보센터', tone: 'blue',
     bodyHTML: '<div class="jtwcList" role="list" aria-label="활동 중인 태풍"></div><p class="jtwcNote"></p>',
     footHTML: ' ',
-    onClose: () => { st.closed = true; },
+    onClose: () => { st.closed = true; if (m && typeof m.onGone === 'function') m.onGone(); },
   });
   m.list = m.body.querySelector('.jtwcList');
   m.note = m.body.querySelector('.jtwcNote');
@@ -208,9 +216,12 @@ async function fetchJtwc() {
   const m = jtwcModal();
   jtwcModalFoot(m, [{ label: '사이트 열기', act: () => { m.close(); jtwcOpenSite(); } }, { label: '닫기', act: () => m.close() }]);
   m.note.textContent = '미해군 사이트에서 지금 활동 중인 태풍을 찾는 중이에요…';
-  // 작업 중 효과(js/busy-fx.js) — 섹션 흐름 + 누른 버튼 + 팝업 목록 자리에 빛 훑는 막대. 실패·없음·닫음이어도 finally에서 끈다
+  // 작업 중 효과(js/busy-fx.js) — 섹션 흐름 + 누른 버튼 + 팝업 목록 자리에 빛 훑는 막대. 실패·없음이어도 finally에서 끄고,
+  // 받는 중에 팝업을 닫으면 그때 바로 끈다(버튼이 응답·시간 제한까지 잠겨 있지 않게). 끄기는 한 번만(fxOn)
   const fx = [fxSec(isTyphoonCompare() ? 'typhoonCompare' : 'typhoon'), btn, m.list];
   fxBusy(fx, true, { lines: 3, maxMs: 40000 });
+  let fxOn = true;
+  m.onGone = () => { if (fxOn) { fxOn = false; fxBusy(fx, false); } };
   status('미해군(JTWC) 활동 중인 태풍 찾는 중…', true);
   let shown = false;
   try {
@@ -219,6 +230,8 @@ async function fetchJtwc() {
     if (!r.ok) { jtwcShowFail(m, r, fetchJtwc); return; }
     const rss = parseJtwcRss(r.text);
     if (!rss.valid) { jtwcShowFail(m, { ok: false, err: 'format', what: 'rss' }, fetchJtwc); return; }
+    // 태풍 경보 제목은 있는데 통보문 링크를 하나도 못 찾았으면(링크 형식이 바뀜·아직 안 올라옴) '없음'이 아니라 그 안내 + 수동 길
+    if (!rss.storms.length && rss.titled > 0) { jtwcShowFail(m, { ok: false, err: 'format', what: 'links' }, fetchJtwc); return; }
     if (!rss.storms.length) {
       m.list.textContent = '';
       const msg = document.createElement('div'); msg.className = 'jtwcMsg'; msg.dataset.tone = 'ok';
@@ -235,7 +248,8 @@ async function fetchJtwc() {
     status(`미해군(JTWC) 활동 중인 태풍 ${rss.storms.length}개 — 골라 주세요`, true);
     shown = true;
   } finally {
-    fxBusy(fx, false);
+    m.onGone = null;   // 끝났다 — 이 뒤에 닫아도(고르기·다시 시도) 다시 끄지 않는다
+    if (fxOn) fxBusy(fx, false);
     if (shown && m.alive()) fxArrive(fxRows(m.list));   // 도착 — 목록 행이 위에서부터 떠오른다
   }
 }

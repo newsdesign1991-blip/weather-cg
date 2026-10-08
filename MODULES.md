@@ -82,7 +82,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 9 | `js/typhoon-render.js` | 753 | 태풍 그리기: 예보 비교 경로·라벨, 진로선, 지명표시, 제목, 재생 | `drawCompareTracks` `drawTyphoonTrack` `renderTyphoon` |
 | 10 | `js/typhoon-panel.js` | 567 | 태풍 패널 UI: 비교 카드, 패널·밴드, 펜툴, 참고 이미지 | `addCompareForecast` `buildTyphoonPanel` `startPen` `wireTyphoonPanel` |
 | 11 | `js/typhoon-api.js` | 431 | 태풍 데이터: 기상청 typ/td 파싱, JMA·JTWC, 이름 저장, 불러오기(기상청 조회 줄 — 동시 6개·우선순위·캐시(다시 누르면 최근 시각은 새로)·다시 보내기, 12시간 창 규칙으로 덜 묻기), 발생·소멸 TD는 뒤에서(입력 중이면 미룸) | `parseTypNow` `fetchTyphoon` `typhoonApiUrl` `kmaRequest` `_kmaFirst` |
-| 12 | `js/typhoon-jtwc.js` | 261 | **미해군(JTWC) 자동 불러오기**(데스크톱 앱 — 메인이 metoc.navy.mil/jtwc 의 RSS·.tcw만 받음: desktop/jtwc.js): 활동 중인 태풍 목록(RSS) 해석(서태평양 먼저)·고르기 팝업(토스 모달), 고른 태풍 통보문(.tcw) 받아 붙여넣기와 같은 길(applyTyphoonText)로 그리기, 없음·실패 안내(다시 시도·사이트 열기·직접 붙여넣기 — 태풍 '자동이 안 될 때'를 이번만 펼침). 웹판·옛 데스크톱은 사이트 열기 | `fetchJtwc` `loadJtwcStorm` `parseJtwcRss` `jtwcCanFetch` `jtwcErrText` `jtwcSyncButtons` |
+| 12 | `js/typhoon-jtwc.js` | 275 | **미해군(JTWC) 자동 불러오기**(데스크톱 앱 — 메인이 metoc.navy.mil/jtwc 의 RSS·.tcw만 받음: desktop/jtwc.js): 활동 중인 태풍 목록(RSS) 해석(서태평양 먼저)·고르기 팝업(토스 모달), 고른 태풍 통보문(.tcw) 받아 붙여넣기와 같은 길(applyTyphoonText)로 그리기, 없음·실패 안내(다시 시도·사이트 열기·직접 붙여넣기 — 태풍 '자동이 안 될 때'를 이번만 펼침). 웹판·옛 데스크톱은 사이트 열기 | `fetchJtwc` `loadJtwcStorm` `parseJtwcRss` `jtwcCanFetch` `jtwcErrText` `jtwcSyncButtons` |
 | 13 | `js/panels.js` | 608 | 사이드바 패널(팔레트·인셋·목록·섹션 열기), **섹션 안 접이식 묶음**(잘 안 쓰는 메뉴 — 예보 API·특보·태풍 '자동이 안 될 때'. 기본 접힘·제목 줄로 펼침·상태 기억, 실패 카드 등에서 이번만 펼쳐 보이게 스크롤), 캔버스 요소 → 섹션 자동 열기, 선택, 칠하기 | `buildPalette` `revealSec` `foldWire` `foldReveal` `select` `refreshPanel` `syncPanelFromState` `paint` `markActive` |
 | 14 | `js/view-camera.js` | 305 | 작업창 줌·맞춤·틸트 미리보기(그림 버퍼 #camCanvas 래스터·GL/CSS 그리기·첫 진입 게이트·예열·다시 굽기 판단 — 회전만 바뀌면 안 굽기, 태풍은 무거운 바탕을 따로 두고 경로 레이어만 다시 굽기, 드래그 놓을 때 섞어 바꾸기, 다시 굽게 하기 `tiltInvalidate`(늦게 온 위성 타일·작업 바꿈·GPU 리셋 — GPU 프로세스가 죽으면 2D 그림 버퍼도 비워지므로 그동안 평면 지도로 두고 되찾으면 다시 굽기), 타임라인을 닫으면 GL 텍스처 반납), 더블클릭 인라인 편집, Alt 카메라 조작 | `sizeFit` `applyView` `applyTilt` `rasterTiltCanvas` `tiltWant` `tiltPrewarm` `tiltInvalidate` `inlineEdit` |
 | 15 | `js/tilt-gl.js` | 174 | **틸트 지도 WebGL2 렌더러**: 블리드 지도 그림을 밉맵(LINEAR_MIPMAP_LINEAR)·비등방(최대 16) 텍스처로 원근 투영(warpTilt3D·CSS와 같은 식) — 미리보기(#camGL, 그림이 바뀔 때만 올리고 회전만 바뀌면 다시 그리기만)·추출(tglWarp) 공용. 가장자리 페이드는 셰이더. 못 쓰거나 컨텍스트를 잃으면 null/false → 미리보기 CSS 3D·추출 2D 메시로. 끄기: localStorage wcg_tiltgl=0 | `tglCreate` `tglUpload` `tglDraw` `tglQuad` `tglWarp` `tglOk` |
@@ -250,8 +250,10 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   그대로 새 탭(복사 → 붙여넣기)이다. main.js·preload.js를 고치면 앱을 다시 실행해야 반영된다(Ctrl+R로는 안 됨).
 - **미해군(JTWC) 받기**(2026-10-09): 웹앱의 '미해군(JTWC)에서 불러오기'(`js/typhoon-jtwc.js`)가 `wcgDesktop.jtwcFetch(path)` → `wcg:jtwc-fetch`로 부르면 메인이
   `desktop/jtwc.js`로 받아 글자를 돌려준다. 허용 주소는 `https://www.metoc.navy.mil/jtwc/`의 `rss/jtwc.rss`(활동 중인 태풍 목록)와 `products/xxNNYY.tcw`(통보문)뿐 —
-  그 밖은 요청 없이 `denied`. 15초 시간 제한·1MB 상한·브라우저 UA, 따로 세션(`jtwc`, 메모리)의 net.fetch(시스템 프록시를 따름), 넘겨주기로 허용 밖에 닿으면 버림.
-  메인 창(웹앱)만 부를 수 있다. 헬퍼(`desktop/wns`) 허용 목록과 무관. `jtwcFetch`가 없는 옛 데스크톱 판·웹판은 예전처럼 사이트를 새 창으로 연다.
+  그 밖은 요청 없이 `denied`. 15초 시간 제한·1MB 상한·브라우저 UA, 따로 세션(`jtwc`, 메모리)의 net.fetch(시스템 프록시를 따름).
+  넘겨주기(리디렉트)는 그 세션에 건 문지기(`jtwcGuardSession` — webRequest.onBeforeRequest)가 허용 밖 다음 주소를 요청 전에 끊는다(`denied`·`redirect`).
+  **net.fetch는 넘겨주기 뒤에도 `Response.url`이 빈 글자라 받은 뒤 주소 검사로는 못 막는다**(2026-10-09 Electron 44에서 확인) — 문지기를 빼지 말 것.
+  메인 창의 주 프레임(`app://` 웹앱)만 부를 수 있다. 헬퍼(`desktop/wns`) 허용 목록과 무관. `jtwcFetch`가 없는 옛 데스크톱 판·웹판은 예전처럼 사이트를 새 창으로 연다.
   시험: `desktop/test/jtwc-fetch.test.cjs`(허용 주소·받기), `tests/typhoon-jtwc.test.cjs`(실제로 받은 RSS·.tcw 픽스처 `tests/fixtures/jtwc/` — 원문 그대로, `-text`).
 - **기능 확장팩(헬퍼)**: 분할과 무관. 원본은 저장소 밖 `R:\[F]_Util\WNS\_src\helper.py`(웹판, PyInstaller로 빌드)이고, 데스크톱 내장판
   `desktop/wns/`(server.js·ae-jsx.js)가 그것을 Node로 옮긴 것이다. 저장소의 `tools/wns-helper/helper.py`는 **2026-07 옛 사본**(고치지 않는다 —

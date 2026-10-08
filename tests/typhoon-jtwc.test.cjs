@@ -139,7 +139,7 @@ test('RSS 해석 — 태풍 없음은 정상(valid, 빈 목록), RSS가 아닌 �
   const { ctx } = makeEnv();
   const none = RSS.replace(/<description><!\[CDATA\[[\s\S]*?\]\]><\/description>/g, "<description><![CDATA[<ul><li><font color='red'>No Current Tropical Cyclone Warnings.</font></li></ul>]]></description>");
   const r0 = ctx.parseJtwcRss(none);
-  assert.equal(r0.valid, true); assert.equal(r0.storms.length, 0);
+  assert.equal(r0.valid, true); assert.equal(r0.storms.length, 0); assert.equal(r0.titled, 0, "'No Current Tropical Cyclone Warnings'는 태풍 제목이 아니다");
   const bad = ctx.parseJtwcRss('<!DOCTYPE html><html><body>403 Forbidden</body></html>');
   assert.equal(bad.valid, false); assert.equal(bad.storms.length, 0);
   assert.equal(ctx.parseJtwcRss('').valid, false);
@@ -162,6 +162,18 @@ test('RSS 해석 — 제목 형식이 바뀌어도 .tcw 링크만 있으면 파�
   // 남의 사이트 .tcw 주소는 목록에 올리지 않는다(메인도 거절하지만 여기서부터)
   const evil = ctx.parseJtwcRss("<rss><channel><item><description><![CDATA[Typhoon 27W (X) Warning #1 <a href='https://evil.example/jtwc/products/wp2726.tcw'>x</a>]]></description></item></channel></rss>");
   assert.equal(evil.storms.length, 0);
+  assert.equal(evil.titled, 1, '제목은 셌다 — 링크를 못 찾은 것(fetchJtwc가 없음 대신 안내)');
+  // 같은 미해군 사이트의 다른 표기(http·www 없음·S3 주소 — 채널 <link>가 이미 S3)는 읽는다. 받기는 늘 파일 이름(products/…)으로
+  const alt = (href) => ctx.parseJtwcRss(`<rss><channel><item><guid>NWPAC-NIO-WARNINGS</guid><description><![CDATA[<b>Typhoon  27W (Koguma) Warning #15 </b><a href='${href}'>JMV 3.0 Data</a>]]></description></item></channel></rss>`);
+  for (const h of ['http://www.metoc.navy.mil/jtwc/products/wp2726.tcw', 'https://metoc.navy.mil/jtwc/products/wp2726.tcw', 'https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/products/wp2726.tcw']) {
+    const r = alt(h);
+    assert.deepEqual(plain(r.storms.map((s) => [s.code, s.id, s.name, s.path])), [['wp2726', '27W', 'Koguma', 'products/wp2726.tcw']], h);
+  }
+  for (const h of ['https://s3.amazonaws.com/evil-bucket/jtwc/products/wp2726.tcw', 'https://www.metoc.navy.mil.evil.example/jtwc/products/wp2726.tcw', 'products/wp2726.tcw']) {
+    assert.equal(alt(h).storms.length, 0, h);
+  }
+  // 실제 원문: 제목 4개(태풍 넷), 없음 원문: 0개
+  assert.equal(ctx.parseJtwcRss(RSS).titled, 4);
 });
 
 test('발표 시각 — 기준(RSS 갱신일)보다 날이 크면 지난달, 1월이면 지난해 12월', () => {
@@ -308,6 +320,17 @@ test('실패 — 연결 실패·시간 초과·HTTP 오류·형식 이상은 빨
   const f = makeEnv({ answer: () => ({ ok: true, status: 200, text: '<html>점검 중</html>' }) });
   await f.ctx.fetchJtwc();
   assert.match(f.cur().list.children[0].textContent, /태풍 목록\(RSS\)을 읽지 못했어요/);
+  // 태풍 경보 제목은 있는데 .tcw 링크를 하나도 못 찾으면(링크 형식이 바뀜) '태풍 없음'(초록)이 아니라 빨간 안내 + 수동 길
+  const relLinks = RSS.replace(/https:\/\/www\.metoc\.navy\.mil\/jtwc\/products\/([a-z]{2}\d{4})\.tcw/g, '/jtwc/products/$1.tcw');
+  const l = makeEnv({ answer: () => ({ ok: true, status: 200, text: relLinks }) });
+  await l.ctx.fetchJtwc();
+  const lm = l.cur();
+  assert.equal(lm.head.dataset.tone, 'red');
+  assert.equal(lm.list.children[0].dataset.tone, 'err');
+  assert.match(lm.list.children[0].textContent, /활동 중인 태풍은 있는데 통보문\(\.tcw\) 링크를 찾지 못했어요/);
+  assert.deepEqual(l.footLabels(lm), ['다시 시도', '사이트 열기', '직접 붙여넣기']);
+  assert.ok(!l.calls.status.some((s) => /활동 중인 태풍이 없어요/.test(s[0])), "'없음'으로 알리지 않음");
+  fxBalanced(l.calls);
 });
 
 test('실패 — 통보문(.tcw)을 못 받거나 못 읽으면 그리지 않고(되돌리기 기록도 없이) 그 태풍으로 다시 시도', async () => {
@@ -338,9 +361,12 @@ test('닫음·지도 바꿈·웹판 — 받는 사이 팝업을 닫으면 버리
   const e = makeEnv({ answer: () => new Promise((r) => { release = () => r({ ok: true, status: 200, text: RSS }); }) });
   const p = e.ctx.fetchJtwc();
   e.cur().close();
+  // 닫는 즉시 작업 중 효과를 끈다(버튼이 응답·시간 제한까지 잠겨 있지 않게) — 켤 때와 같은 배열로 한 번
+  assert.deepEqual(e.calls.fx.map((c) => c[1]), [true, false], '닫자마자 끔');
   release(); await p;
   assert.equal(e.cur().list.children.length, 0, '닫힌 팝업에 목록을 그리지 않음');
   assert.equal(e.modals.length, 1, '새 팝업도 안 띄움');
+  assert.equal(e.calls.fx.length, 2, '응답이 와도 다시 끄지 않음(한 번만)');
   fxBalanced(e.calls);
   // 통보문을 받는 사이 다른 지도로
   const s = makeEnv();
@@ -379,6 +405,7 @@ test('오류 문구 — 종류별 한 줄', () => {
   assert.match(ctx.jtwcErrText({ err: 'too-big' }), /너무 커서/);
   assert.match(ctx.jtwcErrText({ err: 'format', what: 'tcw' }), /통보문/);
   assert.match(ctx.jtwcErrText({ err: 'format' }), /RSS/);
+  assert.match(ctx.jtwcErrText({ err: 'format', what: 'links' }), /링크를 찾지 못했어요/);
   assert.match(ctx.jtwcErrText({ err: 'denied' }), /허용되지 않은 주소/);
   assert.equal(ctx.jtwcErrText({ err: 'net' }), '인터넷 연결을 확인해 주세요.');
   assert.equal(ctx.jtwcErrText(null), '인터넷 연결을 확인해 주세요.');

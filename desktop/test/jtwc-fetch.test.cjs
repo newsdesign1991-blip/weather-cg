@@ -1,10 +1,11 @@
 // 데스크톱 메인의 미해군(JTWC) 받기(desktop/jtwc.js) — 허용 주소 검사와 받기(시간 제한·크기 상한·넘겨주기·브라우저 UA)를 Electron·네트워크 없이 본다.
-// main.js·preload.js 배선(메인 창만 부를 수 있음·따로 세션의 net.fetch)은 글자로 확인한다. 실제 사이트 받기는 boot-check --eval로 따로 봤다.
+// 넘겨주기는 세션 문지기(jtwcGuardSession — webRequest)가 막는다: Electron net.fetch는 Response.url을 비워 두기 때문(가짜 세션으로 그 동작을 흉내 냄).
+// main.js·preload.js 배선(메인 창 주 프레임만 부를 수 있음·문지기 건 따로 세션의 net.fetch)은 글자로 확인한다. 실제 사이트 받기는 boot-check --eval로 따로 봤다.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { jtwcUrl, jtwcFetch, JTWC_UA } = require('../jtwc.js');
+const { jtwcUrl, jtwcFetch, jtwcGuardSession, JTWC_UA } = require('../jtwc.js');
 
 test('허용 주소 — metoc.navy.mil/jtwc 의 rss/jtwc.rss 와 products/xxNNYY.tcw(상대·전체 주소)만', () => {
   const ok = {
@@ -99,15 +100,76 @@ test('받기 — HTTP 오류·연결 실패·넘겨주기로 허용 밖·크기 
   assert.equal(cancelled, 1, '멈춘 본문은 끊어 준다');
 });
 
-test('배선 — main.js는 메인 창만 받아 주고 따로 세션의 net.fetch로, preload는 jtwcFetch 하나만 노출', () => {
+// 문지기(webRequest) — Electron net.fetch는 넘겨주기를 따라가도 Response.url이 빈 글자라(2026-10-09 Electron 44 확인) 받은 뒤 검사로는 못 막는다.
+// 가짜 세션: onBeforeRequest 문지기를 기억하고, fetch는 Electron처럼 '넘겨준 다음 주소마다 문지기에 묻고, 막히면 ERR_BLOCKED_BY_CLIENT,
+// 끝까지 가면 url 없는 Response'를 돌려준다(실제 Electron에서 로컬 서버 302로 본 그대로 — 막힌 주소로는 요청이 나가지 않았다).
+function fakeSession(routes) {
+  const ses = { guard: null, sent: [], installs: 0 };
+  ses.webRequest = { onBeforeRequest: (fn) => { ses.installs++; ses.guard = fn; } };
+  const ask = (url) => new Promise((res) => (ses.guard ? ses.guard({ url, method: 'GET' }, (r) => res(!!(r && r.cancel))) : res(false)));
+  ses.fetch = async (url) => {
+    for (let hop = 0; hop < 5; hop++) {
+      if (await ask(url)) throw new TypeError('net::ERR_BLOCKED_BY_CLIENT');
+      ses.sent.push(url);
+      const to = routes[url];
+      if (to && to.redirect) { url = new URL(to.redirect, url).href; continue; }
+      return new Response(to ? to.body : 'nf', { status: to ? 200 : 404 });   // url 없음(Electron과 같게)
+    }
+    throw new TypeError('net::ERR_TOO_MANY_REDIRECTS');
+  };
+  return ses;
+}
+
+test('문지기 — 따로 세션의 모든 요청(넘겨준 다음 주소 포함)을 허용 주소로 묶는다: 허용 밖 넘겨주기는 요청 없이 끊고 denied', async () => {
+  const B = 'https://www.metoc.navy.mil/jtwc/';
+  const routes = {
+    [B + 'rss/jtwc.rss']: { body: '<rss/>' },
+    [B + 'products/wp2726.tcw']: { redirect: 'https://evil.example/wp2726.tcw' },                                    // 다른 호스트
+    [B + 'products/wp2826.tcw']: { redirect: 'https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/products/wp2826.tcw' }, // 같은 사이트라도 허용 밖 주소
+    [B + 'products/wp2926.tcw']: { redirect: '../jtwc.html' },                                                         // 같은 호스트의 다른 경로
+    [B + 'products/wp3026.tcw']: { redirect: 'http://www.metoc.navy.mil/jtwc/products/wp3026.tcw' },                  // http로 내림
+    [B + 'products/ep1526.tcw']: { redirect: B + 'products/ep1626.tcw' },                                             // 허용 안 넘겨주기
+    [B + 'products/ep1626.tcw']: { body: 'TCW' },
+    'https://evil.example/wp2726.tcw': { body: 'EVIL' },
+  };
+  // 문지기가 없으면 — Electron처럼 url 없는 응답이라 jtwcFetch의 res.url 검사가 못 막는다(고친 까닭)
+  const raw = fakeSession(routes);
+  const leak = await jtwcFetch('products/wp2726.tcw', { fetch: (u, i) => raw.fetch(u, i) });
+  assert.deepEqual({ ok: leak.ok, text: leak.text }, { ok: true, text: 'EVIL' }, '문지기 없으면 새어 나감(대조)');
+  // 문지기
+  const ses = fakeSession(routes);
+  assert.equal(jtwcGuardSession(ses), true);
+  assert.equal(jtwcGuardSession(ses), false, '세션마다 한 번만 건다');
+  assert.equal(ses.installs, 1);
+  assert.equal(jtwcGuardSession(null), false);
+  const get = (p) => jtwcFetch(p, { fetch: (u, i) => ses.fetch(u, i) });
+  assert.deepEqual(await get('rss/jtwc.rss'), { ok: true, status: 200, url: B + 'rss/jtwc.rss', text: '<rss/>' });
+  for (const p of ['products/wp2726.tcw', 'products/wp2826.tcw', 'products/wp2926.tcw', 'products/wp3026.tcw']) {
+    assert.deepEqual(await get(p), { ok: false, err: 'denied', detail: 'redirect' }, p);
+  }
+  assert.equal((await get('products/ep1526.tcw')).text, 'TCW', '허용 안에서 넘겨준 것은 받는다');
+  assert.ok(!ses.sent.some((u) => !jtwcUrl(u)), '허용 밖 주소로는 요청이 한 번도 안 나감: ' + ses.sent.join(' '));
+  // 문지기 판정 자체 — 허용 주소만 통과
+  const cancel = (url) => new Promise((res) => ses.guard({ url }, (r) => res(r.cancel)));
+  for (const u of [B + 'rss/jtwc.rss', B + 'products/io0326.tcw']) assert.equal(await cancel(u), false, u);
+  for (const u of ['https://evil.example/', B + 'jtwc.html', B + 'products/wp2726web.txt', 'http://www.metoc.navy.mil/jtwc/rss/jtwc.rss', '', undefined]) assert.equal(await cancel(u), true, String(u));
+});
+
+test('배선 — main.js는 메인 창 주 프레임(app://)만 받아 주고 문지기 건 따로 세션의 net.fetch로, preload는 jtwcFetch 하나만 노출', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
   const h = main.slice(main.indexOf("ipcMain.handle('wcg:jtwc-fetch'"));
   assert.ok(h.length > 0, 'wcg:jtwc-fetch 핸들러 없음');
   const body = h.slice(0, h.indexOf('\n});') + 4);
-  assert.match(body, /e\.sender\.id !== win\.webContents\.id\) return \{ ok: false, err: 'denied'/, '메인 창(웹앱)만');
-  assert.match(body, /session\.fromPartition\('jtwc'\)/, '따로 세션(메모리 — 앱 쿠키와 안 섞임)');
-  assert.match(body, /jtwcFetch\(String\(p \|\| ''\), \{ fetch: \(u, init\) => ses\.fetch\(u, init\) \}\)/);
-  assert.match(main, /const \{ jtwcFetch \} = require\('\.\/jtwc'\);/);
+  assert.match(body, /if \(!jtwcCallerOk\(e\)\) return \{ ok: false, err: 'denied', detail: 'sender' \};/, '부르는 쪽 검사가 맨 앞');
+  const caller = main.slice(main.indexOf('function jtwcCallerOk('), main.indexOf("ipcMain.handle('wcg:jtwc-fetch'"));
+  assert.match(caller, /e\.sender\.id !== win\.webContents\.id\) return false;/, '메인 창(웹앱)만');
+  assert.match(caller, /const f = e\.senderFrame; return !!f && !f\.parent && String\(f\.url \|\| ''\)\.startsWith\(`\$\{APP_ORIGIN\}\/`\);/, '주 프레임 · app:// 주소만');
+  assert.match(caller, /catch \(err\) \{ return false; \}/, '프레임이 사라졌으면 거절');
+  const sesFn = main.slice(main.indexOf('function jtwcSession('), main.indexOf('function jtwcCallerOk('));
+  assert.match(sesFn, /jtwcSes = session\.fromPartition\('jtwc'\); jtwcGuardSession\(jtwcSes\);/, '따로 세션(메모리 — 앱 쿠키와 안 섞임) + 문지기');
+  assert.match(body, /const ses = jtwcSession\(\);\s*return jtwcFetch\(String\(p \|\| ''\), \{ fetch: \(u, init\) => ses\.fetch\(u, init\) \}\);/);
+  assert.match(main, /const \{ jtwcFetch, jtwcGuardSession \} = require\('\.\/jtwc'\);/);
+  assert.equal((main.match(/session\.fromPartition\('jtwc'\)/g) || []).length, 1, "'jtwc' 세션은 문지기 거는 한 곳에서만 만든다");
   const pre = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
   assert.match(pre, /jtwcFetch: \(p\) => ipcRenderer\.invoke\('wcg:jtwc-fetch', String\(p \|\| ''\)\),/);
   assert.equal((pre.match(/wcg:jtwc-fetch/g) || []).length, 1);

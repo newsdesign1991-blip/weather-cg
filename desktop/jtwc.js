@@ -4,7 +4,8 @@
 //   https://www.metoc.navy.mil/jtwc/rss/jtwc.rss            지금 활동 중인 태풍 목록(RSS — 해역별 item, 태풍마다 products/xxNNYY.tcw 링크)
 //   https://www.metoc.navy.mil/jtwc/products/xxNNYY.tcw     태풍 통보문(JMV 3.0 — 예: wp2726 = 서태평양 27호 2026년)
 // 웹앱은 상대 경로('rss/jtwc.rss'·'products/wp2726.tcw')나 RSS에 적힌 전체 주소를 넘긴다. 받은 글은 웹앱이 글자(데이터)로만 쓴다.
-// Electron 없이 시험할 수 있게 fetch를 넘겨받는다(desktop/test/jtwc-fetch.test.cjs). main.js는 따로 세션의 net.fetch를 넘긴다.
+// Electron 없이 시험할 수 있게 fetch를 넘겨받는다(desktop/test/jtwc-fetch.test.cjs). main.js는 따로 세션의 net.fetch를 넘기고,
+// 그 세션에 jtwcGuardSession으로 문지기를 건다(넘겨주기로 허용 밖에 가는 요청을 크로미움 단계에서 끊음 — 아래 설명).
 'use strict';
 
 const JTWC_HOST = 'www.metoc.navy.mil';
@@ -24,6 +25,19 @@ function jtwcUrl(p) {
   if (u.protocol !== 'https:' || u.hostname !== JTWC_HOST || u.port || u.username || u.password || u.search || u.hash) return null;
   if (!JTWC_PATH.test(u.pathname)) return null;
   return `https://${JTWC_HOST}${u.pathname}`;
+}
+
+// 따로 세션('jtwc')의 모든 요청을 허용 주소로 묶는다 — 넘겨주기(리디렉트)로 바뀐 다음 주소도 여기서 걸러진다(막히면 net::ERR_BLOCKED_BY_CLIENT).
+// 꼭 필요한 까닭: Electron의 net.fetch(session.fetch)는 넘겨주기를 따라가도 Response.url을 빈 글자로 둔다(2026-10-09 Electron 44에서
+// 로컬 서버 302로 확인 — url '', redirected false). 그래서 아래 jtwcFetch의 res.url 검사는 Node fetch에서만 듣고, 앱에서는 이 문지기가 막는다.
+// redirect:'manual'은 Electron에서 'Redirect was cancelled'로 끝나 다음 주소를 볼 수 없어 쓰지 않는다. webRequest는 넘겨준 주소에도 다시 불린다.
+// onBeforeRequest는 세션마다 하나라 여러 번 불러도 같은 문지기로 바뀔 뿐이다(그래도 한 번만 건다).
+const _guarded = new WeakSet();
+function jtwcGuardSession(ses) {
+  if (!ses || !ses.webRequest || _guarded.has(ses)) return false;
+  ses.webRequest.onBeforeRequest((d, cb) => cb({ cancel: !jtwcUrl(d && d.url) }));
+  _guarded.add(ses);
+  return true;
 }
 
 // 받기. 돌려주는 것(IPC로 그대로 넘어간다 — 평범한 객체만):
@@ -47,7 +61,7 @@ async function jtwcFetch(p, opts) {
       method: 'GET', redirect: 'follow', signal: ac.signal, cache: 'no-store',
       headers: { 'User-Agent': JTWC_UA, Accept: 'application/rss+xml, application/xml, text/plain, */*' },
     }), aborted]);
-    // 넘겨주기(리디렉트)로 허용 밖 주소에 닿았으면 그 응답은 쓰지 않는다
+    // 넘겨주기(리디렉트)로 허용 밖 주소에 닿았으면 그 응답은 쓰지 않는다(Node fetch용 — 앱(Electron)은 res.url이 비어 있어 jtwcGuardSession이 막는다)
     if (res.url && !jtwcUrl(res.url)) { why = 'denied'; ac.abort(); return { ok: false, err: 'denied', detail: 'redirect' }; }
     if (!res.ok) { why = 'http'; ac.abort(); return { ok: false, err: 'http', status: res.status }; }
     const len = +(res.headers && res.headers.get && res.headers.get('content-length')) || 0;
@@ -74,8 +88,10 @@ async function jtwcFetch(p, opts) {
   } catch (e) {
     if (why === 'timeout') return { ok: false, err: 'timeout' };
     if (why === 'too-big') return { ok: false, err: 'too-big' };
-    return { ok: false, err: 'net', detail: String((e && e.message) || e).slice(0, 200) };
+    const msg = String((e && e.message) || e);
+    if (/ERR_BLOCKED_BY_CLIENT/.test(msg)) return { ok: false, err: 'denied', detail: 'redirect' };   // 문지기(jtwcGuardSession)가 허용 밖 넘겨주기를 끊었다
+    return { ok: false, err: 'net', detail: msg.slice(0, 200) };
   } finally { clearTimeout(timer); }
 }
 
-module.exports = { jtwcUrl, jtwcFetch, JTWC_HOST, JTWC_UA, JTWC_TIMEOUT_MS, JTWC_MAX_BYTES };
+module.exports = { jtwcUrl, jtwcFetch, jtwcGuardSession, JTWC_HOST, JTWC_UA, JTWC_TIMEOUT_MS, JTWC_MAX_BYTES };
