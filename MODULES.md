@@ -160,6 +160,9 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | `pingHelper` `wnsHelperOffNotice` `HELPER_VER_MIN` `wnsRender` | `export-video.js` |
 | `svgBlob` `keepLayers` `ALL_LAYERS` `readProjectFile` `pngEmbed` `pngExtract` `exportBlobs` | `export-blobs.js` |
 | `download` `doExport` | `ae-export.js` |
+| `tlLayerPlan`(타임라인 레이어 = AE 레이어 목록·순서·타이밍) `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` | `timeline-plan.js` |
+| `buildTimeline` `tlSetT`(재생헤드) `tlInvalidate` `tlRefreshPreview` `tlState` | `timeline-ui.js` |
+| `stateForSave`(저장·되돌리기용 S — 카메라 미리보기 중이면 작업 뷰) `animFastOn/Off`(재생 중 가속) `autoTrackPlan` | `anim.js` |
 | `saveProject` `loadProjectData` `openProject` | `project-io.js` |
 | `setupMenus` `showStartScreen` | `floating-panels.js` |
 

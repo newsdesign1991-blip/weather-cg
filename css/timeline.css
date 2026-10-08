@@ -35,12 +35,11 @@
   .tlGrip:hover, .tlGrip.on { background: var(--primary); }
 
   /* 1) 도구 줄 — 왼쪽 큰 시각(이름 열 폭) + 버튼들 */
-  .tlBar {
-    display: flex; align-items: center; gap: 7px; padding: 0 10px 0 0; flex: none; min-height: 46px;
-    border-bottom: 1px solid var(--outline-var); flex-wrap: wrap; row-gap: 4px;
-  }
+  .tlBar { display: flex; align-items: stretch; flex: none; min-height: 46px; border-bottom: 1px solid var(--outline-var); }
+  /* 버튼 묶음은 시각 칸 오른쪽 영역 안에서만 줄바꿈(좁은 창에서도 시각 칸 아래로 안 떨어진다) */
+  .tlBarMain { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; row-gap: 5px; padding: 6px 10px; }
   .tlBar .sep { width: 1px; height: 18px; background: var(--outline-var); flex: none; }
-  .tlTimeBox { width: var(--nameW); flex: none; align-self: stretch; min-height: 46px; display: flex; flex-direction: column; justify-content: center;
+  .tlTimeBox { width: var(--nameW); flex: none; align-self: stretch; display: flex; flex-direction: column; justify-content: center;
     padding: 0 12px; border-right: 1px solid var(--outline-var); cursor: ew-resize; user-select: none; box-sizing: border-box; }
   .tlTimeBig { font-size: 21px; font-weight: 700; color: var(--tl-cti); font-variant-numeric: tabular-nums; letter-spacing: .01em; line-height: 1.05; white-space: nowrap; }
   .tlTimeSub { font-size: 10.5px; color: var(--on-surface-var); font-variant-numeric: tabular-nums; margin-top: 2px; white-space: nowrap; }
@@ -63,7 +62,7 @@
   .tlProgFill { display: block; height: 100%; width: 0; background: var(--accent-grad, var(--primary)); transition: width .12s linear; }
   .tlNum { display: flex; align-items: center; gap: 4px; color: var(--on-surface-var); font-size: 11.5px; }
   .tlNum input { width: 54px; flex: none; padding: 4px 6px; }
-  .tlResetBtn { background: #E5301F; border: none; color: #fff; font-weight: 700; border-radius: 9px; padding: 5px 12px; cursor: pointer; }
+  .tlResetBtn { margin-left: auto; background: #E5301F; border: none; color: #fff; font-weight: 700; border-radius: 9px; padding: 5px 12px; cursor: pointer; }
   .tlResetBtn:hover { background: #cf2a1a; }
   .tlResetBtn:active { transform: scale(.96); }
   .tlClose { margin-left: 2px; width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: none; border: none; color: var(--on-surface-var); border-radius: 8px; }

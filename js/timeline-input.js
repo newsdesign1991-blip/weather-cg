@@ -97,7 +97,6 @@ function tlStartBarDrag(e, clip, edge) {
         const [a, b] = tlDragCalc(ty, it.s0, d);
         tlSetSpan(it.L, a, b);
       }
-      if (snapT != null) d = d;   // (스냅 값은 위에서 반영)
       tlSnapLine(snapT);
       const sp = tlSpanNow(grab.L);
       if (sp) tlReadout(ev, tlFmtSpan(sp) + (snapT != null ? (Math.abs(snapT - tlHeadT) < 1e-4 ? '<span class="snap">재생헤드에 붙음</span>' : '<span class="snap">붙음</span>') : ''));

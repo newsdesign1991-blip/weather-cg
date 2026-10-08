@@ -226,15 +226,16 @@ function tlLayoutBars() {
   const lanes = $('#tlTracks'); if (!lanes) return;
   const pps = tlState.pps, A = anim(), dur = +A.dur || 6, P = TL_PAD;
   let maxEnd = dur;
+  const km = new Map(camKeys().map((k) => [k.id, k]));   // 키는 id로(같은 id면 행을 재사용하므로 객체가 바뀌었을 수 있다)
   for (const e of tlState.els.values()) {
     const r = e.row, L = r.L;
-    if (r.prop) { for (const k of e.keys) k.el.style.left = (P + (+k.k.t) * pps) + 'px'; continue; }
+    if (r.prop) { for (const k of e.keys) { k.k = km.get(k.k.id) || k.k; k.el.style.left = (P + (+k.k.t) * pps) + 'px'; } continue; }
     if (!e.clip) continue;
     let sp = null;
     if (L.kind !== 'static' && L.kind !== 'oldText' && L.kind !== 'camera') sp = tlSpanNow(L) || L.implicit;
     if (!sp) {
       e.clip.style.left = P + 'px'; e.clip.style.width = (dur * pps) + 'px';
-      for (const tk of e.ticks) tk.el.style.left = ((+tk.k.t) * pps) + 'px';
+      for (const tk of e.ticks) { tk.k = km.get(tk.k.id) || tk.k; tk.el.style.left = ((+tk.k.t) * pps) + 'px'; }
       if (e.vin) { e.vin.textContent = L.kind === 'camera' ? camKeys().length + '키' : '—'; e.vin.classList.add('dim'); }
       if (e.vlen) { e.vlen.textContent = L.kind === 'camera' ? '' : '—'; e.vlen.classList.add('dim'); }
       continue;
@@ -258,7 +259,8 @@ function tlUpdateFootWarn() {
   const dur = +anim().dur || 6; let n = 0;
   for (const L of tlState.plan) { const sp = tlSpanNow(L); if (sp && sp[1] > dur + 1e-4 && L.kind !== 'vfEnter') n++; for (const c of (L.children || [])) { const cs = tlSpanNow(c); if (cs && cs[1] > dur + 1e-4) n++; } }
   for (const k of camKeys()) if (+k.t > dur + 1e-4) n++;
-  w.textContent = n ? `길이 밖 ${n}개 — 길이를 늘리거나 당겨 오세요(추출엔 안 나옴)` : '';
+  const none = !anim().tracks.length && !camKeys().length && tlState.plan.some((L) => L.animatable && !L.gone);
+  w.textContent = n ? `길이 밖 ${n}개 — 길이를 늘리거나 당겨 오세요(추출엔 안 나옴)` : none ? '타이밍 없음 — 자동 구성을 누르거나 점선 막대를 끌어 등장 시각을 만드세요' : '';
 }
 function tlSelSync() {
   for (const [id, e] of tlState.els) {
