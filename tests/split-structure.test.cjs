@@ -35,7 +35,7 @@ const TEXT_FORWARD_OK = ['js/wiring.js refreshToolGroup'];
 // 지금 모듈 순서(고정) — 기존 파일끼리의 상대 순서는 바꾸지 않는다(로드 순서·CSS 덮어쓰기 우선순위·리스너 등록 순서가 바뀐다).
 // 새 파일은 사이에 끼워 넣기만 한다(여기 없는 이름은 자유). 파일을 지우거나 이름을 바꿀 때만 이 목록을 고친다 — MODULES.md 2장 규칙 1.
 const JS_ORDER = ['js/core.js', 'js/brush.js', 'js/brush-ui.js', 'js/map-build.js', 'js/map-render.js', 'js/vf-legend.js', 'js/labels-mountains.js',
-  'js/typhoon-core.js', 'js/typhoon-render.js', 'js/typhoon-panel.js', 'js/typhoon-api.js', 'js/panels.js', 'js/view-camera.js', 'js/pointer-drag.js',
+  'js/typhoon-core.js', 'js/typhoon-render.js', 'js/typhoon-panel.js', 'js/typhoon-api.js', 'js/typhoon-jtwc.js', 'js/panels.js', 'js/view-camera.js', 'js/pointer-drag.js',
   'js/warnings.js', 'js/warnings-apply.js', 'js/bulletin.js', 'js/forecast-panel.js', 'js/warnings-load.js', 'js/presets.js', 'js/cg-setup.js',
   'js/modals-notices.js', 'js/busy-fx.js', 'js/preset-slots.js', 'js/export-image.js', 'js/export-video.js', 'js/export-blobs.js', 'js/ae-export.js', 'js/export-dialog.js', 'js/project-io.js',
   'js/wiring.js', 'js/anim.js', 'js/timeline-plan.js', 'js/timeline-ui.js', 'js/timeline-input.js', 'js/floating-panels.js', 'js/tour.js', 'js/boot.js'];

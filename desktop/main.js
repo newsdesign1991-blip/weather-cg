@@ -257,6 +257,17 @@ ipcMain.handle('wcg:wnuri-open', (e, url) => {
   return true;
 });
 
+// ---------- 미해군(JTWC) 자료 받기 ----------
+// 웹앱의 '미해군(JTWC)에서 불러오기'(js/typhoon-jtwc.js)가 활동 중인 태풍 목록(RSS)과 고른 태풍의 통보문(.tcw)을 받아 달라고 부른다.
+// 허용 주소(metoc.navy.mil/jtwc 의 rss/jtwc.rss·products/xxNNYY.tcw)·시간 제한·크기 상한·브라우저 UA는 desktop/jtwc.js.
+// 요청은 따로 세션(메모리에만 — 쿠키가 앱 세션에 안 섞임)의 크로미움 네트워크(net.fetch — 시스템 프록시를 따른다)로 보낸다.
+const { jtwcFetch } = require('./jtwc');
+ipcMain.handle('wcg:jtwc-fetch', (e, p) => {
+  if (!win || win.isDestroyed() || !e.sender || e.sender.id !== win.webContents.id) return { ok: false, err: 'denied', detail: 'sender' };
+  const ses = session.fromPartition('jtwc');
+  return jtwcFetch(String(p || ''), { fetch: (u, init) => ses.fetch(u, init) });
+});
+
 // 보기 동작 — 메뉴(단축키 표시)와 위의 키 입력 처리가 같은 함수를 쓴다.
 const VIEW = {
   reload: () => win && win.webContents.reload(),

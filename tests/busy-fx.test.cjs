@@ -281,7 +281,7 @@ function bodyOf(name) {
 test('연결 — 불러오기·추출·저장 함수가 켠 작업 중 효과를 finally에서 끈다', () => {
   const cases = {
     fetchWrn: 'fx', renderExport: 'fx', bakeMp4: 'fx', exportPngSeq: 'fx', wnsRender: 'fx', saveProject: 'fx', openRecent: 'fx', bakeDefaults: 'fx',
-    fetchTyphoon: 'fx', fetchTyphoonPast: 'fx', fetchJma: 'fx', attachEdgeTD: 'fx', fetchBulletin: 'fx',
+    fetchTyphoon: 'fx', fetchTyphoonPast: 'fx', fetchJma: 'fx', attachEdgeTD: 'fx', fetchBulletin: 'fx', fetchJtwc: 'fx', loadJtwcStorm: 'fx',
   };
   for (const [fn, v] of Object.entries(cases)) {
     const b = bodyOf(fn);
@@ -298,11 +298,16 @@ test('연결 — 불러오기·추출·저장 함수가 켠 작업 중 효과를
   assert.ok(/fxArrive\(/.test(bodyOf('applyFct')));
 
   // 태풍 — 그렸을 때만 도착 효과(실패·태풍 없음·헬퍼 꺼짐은 finally에서 끄기만), 끈 뒤에 도착
-  for (const [fn, v] of [['fetchTyphoon', 'okTyp'], ['fetchTyphoonPast', 'ok'], ['fetchJma', 'ok']]) {
+  for (const [fn, v] of [['fetchTyphoon', 'okTyp'], ['fetchTyphoonPast', 'ok'], ['fetchJma', 'ok'], ['loadJtwcStorm', 'ok']]) {
     const fin = bodyOf(fn).slice(bodyOf(fn).lastIndexOf('finally'));
     assert.ok(new RegExp(`fxBusy\\(fx, false\\); if \\(${v}\\) typArriveFx\\(\\);`).test(fin), `${fn}: 성공일 때만, 끈 뒤에 도착 효과`);
   }
   assert.ok(/let ok = false;/.test(bodyOf('fetchJma')) && /ok = true;\s*\} catch/.test(bodyOf('fetchJma')), 'JMA: 그린 뒤에만 성공');
+  // 미해군(JTWC) — 목록 받기는 섹션·버튼·팝업 목록 자리(막대)를 함께 켜고, 목록이 들어왔을 때만 행 도착 / 통보문은 그린 뒤에만 성공
+  const jl = bodyOf('fetchJtwc');
+  assert.ok(/const fx = \[fxSec\([^\n]*\), btn, m\.list\];/.test(jl), 'JTWC 목록: 섹션·버튼·목록 자리');
+  assert.ok(/fxBusy\(fx, false\);\s*if \(shown && m\.alive\(\)\) fxArrive\(fxRows\(m\.list\)\);/.test(jl.slice(jl.lastIndexOf('finally'))), 'JTWC 목록: 끈 뒤에, 보였을 때만 도착');
+  assert.ok(/pushUndo\(\); ok = applyTyphoonText\(r\.text\);\s*\} finally/.test(bodyOf('loadJtwcStorm')), 'JTWC 통보문: 그린 뒤에만 성공');
   // 발생·소멸 TD — 불러오기 뒤 자동 확인은 섹션 머리에만(fxHead — 섹션 흐름·버튼 잠금 없이), 버튼은 섹션 + 버튼, 붙였을 때만 도착
   const edge = bodyOf('attachEdgeTD');
   assert.ok(/const fx = auto \? \[fxHead\(secName\)\] : \[fxSec\(secName\), btn\];/.test(edge));

@@ -94,7 +94,7 @@
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
-<link rel="stylesheet" href="css/dialogs.css?v=7b46d2b5">
+<link rel="stylesheet" href="css/dialogs.css?v=9b6ff165">
 <link rel="stylesheet" href="css/panel-misc.css?v=2c54bab2">
 <link rel="stylesheet" href="css/toss-modal.css?v=f585119b">
 <link rel="stylesheet" href="css/busy-fx.css?v=d7a646d1">
@@ -309,8 +309,9 @@
         <details class="typOther" style="margin:4px 0">
           <summary>다른 나라 태풍정보 (JMA · JTWC)</summary>
           <div class="btns" style="margin:6px 0 4px"><button id="typFetchJma" style="flex:1" title="일본 기상청(JMA) 공개 자료 — 경로·아이콘·반경(予報円·暴風域·強風域)">일본 기상청(JMA)에서 불러오기</button></div>
-          <div class="btns" style="margin:4px 0"><button id="typJtwcDl" style="flex:1" title="미해군 합동태풍경보센터(JTWC) — 통보문(.tcw) 파일을 받아 창에 끌어다 놓거나 아래 '수동 붙여넣기'에 붙이면 그려집니다">미해군(JTWC) 자료 받기 →</button></div>
-          <p class="hint" style="margin:4px 0 0">JTWC는 받은 .tcw를 <b>창에 끌어다 놓거나</b> 아래에 붙여넣기.</p>
+          <!-- 미해군(JTWC) — 데스크톱 앱이면 활동 중인 태풍을 골라 바로 그린다(js/typhoon-jtwc.js fetchJtwc). 직접 받을 수 없으면 jtwcSyncButtons가 이름을 '자료 받기 →'(사이트 열기)로 바꾼다 -->
+          <div class="btns" style="margin:4px 0"><button id="typJtwcDl" style="flex:1" title="미해군 합동태풍경보센터(JTWC)에서 지금 활동 중인 태풍을 골라 바로 그려요">미해군(JTWC)에서 불러오기</button></div>
+          <p class="hint" style="margin:4px 0 0">JTWC는 활동 중인 태풍을 골라 바로 그려요. 받은 .tcw는 <b>창에 끌어다 놓아도</b> 돼요.</p>
         </details>
         <div class="row"><label>태풍</label><select id="typWhichSel" style="flex:1"></select></div>
         <div class="row"><label>이름</label><input id="typName" type="text" placeholder="예: 개미 (직접 입력)" style="flex:1"></div>
@@ -325,13 +326,19 @@
         </div>
         <p class="hint" id="typInfo"></p>
         <p class="hint" style="margin:2px 0">여러 예보 비교는 <b>CG 구성 → 태풍 비교</b>.</p>
-        <!-- 자동이 안 될 때: 수동 입력 (분리) -->
-        <div class="fieldGroup" style="margin:8px 0;border:1px dashed var(--outline-var);border-radius:10px;padding:8px">
-          <div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기</div>
+        <!-- 자동이 안 될 때 · 수동 붙여넣기 — 평소엔 안 써서 기본 접힘(접이식 묶음 공용 — js/panels.js foldWire, css/panel-misc.css .subFold — 특보와 같은 방식).
+             제목 줄을 누르면 펼침/접힘, 펼침 상태는 localStorage 'wcg_typ_manual_open'. 미해군(JTWC) 불러오기 실패 안내의 '직접 붙여넣기'·'사이트 열기'는
+             이번만 펼치고 보이게 스크롤한다(foldReveal — 기억은 안 바꿈, js/typhoon-jtwc.js jtwcManual) -->
+        <button type="button" class="subhead subFoldHead" id="typManualHead" aria-expanded="false" aria-controls="typManual">자동이 안 될 때 <span>· 수동 붙여넣기</span></button>
+        <div class="subFold closed" id="typManual">
+        <div class="subFoldInner">
+        <div class="subFoldBox">
           <div class="btns" style="margin:0 0 4px"><button id="typOpen" style="flex:1">태풍정보 새 창으로 열기</button></div>
           <textarea id="typPaste" rows="2" placeholder="새 창 JSON 또는 JTWC(.tcw) 내용 붙여넣기"></textarea>
           <div class="btns" style="margin:4px 0 0"><button id="typPasteApply" style="flex:1">붙여넣은 걸로 표시</button></div>
           <p class="hint" style="margin:5px 0 0">.tcw 파일은 <b>창에 끌어다 놓아도</b> 돼요.</p>
+        </div>
+        </div>
         </div>
         <div class="btns" style="margin:4px 0 2px"><button id="typAddTD" style="flex:1" title="발생(앞)·소멸(뒤) 열대저압부(TD)를 기상청 td_now의 실제 좌표로 앞뒤에 이어붙입니다. 불러오기 때 자동으로도 붙습니다. 한 번 더 누르면 취소(원복).">발생·소멸 열대저압부(TD) 붙이기</button></div>
         <div class="subhead">지난 구간 <span>· 이전은 흑백</span></div>
@@ -374,7 +381,7 @@
       <div class="body">
         <div class="subhead">불러오기 <span>· 목록에 자동 추가</span></div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="tycFetch" style="flex:1">기상청에서 불러오기</button></div>
-        <div class="btns" style="margin:4px 0"><button id="tycFetchJma" style="flex:1" title="일본 기상청(JMA)">일본 기상청(JMA)</button><button id="tycJtwcDl" style="flex:1" title="미해군(JTWC) 통보문 받기">미해군(JTWC) →</button></div>
+        <div class="btns" style="margin:4px 0"><button id="tycFetchJma" style="flex:1" title="일본 기상청(JMA)">일본 기상청(JMA)</button><button id="tycJtwcDl" style="flex:1" title="미해군(JTWC)에서 활동 중인 태풍을 골라 비교에 추가">미해군(JTWC)</button></div>
         <div class="row"><label>가져올 태풍</label><select id="tycWhichSel" style="flex:1"></select></div>
         <textarea id="tycPaste" rows="2" placeholder="JTWC 통보문(.tcw) 붙여넣기 / 창에 파일 끌어다 놓기"></textarea>
         <div class="btns" style="margin:4px 0"><button id="tycPasteApply" style="flex:1">붙여넣은 걸로 추가</button><button id="tycAdd" style="flex:0 0 auto" title="지금 불러온 예보를 비교에 추가">현재 예보 추가</button></div>
@@ -1275,8 +1282,9 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/labels-mountains.js?v=84a9ae7a"></script>
 <script src="js/typhoon-core.js?v=499ee16c"></script>
 <script src="js/typhoon-render.js?v=689a1c77"></script>
-<script src="js/typhoon-panel.js?v=2f0c5859"></script>
-<script src="js/typhoon-api.js?v=6890636a"></script>
+<script src="js/typhoon-panel.js?v=c232f82e"></script>
+<script src="js/typhoon-api.js?v=e7d25fdf"></script>
+<script src="js/typhoon-jtwc.js?v=0a084bc2"></script>
 <script src="js/panels.js?v=4db9d5f9"></script>
 <script src="js/view-camera.js?v=2bda1a60"></script>
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
@@ -1290,7 +1298,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/presets.js?v=27fad655"></script>
 <script src="js/cg-setup.js?v=f6d7eafd"></script>
 <script src="js/modals-notices.js?v=8bb80e22"></script>
-<script src="js/busy-fx.js?v=68bb53cf"></script>
+<script src="js/busy-fx.js?v=05f4b1c5"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
 <script src="js/export-image.js?v=9c69190f"></script>
 <script src="js/export-video.js?v=bfec7573"></script>
@@ -1298,7 +1306,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/ae-export.js?v=4b1a0894"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=a36c3975"></script>
-<script src="js/wiring.js?v=9ad127c7"></script>
+<script src="js/wiring.js?v=32d105ee"></script>
 <script src="js/anim.js?v=63d61726"></script>
 <script src="js/timeline-plan.js?v=065640cc"></script>
 <script src="js/timeline-ui.js?v=05af56f8"></script>

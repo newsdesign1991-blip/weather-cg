@@ -464,7 +464,7 @@ function wireImeText(input, apply) {
 function wireCompareSection() {
   const f = $('#tycFetch'); if (f) f.onclick = () => { if (typeof fetchTyphoon === 'function') fetchTyphoon(); else status('태풍 API 연동 준비 중', true); };
   const fj = $('#tycFetchJma'); if (fj) fj.onclick = fetchJma;
-  const dl = $('#tycJtwcDl'); if (dl) dl.onclick = () => { window.open('https://www.metoc.navy.mil/jtwc/jtwc.html', '_blank', 'noopener'); status('JTWC 통보문(.tcw)을 받아 붙여넣거나 창에 끌어다 놓으세요', true); };
+  const dl = $('#tycJtwcDl'); if (dl) dl.onclick = () => fetchJtwc();   // 미해군(JTWC) — 데스크톱 앱이면 골라서 바로 비교에 추가, 아니면 사이트 열기(js/typhoon-jtwc.js)
   const pa = $('#tycPasteApply'); if (pa) pa.onclick = () => { const t = $('#tycPaste'); if (t && t.value.trim()) { pushUndo(); if (applyTyphoonText(t.value)) typArriveFx(); } else status('붙여넣은 내용이 없습니다', true); };   // 그렸으면 도착 효과(js/busy-fx.js — 바로 끝나는 일이라 작업 중 효과는 없음)
   const add = $('#tycAdd'); if (add) add.onclick = () => addCompareForecast();
   const pen = $('#tycPen'); if (pen) pen.onclick = startPen;
@@ -497,7 +497,8 @@ function wireTyphoonPanel() {
   const fetchB = $('#typFetch'); if (fetchB) fetchB.onclick = () => { if (typeof fetchTyphoon === 'function') fetchTyphoon(); else status('태풍 API 연동은 곧 추가됩니다 (기존 특보 키 사용 예정)', true); };
   const pastB = $('#typPastFetch'); if (pastB) pastB.onclick = () => fetchTyphoonPast();
   const fetchJmaB = $('#typFetchJma'); if (fetchJmaB) fetchJmaB.onclick = fetchJma;
-  const jtwcDl = $('#typJtwcDl'); if (jtwcDl) jtwcDl.onclick = () => { window.open('https://www.metoc.navy.mil/jtwc/jtwc.html', '_blank', 'noopener'); status('JTWC 사이트에서 통보문(.tcw)을 받아 창에 끌어다 놓거나 수동 붙여넣기 하세요', true); };
+  const jtwcDl = $('#typJtwcDl'); if (jtwcDl) jtwcDl.onclick = () => fetchJtwc();   // 미해군(JTWC) — 데스크톱 앱이면 골라서 바로 그리기, 아니면 사이트 열기(js/typhoon-jtwc.js)
+  jtwcSyncButtons();   // 직접 받을 수 없으면(웹판·옛 데스크톱) 버튼 이름을 예전 '사이트 링크(→)'로
   const bindCol = (colId, hexId, apply) => {
     const c = $(colId), h = $(hexId);
     const set = (v) => { v = (v || '').toUpperCase(); if (!/^#[0-9A-F]{6}$/.test(v)) return; if (c) c.value = v; if (h) h.value = v; pushUndo('typcol'); apply(v); renderTyphoon(); };

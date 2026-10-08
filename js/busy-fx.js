@@ -29,6 +29,7 @@
 // 연결된 곳: 특보 불러오기(fetchWrn), 예보 읽기(applyFct — 도착만), 이미지로 추출(renderExport), PNG 시퀀스·MP4·MXF/MOV(exportPngSeq·bakeMp4·wnsRender),
 //   AE로 보내기(sendToAE), 프로젝트 저장·열기·최근 파일, 설정 가져오기, 기본값 굽기, 렌더 진행률(exportProgress → fxProgress),
 //   태풍 불러오기(fetchTyphoon·fetchTyphoonPast·fetchJma — 비교 지도 포함, 붙여넣기·끌어놓기는 도착만), 발생·소멸 TD(attachEdgeTD — 자동은 머리만),
+//   미해군(JTWC) 불러오기(fetchJtwc — 고르기 팝업 목록 자리 막대 · loadJtwcStorm — 통보문 받아 그리기),
 //   통보문 불러오기·날씨누리 창 읽기(fetchBulletin·bulOpenPage → 결과가 오면 끔), 통보문으로 색칠(applyBulletin — 도착만).
 //   새로 붙일 때도 켠 함수의 finally에서 끄는 짝을 지킨다(tests/busy-fx.test.cjs '연결').
 const _fxSt = new WeakMap();   // 요소 → { n: 켠 횟수, gen: 안전 해제 세대, kind, dis: 우리가 비활성으로 바꿨나, ph: 자리표시 요소, outT·maxT·arrT: 타이머 }

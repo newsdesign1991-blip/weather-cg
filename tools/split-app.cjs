@@ -1,6 +1,6 @@
 // tools/split-app.cjs — 한 파일 index.html → js/*.js + css/*.css + 얇은 index.html (코드 무변경 기계 분할)
 //
-// 2026-10-08 분할(기준 커밋 a6d0794)을 만든 도구다. 기준표(MAP)는 지금 구조(경계 조정·뒤에 더한 busy-fx 한 쌍 반영)를 적어 둔다.
+// 2026-10-08 분할(기준 커밋 a6d0794)을 만든 도구다. 기준표(MAP)는 지금 구조(경계 조정·뒤에 더한 busy-fx 한 쌍·typhoon-jtwc 반영)를 적어 둔다.
 // 이미 나뉜 저장소의 index.html에 그대로 돌리면 '이미 분할된 index.html'로 멈춘다 — 재분할은 --src(한 파일)·--like로(MODULES.md 11·12장).
 //
 //   node tools/split-app.cjs --check                  검사·보고만(아무것도 안 씀)
@@ -55,6 +55,7 @@ const MAP = {
     { file: 'typhoon-render.js', start: 'const CMP_PALETTE = [', desc: '태풍 그리기: 예보 비교 경로·라벨, 진로선, 지명표시, 제목, 재생, renderTyphoon' },
     { file: 'typhoon-panel.js', start: 'function addCompareForecast(auto) {', desc: '태풍 패널 UI: 비교 카드, 태풍 패널·밴드, 펜툴, 참고 이미지, wireTyphoonPanel' },
     { file: 'typhoon-api.js', start: "const TYP_KEY_STORE = 'wcg_typ_key';", desc: '태풍 데이터: 기상청 typ/td 파싱, JMA·JTWC, 이름 저장, TD 가장자리 붙이기, fetchTyphoon' },
+    { file: 'typhoon-jtwc.js', start: '// ===================== 미해군(JTWC) 자동 불러오기', desc: '미해군(JTWC) 자동 불러오기: 활동 중인 태풍 목록(RSS) 해석·고르기 팝업, 고른 태풍 통보문(.tcw) 받아 그리기(데스크톱 앱), 실패 안내·수동 길' },
     { file: 'panels.js', start: '// ===================== 패널 =====================', desc: '사이드바 패널(팔레트·인셋·텍스트/라벨/산 목록·섹션 열기/스크롤), 캔버스 요소→섹션 자동 열기, 선택(select)·refreshPanel·syncPanelFromState, 칠하기 paint' },
     { file: 'view-camera.js', start: '// ===================== 작업창 줌', desc: '작업창 줌·맞춤(sizeFit·applyView)·틸트 미리보기(그림 버퍼 래스터·GL/CSS 그리기·첫 진입 게이트·예열), 더블클릭 인라인 편집, Alt 카메라 조작(팬·줌·휠)' },
     { file: 'tilt-gl.js', start: '// ===================== 틸트 지도 WebGL 렌더러', desc: '틸트 지도 WebGL2 렌더러(밉맵·비등방 텍스처로 원근 투영 — 미리보기 #camGL·추출 공용, 못 쓰면 CSS·2D 메시로)' },
@@ -95,7 +96,7 @@ const MAP = {
     { file: 'export-dialog.css', start: '/* ===== 이미지로 추출 팝업', desc: '이미지로 추출 팝업(CG 구성 모양 재사용 + 묶음 3판 색·빠른 선택·장수 배지·흐린 카드·렌더 진행·창 안 알림 버튼·좁은 창)' },
     { file: 'menus-windows.css', start: '.menuDrop > .sec { border: none; }', desc: '제목줄 메뉴 드롭다운 안 섹션·설정(렌치) 메뉴·기능 확장팩 줄, 떼어낸 창(탭·크기 조절·도킹 미리보기·붙을 자리)' },
     { file: 'timeline.css', start: '/* ===== 타임라인 (하단) ===== */', desc: '타임라인, 추출 진행 바, 영상 추출 집중 모드, 카메라 키 편집·팝오버' },
-    { file: 'dialogs.css', start: '/* 인증키가 없을 때만 뜨는 안내', desc: '인증키 안내, 특보 불러오기 결과 카드·빈 상태 카드, 알림 색 점, API 설정 창, 확인 모달, 배치 지정하기 모달·플로피' },
+    { file: 'dialogs.css', start: '/* 인증키가 없을 때만 뜨는 안내', desc: '인증키 안내, 특보 불러오기 결과 카드·빈 상태 카드, 미해군(JTWC) 태풍 고르기, 알림 색 점, API 설정 창, 확인 모달, 배치 지정하기 모달·플로피' },
     { file: 'panel-misc.css', start: '/* ===== 통보문 색칠 박스', desc: '통보문·예보 API 박스(예보 API 묶음 접기), 링크 버튼, 칠한 색 목록·경고 배너, 최근 파일, 이미지 안내 팝업, 마우스 배지, 안내/완료 토스트·체크 모션, 브러쉬 영역 강조' },
     { file: 'toss-modal.css', start: '/* ===== 토스 카드 모달 (공지·안내 공통)', desc: '토스 카드 모달, 공지 목록·작성, 접이식 묶음, 렌더 가리개, 참고 이미지 드롭, 토글 스위치, 지도 배경 버튼, 브러쉬 원·산 히트·가이드(포인터 통과)' },
     { file: 'busy-fx.css', start: '/* ===== 작업 중·도착 효과', desc: '작업 중·도착 효과(js/busy-fx.js): 흐르는 그라디언트·버튼 진행·제목줄 버튼 흐름·진행 막대·빛 훑는 자리표시 막대·도착 빛, 렌더 가리개 흐름, 움직임 줄이기' },

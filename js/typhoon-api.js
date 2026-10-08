@@ -168,8 +168,9 @@ async function fetchJma() {
 function parseJtwcTcw(text) {
   const lines = String(text).split(/\r?\n/);
   const KT = 0.514444, NM = 1.852;
-  let base = '', stormNum = '', name = '';
-  for (const ln of lines) { const m = ln.match(/^\s*(\d{10})\s+(\d+)[WEC]\s+([A-Z][A-Z0-9\-]*)\s+\d+/); if (m) { base = m[1]; stormNum = m[2]; name = m[3]; break; } }
+  // 머리 줄 '2026100812 27W KOGUMA 015 …' — 번호 뒤 글자는 해역(W 서태평양·E 동·C 중태평양·A/B 북인도양·S/P 남반구)
+  let base = '', stormNum = '', basin = 'W', name = '';
+  for (const ln of lines) { const m = ln.match(/^\s*(\d{10})\s+(\d+)([A-Z])\s+([A-Z][A-Z0-9\-]*)\s+\d+/); if (m) { base = m[1]; stormNum = m[2]; basin = m[3]; name = m[4]; break; } }
   // base = SSYYMMDDHH(태풍번호2+연도2+월일시) — 연도는 slice(2,4)(베스트트랙과 같은 해석)
   const addHours = (b, h) => { const d = new Date(Date.UTC(2000 + +b.slice(2, 4), +b.slice(4, 6) - 1, +b.slice(6, 8), +b.slice(8, 10), 0)); d.setUTCHours(d.getUTCHours() + h); const p = (v) => String(v).padStart(2, '0'); return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}00`; };
   const eLon = (v, hemi) => (hemi === 'W' ? 360 - v : v);   // 날짜변경선 넘는 서경은 동경 연속값(360-)으로
@@ -192,7 +193,7 @@ function parseJtwcTcw(text) {
   const points = Object.values(byTm).sort((a, b) => (a.tmef < b.tmef ? -1 : 1));
   if (points.length < 2) return null;
   const isTD = Math.max(...points.map((p) => p.ws)) < 17;
-  return [{ tno: stormNum || 'JTWC', name: (name ? name + ' ' : '') + '(JTWC' + (stormNum ? ' ' + stormNum + 'W' : '') + ')', td: isTD, points }];
+  return [{ tno: stormNum || 'JTWC', name: (name ? name + ' ' : '') + '(JTWC' + (stormNum ? ' ' + stormNum + basin : '') + ')', td: isTD, points }];
 }
 // ── 태풍 번호별 이름 (기상청 typ_now API엔 이름이 없어 여기 표에 직접 저장 → 라벨/제목에 자동 부착) ──
 // 키 = "년도-번호"(예: "2026-13"). 브라우저 localStorage에 저장(개인·비동기화). 한 번 입력하면 다음 불러오기에도 유지.

@@ -248,6 +248,8 @@ function wire() {
 
   // '자동이 안 될 때 · 수동 붙여넣기' 묶음 — 평소엔 안 써서 기본 접힘, 제목 줄로 펼침/접힘(상태 기억). 불러오기 실패 카드가 이번만 펼친다(showWrnResult)
   foldWire($('#wrnManual'), 'wcg_wrn_manual_open');
+  // 태풍 '자동이 안 될 때 · 수동 붙여넣기'도 같은 부품(기본 접힘). 미해군(JTWC) 불러오기 실패 안내가 이번만 펼친다(js/typhoon-jtwc.js jtwcManual)
+  foldWire($('#typManual'), 'wcg_typ_manual_open');
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value, null, 'paste');
   $('#wrnFetch').onclick = () => fetchWrn();   // 인자 없이(=목록 새로 만듦). onclick이 이벤트를 keepSel로 넘기지 않게 감쌈.
   // 발효시각을 고르면 그 시각으로 '재요청'해서 정확한 발효현황을 받아 칠한다(picker와 동일). 목록은 그대로 둠.
