@@ -275,7 +275,7 @@ function syncWrnInfo(st) {
   st = st || wrnPaintStats();
   const parts = [];
   if (!wrnRows.length || (S.wrnNone && !st.onCount)) { /* 발효 특보 0건 — 목록 자리의 '특보 없음' 카드가 설명한다 */ }
-  else if (!st.onCount) parts.push('켜 둔 특보가 없어 칠한 구역이 없어요 — 목록의 눈 아이콘으로 켜세요');
+  else if (!st.onCount) parts.push('켜 둔 특보가 없어요 — 눈 아이콘으로 켜기');
   else parts.push(`${st.painted}개 구역 칠함`);
   if (st.seaHidden) parts.push(`바다 특보 ${st.seaHidden}구역은 ‘${st.seaMap}’ 지도에서 보여요`);
   if (st.unknown) parts.push(`지도에 없는 구역 ${st.unknown}개`);
@@ -331,7 +331,7 @@ function buildWrnList() {
 
   const head = document.createElement('div');
   head.className = 'subhead';
-  head.innerHTML = '들어온 특보 <span>· 위에 있을수록 우선 (겹치면 이김)</span>';
+  head.innerHTML = '들어온 특보 <span>· 위가 우선</span>';
   if (!none) w.append(head);   // 0건 카드가 이미 머리를 달았다
   w.ondragleave = (e) => {
     if (!e.relatedTarget || !w.contains(e.relatedTarget)) clearWrnDragFeedback(w);

@@ -94,7 +94,7 @@
 <link rel="stylesheet" href="css/menus-windows.css?v=decbdfb6">
 <link rel="stylesheet" href="css/timeline.css?v=90312092">
 <link rel="stylesheet" href="css/dialogs.css?v=7b46d2b5">
-<link rel="stylesheet" href="css/panel-misc.css?v=7453f08d">
+<link rel="stylesheet" href="css/panel-misc.css?v=4640b3e8">
 <link rel="stylesheet" href="css/toss-modal.css?v=1d02ed6c">
 
 <!-- 맨 위 제목줄 — 데스크톱 앱에선 이 줄이 곧 창 제목표시줄(빈 곳 끌기=창 이동, 오른쪽 끝=윈도 창 버튼).
@@ -234,22 +234,22 @@
     <div class="sec special" data-sec="typhoon">
       <h3>태풍 예상경로</h3>
       <div class="body">
-        <div class="subhead">불러오기 <span>· 기상청 API허브(특보와 같은 키)</span></div>
+        <div class="subhead">불러오기 <span>· 기상청 API허브</span></div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="typFetch" style="flex:1">기상청에서 불러오기</button></div>
         <details class="typOther" style="margin:4px 0">
           <summary>과거 태풍 불러오기 (날짜)</summary>
           <div class="row" style="margin:6px 0 4px"><label>날짜</label><input id="typPastDate" type="date" style="flex:1"></div>
           <div class="btns" style="margin:4px 0"><button id="typPastFetch" style="flex:1">그 날짜의 태풍 불러오기</button></div>
-          <p class="hint" style="margin:4px 0 0">그 날짜에 활동한 태풍의 경로를 그립니다(±2일 자동 탐색). <b>태풍 소멸 직전 날짜</b>를 고르면 실제 경로가 가장 온전합니다. 이름은 <b>이름</b> 칸에 직접 입력하세요.</p>
+          <p class="hint" style="margin:4px 0 0">그 날짜(±2일)의 태풍을 그려요. <b>소멸 직전 날짜</b>가 가장 온전해요.</p>
         </details>
         <details class="typOther" style="margin:4px 0">
           <summary>다른 나라 태풍정보 (JMA · JTWC)</summary>
           <div class="btns" style="margin:6px 0 4px"><button id="typFetchJma" style="flex:1" title="일본 기상청(JMA) 공개 자료 — 경로·아이콘·반경(予報円·暴風域·強風域)">일본 기상청(JMA)에서 불러오기</button></div>
           <div class="btns" style="margin:4px 0"><button id="typJtwcDl" style="flex:1" title="미해군 합동태풍경보센터(JTWC) — 통보문(.tcw) 파일을 받아 창에 끌어다 놓거나 아래 '수동 붙여넣기'에 붙이면 그려집니다">미해군(JTWC) 자료 받기 →</button></div>
-          <p class="hint" style="margin:4px 0 0">JTWC는 위 링크에서 통보문(.tcw)을 받아 <b>창에 끌어다 놓거나</b> 아래 <b>수동 붙여넣기</b>에 붙이면 그려집니다.</p>
+          <p class="hint" style="margin:4px 0 0">JTWC는 받은 .tcw를 <b>창에 끌어다 놓거나</b> 아래에 붙여넣기.</p>
         </details>
         <div class="row"><label>태풍</label><select id="typWhichSel" style="flex:1"></select></div>
-        <div class="row"><label>이름</label><input id="typName" type="text" placeholder="예: 개미 (기상청 API엔 이름이 없어 직접 입력·저장)" style="flex:1"></div>
+        <div class="row"><label>이름</label><input id="typName" type="text" placeholder="예: 개미 (직접 입력)" style="flex:1"></div>
         <div class="row"><label>발표 시각</label><select id="typIssueSel" style="flex:1"></select></div>
         <div class="btns" style="margin:6px 0"><button id="typPlay" style="flex:1">애니메이션 확인</button></div>
         <div class="subhead">경로 표시 방식</div>
@@ -257,30 +257,29 @@
           <div class="row"><label>모드</label><div class="mode" id="typTrackMode" style="flex:1;display:flex"><button data-tm="full" type="button" style="flex:1">일반 모드</button><button data-tm="line" type="button" style="flex:1">라인 모드</button></div></div>
           <div class="row"><label>라인 색</label><input type="color" id="typLineColor"><input type="text" id="typLineColorHex"></div>
           <div class="row"><label>경로선 두께</label><input type="range" id="typLineWidth" min="1" max="16" step="0.5"><span class="v" id="typLineWidthV"></span></div>
-          <p class="hint" style="margin:2px 0 0">경로선 두께와 아래 아이콘 크기는 <b>일반·라인 모드 모두</b> 적용됩니다. 라인 모드는 과거 아이콘·예상경로·반경·시각 라벨을 숨기고 아이콘 하나가 현재 위치까지 이동합니다.</p>
+          <p class="hint" style="margin:2px 0 0">두께·아이콘 크기는 <b>일반·라인 모드 모두</b> 적용.</p>
         </div>
         <p class="hint" id="typInfo"></p>
-        <p class="hint" style="margin:2px 0">여러 기관 예보선을 겹쳐 비교하려면 맨 위 <b>CG 구성 → 지도 종류</b>에서 <b>태풍 비교</b>를 고르세요.</p>
+        <p class="hint" style="margin:2px 0">여러 예보 비교는 <b>CG 구성 → 태풍 비교</b>.</p>
         <!-- 자동이 안 될 때: 수동 입력 (분리) -->
         <div class="fieldGroup" style="margin:8px 0;border:1px dashed var(--outline-var);border-radius:10px;padding:8px">
           <div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기</div>
           <div class="btns" style="margin:0 0 4px"><button id="typOpen" style="flex:1">태풍정보 새 창으로 열기</button></div>
-          <textarea id="typPaste" rows="2" placeholder="기상청 새 창 JSON 전체 복사 → 붙여넣기 / 또는 JTWC 통보문(.tcw) 내용 붙여넣기"></textarea>
+          <textarea id="typPaste" rows="2" placeholder="새 창 JSON 또는 JTWC(.tcw) 내용 붙여넣기"></textarea>
           <div class="btns" style="margin:4px 0 0"><button id="typPasteApply" style="flex:1">붙여넣은 걸로 표시</button></div>
-          <p class="hint" style="margin:5px 0 0">JTWC는 통보문(.tcw) 파일을 열어 내용을 붙여넣거나, 파일을 <b>창에 끌어다 놓으면</b> 됩니다.</p>
+          <p class="hint" style="margin:5px 0 0">.tcw 파일은 <b>창에 끌어다 놓아도</b> 돼요.</p>
         </div>
-        <p class="hint" style="margin:2px 0">제목·단위·범례는 <b>제목 텍스트 / 범례</b> 메뉴에서 노말 CG와 똑같이 조절합니다.</p>
         <div class="btns" style="margin:4px 0 2px"><button id="typAddTD" style="flex:1" title="발생(앞)·소멸(뒤) 열대저압부(TD)를 기상청 td_now의 실제 좌표로 앞뒤에 이어붙입니다. 불러오기 때 자동으로도 붙습니다. 한 번 더 누르면 취소(원복).">발생·소멸 열대저압부(TD) 붙이기</button></div>
-        <div class="subhead">지난 구간 <span>· 이전은 흑백 · 예상반경 제외</span></div>
+        <div class="subhead">지난 구간 <span>· 이전은 흑백</span></div>
         <div class="row"><label>현재 시각</label><input type="range" id="typNow" min="0" max="10" step="1"><span class="v" id="typNowV"></span></div>
         <div class="subhead">표시 날짜 범위 <span>· 원하는 기간만</span></div>
         <div class="fieldGroup">
           <label class="chk" style="margin-bottom:4px"><input type="checkbox" id="typRangeOn">이 기간만 표시</label>
           <div class="row"><label>시작</label><input type="datetime-local" id="typRangeFrom" step="3600" style="flex:1"></div>
           <div class="row"><label>끝</label><input type="datetime-local" id="typRangeTo" step="3600" style="flex:1"></div>
-          <p class="hint" style="margin:2px 0 0">경로 전체 중 이 날짜(KST) 구간만 지도에 표시합니다. 예: 7/10~7/20.</p>
+          <p class="hint" style="margin:2px 0 0">시각은 KST 기준.</p>
         </div>
-        <div class="subhead">반경 스타일 <span>· 면색 · 외곽 점선 · 굵기</span></div>
+        <div class="subhead">반경 스타일</div>
         <div id="typBands"></div>
         <div class="subhead">태풍 아이콘</div>
         <div class="fieldGroup">
@@ -290,9 +289,9 @@
           <div class="row"><label>글로우</label><label class="chk" style="flex:1"><input type="checkbox" id="typGlowOn">아이콘 뒤 은은한 빛</label></div>
           <div class="row"><label>글로우 강도</label><input type="range" id="typGlowStr" min="0" max="1" step="0.05"><span class="v" id="typGlowStrV"></span></div>
           <div class="row"><label>글로우 색</label><input type="color" id="typGlowCol"><input type="text" id="typGlowHex"><button id="typGlowAuto" title="아이콘 색을 따라가기" style="flex:0 0 auto">자동</button></div>
-          <p class="hint" style="margin:2px 0 0"><b>강도 숫자</b>: 기상청 태풍강도(1~5)를 원 안 숫자·색으로 표시(17m/s 미만=점). <b>태풍 아이콘</b>: 넣어둔 일러스트. 글로우 색을 비우면(자동) 아이콘 색을 따라갑니다.</p>
+          <p class="hint" style="margin:2px 0 0"><b>강도 숫자</b> = 태풍강도 1~5(17m/s 미만은 점).</p>
         </div>
-        <p class="hint">라벨(표시할 시각·내용)은 <b>수치 라벨</b>에서, 지형·남한강조·광역색·화면맞춤은 <b>지도 위치</b>에서 조절합니다. 제목·단위는 <b>제목 텍스트</b>, 범례는 <b>범례</b> 섹션에서.</p>
+        <p class="hint">라벨은 <b>수치 라벨</b>, 지형·색은 <b>지도 위치</b>, 제목·범례는 <b>제목 텍스트 / 범례</b>에서.</p>
       </div>
     </div>
 
@@ -300,7 +299,7 @@
       <h3>지명표시</h3>
       <div class="body">
         <div class="row wide"><input type="text" id="placeInput" placeholder="지명 입력 (예: 서울, 오키나와)" style="flex:1"><button id="placeAdd" style="flex:0 0 auto">지명</button><button id="placeAddSub" style="flex:0 0 auto" title="흰 점 + 작은 흰 글씨(박스·선 없음)">부지명</button></div>
-        <p class="hint" style="margin:2px 0 6px"><b>지명</b>=원+이름표(같은 색). <b>부지명</b>=작은 흰 점+작은 흰 글씨(박스·선 없음). 이름표는 드래그로 옮기고, 색은 목록에서 변경.</p>
+        <p class="hint" style="margin:2px 0 6px"><b>지명</b>=원+이름표 · <b>부지명</b>=흰 점+글씨. 끌어서 옮겨요.</p>
         <div class="row"><label>이름표 크기</label><input type="range" id="placeSize" min="16" max="80" step="1"><span class="v" id="placeSizeV"></span></div>
         <div id="placeList"></div>
       </div>
@@ -309,7 +308,7 @@
     <div class="sec special" data-sec="typhoonCompare">
       <h3>태풍 비교</h3>
       <div class="body">
-        <div class="subhead">불러오기 <span>· 불러오면 아래 목록에 자동 추가</span></div>
+        <div class="subhead">불러오기 <span>· 목록에 자동 추가</span></div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="tycFetch" style="flex:1">기상청에서 불러오기</button></div>
         <div class="btns" style="margin:4px 0"><button id="tycFetchJma" style="flex:1" title="일본 기상청(JMA)">일본 기상청(JMA)</button><button id="tycJtwcDl" style="flex:1" title="미해군(JTWC) 통보문 받기">미해군(JTWC) →</button></div>
         <div class="row"><label>가져올 태풍</label><select id="tycWhichSel" style="flex:1"></select></div>
@@ -325,14 +324,14 @@
             <label class="swtch"><span>선택 이미지 표시</span><input type="checkbox" id="tycRefShow"></label>
             <div class="row"><label>투명도</label><input type="range" id="tycRefOp" min="0.1" max="1" step="0.05"><span class="v" id="tycRefOpV"></span></div>
             <div class="btns" style="margin:4px 0 0"><button id="tycRefRemove" class="ghost" style="flex:1">선택 이미지 제거</button></div>
-            <p class="hint" style="margin:5px 0 0">칩으로 이미지 선택 · 모서리=크기(<b>Shift=정비율</b>) · 위쪽 원=회전 · 본체 드래그=이동 · <b>Delete</b>=삭제. 펜툴로 그 위를 대고 그리세요.</p>
+            <p class="hint" style="margin:5px 0 0">모서리=크기(<b>Shift</b> 정비율) · 위 원=회전 · <b>Delete</b>=삭제</p>
           </div>
         </div>
-        <label class="chk" style="margin:6px 0;gap:6px"><input type="checkbox" id="tycLegend">범례 표시(기관 이름·색)</label>
+        <label class="chk" style="margin:6px 0;gap:6px"><input type="checkbox" id="tycLegend">범례 표시</label>
         <div class="subhead">비교 예보 <span>· 태풍마다 설정</span></div>
         <div id="tycList"></div>
         <div class="btns" style="margin:8px 0 4px"><button id="tycPlay" style="flex:1">애니메이션 확인</button></div>
-        <p class="hint" style="margin:2px 0">각 태풍을 색선으로 겹쳐 비교합니다. 선 이름은 캔버스에서 <b>드래그·더블클릭</b>으로 옮기고 고칩니다. 지도 배경·위치·제목은 <b>지도 위치 / 제목 텍스트</b>에서, 진행 타이밍은 <b>타임라인</b>에서.</p>
+        <p class="hint" style="margin:2px 0">선 이름은 <b>끌어서</b> 옮기고 <b>더블클릭</b>으로 고쳐요.</p>
       </div>
     </div>
 
@@ -349,23 +348,23 @@
           <input type="date" id="wrnDate"><input type="time" id="wrnTime" step="600">
         </div>
         <div class="subhead">2. 특보 불러오기</div>
-        <div class="nokey" data-nokey>인증키가 없습니다 — <b>오른쪽 아래 톱니바퀴(API 설정)</b>에서 넣어주세요.</div>
+        <div class="nokey" data-nokey>인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="wrnFetch" style="flex:1">기상청에서 불러오기</button></div>
-        <p class="hint" style="margin-top:0">누르면 <b>지금(또는 위에서 고른 시각)</b>의 특보현황을 자동으로 불러와 색칠합니다. (태풍 지도와 같은 방식)</p>
+        <p class="hint" style="margin-top:0">고른 시각의 특보를 불러와 칠해요.</p>
         <div class="row" id="wrnBulletinRow" style="display:none"><label>통보문</label><select id="wrnBulletinSel" style="flex:1" title="표출할 특보 발표(통보문)를 고르세요 — 최신이 기본"></select></div>
         <div class="wrnRes" id="wrnResult" role="status" aria-live="polite" hidden></div>
 
         <div class="subhead">자동이 안 될 때 · 수동 붙여넣기</div>
         <div class="btns" style="margin-bottom:6px"><button id="wrnOpen">기상청 특보현황 새 창으로 열기</button></div>
-        <p class="hint" style="margin-top:0">새 창의 글자를 <b>전체 선택(Ctrl+A) → 복사(Ctrl+C)</b> 해서 아래에 붙여넣으세요.</p>
-        <textarea id="wrnPaste" rows="4" placeholder="새 창에서 복사한 내용을 여기에 붙여넣기 (#START7777 ...)"></textarea>
+        <p class="hint" style="margin-top:0">새 창에서 <b>Ctrl+A → Ctrl+C</b> 후 붙여넣기.</p>
+        <textarea id="wrnPaste" rows="4" placeholder="복사한 내용 붙여넣기 (#START7777 ...)"></textarea>
         <div class="btns" style="margin:6px 0">
           <button class="pri" id="wrnApply">붙여넣은 걸로 칠하기</button>
           <button id="wrnClear">특보 색 지우기</button>
         </div>
         <div id="wrnList"></div>
         <p class="hint" id="wrnInfo"></p>
-        <div class="subhead">특보 종류별 색 <span>· 주의보 / 경보 · 위에서부터 우선</span></div>
+        <div class="subhead">특보 종류별 색 <span>· 주의보 / 경보 · 위가 우선</span></div>
         <div id="wrnCols"></div>
       </div>
     </div>
@@ -374,28 +373,30 @@
       <h3>기상예보 자동 색칠</h3>
       <div class="body">
         <!-- 통보문으로 색칠 (강수량 문자) — 맨 위로 -->
-        <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 강수량 문자 붙여넣기</span></div>
+        <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 강수량 붙여넣기</span></div>
         <div class="bulBox">
-          <p class="hint" style="margin-top:0">기상청 <b>통보문</b>의 강수량 부분을 그대로 붙여넣으면 <b>지금 보는 지도</b>에 자동으로 칠하고 숫자 라벨을 만듭니다. 시도군 지도에선 그 도의 시군을 전부 칠해 미세 조정할 수 있습니다.</p>
+          <p class="hint" style="margin-top:0"><b>통보문</b> 강수량 부분을 붙여넣으면 자동으로 칠해요.</p>
           <div class="btns" style="margin:0 0 8px">
             <a class="btn linkBtn pri" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지 열기 — 거기서 통보문을 복사하세요">단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
             <button type="button" id="bulHelpBtn" title="통보문에서 복사할 부분을 그림으로 보기">복사할 부분 보기</button>
           </div>
           <textarea id="bulPaste" rows="5" placeholder="- (수도권, 16일) 경기남서부: 5mm 안팎&#10;- (충청권) 대전.세종.충남, 충북: 20~60mm&#10;- (전라권) 전북, 광주.전남: 30~80mm&#10;..."></textarea>
           <div class="btns" style="margin:6px 0; flex-direction:column; align-items:stretch; gap:5px">
-            <label class="chk"><input type="checkbox" id="bulLabels" checked><span>숫자 라벨도 만들기 <span style="opacity:.6">(윗줄 지역명은 수치 라벨 탭에서 조절)</span></span></label>
-            <label class="chk"><input type="checkbox" id="bulSoft">부드러운 경계 (아사모사) — 색을 경계에서 흐릿하게 섞기</label>
+            <label class="chk"><input type="checkbox" id="bulLabels" checked><span>숫자 라벨도 만들기 <span style="opacity:.6">(지역명은 수치 라벨에서)</span></span></label>
+            <label class="chk"><input type="checkbox" id="bulSoft">부드러운 경계 (아사모사)</label>
           </div>
           <div class="btns" style="margin-bottom:2px"><button class="pri" id="bulApply">통보문으로 색칠</button></div>
           <p class="hint" id="bulInfo" style="margin-bottom:0"></p>
           <div class="bulList" id="bulList"></div>
         </div>
 
-        <!-- 기상청 예보 API로 색칠 (성격이 다른 메뉴 — 배경색으로 구분) -->
-        <div class="subhead">기상청 예보 API로 색칠 <span>· 단기·중기 예보 붙여넣기</span></div>
+        <!-- 기상청 예보 API로 색칠 (성격이 다른 메뉴 — 배경색으로 구분). 잘 안 써서 기본 접힘 —
+             제목 줄(#fctFoldHead)을 누르면 펼침/접힘, 펼침 상태는 localStorage 'wcg_fct_api_open'(wire()에서 배선) -->
+        <button type="button" class="subhead fctFoldHead" id="fctFoldHead" aria-expanded="false" aria-controls="fctFold">기상청 예보 API로 색칠 <span>· 단기·중기</span></button>
+        <div class="fctFold closed" id="fctFold">
+        <div class="fctFoldInner">
         <div class="fctBox">
-          <p class="hint" style="margin-top:0">세 가지 모두 <b>시도군 구분 / 시도 구분</b> 어느 쪽에도 칠할 수 있습니다 — 위에서 지도를 바꾸면 그 단위에 맞춰 다시 칠해집니다.
-중기 육상은 원래 광역 단위라 시도군 지도에서는 같은 광역이 한 색으로 나옵니다. 특보 지도에는 예보가 안 들어갑니다.</p>
+          <p class="hint" style="margin-top:0">시도군·시도 지도에 칠해요(특보 지도 제외).</p>
           <div class="subhead">1. 어떤 예보</div>
           <div class="btns" id="fctKindBtns" style="margin-bottom:6px"></div>
           <div class="subhead">2. 언제 발표한 것</div>
@@ -406,10 +407,10 @@
           <div class="row" id="fctPastRow" style="display:none">
             <label>날짜</label><input type="date" id="fctDate">
           </div>
-          <div class="nokey" data-nokey>인증키가 없습니다 — <b>오른쪽 아래 톱니바퀴(API 설정)</b>에서 넣어주세요.</div>
+          <div class="nokey" data-nokey>인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
           <div class="btns" style="margin-bottom:6px"><button class="pri" id="fctOpen">기상청 예보 새 창으로 열기</button></div>
           <div class="subhead">3. 붙여넣기</div>
-          <textarea id="fctPaste" rows="4" placeholder="새 창에서 복사한 내용을 여기에 붙여넣기 (#START7777 ...)"></textarea>
+          <textarea id="fctPaste" rows="4" placeholder="복사한 내용 붙여넣기 (#START7777 ...)"></textarea>
           <div class="btns" style="margin:6px 0">
             <button class="pri" id="fctApply">붙여넣은 걸로 읽기</button>
             <button id="fctClear">예보 색 지우기</button>
@@ -436,6 +437,8 @@
           <div id="fctList"></div>
           <p class="hint" id="fctInfo"></p>
         </div>
+        </div>
+        </div>
       </div>
     </div>
 
@@ -446,8 +449,7 @@
         <div class="row"><label>기본 색</label><input type="color" id="seaBase"><input type="text" id="seaBaseHex"></div>
         <div class="row"><label>기본 농도</label><input type="range" id="seaBaseOp" min="0" max="100" step="1"><span id="seaBaseOpV" class="v"></span></div>
         <div class="row"><label>가장자리</label><input type="range" id="seaFade" min="0" max="45" step="1"><span id="seaFadeV_" class="v"></span></div>
-        <p class="hint">기상청 해상 특보구역 44개 (앞바다 27 + 먼바다 17). 안 칠한 구역은 기본 농도만큼만 비칩니다 — 0이면 안 보입니다. 이 항목은 <b>특보 + 해상</b> 지도에서만 나옵니다.
-먼바다는 멀리 있어서 지도를 줄여야 화면에 들어옵니다.</p>
+        <p class="hint">안 칠한 구역은 기본 농도로 보여요(0=숨김). 먼바다는 지도를 줄여야 보여요.</p>
         <div class="btns"><button id="seaClear">바다 색 지우기</button></div>
       </div>
     </div>
@@ -455,7 +457,7 @@
     <div class="sec" data-sec="res">
       <h3>배경 · 가이드</h3>
       <div class="body">
-        <div class="subhead" style="margin-top:0">CG 모드 <span>· 배경·베이스·경계선·실루엣·폰트 세트</span></div>
+        <div class="subhead" style="margin-top:0">CG 모드 <span>· 배경·색·폰트 세트</span></div>
         <div class="mode" id="cgMode" style="margin-bottom:10px">
           <button data-cg="dark" type="button">어두운</button>
           <button data-cg="light" type="button">밝은</button>
@@ -471,7 +473,7 @@
           <label class="chk" style="flex:1"><input type="checkbox" id="showNW">북한</label>
           <label class="chk" style="flex:1"><input type="checkbox" id="showJP">일본</label>
         </div>
-        <p class="hint">가이드는 화면에서만 보이고 추출·렌더에는 절대 안 들어갑니다. 해상도에 맞는 가이드가 자동으로 바뀝니다.</p>
+        <p class="hint">가이드는 화면에만 보여요(추출 안 됨).</p>
         <div class="btns"><button id="bgFile">배경 이미지 교체…</button></div>
       </div>
     </div>
@@ -486,18 +488,18 @@
         <div class="row"><label>베이스</label><input type="color" id="baseCol"><input type="text" id="baseColHex"><button id="baseUse" style="flex:none">지우개</button></div>
         <div class="row"><label>직접</label><input type="color" id="newCol"><input type="text" id="newColHex" placeholder="#3C4875"><button id="addCol" style="flex:none">추가</button></div>
         <div class="pal" id="palCustom"></div>
-        <p class="hint">조각 클릭 = 칠하기 (드래그하면 연속). <b>같은 색을 한 번 더 누르면 지워집니다.</b> 우클릭 = 베이스로 되돌리기.</p>
+        <p class="hint">클릭=칠하기 · <b>같은 색 다시=지우기</b> · 우클릭=베이스</p>
 
-        <div class="subhead">브러쉬 <span>· 영역 안에만 부드럽게 덧칠</span></div>
-        <p class="hint" style="margin-top:0">상단 <b>브러쉬</b> 모드에서 지도의 한 영역을 <b>끌어서</b> 칠합니다. 처음 누른 영역(예: 강원) 안에만 칠해집니다. 통보가 애매할 때 그라디언트로 표현할 때 씁니다.</p>
+        <div class="subhead">브러쉬 <span>· 영역 안에만 덧칠</span></div>
+        <p class="hint" style="margin-top:0"><b>브러쉬</b> 모드에서 끌면 처음 누른 영역 안에만 칠해요.</p>
         <div class="row"><label>크기</label><input type="range" id="brSize" min="6" max="120" step="1"><span id="brSizeV" class="v"></span></div>
         <div class="row"><label>진하기</label><input type="range" id="brOp" min="1" max="100" step="1"><span id="brOpV" class="v"></span></div>
         <div class="row"><label>부드럽게</label><input type="range" id="brSoft" min="0" max="100" step="1"><span id="brSoftV" class="v"></span></div>
         <div class="btns"><button id="brErase">지우개 브러쉬</button><button id="brClear">브러쉬 전부 지우기</button></div>
 
-        <div class="subhead">칠한 색 계열 바꾸기 <span>· 진하기 순서는 그대로</span></div>
+        <div class="subhead">칠한 색 계열 바꾸기 <span>· 진하기 그대로</span></div>
         <div class="btns" id="swapRamp"></div>
-        <p class="hint">이미 칠한 색을 통째로 다른 계열로 옮깁니다. 같은 색 라벨도 같이 따라갑니다.</p>
+        <p class="hint">칠한 색·라벨을 통째로 바꿔요.</p>
         <div class="btns"><button id="clearAll">전체 지우기</button></div>
       </div>
     </div>
@@ -511,10 +513,10 @@
           <div class="row"><label>세로 Y</label><input type="number" id="mapPosY" step="1" style="flex:1"></div>
           <div class="row"><label>확대</label><input type="number" id="mapPosS" step="0.001" min="0.02" max="4" style="flex:1"></div>
           <div class="btns" style="margin:4px 0 0"><button id="mapPosApply" style="flex:1">이 숫자로 이동</button><button id="mapPosCopy" style="flex:0 0 auto" title="X·Y·확대 값을 복사">복사</button></div>
-          <label class="chk" style="margin:8px 0 0;gap:6px"><input type="checkbox" id="mapLock"><b>지도 잠금</b> · 실수로 안 움직이게(팬·줌·휠·방향키 차단)</label>
+          <label class="chk" style="margin:8px 0 0;gap:6px"><input type="checkbox" id="mapLock"><b>지도 잠금</b> · 팬·줌 막기</label>
         </div>
         <div class="tyMap" style="display:none">
-          <p class="hint" style="margin-top:0">지도 위치·크기는 상단 <b>이동</b> 모드에서 끌어서 맞춥니다 (파란 핸들 = 크기). 방향키로 1px씩(Shift = 10px).</p>
+          <p class="hint" style="margin-top:0"><b>이동</b> 모드에서 끌어 맞춰요. 방향키 1px(Shift 10px).</p>
           <div class="subhead">지형(음영기복)</div>
           <div class="row"><label>강도</label><input type="range" id="typTerrain" min="0" max="1" step="0.05"><span class="v" id="typTerrainV"></span></div>
           <div class="subhead">남한 강조</div>
@@ -538,8 +540,8 @@
           </div>
         </div>
         <div class="korMap">
-        <p class="hint" style="margin-top:0">지도 위치·크기는 상단 <b>이동</b> 모드에서 끌어서 맞춥니다 (파란 핸들 = 크기). 방향키로 1px씩(Shift = 10px).</p>
-        <div class="subhead">경계선 <span>· 전부 렌더에 나갑니다</span></div>
+        <p class="hint" style="margin-top:0"><b>이동</b> 모드에서 끌어 맞춰요. 방향키 1px(Shift 10px).</p>
+        <div class="subhead">경계선 <span>· 렌더에 나감</span></div>
         <div class="fieldGroup">
           <div class="row"><label id="realLab">구역선 (칠 안쪽)</label><button class="eye" id="realEye" title="켜기/끄기"></button><input type="color" id="realCol"><input type="text" id="realColHex"><input type="number" id="realW" step="0.1" style="flex:0 0 54px"></div>
           <div class="row"><label>└ 투명도</label><input type="range" id="realOp" min="0" max="100" step="1"><span id="realOpV" class="v"></span></div>
@@ -561,7 +563,6 @@
           <div class="row"><label>진하기</label><input type="range" id="shOp" min="0" max="100" step="1"><span id="shOpV" class="v"></span></div>
           <div class="row"><label>그림자색</label><input type="color" id="shCol"><input type="text" id="shColHex"></div>
         </div>
-        <p class="hint">아무것도 선택 안 된 상태에서 방향키 = 지도 1px 이동 (Shift = 10px).</p>
         </div>
       </div>
     </div>
@@ -579,11 +580,11 @@
         <div class="btns"><button id="addText">+ 텍스트 추가</button></div>
         <div id="vfScaleUI" style="display:none;margin-top:12px;border-top:1px solid var(--outline-var);padding-top:10px">
           <div class="row wide"><label>VF 전체 크기</label><input type="range" id="vfScale" min="50" max="150" step="1"><span class="v" id="vfScaleV">100%</span></div>
-          <p class="hint" style="margin:4px 0 7px">이동 모드에서 파란 배경판 왼쪽아래 핸들로도 조절합니다. 오른쪽위는 고정됩니다.</p>
+          <p class="hint" style="margin:4px 0 7px">이동 모드에서 왼쪽 아래 핸들로도 조절.</p>
         </div>
         <div id="vfBarUI" style="display:none;margin-top:12px;border-top:1px solid var(--outline-var);padding-top:10px">
           <label class="chk"><input type="checkbox" id="vfBarOn">제목 바 (VF 배경 크롭)</label>
-          <p class="hint" style="margin:4px 0 7px">이동 모드에서 <b>끌어 옮기고</b> 오른쪽아래 <b>파란 핸들로 크기</b> 조절. 아래 숫자로도 됩니다. 제목 글자는 위 <b>텍스트 추가</b>로 얹으세요.</p>
+          <p class="hint" style="margin:4px 0 7px">이동 모드에서 끌어 옮기고 핸들로 크기 조절.</p>
           <div class="row wide"><label>X / Y</label><input type="number" id="vfBarX" step="1"><input type="number" id="vfBarY" step="1"></div>
           <div class="row wide"><label>폭 / 높이</label><input type="number" id="vfBarW" step="1"><input type="number" id="vfBarH" step="1"></div>
           <div class="row wide"><label>그림자 농도</label><input type="range" id="vfBarShOp" min="0" max="100" step="1"><span class="v" id="vfBarShOpV"></span></div>
@@ -614,9 +615,9 @@
       <h3>수치 라벨</h3>
       <div class="body">
         <div class="tyLabel" style="display:none">
-          <div class="subhead" style="margin-top:0">라벨 표시할 시각 <span>· 체크한 시각에 라벨 생성</span></div>
+          <div class="subhead" style="margin-top:0">라벨 표시할 시각 <span>· 체크하면 생성</span></div>
           <div id="typLabelList" class="list" style="max-height:230px;overflow:auto"></div>
-          <p class="hint" style="margin:6px 0 0">체크하면 그 시각에 라벨이 생깁니다. 옆 칸에서 내용을 빠르게 고치거나, 지도의 <b>라벨을 클릭</b>하면 아래 <b>자세히 편집</b>에서 색·크기·윗줄·테두리까지 전부 바꿀 수 있어요.</p>
+          <p class="hint" style="margin:6px 0 0">지도에서 <b>라벨을 클릭</b>하면 아래에서 자세히 편집해요.</p>
         </div>
         <div class="korLabel">
         <div class="list" id="labelList"></div>
@@ -629,12 +630,12 @@
           <span class="v" id="labScaleV">100</span>%
         </div>
         <div class="row"><label>그림자</label><label class="chk" style="flex:1"><input type="checkbox" id="labShadow">지도와 같은 그림자</label></div>
-        <p class="hint" style="margin-top:4px">라벨 전부가 <b>제자리에서</b> 같이 커지고 작아집니다. 그림자는 <b>지도 위치·경계선·그림자</b>에서 조절합니다.</p>
-        <div class="subhead tyLabel" style="display:none">자세히 편집 <span>· 지도에서 라벨을 클릭</span></div>
+        <p class="hint" style="margin-top:4px">전체 크기 = 라벨 전부를 <b>제자리에서</b> 키우고 줄여요.</p>
+        <div class="subhead tyLabel" style="display:none">자세히 편집 <span>· 라벨 클릭</span></div>
         <div id="labelEdit" style="display:none;margin-top:10px">
           <div class="row wide"><label>내용</label><input type="text" id="lTxt"></div>
           <div class="btns" style="margin-bottom:7px"><button data-ins="⬆">⬆ 넣기</button><button data-ins="⬇">⬇ 넣기</button><button data-ins="~">~ 넣기</button></div>
-          <div class="subhead" style="margin-top:2px">부분 서식 <span>· 위 내용칸에서 글자를 드래그해 선택한 뒤</span></div>
+          <div class="subhead" style="margin-top:2px">부분 서식 <span>· 내용칸에서 글자 선택 후</span></div>
           <div class="row wide"><label>선택 글자색</label><input type="color" id="lRunCol"><button id="lRunColApply">색 적용</button></div>
           <div class="row wide"><label>선택 굵기</label>
             <select id="lRunW">
@@ -683,19 +684,19 @@
       <div class="body">
         <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgOn">제목 밑에 범례 표시</label>
         <div class="lgWarnOnly">
-          <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동 (눈 켠 것만, 색 자동)</label>
-          <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgHoriz">가로로 배치 (항목이 많을 때 — 제목 바 아래 띠)</label>
+          <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동</label>
+          <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgHoriz">가로로 배치</label>
           <div id="lgManual">
             <div class="list" id="lgList"></div>
             <div class="btns" style="margin:6px 0"><button id="lgAdd">+ 항목 추가</button></div>
           </div>
-          <p class="hint" id="lgAutoHint" style="margin:2px 0 8px;display:none">기상특보 목록에서 <b>눈을 켠</b> 특보가 색·이름 그대로 자동 표시됩니다. 눈을 끄면 빠집니다.</p>
+          <p class="hint" id="lgAutoHint" style="margin:2px 0 8px;display:none">특보 목록에서 <b>눈 켠</b> 특보만 나와요.</p>
         </div>
         <div class="lgTyOnly" id="typLegendBox" style="display:none">
           <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgHorizTy">가로로 배치</label>
-          <div class="subhead" style="margin-top:2px">표시할 항목 <span>· 눈으로 켜고 끄기 · 끌어서 순서</span></div>
+          <div class="subhead" style="margin-top:2px">표시할 항목 <span>· 끌어서 순서</span></div>
           <div class="list" id="typLegendList"></div>
-          <p class="hint" style="margin:4px 0 6px">강도 숫자 아이콘을 쓸 때 각 강도의 뜻을 범례에 넣습니다. 눈으로 표시할 것만 고르고, 끌어서 순서를 바꾸세요.</p>
+          <p class="hint" style="margin:4px 0 6px">강도 숫자 아이콘의 뜻을 범례로 보여줘요.</p>
         </div>
         <div class="row wide"><label>글자색</label><input type="color" id="lgTxtCol"><input type="text" id="lgTxtColHex"></div>
         <div class="row wide"><label>글자 크기</label><input type="range" id="lgSize" min="16" max="80" step="1"><span class="v" id="lgSizeV">34</span></div>
@@ -704,7 +705,7 @@
         <div class="row wide"><label>상자 둥글기</label><input type="range" id="lgRadius" min="0" max="30" step="1"><span class="v" id="lgRadiusV">6</span></div>
         <div class="row wide"><label>줄 간격</label><input type="range" id="lgRowGap" min="0" max="50" step="1"><span class="v" id="lgRowGapV">16</span></div>
         <div class="row wide"><label>상자·글자 간격</label><input type="range" id="lgGap" min="0" max="50" step="1"><span class="v" id="lgGapV">18</span></div>
-        <p class="hint" style="margin-top:4px">특보용 지도(특보구역·특보+해상)에서만 나옵니다. 화면에서 범례를 <b>끌어서</b> 위치를 옮기세요.</p>
+        <p class="hint" style="margin-top:4px">범례는 화면에서 <b>끌어서</b> 옮겨요.</p>
       </div>
     </div>
 
@@ -712,7 +713,7 @@
       <h3>산 표시</h3>
       <div class="body">
         <div class="list" id="mtnList"></div>
-        <div class="subhead" style="margin-top:0">빠른 배치 <span>· 지도에 고정, 옮기면 따라감</span></div>
+        <div class="subhead" style="margin-top:0">빠른 배치 <span>· 지도에 고정</span></div>
         <div class="btns" id="mtnPresets" style="margin-bottom:6px"></div>
         <div class="btns"><button id="addMtn">+ 직접 추가 (화면 가운데)</button></div>
         <div class="row wide" style="margin-top:9px">
@@ -720,7 +721,7 @@
           <input type="range" id="mtnScale" min="30" max="200" step="1">
           <span class="v" id="mtnScaleV">100</span>%
         </div>
-        <p class="hint">더블클릭하면 산 이름을 넣을 수 있습니다. 이동 모드에서 끌어서 옮기고, 파란 핸들로 크기를 맞춥니다. 전체 크기는 모든 산이 <b>제자리에서</b> 같이 커지고 작아집니다.</p>
+        <p class="hint">더블클릭=이름 넣기 · 이동 모드에서 끌어 옮기기</p>
         <div id="mtnEdit" style="display:none;margin-top:10px">
           <div class="row wide"><label>이름</label><input type="text" id="mTxt" placeholder="(없으면 산만)"></div>
           <div class="row wide"><label>색</label><input type="color" id="mCol"><input type="text" id="mColHex"></div>
@@ -1170,15 +1171,15 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/labels-mountains.js?v=ed7b1391"></script>
 <script src="js/typhoon-core.js?v=499ee16c"></script>
 <script src="js/typhoon-render.js?v=d0c379ef"></script>
-<script src="js/typhoon-panel.js?v=21ef540e"></script>
+<script src="js/typhoon-panel.js?v=56b6e9a8"></script>
 <script src="js/typhoon-api.js?v=dff04bf9"></script>
 <script src="js/panels.js?v=5a0de650"></script>
 <script src="js/view-camera.js?v=b67be5f2"></script>
 <script src="js/pointer-drag.js?v=34b47f2a"></script>
 <script src="js/warnings.js?v=fba4f760"></script>
-<script src="js/warnings-apply.js?v=f98d8b76"></script>
-<script src="js/bulletin.js?v=9f67a71e"></script>
-<script src="js/forecast-panel.js?v=6255a413"></script>
+<script src="js/warnings-apply.js?v=6034c101"></script>
+<script src="js/bulletin.js?v=d1bfdb46"></script>
+<script src="js/forecast-panel.js?v=80d231d0"></script>
 <script src="js/warnings-load.js?v=f130397b"></script>
 <script src="js/presets.js?v=a55f520a"></script>
 <script src="js/cg-setup.js?v=225ae355"></script>
@@ -1189,7 +1190,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/export-blobs.js?v=8a163fbc"></script>
 <script src="js/ae-export.js?v=a526f4bc"></script>
 <script src="js/project-io.js?v=2a59fd24"></script>
-<script src="js/wiring.js?v=9cd22f49"></script>
+<script src="js/wiring.js?v=9f9aaf56"></script>
 <script src="js/anim.js?v=c2a7515d"></script>
 <script src="js/timeline-ui.js?v=dcfd671a"></script>
 <script src="js/floating-panels.js?v=0ac75a13"></script>

@@ -44,7 +44,7 @@ function compareCardBodyHTML(c, i) {
     + `<label class="swtch"><span>범례</span><input type="checkbox" data-i="${i}" data-cmplegend="1" ${c.showLegend !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>표시 날짜범위</span><input type="checkbox" data-i="${i}" data-cmprange="1" ${c.rangeOn ? 'checked' : ''}></label>`
     + `<div class="row" data-rangebox="${i}" style="gap:5px;margin:2px 0${c.rangeOn ? '' : ';display:none'}"><input type="date" data-i="${i}" data-cmpfrom="1" min="${dMin}" max="${dMax}" value="${c.rangeFrom || dMin}" style="flex:1"><span style="opacity:.55">~</span><input type="date" data-i="${i}" data-cmpto="1" min="${dMin}" max="${dMax}" value="${c.rangeTo || dMax}" style="flex:1"></div>`
-    + `<div class="subhead" style="margin:7px 0 3px">수치 라벨 <span>· 체크한 시각에 태풍색 라벨</span></div>`
+    + `<div class="subhead" style="margin:7px 0 3px">수치 라벨 <span>· 체크한 시각</span></div>`
     + `<div class="row" style="gap:6px;margin:3px 0"><label style="flex:0 0 auto;font-size:11px">글자 크기·색</label><input type="number" data-i="${i}" data-numsize="1" min="16" max="90" value="${c.numSize || 40}" style="flex:0 0 54px"><input type="color" data-i="${i}" data-numcol="1" value="${c.numCol || '#FFFFFF'}" style="flex:0 0 32px"></div>`
     + `<div class="list" style="max-height:200px;overflow:auto">` + ptRows + `</div>`
     + `<div class="subhead" style="margin:7px 0 3px">이름표 글꼴</div>`
@@ -53,7 +53,7 @@ function compareCardBodyHTML(c, i) {
     + (c.manual ? (`<div class="subhead" style="margin:7px 0 3px">수동 경로 편집</div>`
       + `<div class="btns" style="margin:3px 0"><button data-i="${i}" data-cmpeditpts="1" style="flex:1">${penEditId === c.id ? '편집 끝내기' : '점 편집'}</button>`
       + (penEditId === c.id ? `<button data-i="${i}" data-cmpextend="1" style="flex:1">${penExtendId === c.id ? '이어그리기 끝(Enter)' : '이어그리기'}</button>` : '') + `</div>`
-      + (penEditId === c.id ? `<p class="hint" style="margin:3px 0 0">점 <b>드래그</b>=이동 · <b>더블클릭</b>=삭제 · 선 중간 <b>+</b>=추가 · <b>이어그리기</b>로 뒤에 더 찍기(Enter 완료)</p>` : '')) : '');
+      + (penEditId === c.id ? `<p class="hint" style="margin:3px 0 0">점 <b>드래그</b>=이동 · <b>더블클릭</b>=삭제 · 선 중간 <b>+</b>=추가</p>` : '')) : '');
 }
 // 태풍 카드 본문 핸들러 배선(root=그 태풍 섹션 요소, i=인덱스).
 function wireCompareCard(root, cmp, i) {
@@ -137,8 +137,8 @@ function buildCompareSection() {
     if (ri) { const sh = $('#tycRefShow'); if (sh) sh.checked = ri.show !== 0; const op = $('#tycRefOp'), opv = $('#tycRefOpV'); const v = ri.op == null ? 0.6 : ri.op; if (op) op.value = v; if (opv) opv.textContent = Math.round(v * 100) + '%'; } }
   const wrap = $('#tycList'); const cmp = (T.compare ||= []);
   if (wrap) wrap.innerHTML = cmp.length
-    ? '<p class="hint" style="margin:2px 0;opacity:.7">각 태풍은 아래 <b>전용 탭</b>으로 나옵니다 — 탭마다 수치라벨·범례·색·아이콘을 따로 조절.</p>'
-    : '<p class="hint" style="margin:2px 0;opacity:.6">아직 없음 — 위에서 예보를 불러오면 태풍마다 아래에 <b>전용 탭</b>이 생깁니다.</p>';
+    ? '<p class="hint" style="margin:2px 0;opacity:.7">태풍마다 아래 <b>전용 탭</b>에서 조절해요.</p>'
+    : '<p class="hint" style="margin:2px 0;opacity:.6">아직 없음 — 불러오면 아래에 <b>전용 탭</b>이 생겨요.</p>';
   buildCompareTyphoonSections();
 }
 
@@ -169,7 +169,7 @@ function buildTyphoonPanel() {
     (T.issues || []).forEach((it, i) => { const o = document.createElement('option'); o.value = i; o.textContent = it.label; issueSel.appendChild(o); });
     issueSel.value = String(T.sel || 0);
   }
-  const info = $('#typInfo'); if (info) info.textContent = T.fromApi ? '' : '지금은 샘플(6호 장미) 표시 중 — 기존 API 키로 실제 태풍을 불러옵니다.';
+  const info = $('#typInfo'); if (info) info.textContent = T.fromApi ? '' : '지금은 샘플(6호 장미) — 위에서 불러오세요.';
   const trackMode = T.trackMode || 'full';
   document.querySelectorAll('#typTrackMode button').forEach((b) => b.classList.toggle('on', b.dataset.tm === trackMode));
   { const lw = $('#typLineWidth'), lwV = $('#typLineWidthV'), v = (T.lineWidth == null ? 9.5 : T.lineWidth); if (lw) lw.value = v; if (lwV) lwV.textContent = v + 'px'; }

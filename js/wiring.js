@@ -419,6 +419,22 @@ function wire() {
     $('#fctInfo').textContent = '';
     status('예보 색 지움');
   };
+  // '기상청 예보 API로 색칠' 묶음 — 잘 안 써서 기본 접힘. 제목 줄을 누르면 펼침/접힘, 펼침 상태만 기억한다.
+  // (localStorage가 막혀도(시크릿·로드 실패 가드) 접힌 채로 그냥 동작하게 try/catch. 마크업 기본값이 접힘이라 첫 화면에 접히는 애니가 안 뜬다)
+  {
+    const head = $('#fctFoldHead'), fold = $('#fctFold'), KEY = 'wcg_fct_api_open';
+    if (head && fold) {
+      const setOpen = (open) => { fold.classList.toggle('closed', !open); head.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+      let open = false;
+      try { open = localStorage.getItem(KEY) === '1'; } catch (e) {}
+      setOpen(open);
+      head.onclick = () => {
+        const next = fold.classList.contains('closed');
+        setOpen(next);
+        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (e) {}
+      };
+    }
+  }
 
   // ---- API 설정 (우하단 플로팅) ----
   $('#apiGear').onclick = () => apiPop(!$('#apiPop').classList.contains('on'));

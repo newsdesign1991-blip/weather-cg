@@ -111,7 +111,7 @@ function paintFct() {
 
   const parts = [`${Object.keys(F).length}개 구역 칠함`];
   if (unknown) parts.push(`지도에 없는 예보구역 ${unknown}개`);
-  if (clash.size) parts.push(`⚠ ${[...clash].join('·')}은 안에서 예보가 갈려 가장 넓은 쪽만 나옵니다 — 시도군 지도를 쓰세요`);
+  if (clash.size) parts.push(`⚠ ${[...clash].join('·')}은 예보가 갈려 넓은 쪽만 — 시도군 지도 권장`);
   $('#fctInfo').textContent = parts.join(' · ');
 }
 
@@ -137,7 +137,7 @@ function buildFctList() {
   if (!list.length) return;
   const head = document.createElement('div');
   head.className = 'subhead';
-  head.innerHTML = '들어온 예보 <span>· 끄면 그 구역은 안 칠합니다</span>';
+  head.innerHTML = '들어온 예보 <span>· 끄면 안 칠함</span>';
   w.append(head);
   list.forEach((a, i) => {
     const on = !S.fctOff[a.label];
