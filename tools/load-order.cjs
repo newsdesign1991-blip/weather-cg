@@ -4,14 +4,23 @@
 //
 // 하는 일: index.html의 <script src="js/…"> 순서대로 파일을 읽어 원래 IIFE 본문으로 이어 붙이고 acorn(Node 내장)으로 파싱한 뒤,
 // '로드 때 실행되는' 최상위 문장(함수 선언이 아닌 모든 문장 — 리스너 등록, const 초기값, 즉시 실행 등)에서 출발해
-// 그 자리에서 '동기로' 닿는 최상위 이름을 따라간다(직접 호출·IIFE·forEach/map 등 동기 콜백·new Promise).
+// 그 자리에서 '동기로' 닿는 최상위 이름을 따라간다(직접 호출·IIFE·forEach/map 등 동기 콜백·new Promise,
+// 객체 리터럴로 초기화한 이름의 메서드 호출 `x.m()`·getter 읽기 `x.g` — 그 리터럴의 함수 속성으로).
 //   - syncViol  : 뒤 파일에 선언된 이름에 로드 중 동기로 닿음 → 분할 후 ReferenceError(TDZ) 또는 함수 없음. 0이어야 한다.
 //   - maybeViol : 사용자 함수에 넘긴 콜백 경유(동기일 수도) → 보수적으로 위반. 0이어야 한다.
 //   - deferGap  : 이벤트 리스너·타이머 콜백이 뒤 파일 이름을 씀 → 부팅 전 '파일 사이 틈'에 입력이 오면 오류 1줄(수용, 참고용).
-//   - typeofGuarded: typeof 로 감싼 뒤 파일 이름(참고용).
+//   - typeofGuarded: typeof 로 감싼 뒤 파일 이름. mode가 defer일 때만 참고용 — 로드 중(sync·maybe)이면 분할 후엔 늘
+//     'undefined'라 그 코드가 오류 없이 조용히 건너뛰어진다(한 파일일 때는 호이스팅으로 'function'이었다). 테스트가 0을 요구한다.
 //   - textForward: 같은 파일 안에서 뒤에 선언된 함수에 로드 때 기댐(호이스팅 의존). 그 둘을 떼어 놓으면 안 된다(참고용).
-//   - preBootTimers: boot.js가 아닌 파일이 로드 중 예약하는 타이머·rAF·then·Observer — '부팅 뒤'를 가정하면 안 된다(테스트가 허용 목록과 비교).
-// 종료코드: syncViol·maybeViol이 하나라도 있으면 1.
+//   - preBootTimers: boot.js가 아닌 파일이 로드 중 하는 지연 예약(타이머·rAF·then·queueMicrotask·Observer)과
+//     동기 이벤트 일으키기(dispatchEvent·click()·focus()·blur()) — '부팅 뒤'를 가정하면 안 되고, 그 콜백·리스너가 던지면
+//     로드 실패 가드가 치명 오류로 본다(MODULES.md 2장 규칙 4). 테스트가 허용 목록과 비교.
+//   - loadListeners: 로드 때 실행되는 최상위 코드의 addEventListener 등록(문서 순서). 같은 대상·이벤트는 등록 순서 = 실행 순서라
+//     테스트가 지금 순서를 고정해 둔다(MODULES.md 2장 규칙 7).
+// 한계(정적 분석): class 인스턴스 메서드·call/apply/bind를 거친 호출·계산된 속성 이름·객체를 함수에 넘긴 뒤의 호출,
+// eval·new Function은 따라가지 못한다. 그래서 배포 전에는 boot-check(실제 부팅)도 꼭 돌린다.
+// 종료코드: syncViol·maybeViol·로드 중 typeofGuarded가 하나라도 있으면 1(--json도 같다 — JSON은 끝까지 출력한 뒤.
+// 읽는 쪽은 종료코드와 상관없이 stdout을 읽을 것).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -63,9 +72,21 @@ const DEFER_NEW = { MutationObserver: 'observer', ResizeObserver: 'observer', In
 const isFn = (n) => n && (n.type === 'FunctionDeclaration' || n.type === 'FunctionExpression' || n.type === 'ArrowFunctionExpression');
 
 class Scope {
-  constructor(parent, kind, fnNode) { this.parent = parent; this.kind = kind; this.names = new Map(); this.fnNode = fnNode || (parent && parent.fnNode); }
+  constructor(parent, kind, fnNode) { this.parent = parent; this.kind = kind; this.names = new Map(); this.objs = null; this.fnNode = fnNode || (parent && parent.fnNode); }
   declare(name, fnValue) { if (!this.names.has(name) || fnValue) this.names.set(name, fnValue || null); }
+  // 객체 리터럴로 초기화한 이름: 함수 속성(메서드·화살표·getter)을 기억해 `x.m()`·`x.g`를 그 함수 호출로 본다
+  declareObj(d, isConst) { const m = d && d.id.type === 'Identifier' ? objMethods(d.init) : null; if (m) (this.objs ||= new Map()).set(d.id.name, { m, isConst }); }
   resolve(name) { for (let s = this; s; s = s.parent) if (s.names.has(name)) return s; return null; }
+}
+function objMethods(init) {
+  if (!init || init.type !== 'ObjectExpression') return null;
+  const m = new Map();
+  for (const p of init.properties) {
+    if (p.type !== 'Property' || p.computed || !isFn(p.value)) continue;
+    const k = p.key.type === 'Identifier' ? p.key.name : p.key.type === 'Literal' ? String(p.key.value) : null;
+    if (k != null) m.set(k, { fn: p.value, kind: p.kind });
+  }
+  return m.size ? m : null;
 }
 function patternNames(p, out = []) {
   if (!p) return out;
@@ -83,12 +104,12 @@ function hoistVars(node, scope) {
   if (Array.isArray(node)) { node.forEach((n) => hoistVars(n, scope)); return; }
   if (!node.type) return;
   if (isFn(node) || node.type === 'ClassDeclaration' || node.type === 'ClassExpression') return;
-  if (node.type === 'VariableDeclaration' && node.kind === 'var') for (const d of node.declarations) for (const n of patternNames(d.id)) scope.declare(n, isFn(d.init) ? d.init : null);
+  if (node.type === 'VariableDeclaration' && node.kind === 'var') for (const d of node.declarations) { for (const n of patternNames(d.id)) scope.declare(n, isFn(d.init) ? d.init : null); scope.declareObj(d, false); }
   for (const k in node) if (k !== 'type' && k !== 'loc' && node[k] && typeof node[k] === 'object') hoistVars(node[k], scope);
 }
 function declareBlock(stmts, scope) {
   for (const st of stmts) {
-    if (st.type === 'VariableDeclaration' && st.kind !== 'var') for (const d of st.declarations) for (const n of patternNames(d.id)) scope.declare(n, isFn(d.init) ? d.init : null);
+    if (st.type === 'VariableDeclaration' && st.kind !== 'var') for (const d of st.declarations) { for (const n of patternNames(d.id)) scope.declare(n, isFn(d.init) ? d.init : null); scope.declareObj(d, st.kind === 'const'); }
     else if (st.type === 'FunctionDeclaration') scope.declare(st.id.name, st);
     else if (st.type === 'ClassDeclaration') scope.declare(st.id.name, null);
   }
@@ -113,7 +134,7 @@ function analyze(topStatements) {
   for (const st of topStatements) {
     if (st.type === 'FunctionDeclaration') TOP.declare(st.id.name, st);
     else if (st.type === 'ClassDeclaration') TOP.declare(st.id.name, null);
-    else if (st.type === 'VariableDeclaration') for (const d of st.declarations) for (const n of patternNames(d.id)) TOP.declare(n, isFn(d.init) ? d.init : null);
+    else if (st.type === 'VariableDeclaration') for (const d of st.declarations) { for (const n of patternNames(d.id)) TOP.declare(n, isFn(d.init) ? d.init : null); TOP.declareObj(d, st.kind === 'const'); }
   }
   hoistVars(topStatements.filter((s) => s.type !== 'FunctionDeclaration'), TOP);
   const facts = new Map();
@@ -164,6 +185,13 @@ function analyze(topStatements) {
         const typeofGuard = parent && parent.type === 'UnaryExpression' && parent.operator === 'typeof';
         if (s === TOP) factOf(owner).topRefs.push({ name: node.name, at: node.start, ctx, typeofGuard });
         if (s) { const fv = s.names.get(node.name); if (fv) factOf(owner).uses.push({ target: fv, ctx, at: node.start, via: node.name }); }
+        // 객체 리터럴 메서드: x.m() 은 그 함수를 부름, x.g(getter)는 읽기만 해도 부름. const가 아니면(바뀔 수 있음) 'maybe'로
+        const o = s && s.objs && s.objs.get(node.name);
+        if (o && parent && parent.type === 'MemberExpression' && key === 'object' && !parent.computed && parent.property.type === 'Identifier') {
+          const p = o.m.get(parent.property.name);
+          const called = !!(grand && grand.node && grand.node.type === 'CallExpression' && grand.key === 'callee');
+          if (p && (called || p.kind === 'get')) factOf(owner).uses.push({ target: p.fn, ctx: o.isConst ? 'call' : 'unknown:.' + parent.property.name, at: node.start, via: node.name + '.' + parent.property.name });
+        }
         return;
       }
       case 'FunctionDeclaration': case 'FunctionExpression': case 'ArrowFunctionExpression': {
@@ -320,7 +348,7 @@ function analyzeLoadOrder(target) {
     }
     return names;
   };
-  const out = { files, sites: sites.length, syncViol: [], maybeViol: [], deferGap: [], typeofGuarded: [], textForward: [], preBootTimers: [], loadDeps: {} };
+  const out = { files, sites: sites.length, syncViol: [], maybeViol: [], deferGap: [], typeofGuarded: [], textForward: [], preBootTimers: [], loadListeners: [], loadDeps: {} };
   for (const st of sites) {
     const sf = fileOf(st.start);
     const head = code.slice(st.start, Math.min(st.end, st.start + 70)).replace(/\s+/g, ' ');
@@ -338,23 +366,37 @@ function analyzeLoadOrder(target) {
     }
   }
   for (const k of Object.keys(out.loadDeps)) out.loadDeps[k] = [...out.loadDeps[k]];
-  // boot.js가 아닌 파일의 로드 중 지연 예약(타이머·rAF·then·Observer). 리스너 등록(addEventListener·on*)은 사용자 입력이라 뺀다.
+  // 로드 때 실행되는 최상위 코드를 글자 그대로 훑는다(즉시 실행 함수·동기 콜백 안은 들어가고, 저장되는 함수 본문은 안 들어감).
   const SYNC_CB = /^(forEach|map|filter|some|every|reduce|find|findIndex|flatMap|sort|replace|replaceAll|from)$/;
-  const DEFER_NAMES = /^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback|queueMicrotask|then|catch|finally|observe)$/;
-  const visit = (n, parent) => {
+  const walkLoad = (n, parent, on) => {
     if (!n || typeof n.type !== 'string') return;
     if (isFn(n)) {
       const imm = parent && parent.type === 'CallExpression' && (parent.callee === n || (parent.callee.type === 'MemberExpression' && !parent.callee.computed && SYNC_CB.test(parent.callee.property.name) && parent.arguments.includes(n)));
       if (n.type === 'FunctionDeclaration' || !imm) return;
     }
+    on(n);
+    for (const k in n) { if (k === 'loc') continue; const v = n[k]; if (Array.isArray(v)) v.forEach((x) => walkLoad(x, n, on)); else if (v && typeof v.type === 'string') walkLoad(v, n, on); }
+  };
+  const txt = (n, max) => code.slice(n.start, Math.min(n.end, n.start + max)).replace(/\s+/g, ' ');
+  // ① boot.js가 아닌 파일의 로드 중 지연 예약(타이머·rAF·then·queueMicrotask·Observer)과 동기 이벤트 일으키기(dispatchEvent·click·focus·blur).
+  //    리스너 등록(addEventListener·on*)은 사용자 입력을 기다리는 것이라 뺀다. 로드 실패 가드는 currentScript가 js/ 모듈인 동안의 오류를
+  //    모두 치명으로 보므로, 이 콜백·리스너가 던지면 한 파일일 때와 달리 앱이 멈춘다(MODULES.md 2장 규칙 4).
+  const DEFER_NAMES = /^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback|queueMicrotask|then|catch|finally|observe|dispatchEvent|click|focus|blur)$/;
+  const onTimer = (n) => {
     if (n.type === 'CallExpression') {
       const c = n.callee; const nm = c.type === 'Identifier' ? c.name : (c.type === 'MemberExpression' && !c.computed ? c.property.name : '');
-      if (DEFER_NAMES.test(nm)) out.preBootTimers.push({ at: where(n.start), call: nm, src: code.slice(n.start, Math.min(n.end, n.start + 90)).replace(/\s+/g, ' ') });
+      if (DEFER_NAMES.test(nm)) out.preBootTimers.push({ at: where(n.start), call: nm, src: txt(n, 90) });
     }
-    if (n.type === 'NewExpression' && /Observer$/.test(n.callee.name || '')) out.preBootTimers.push({ at: where(n.start), call: 'new ' + n.callee.name, src: code.slice(n.start, Math.min(n.end, n.start + 90)).replace(/\s+/g, ' ') });
-    for (const k in n) { if (k === 'loc') continue; const v = n[k]; if (Array.isArray(v)) v.forEach((x) => visit(x, n)); else if (v && typeof v.type === 'string') visit(v, n); }
+    if (n.type === 'NewExpression' && /Observer$/.test(n.callee.name || '')) out.preBootTimers.push({ at: where(n.start), call: 'new ' + n.callee.name, src: txt(n, 90) });
   };
-  for (const st of top) if (files[fileOf(st.start)] !== 'js/boot.js') visit(st, null);
+  for (const st of top) if (files[fileOf(st.start)] !== 'js/boot.js') walkLoad(st, null, onTimer);
+  // ② 로드 때 리스너 등록(모든 파일, 문서 순서) — 같은 대상·이벤트는 등록 순서 = 실행 순서(MODULES.md 2장 규칙 7)
+  const onListen = (n) => {
+    if (n.type !== 'CallExpression' || n.callee.type !== 'MemberExpression' || n.callee.computed || n.callee.property.name !== 'addEventListener') return;
+    const a = n.arguments;
+    out.loadListeners.push({ at: where(n.start), target: txt(n.callee.object, 60), ev: a[0] && a[0].type === 'Literal' ? String(a[0].value) : a[0] ? txt(a[0], 30) : '?', opt: a[2] ? txt(a[2], 40) : '' });
+  };
+  for (const st of top) walkLoad(st, null, onListen);
   return out;
 }
 
@@ -364,15 +406,21 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const target = path.resolve(args.find((a) => !a.startsWith('--')) || path.join(__dirname, '..'));
   const r = analyzeLoadOrder(target);
-  if (args.includes('--json')) { process.stdout.write(JSON.stringify(r, null, 1)); process.exit(r.syncViol.length || r.maybeViol.length ? 1 : 0); }
-  console.log(`파일 ${r.files.length}개 · 로드 때 실행 문장 ${r.sites}개`);
-  console.log(`syncViol ${r.syncViol.length} · maybeViol ${r.maybeViol.length} · deferGap ${r.deferGap.length} · typeofGuarded ${r.typeofGuarded.length} · textForward ${r.textForward.length} · preBootTimers ${r.preBootTimers.length}`);
-  for (const v of [...r.syncViol, ...r.maybeViol]) console.log(`  위반 ${v.mode} ${v.site} → ${v.name}(${v.def}) | ${v.src} | ${v.path}`);
-  for (const t of r.textForward) console.log(`  호이스팅 의존(같은 파일) ${t.site} → ${t.name}(${t.def})`);
-  for (const t of r.preBootTimers) console.log(`  부팅 전 지연 예약 ${t.at} ${t.call} | ${t.src}`);
-  if (args.includes('--verbose')) {
-    for (const g of r.deferGap) console.log(`  틈(리스너·타이머) ${g.site} → ${g.name}(${g.def}) [${g.ctx}]`);
-    for (const [f, d] of Object.entries(r.loadDeps)) console.log(`  로드 때 의존 ${f} ← ${d.join(', ')}`);
+  const typeofLoad = r.typeofGuarded.filter((t) => !t.mode.startsWith('defer'));   // 로드 중 typeof 로 뒤 파일 이름을 봄 = 위반
+  const bad = r.syncViol.length + r.maybeViol.length + typeofLoad.length;
+  if (args.includes('--json')) process.stdout.write(JSON.stringify(r, null, 1));
+  else {
+    console.log(`파일 ${r.files.length}개 · 로드 때 실행 문장 ${r.sites}개`);
+    console.log(`syncViol ${r.syncViol.length} · maybeViol ${r.maybeViol.length} · deferGap ${r.deferGap.length} · typeofGuarded ${r.typeofGuarded.length}(로드 중 ${typeofLoad.length}) · textForward ${r.textForward.length} · preBootTimers ${r.preBootTimers.length} · loadListeners ${r.loadListeners.length}`);
+    for (const v of [...r.syncViol, ...r.maybeViol]) console.log(`  위반 ${v.mode} ${v.site} → ${v.name}(${v.def}) | ${v.src} | ${v.path}`);
+    for (const v of typeofLoad) console.log(`  위반(typeof — 분할 후엔 늘 undefined) ${v.mode} ${v.site} → ${v.name}(${v.def}) | ${v.src}`);
+    for (const t of r.textForward) console.log(`  호이스팅 의존(같은 파일) ${t.site} → ${t.name}(${t.def})`);
+    for (const t of r.preBootTimers) console.log(`  부팅 전 지연 예약·이벤트 ${t.at} ${t.call} | ${t.src}`);
+    if (args.includes('--verbose')) {
+      for (const g of r.deferGap) console.log(`  틈(리스너·타이머) ${g.site} → ${g.name}(${g.def}) [${g.ctx}]`);
+      for (const l of r.loadListeners) console.log(`  로드 때 리스너 ${l.at} ${l.target} ${l.ev} ${l.opt}`);
+      for (const [f, d] of Object.entries(r.loadDeps)) console.log(`  로드 때 의존 ${f} ← ${d.join(', ')}`);
+    }
   }
-  process.exit(r.syncViol.length || r.maybeViol.length ? 1 : 0);
+  process.exitCode = bad ? 1 : 0;   // process.exit 대신 — 큰 JSON 출력이 파이프에서 잘리지 않게
 }

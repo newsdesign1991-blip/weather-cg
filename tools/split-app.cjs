@@ -259,12 +259,14 @@ function depthAt(s, end) {
 cssPts.forEach((p, k) => { const d = depthAt(css, p); if (d !== 0) problems.push(`${MAP.css[k].file}: 경계의 중괄호 깊이가 ${d}(규칙 중간 절단)`); });
 if (/url\(\s*['"]?\.\.\//.test(css)) fail("원본 CSS에 이미 url('../…')가 있음 — 왕복 규칙이 모호해짐");
 // 문서 기준 상대 url → css/ 기준('../' 붙임). data:·http:·/절대·#조각은 그대로. (app-source.cjs unrebaseCss의 정확한 역)
-// 바꾸는 url은 모두 @font-face { … src: … } 안이어야 한다(주석·문자열 속 url(을 잘못 바꾸지 않게).
+// 처음 분할(기준표) 때는 바꾸는 url이 모두 @font-face { … src: … } 안이어야 한다(주석·문자열 속 url(을 잘못 바꾸지 않게).
+// --like 왕복(appSource가 '../'를 뗀 것을 다시 붙임)에서는 unrebaseCss와 정확한 역이라 이 제한을 끈다 —
+// 분할 뒤 css에 새로 쓴 url('../icon.svg') 같은 상대 url(@font-face 밖)도 그대로 왕복된다.
 let rebased = 0;
 const rebaseCss = (s) => s.replace(/(url\(\s*['"]?)([^'")\s]+)/gi, (all, pre, u, at) => {
   if (/^(?:[a-z][\w+.-]*:|\/|#)/i.test(u)) return all;
   const ff = s.lastIndexOf('@font-face', at);
-  if (ff < 0 || s.slice(ff, at).includes('}') || !/\bsrc\s*:/.test(s.slice(ff, at))) problems.push(`@font-face src 밖의 상대 url: ${u}`);
+  if (!opt('like', '') && (ff < 0 || s.slice(ff, at).includes('}') || !/\bsrc\s*:/.test(s.slice(ff, at)))) problems.push(`@font-face src 밖의 상대 url: ${u}`);
   rebased++; return pre + '../' + u;
 });
 const cssSlices = MAP.css.map((m, k) => ({ ...m, rel: `css/${m.file}`, text: rebaseCss(css.slice(cssPts[k], k + 1 < cssPts.length ? cssPts[k + 1] : css.length)) }));
