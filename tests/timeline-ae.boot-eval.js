@@ -9,7 +9,7 @@ const realFetch = window.fetch.bind(window);
 const json = (o) => new Response(JSON.stringify(o), { status: 200, headers: { 'Content-Type': 'application/json' } });
 window.fetch = async (url, opts) => {
   const u = String(url);
-  if (/\/ping(\?|$)/.test(u)) return json({ ok: true, ff: true, ver: 20261007 });
+  if (/\/ping(\?|$)/.test(u)) return json({ ok: true, ff: true, ver: 20261008 });
   if (u.includes('/api/frame')) return json({ ok: true });
   if (u.includes('/api/ae')) { caps.ae.push(JSON.parse(opts.body)); return json({ ok: true, ae: 'AE test' }); }
   return realFetch(url, opts);

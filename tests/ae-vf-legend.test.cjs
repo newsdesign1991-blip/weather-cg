@@ -15,7 +15,7 @@ function sliceBetween(startText, endText) {
 }
 
 test('AE base excludes the VF bar, editable title, and editable legend', () => {
-  const body = sliceBetween('async function aeBaseBlob()', '// 브러쉬 덧칠');
+  const body = sliceBetween('async function aeBaseBlob(', '// 브러쉬 덧칠');
   assert.match(body, /querySelector\(['"]#L_vfBar['"]\)\?\.remove\(\)/);
   assert.match(body, /querySelector\(['"]#L_title['"]\)\?\.remove\(\)/);
   assert.match(body, /querySelector\(['"]#L_legend['"]\)\?\.remove\(\)/);

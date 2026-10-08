@@ -1,0 +1,135 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261008_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1300,
+      "y": 900,
+      "r15": 0,
+      "r25": 0,
+      "r70": 100,
+      "past": false,
+      "idx": 0,
+      "ws": 30,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1250,
+      "y": 850,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 1,
+      "ws": 30,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1200,
+      "y": 790,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 2,
+      "ws": 30,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1150,
+      "y": 720,
+      "r15": 0,
+      "r25": 0,
+      "r70": 150,
+      "past": false,
+      "idx": 3,
+      "ws": 30,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1110,
+      "y": 640,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": false,
+      "idx": 4,
+      "ws": 30,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1090,
+      "y": 540,
+      "r15": 0,
+      "r25": 0,
+      "r70": 120,
+      "past": false,
+      "idx": 5,
+      "ws": 30,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 0,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 74.375,
+    "bands": {
+     "r70": {
+      "fill": "#2E5BFF",
+      "fillOp": 0.18,
+      "stroke": "#9FB7FF",
+      "strokeW": 2,
+      "dash": 1
+     }
+    },
+    "reveal": {
+     "start": 1,
+     "path": 2,
+     "labelLen": 1
+    },
+    "labels": [],
+    "trackMode": "full",
+    "lineColor": "#E5231E",
+    "lineWidth": 9.5,
+    "pastLineWidth": 5.23,
+    "pastIconK": 0.3,
+    "prog": {
+     "start": 1,
+     "end": 4,
+     "curve": "ioc"
+    }
+   },
+   "name": "태풍 리깅"
+  }
+ ]
+}

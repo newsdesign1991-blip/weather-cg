@@ -24,7 +24,7 @@ const PJ = require('./pyjson');
 const PU = require('./pyurl');
 const T = require('./find-tools');
 
-const HELPER_VER = 20261007;   // helper.py 의 HELPER_VER 과 맞춘다
+const HELPER_VER = 20261008;   // helper.py 의 HELPER_VER 과 맞춘다
 const FPS = '30000/1001';      // 29.97 방송 표준
 const PY_UA = 'Python-urllib/3.13';   // data.go.kr WAF가 다른 UA를 403으로 막음 → 파이썬 기본 UA 그대로
 

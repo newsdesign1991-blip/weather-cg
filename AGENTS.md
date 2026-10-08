@@ -26,6 +26,9 @@
   - 원본을 고치면 데스크톱 내장 헬퍼 `desktop/wns/`(server.js·ae-jsx.js)도 함께 고친다 → `py desktop/test/make_golden.py`(원본에서 정답 재생성)
     → `node --test desktop/test/ae-jsx.golden.test.cjs desktop/test/server.test.cjs` 통과.
   - 버전 4곳을 함께 올린다: `helper.py`의 `HELPER_VER`, `desktop/main.js`·`desktop/wns/server.js`의 `HELPER_VER`, `js/export-video.js`의 `HELPER_VER_MIN`.
+  - AE 스펙에 새 필드를 더할 때(20261008 규칙): 옛 헬퍼는 모르는 필드를 무시하므로 **옛 필드를 계속 채우고 새 필드는 무시돼도 안전하게**(이미지 크기·자리가 바뀌는 것만 `/ping` 버전으로 게이트 — `AE_EXT_VER`).
+    헬퍼는 새 필드를 `_xnum`·`_ease2`·`_prog` 같은 '예외 없는 읽기'로만 읽고, 새 JSX 도우미는 `_need`로 쓰일 때만 넣는다(새 필드 없는 스펙 출력은 바이트 그대로 —
+    `desktop/test/golden-legacy.test.cjs`). 새 필드마다 `desktop/test/ae-specs/`에 있음·없음·경계값 스펙을 더하고, 화면과 같은지는 `tests/ae-ease-match.test.cjs`(AE 흉내 = 앱 함수).
     그다음 `py -m PyInstaller`로 웹판 헬퍼를 다시 빌드한다.
   - `R:`에 접근할 수 없는 환경이면 헬퍼를 바꾸지 않는다.
 - `docs/superpowers/`(plans·specs)는 **분할 전(2026-07) 기록**이다. 거기 나오는 `index.html:줄번호`, `fs.readFileSync('index.html')` 테스트,

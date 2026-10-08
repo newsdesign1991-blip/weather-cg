@@ -125,7 +125,7 @@ test('태풍 — 카메라(키 있을 때) · 범례 · 제목 · 태풍 경로(
   assert.deepEqual(arr(typ.children[0].span), [1, 3]);
   assert.equal(P[0].diff.length, 0, '태풍 단일 + 이동만(확대 = 작업 뷰) = AE 그대로');
 });
-test('카메라 AE 차이 — 확대가 작업 뷰와 다르면(AE는 구운 PNG·리그를 통째 확대), 키 3개+, 방향·기울기, 일반·비교 지도', () => {
+test('카메라 AE 차이(새 헬퍼 20261008) — 위치·확대·방향·키 3개+는 그대로 들어간다. 남는 것: 기울기, 확대 시 그림 선명도·크기, 붙은 지명표시 회전, 옮기지 않은 비교 이름표', () => {
   const S = tyS({ map: { x: 1160, y: 545, s: 1.02 } }); S.anim.cam.keys = [{ id: 'c1', t: 0.4, x: 1, y: 1, s: 1.02 }, { id: 'c2', t: 3, x: 2, y: 2, s: 1.35 }];
   let cam = arr(planCtx(S).tlLayerPlan())[0];
   assert.deepEqual(arr(cam.diff), ['AE에선 확대한 만큼 지도 그림(PNG)이 흐려지고 태풍 아이콘·선 굵기·지명표시도 같이 커집니다(화면은 크기 그대로)']);
@@ -135,20 +135,58 @@ test('카메라 AE 차이 — 확대가 작업 뷰와 다르면(AE는 구운 PNG
   const c = planCtx(S); c._camSavedMap = { x: 1160, y: 545, s: 1.02, m3: null };   // 미리보기 중: S.map은 카메라 뷰(1.35), 작업 뷰는 1.02
   assert.equal(arr(c.tlLayerPlan())[0].diff.length, 1);
   S.map.s = 1.02; S.anim.cam.keys[0].s = 1.02;
+  // 키 3개 + 방향(rz) — 새 헬퍼는 그대로(ROT 널·모든 키 같은 곡선). 지명표시가 있으면 이름표 회전만 남는다
   S.anim.cam.keys.push({ id: 'c3', t: 4, x: 3, y: 3, s: 1.02, rz: 12 });
   cam = arr(planCtx(S).tlLayerPlan())[0];
-  assert.equal(cam.diff.length, 3);
-  assert.ok(cam.diff.some((d) => d.includes('방향·기울기')) && cam.diff.some((d) => d.includes('3번째 키부터')));
-  const g = sggS(); g.anim.cam = { keys: [{ id: 'c1', t: 1, x: 0, y: 0, s: 1 }] };
-  assert.match(arr(planCtx(g).tlLayerPlan())[0].diff[0], /태풍 단일 지도만/);
+  assert.ok(!cam.diff.some((d) => /3번째 키부터|방향·기울기는/.test(d)), arr(cam.diff).join(' / '));
+  assert.ok(cam.diff.some((d) => d.includes('지명표시 이름표가 지도와 함께 돕니다')));
+  // 기울기(rx)는 미지원 그대로
+  S.anim.cam.keys[2].rx = 20;
+  assert.ok(arr(planCtx(S).tlLayerPlan())[0].diff.some((d) => d === '기울기는 AE에 안 들어갑니다(위치·확대·방향만)'));
+  // 일반 지도 카메라 — 새 헬퍼는 들어간다(지도 묶음 = CAM 자식). 확대하면 그림 선명도만
+  const g = sggS({ map: { x: 1160, y: 545, s: 1.02 } }); g.anim.cam = { keys: [{ id: 'c1', t: 1, x: 0, y: 0, s: 1.02 }, { id: 'c2', t: 2, x: 5, y: 0, s: 1.4 }] };
+  assert.deepEqual(arr(arr(planCtx(g).tlLayerPlan())[0].diff), ['AE에선 확대한 만큼 지도 그림(PNG)이 흐려집니다(화면은 다시 그려 선명)']);
+  // 비교 지도 — 이름표를 한 번도 옮기지 않았으면(마지막 지점 따라감) 그 이름표만 차이
+  const cm = { style: 'typhoonCompare', res: '1920x1080', map: { x: 1160, y: 545, s: 1.02 }, labels: [], texts: [], legend: { on: 0 },
+    typhoon: { issues: [{ points: PTS }], labels: [], compare: [{ id: 'c1', name: 'KMA', color: '#FF5A5A', show: 1 }] }, anim: { dur: 6, fps: 29.97, tracks: [], cam: { keys: [{ id: 'k', t: 1, x: 0, y: 0, s: 1.02 }] } } };
+  assert.ok(arr(planCtx(cm).tlLayerPlan())[0].diff.some((d) => d.includes('비교 이름표')));
+  cm.typhoon.compare[0].labelPos = { x: 1, y: 2 };
+  assert.equal(arr(planCtx(cm).tlLayerPlan())[0].diff.length, 0);
 });
-test('지시선 라벨 — 막대가 있으면 AE 차이(지시선은 박스를 따라 올라오지 않음), 막대 없으면(처음부터 보임) 차이 없음', () => {
+test('카메라 AE 차이(옛 헬퍼 20261007) — 지금 문구 + 기능 확장팩 다시 실행 안내', () => {
+  const S = tyS({ map: { x: 1160, y: 545, s: 1.02 } }); S.anim.cam.keys = [{ id: 'c1', t: 0.4, x: 1, y: 1, s: 1.02 }, { id: 'c2', t: 3, x: 2, y: 2, s: 1.35 }];
+  S.anim.cam.keys.push({ id: 'c3', t: 4, x: 3, y: 3, s: 1.02, rz: 12 });
+  const cam = arr(planCtx(S, { ver: 20261007 }).tlLayerPlan())[0];
+  assert.equal(cam.diff.length, 3);
+  assert.ok(cam.diff.some((d) => d.includes('방향·기울기') && d.includes('새로 실행')) && cam.diff.some((d) => d.includes('3번째 키부터')));
+  const g = sggS(); g.anim.cam = { keys: [{ id: 'c1', t: 1, x: 0, y: 0, s: 1 }] };
+  assert.match(arr(planCtx(g, { ver: 20261007 }).tlLayerPlan())[0].diff[0], /태풍 단일 지도만.*새로 실행/);
+});
+test('지시선 라벨 — 새 헬퍼는 선이 올라오는 박스를 따라가 차이 없음, 옛 헬퍼는 막대가 있으면 AE 차이, 막대 없으면(처음부터 보임) 차이 없음', () => {
   const S = sggS(); S.anim.tracks = [{ id: 'k1', kind: 'label', key: 'l2', start: 1, len: 1 }, { id: 'k2', kind: 'label', key: 'l1', start: 1, len: 1 }];
-  const P = arr(planCtx(S).tlLayerPlan());
-  assert.match(P.find((L) => L.id === 'label:l2').diff[0], /지시선/);
+  assert.equal(arr(planCtx(S).tlLayerPlan()).find((L) => L.id === 'label:l2').diff.length, 0, '새 헬퍼');
+  const P = arr(planCtx(S, { ver: 20261007 }).tlLayerPlan());
+  assert.match(P.find((L) => L.id === 'label:l2').diff[0], /지시선.*새로 실행/);
   assert.equal(P.find((L) => L.id === 'label:l1').diff.length, 0, '일반 라벨은 AE와 같음');
   S.anim.tracks = [];
-  assert.equal(arr(planCtx(S).tlLayerPlan()).find((L) => L.id === 'label:l2').diff.length, 0);
+  assert.equal(arr(planCtx(S, { ver: 20261007 }).tlLayerPlan()).find((L) => L.id === 'label:l2').diff.length, 0);
+});
+test('블라인드 AE 차이 — 새 헬퍼는 Venetian Blinds(띠 위치만 다름), 옛 헬퍼는 페이드로', () => {
+  const S = sggS(); S.anim.reveal = 'blinds';
+  const P = arr(planCtx(S).tlLayerPlan()), O = arr(planCtx(S, { ver: 20261007 }).tlLayerPlan());
+  for (const id of ['fill:' + COLS.mid, 'mtn:m1']) {
+    assert.deepEqual(arr(P.find((L) => L.id === id).diff), ['AE에선 블라인드 띠가 가운데가 아니라 한쪽 끝에서 열립니다(덮이는 비율·타이밍은 같음)']);
+    assert.match(O.find((L) => L.id === id).diff[0], /블라인드 대신 페이드.*새로 실행/);
+  }
+});
+test('태풍 경로 AE 차이 — 새 헬퍼는 화면 곡선(지점 등분+easeInOutC)·선두·반경 그대로라 없음, 옛 헬퍼만 등속 안내. 강도 숫자 아이콘은 일러스트로', () => {
+  const S = tyS();
+  const typ = arr(planCtx(S).tlLayerPlan()).find((L) => L.kind === 'typhoon');
+  assert.equal(typ.children[0].diff.length, 0);
+  assert.equal(typ.diff.length, 0);
+  assert.match(arr(planCtx(S, { ver: 20261007 }).tlLayerPlan()).find((L) => L.kind === 'typhoon').children[0].diff[0], /등속.*새로 실행/);
+  S.typhoon.iconMode = 'grade';
+  assert.match(arr(planCtx(S).tlLayerPlan()).find((L) => L.kind === 'typhoon').diff[0], /강도 숫자 아이콘/);
 });
 test('태풍 부모 끌기 = 경로·라벨 모두 같은 Δ, 라벨 하위 = 그 라벨 키만, 숨긴 라벨 키는 길이에서 빠지고 보존(B16)', () => {
   const S = tyS(); const c = planCtx(S);
@@ -180,7 +218,15 @@ test('비교 지도 — 효과 없는 \'태풍 경로\' 행 없음(B19), 트랙 
   const c1 = P.find((L) => L.id === 'cmp:c1'), c2 = P.find((L) => L.id === 'cmp:c2');
   assert.deepEqual(arr(c1.span), [2, 3.5]); assert.equal(c2.track, null); assert.deepEqual(arr(c2.implicit), [1, 3]);
   assert.equal(c1.icon, 'typhoon2');
-  assert.ok(c1.diff.length && c2.diff.length);
+  // 새 헬퍼: 예보마다 막대·곡선 그대로 → 타이밍 차이 없음. 실황/예상 점선 구분·반경만 남는다
+  assert.ok(!c1.diff.some((d) => d.includes('한 타이밍')) && !c2.diff.some((d) => d.includes('한 타이밍')));
+  assert.equal(c1.diff.length, 0, 'points 없음 = 점선 구간 없음');
+  S.typhoon.compare[0].points = PTS.map((p, i) => Object.assign({}, p, { fcst: i > 3 })); S.typhoon.compare[0].showRadius = 1;
+  const d1 = arr(planCtx(S).tlLayerPlan()).find((L) => L.id === 'cmp:c1').diff;
+  assert.ok(d1.some((d) => d.includes('실선 하나')) && d1.some((d) => d.includes('반경')));
+  // 옛 헬퍼: 막대가 서로 다르면 한 타이밍 안내
+  const O = arr(planCtx(S, { ver: 20261007 }).tlLayerPlan());
+  assert.ok(O.find((L) => L.id === 'cmp:c1').diff.some((d) => d.includes('한 타이밍')) && O.find((L) => L.id === 'cmp:c2').diff.some((d) => d.includes('한 타이밍')));
 });
 test('라인 모드 — 태풍 경로 하위에 라벨 행 없음', () => {
   const S = tyS(); S.typhoon.trackMode = 'line';
@@ -253,9 +299,10 @@ test('AE 보내기는 타임라인 계획을 그대로 쓴다 — 색 순서 재
   assert.match(send, /const fadeOf = \(L\) => \{ const sp = L\.track \? \[\+L\.track\.start \|\| 0, \(\+L\.track\.start \|\| 0\) \+ \(\+L\.track\.len \|\| 0\)\] : L\.implicit; return sp \?/);
   assert.doesNotMatch(send, /AE_LEN|start0 \+ i \* step|startForFill|lumOf/, '옛 색 순서·1초 고정 계산이 남아 있으면 안 된다');
   assert.match(send, /for \(const L of plan\.slice\(\)\.reverse\(\)\)/);
-  assert.match(send, /addImg\('산_' \+ String\(L\.name \|\| ''\)\.slice\(0, 8\), await aeMtnBlob\(false, L\.key\), fade\)/);
-  assert.match(send, /vfEnter: \(S\.res === '1920x1080-vf'\) \? \{ start: ANIM_START, len: ANIM_VF_ENTER_LEN/);
-  assert.match(send, /rig\.camera = \{ anchor: \[SX\(S\.map\.x\), SY\(S\.map\.y\)\], sBaked: \+S\.map\.s \|\| 1, keys: cks\.map/);
+  assert.match(send, /addImg\('산_' \+ String\(L\.name \|\| ''\)\.slice\(0, 8\), await aeMtnBlob\(false, L\.key\), fd, x\)/);   // fd = 산 막대(블라인드면 같은 색 칠 규칙), x = 카메라(지도에 붙은 산 camPt)
+  assert.match(send, /vfEnter: \(S\.res === '1920x1080-vf'\) \? \{ start: ANIM_START, len: ANIM_VF_ENTER_LEN, dx: [^}]*ease: aeEaseOf\(EASE_VF\) \}/);
+  assert.match(send, /const cam = aeCamSpec\(rigPt, S\.map\);\n\s*if \(cam\) rig\.camera = cam;/);
+  assert.match(fnSrc('aeCamSpec'), /anchor: \[a\.x, a\.y\], sBaked: \+m0\.s \|\| 1, keys: ks\.map/);
   assert.match(send, /const auto = \(!A\.tracks\.length && !camKeys\(\)\.length\) \? autoTrackPlan\(\) : null/);
   assert.match(send, /if \(wasPreview \|\| animPlaying\) \{ animStop\(\); animOff\(\); \}/, '미리보기 중이면 최종 모습·작업 뷰로 굽는다');
   assert.match(fnSource('async function aeMtnBlob('), /if \(id != null\) c\.querySelectorAll\('#L_mtn > g'\)/);

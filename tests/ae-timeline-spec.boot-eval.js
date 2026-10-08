@@ -10,7 +10,7 @@ const realFetch = window.fetch.bind(window);
 const json = (o) => new Response(JSON.stringify(o), { status: 200, headers: { 'Content-Type': 'application/json' } });
 window.fetch = async (url, opts) => {
   const u = String(url);
-  if (/\/ping(\?|$)/.test(u)) return json({ ok: true, ff: true, ver: 20261007 });
+  if (/\/ping(\?|$)/.test(u)) return json({ ok: true, ff: true, ver: 20261008 });
   if (u.includes('/api/frame')) return json({ ok: true });
   if (u.includes('/api/ae')) { caps.ae.push(JSON.parse(opts.body)); return json({ ok: true, ae: 'AE test' }); }
   return realFetch(url, opts);
@@ -63,7 +63,8 @@ function scene(name, spec, extra) {
       id: r.id, kind: L.kind, vin: e.vin ? e.vin.textContent : null, vlen: e.vlen ? e.vlen.textContent : null,
       left: parseFloat(e.clip.style.left), width: parseFloat(e.clip.style.width), none: e.clip.classList.contains('none'), pps: tlState.pps,
       ae: L.kind !== 'static' && ly ? { fade: ly.fade ? { start: ly.fade.start, len: ly.fade.len } : null } : null,
-      leaderSame: lead ? JSON.stringify(lead.fade) === JSON.stringify(ly.fade ? { start: ly.fade.start, len: ly.fade.len } : null) : null,
+      leaderSame: lead ? (lead.fade && ly.fade ? lead.fade.start === ly.fade.start && lead.fade.len === ly.fade.len && JSON.stringify(lead.fade.ease) === JSON.stringify(ly.fade.ease) : !lead.fade && !ly.fade) : null,
+      leaderLegacy: lead ? !!lead.legacy : null, leaderSpec: ly && ly.labelComp ? !!ly.labelComp.leader : null,
     });
   }
   return Object.assign({ name, fps: FPS, dur: anim().dur, rows, rowLayers, specLayers: spec.layers.map((l) => l.name), spec }, extra || {});

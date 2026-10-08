@@ -34,11 +34,11 @@ test('부팅 점검: AE식 타임라인 — 행·아이콘·오류 재현·AE �
   assert.equal(o.B18.mapX1, o.B18.mapX0); close(o.B18.dt, 1 / 29.97, 1e-3); assert.equal(o.B18.undo, 0); close(o.B18.end, 6, 1e-6);
   assert.equal(o.B18.ownsWhenBlur, false);
   // AE = 화면
-  assert.deepEqual(o.ae.fill, { start: 2.5, len: 1.3 });
-  assert.deepEqual(o.ae.lab100, { start: 3.1, len: 0.7, rise: 26 });
+  assert.deepEqual(o.ae.fill, { start: 2.5, len: 1.3, ease: [34, 85] });   // 이징 = 앱 easeOut(헬퍼 20261008 — AE 영향 34/85)
+  assert.deepEqual(o.ae.lab100, { start: 3.1, len: 0.7, ease: [34, 85], rise: 26 });
   assert.equal(o.ae.lab101, null, '타이밍 없는 라벨 = 처음부터(페이드 없음)');
   assert.equal(o.ae.mtns.length, 2, '산마다 레이어');
-  assert.ok(o.ae.mtns.some(([, f]) => f && f.start === 4 && f.len === 0.5));
+  assert.ok(o.ae.mtns.some(([, f]) => f && f.start === 4 && f.len === 0.5 && f.ease[0] === 34));
   assert.ok(o.ae.mtnBase);
   assert.equal(o.ae.dur, 6);
   assert.equal(o.ae.order[0], '배경·지도');
@@ -61,4 +61,6 @@ test('부팅 점검: AE식 타임라인 — 행·아이콘·오류 재현·AE �
   assert.ok(o.aeTyp.camera && o.aeTyp.camera.keys.length === 3, 'AE 태풍 리그에 카메라 키');
   assert.deepEqual(o.aeTyp.camera.anchor, [1160, 545]);
   assert.equal(o.aeTyp.camera.sBaked, 1.02);
+  assert.deepEqual(o.aeTyp.camera.ease, [34, 85], '카메라 키 사이 곡선 = 앱 easeCam(모든 키)');
+  assert.deepEqual(o.aeTyp.camera.pivot, [960, 540], '방향(rz) 회전 중심 = 프레임 가운데');
 });

@@ -1,0 +1,175 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261008_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "a",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     0,
+     100
+    ]
+   }
+  },
+  {
+   "file": "f_00001.png",
+   "name": "b",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     0.05,
+     150
+    ]
+   }
+  },
+  {
+   "file": "f_00002.png",
+   "name": "c",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     -1,
+     null
+    ]
+   }
+  },
+  {
+   "file": "f_00003.png",
+   "name": "d",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     "34",
+     "85"
+    ]
+   }
+  },
+  {
+   "file": "f_00004.png",
+   "name": "e",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34
+    ]
+   }
+  },
+  {
+   "file": "f_00005.png",
+   "name": "f",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34,
+     85,
+     1
+    ]
+   }
+  },
+  {
+   "file": "f_00006.png",
+   "name": "g",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": {}
+   }
+  },
+  {
+   "file": "f_00007.png",
+   "name": "h",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": true
+   }
+  },
+  {
+   "file": "f_00008.png",
+   "name": "i",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     true,
+     50
+    ]
+   }
+  },
+  {
+   "file": "f_00009.png",
+   "name": "j",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": 1e400
+   }
+  },
+  {
+   "file": "f_00010.png",
+   "name": "k",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     33.5,
+     99.99
+    ]
+   }
+  },
+  {
+   "file": "f_00011.png",
+   "name": "l",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     1e400,
+     50
+    ]
+   }
+  },
+  {
+   "labelComp": {
+    "w": 80,
+    "h": 40,
+    "x": 300,
+    "y": 200,
+    "bg": "f_00012.png",
+    "texts": []
+   },
+   "name": "라벨_1",
+   "fade": {
+    "start": 2,
+    "len": 1,
+    "rise": 26,
+    "ease": [
+     12,
+     "x"
+    ]
+   }
+  }
+ ]
+}

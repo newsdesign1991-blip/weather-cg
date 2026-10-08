@@ -1,0 +1,141 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261008_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "w0",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34,
+     85
+    ],
+    "blinds": {
+     "w": 0,
+     "dir": 0,
+     "ov": 0.1
+    }
+   }
+  },
+  {
+   "file": "f_00001.png",
+   "name": "wneg",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34,
+     85
+    ],
+    "blinds": {
+     "w": -5,
+     "dir": 0,
+     "ov": 0.1
+    }
+   }
+  },
+  {
+   "file": "f_00002.png",
+   "name": "winf",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34,
+     85
+    ],
+    "blinds": {
+     "w": 1e400,
+     "dir": 0
+    }
+   }
+  },
+  {
+   "file": "f_00003.png",
+   "name": "wstr",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34,
+     85
+    ],
+    "blinds": {
+     "w": "8",
+     "dir": 0
+    }
+   }
+  },
+  {
+   "file": "f_00004.png",
+   "name": "dirstr",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34,
+     85
+    ],
+    "blinds": {
+     "w": 8,
+     "dir": "45",
+     "ov": 2,
+     "two": true
+    }
+   }
+  },
+  {
+   "file": "f_00005.png",
+   "name": "ovneg",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "blinds": {
+     "w": 8,
+     "dir": 10,
+     "ov": -1,
+     "two": 3
+    }
+   }
+  },
+  {
+   "file": "f_00006.png",
+   "name": "list",
+   "fade": {
+    "start": 1,
+    "len": 0.8,
+    "ease": [
+     34,
+     85
+    ],
+    "blinds": [
+     8,
+     0
+    ]
+   }
+  },
+  {
+   "file": "f_00007.png",
+   "name": "nofade",
+   "blinds": {
+    "w": 8
+   }
+  }
+ ]
+}
