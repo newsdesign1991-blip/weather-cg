@@ -35,31 +35,35 @@ function bulPageLines(html) {
 // 묶음 머리 — 지금(2025-11~)은 '*', 2021년 판은 '□'(몸 줄은 '○')
 const BUL_HEAD_RE = /^[*□◎]\s*(소나기에\s*의한\s*)?예상\s*(적설\s*및\s*강수량|강수량|적설)\s*\(\s*(.+?)\s*\)\s*$/;
 const BUL_KIND_LABEL = { rain: '비', shower: '소나기', snow: '적설(cm)', snowrain: '적설·강수' };
-// 줄들 → { groups:[{ kind:'rain'|'shower'|'snow'|'snowrain', when:'17일~18일 새벽', body:['- …'] }], used(묶음에 쓴 줄 수) }
-// 몸 = '-'로 시작하는 줄. 끝 = 다음 머리·다른 기호 줄(* ※ □ ○ ◎ ▶)·빈 줄·그 밖의 줄(페이지를 통째 복사하면 바로 뒤에
-// '평년(오늘)' 같은 표 글자가 붙어 온다). 단 앞 줄이 '/ , . · ('로 끝나거나 괄호가 안 닫혔거나 이 줄이 '/'로 시작하면
-// 줄바꿈으로 잘린 줄이라 앞 줄에 잇는다.
-function bulSplitGroups(lines) {
-  const groups = []; let cur = null, used = 0;
+// 줄들 → { groups:[{ kind:'rain'|'shower'|'snow'|'snowrain', when:'17일~18일 새벽', body:['- …'] }], used(묶음에 쓴 줄 수),
+//          dropped(첫 머리 뒤에 나왔는데 어느 묶음에도 못 든 강수량 꼴 줄 '- 지역: 숫자' 수 — 0이 아니면 나누기를 믿지 않는다) }
+// 몸 = '-'로 시작하는 줄. 끝 = 다음 머리·다른 기호 줄(* ※ □ ○ ◎ ▶)·그 밖의 줄(페이지를 통째 복사하면 바로 뒤에
+// '평년(오늘)' 같은 표 글자가 붙어 온다)·빈 줄 뒤의 '-' 아닌 줄(빈 줄만으로는 끝내지 않는다 — 한 줄씩 띄운 글도 있다).
+// 단 앞 줄이 '/ , . · ( : ~'로 끝나거나 괄호가 안 닫혔거나 이 줄이 '/'·'(많은 곳'으로 시작하면 줄바꿈으로 잘린 줄이라 앞 줄에 잇는다.
+// inBody=true: 통보문 본문만 든 글(페이지 HTML의 cmp-view-content·데스크톱 창의 본문 글) — 표 글자가 섞일 일이 없으니
+// 그 밖의 줄도 앞 줄에 잇는다(묶음을 끝내면 뒤따르는 '-' 줄이 빠진다 — 예: 줄바꿈된 '(많은 곳 … 이상)' 뒤의 지역).
+function bulSplitGroups(lines, inBody) {
+  const groups = []; let cur = null, used = 0, gap = false, dropped = 0;
   for (const raw of lines || []) {
     const l = String(raw).trim().replace(/\s{2,}/g, ' ').replace(/：/g, ':').replace(/^[–—−]/, '-');
     const hm = l.match(BUL_HEAD_RE);
     if (hm) {
       const k = hm[2].replace(/\s/g, '');
       groups.push(cur = { kind: k === '강수량' ? (hm[1] ? 'shower' : 'rain') : k === '적설' ? 'snow' : 'snowrain', when: hm[3].replace(/\s+/g, ' '), body: [], old: l[0] === '□' });
-      used++; continue;
+      used++; gap = false; continue;
     }
-    if (!cur) continue;
-    if (!l) { if (cur.body.length) cur = null; continue; }
+    if (!cur) { if (groups.length && /^[-‐·•∙]/.test(l) && /:/.test(l) && /\d/.test(l)) dropped++; continue; }
+    if (!l) { if (cur.body.length && !inBody) gap = true; continue; }   // 본문만 든 글의 빈 줄은 줄 모양일 뿐(HTML 쪽은 빈 줄을 미리 뺀다)
+    const afterGap = gap; gap = false;
     if (/^[-‐·•∙]/.test(l)) { cur.body.push(l); used++; continue; }
     if (cur.old && /^○/.test(l) && /:/.test(l) && /\d/.test(l)) { cur.body.push(l.replace(/^○\s*/, '- ')); used++; continue; }   // 2021년 판 몸 줄
-    if (/^[*※□○◎▶]/.test(l)) { cur = null; continue; }
+    if (/^[*※□○◎▶]/.test(l) || afterGap) { cur = null; continue; }
     const prev = cur.body[cur.body.length - 1] || '';
     const open = (prev.match(/\(/g) || []).length > (prev.match(/\)/g) || []).length;
-    if (prev && (/[/,.·(]\s*$/.test(prev) || open || /^\//.test(l))) { cur.body[cur.body.length - 1] = prev + ' ' + l; used++; continue; }
+    if (prev && (inBody || /[/,.·(:~∼]\s*$/.test(prev) || open || /^\/|^\(\s*많은\s*곳/.test(l))) { cur.body[cur.body.length - 1] = prev + ' ' + l; used++; continue; }
     cur = null;
   }
-  return { groups: groups.filter((g) => g.body.length).map((g) => ({ kind: g.kind, when: g.when, body: g.body })), used };
+  return { groups: groups.filter((g) => g.body.length).map((g) => ({ kind: g.kind, when: g.when, body: g.body })), used, dropped };
 }
 
 // 날짜 표현에서 날만: '16일 오후~17일 새벽' → '16~17일', '18일 오후' → '18일', '30일~5월 1일' → '30일~1일'. 여러 개면 첫 날~끝 날. 못 뽑으면 원문 그대로.
@@ -113,7 +117,7 @@ function bulAnnounceText(s, tmfc) {
 //   { kind:'ok', groups, at, where, extra }   묶음 1개 이상(extra = 묶음 밖 글이 섞임 — 페이지 통째 복사 등)
 //   { kind:'none', at, where }                본문은 읽었는데 예상 강수량·적설 묶음이 없음 — 정상
 //   { kind:'empty' | 'broken' | 'format' }    빈 응답 · 한글 깨짐 · 본문을 못 찾음(페이지 모양이 바뀜) / drift: 머리 모양이 달라 못 나눔
-// mode: 'html' | 'text' | 생략(태그가 있으면 HTML)
+// mode: 'html' | 'text'(붙여넣은 글 — 페이지 통째·PDF) | 'body'(통보문 본문만 든 글 — 데스크톱 창) | 생략(태그가 있으면 HTML)
 function bulReadPage(t, mode) {
   const s = String(t == null ? '' : t);
   if (!s.trim()) return { kind: 'empty' };
@@ -122,17 +126,19 @@ function bulReadPage(t, mode) {
   if (html) {
     const r = bulPageLines(s); meta = r.meta; lines = r.lines;
     if (!lines) return /[가-힣]/.test(s) || !/[^\x00-\x7f]/.test(s) ? { kind: 'format', detail: '통보문 본문(cmp-view-content)이 없음' } : { kind: 'broken' };
+    // 본문 칸은 있는데 비었음(본문을 스크립트로 그리게 바뀜 등) — '한글 깨짐'이 아니다
+    if (!lines.length) return { kind: 'format', detail: '통보문 본문(cmp-view-content)이 비어 있음' };
   } else lines = s.replace(/\r/g, '').split('\n');
   if (!lines.some((l) => /[가-힣]/.test(l))) return { kind: 'broken' };
   const at = bulAnnounceText(meta.announce || (html ? '' : s), meta.tmfc);
   const where = BUL_STN[meta.stn] || '';
-  const { groups, used } = bulSplitGroups(lines);
+  const { groups, used, dropped } = bulSplitGroups(lines, html || mode === 'body');
   if (!groups.length) {
     // 머리 모양이 바뀌어 못 나눴는데 '없음'이라고 하면 방송 사고 — 본문에 '예상 강수량/적설' 글이 남아 있으면 형식 오류로 본다(※ 안내 줄은 뺀다)
     const drift = lines.find((l) => /예상\s*(?:강수량|적설)/.test(l) && !/^\s*※/.test(l));
     return drift ? { kind: 'format', drift: true, detail: drift.trim().slice(0, 80), at, where } : { kind: 'none', at, where };
   }
-  return { kind: 'ok', groups, at, where, extra: lines.filter((l) => String(l).trim()).length > used };
+  return { kind: 'ok', groups, at, where, extra: lines.filter((l) => String(l).trim()).length > used, dropped };
 }
 
 // 헬퍼 /api/kma 실패 → 판정. 특보와 같은 틀(wrnHttpFail)이되, 이 경로는 인증키를 안 쓰므로 401·403·429는 '기상청 사이트가 막음'
@@ -157,11 +163,14 @@ function bulResultView(r) {
     // 여럿이면 고른 항목은 '날짜' 칸이 보여 준다(카드에 적으면 고를 때마다 낡는다)
     const lines = [r.n > 1 ? '날짜를 고르면 아래 칸에 채워져요.' : '칸에 채웠어요 — ‘통보문으로 색칠’을 누르세요.'];
     if (r.snowOnly) lines.push('적설(cm)만 있어요 — 강수량 색 단계로 칠해요.');
+    if (r.dropped) lines.push(`묶음에 못 넣은 강수량 줄 ${r.dropped}개가 있어요 — 원문과 칸을 견줘 보세요.`);   // 말없이 빠지는 줄이 없게
     return { tone: 'ok', title, meta, lines, detail: '', actions: [], toast: title };
   }
   if (k === 'none') {
     const title = `${r.src === 'paste' ? '붙여넣은 통보문' : r.src === 'wnd' ? '창의 통보문' : '지금 통보문'}에는 예상 강수량이 없어요`;
-    return { tone: 'ok', title, meta, lines: ['오류가 아니에요. 다음 발표(05·11·17시) 뒤 다시 확인하세요.'], detail: '', actions: [], toast: title };
+    const lines = ['오류가 아니에요. 다음 발표(05·11·17시) 뒤 다시 확인하세요.'];
+    if (r.cleared) lines.push('앞서 채운 칸은 비웠어요(지난 통보문).');   // 지난 통보문 글로 칠하는 일이 없게
+    return { tone: 'ok', title, meta, lines, detail: '', actions: [], toast: title };
   }
   // 대신 쓸 길 — 데스크톱은 날씨누리 창에서 읽기, 웹은 페이지 통째 복사 → 붙여넣기
   const alt = r.wnd ? '‘날씨누리 창에서 읽기’로도 돼요.' : '‘단기예보 열기’에서 통째로 복사(Ctrl+A)해 붙여넣어도 돼요.';
@@ -194,6 +203,8 @@ function bulResultView(r) {
 let bulPickList = [];   // '날짜' 고르기 항목(bulPickItems) — 고르면 그 묶음 글을 붙여넣기 칸에 채운다
 let bulFetchSeq = 0;    // 불러오기 차례 번호 — 겹치면 마지막 것만(붙여넣기·창 읽기도 올려서 늦게 온 불러오기가 덮지 않게)
 let bulWaitWnd = false; // 결과 카드가 날씨누리 창을 기다리는 중 — 창을 그냥 닫으면 카드를 치운다
+let bulFilled = '';     // 고르기로 붙여넣기 칸에 마지막으로 채운 글 — 칸이 아직 이 글이면(손대지 않음) '없음'을 받았을 때 비운다
+let bulWndLast = '';    // 데스크톱 창에서 마지막으로 읽은 글 — 같은 화면을 다시 읽으면(쪽 안 이동·스크립트 갱신) 고른 날짜·칸을 그대로 둔다
 
 // 데스크톱 앱(새 판)이면 앱 안 날씨누리 창을 띄우고 그 창의 통보문을 읽어 올 수 있다(desktop/main.js 'wcg:wnuri-open')
 const bulHasWnd = () => !!(window.wcgDesktop && typeof window.wcgDesktop.openWnuri === 'function');
@@ -246,7 +257,7 @@ function bulFillPick(groups) {
 // 고른 항목의 글을 붙여넣기 칸에 넣는다(미리보기 — 칠하기는 '통보문으로 색칠'). 고쳐서 칠할 수 있게 칸은 그대로 편집 가능.
 function bulPickFill(i) {
   const it = bulPickList[+i]; if (!it) return;
-  $('#bulPaste').value = bulGroupText(it.groups);
+  $('#bulPaste').value = bulFilled = bulGroupText(it.groups);
 }
 // 고르기 비우기(다른 작업을 열 때·묶음이 없는 통보문을 받았을 때). card=true면 결과 카드도 치우고 진행 중인 불러오기를 버린다.
 function bulResetPick(card) {
@@ -256,15 +267,22 @@ function bulResetPick(card) {
   if (card) { bulFetchSeq++; showBulResult(null); }
 }
 // 판정(bulReadPage) → 화면. 묶음이 있으면 고르기·칸 채우기, 없음·오류면 카드만(오류일 땐 칸·고르기를 그대로 둔다).
+// 없음(정상)이면 고르기를 비우고, 칸에 지난 통보문에서 채운 글이 손대지 않은 채 남아 있으면 그것도 비운다(지난 비로 칠하는 사고 방지).
 function bulShowPage(page, src) {
   if (page.kind === 'ok') {
     const it = bulFillPick(page.groups);
     const snowOnly = page.groups.every((g) => g.kind === 'snow' || g.kind === 'snowrain');
-    showBulResult({ kind: 'ok', src, n: page.groups.length, label: it.label, at: page.at, where: page.where, snowOnly });
+    showBulResult({ kind: 'ok', src, n: page.groups.length, label: it.label, at: page.at, where: page.where, snowOnly, dropped: page.dropped || 0 });
     return true;
   }
-  if (page.kind === 'none') bulResetPick();
-  showBulResult({ ...page, src });
+  let cleared = false;
+  if (page.kind === 'none') {
+    bulResetPick();
+    const ta = $('#bulPaste');
+    if (ta && bulFilled && ta.value === bulFilled) { ta.value = ''; cleared = true; }
+    bulFilled = '';
+  }
+  showBulResult({ ...page, src, cleared });
   return page.kind === 'none';
 }
 
@@ -280,7 +298,8 @@ async function fetchBulletin() {
   if (!hp.up) return fail({ kind: 'helperOff' });
   let r = null, body = null;
   for (const u of [BUL_PAGE_URL, BUL_PAGE_VIA]) {
-    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(u)); }
+    // 주소가 늘 같다 — 발표(05·11·17시) 직후에 브라우저가 지난 응답을 다시 쓰지 않게 캐시를 안 쓴다
+    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(u), { cache: 'no-store' }); }
     catch (e) { return fail(bulHttpFail(0, e && e.message)); }   // 확인 직후 연결이 끊김(확장팩 멈춤 등)
     if (stale()) return null;
     body = null;
@@ -310,7 +329,9 @@ async function fetchBulletin() {
 function bulOpenPage() {
   if (bulHasWnd()) {
     showBulResult({ kind: 'busy', src: 'wnd' });
-    Promise.resolve(window.wcgDesktop.openWnuri(BUL_PAGE_URL)).catch(() => showBulResult({ kind: 'other', src: 'wnd' }));
+    // main이 거절하면(false) '여는 중' 카드가 남지 않게 오류로 바꾼다
+    const no = () => { if (bulWaitWnd) showBulResult({ kind: 'other', src: 'wnd' }); };
+    Promise.resolve(window.wcgDesktop.openWnuri(BUL_PAGE_URL)).then((ok) => { if (ok === false) no(); }, no);
     return;
   }
   window.open(BUL_PAGE_URL, '_blank', 'noopener');
@@ -319,13 +340,17 @@ function bulOpenPage() {
 // 창의 글은 바깥 페이지가 준 것이라 글자로만 쓴다(칸·카드 textContent).
 function bulFromWnuri(d) {
   if (!d || typeof d !== 'object') return;
-  if (d.closed) { if (bulWaitWnd) showBulResult(null, true); return; }
+  if (d.closed) { bulWndLast = ''; if (bulWaitWnd) showBulResult(null, true); return; }
   const wait = d.first || bulWaitWnd;
   if (d.err) { if (wait) showBulResult({ kind: 'net', src: 'wnd', detail: String(d.err).slice(0, 160) }); return; }
   const text = typeof d.text === 'string' ? d.text.slice(0, 200000) : '';
   if (!text.trim()) { if (wait) showBulResult({ kind: 'format', src: 'wnd' }); return; }   // 단기예보가 아닌 화면 — 처음 뜬 화면일 때만 알린다
+  const all = `${typeof d.announce === 'string' ? d.announce.slice(0, 200) : ''}\n${text}`;
+  // 같은 글을 다시 읽음(쪽 안 이동·같은 화면 새로 그림) — 고른 날짜·고친 칸을 덮지 않는다. 창을 다시 연 첫 읽기는 늘 반영.
+  if (!wait && all === bulWndLast) return;
+  bulWndLast = all;
   bulFetchSeq++;   // 진행 중인 불러오기가 이걸 덮지 않게
-  const page = bulReadPage(`${typeof d.announce === 'string' ? d.announce.slice(0, 200) : ''}\n${text}`, 'text');
+  const page = bulReadPage(all, 'body');
   const stn = (String(d.url || '').match(/[?&]stnId=(\d+)/) || [])[1];
   page.where = BUL_STN[stn || 108] || '';
   bulShowPage(page, 'wnd');
@@ -335,8 +360,10 @@ function bulFromWnuri(d) {
 function bulOnPaste(e) {
   const t = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
   const page = bulReadPage(t, 'text');
-  // 묶음이 여럿이거나 묶음 밖 글이 섞임(통째 복사) · 또는 통보문 한 판(발표 시각 있음)인데 묶음이 없음
-  const whole = page.kind === 'ok' ? (page.groups.length > 1 || page.extra) : (page.kind === 'none' && !!page.at);
+  // 묶음이 여럿이거나 묶음 밖 글이 섞임(통째 복사) · 또는 통보문 한 판(발표 시각 있음)인데 묶음도 강수량 줄도 없음
+  // 묶음 밖에 남은 강수량 줄이 있으면(dropped) 나누기를 믿지 않고 예전처럼 그대로 붙인다(줄이 빠지는 것보다 낫다)
+  const rainy = () => t.split('\n').some((l) => /^\s*[-‐·•∙–—−]/.test(l) && /[:：]/.test(l) && /\d/.test(l));
+  const whole = page.kind === 'ok' ? (!page.dropped && (page.groups.length > 1 || page.extra)) : (page.kind === 'none' && !!page.at && !rainy());
   if (!whole) return;
   e.preventDefault();
   bulFetchSeq++;

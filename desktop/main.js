@@ -196,7 +196,9 @@ async function readWnuri() {
 function openWnuri(url) {
   if (!wnuriOk(url)) url = WNURI_HOME;
   wnuriFirst = true;
-  if (wnuri && !wnuri.isDestroyed()) { if (wnuri.isMinimized()) wnuri.restore(); wnuri.show(); wnuri.focus(); readWnuri(); return; }
+  // 이미 떠 있으면 앞으로 불러 새로고침한 뒤 읽는다(다 뜨면 did-finish-load) — 창을 열어 둔 채 발표(05·11·17시)가 바뀌면
+  // 그냥 다시 읽기로는 지난 통보문을 읽는다. 창 안에서 고른 지역 화면은 새로고침해도 그대로다.
+  if (wnuri && !wnuri.isDestroyed()) { if (wnuri.isMinimized()) wnuri.restore(); wnuri.show(); wnuri.focus(); wnuri.webContents.reload(); return; }
   wnuri = new BrowserWindow({
     width: 1180, height: 900, minWidth: 600, minHeight: 400, show: !TEST_MODE, autoHideMenuBar: true,
     title: '날씨누리 — 단기예보 (통보문 읽기)', icon: path.join(APP_DIR, 'icon.ico'), backgroundColor: '#ffffff',
@@ -221,8 +223,12 @@ function openWnuri(url) {
     else if (/^https?:/i.test(u)) shell.openExternal(u);
     return { action: 'deny' };
   });
-  wc.on('will-navigate', (e, u) => { if (!wnuriOk(u)) { e.preventDefault(); if (/^https?:/i.test(u)) shell.openExternal(u); } });
-  wc.on('will-redirect', (e, u, _inPlace, isMain) => { if (isMain && !wnuriOk(u)) e.preventDefault(); });   // 서버 리다이렉트로 밖에 나가는 것도
+  // 주소·주 프레임은 이벤트 객체(details)에서 먼저 읽는다(뒤 인자는 Electron에서 옛 방식으로 표시됨)
+  wc.on('will-navigate', (e, u0) => { const u = (e && e.url) || u0; if (!wnuriOk(u)) { e.preventDefault(); if (/^https?:/i.test(u)) shell.openExternal(u); } });
+  wc.on('will-redirect', (e, u0, _inPlace, isMain0) => {   // 서버 리다이렉트로 밖에 나가는 것도
+    const u = (e && e.url) || u0, isMain = e && typeof e.isMainFrame === 'boolean' ? e.isMainFrame : isMain0;
+    if (isMain && !wnuriOk(u)) e.preventDefault();
+  });
   wc.on('did-finish-load', () => { readWnuri(); });
   wc.on('did-navigate-in-page', () => { setTimeout(readWnuri, 300); });
   wc.on('did-fail-load', (_e, code, desc, u, isMain) => { if (isMain && code !== -3) toApp({ err: `${desc || '불러오기 실패'} (${code})`, first: wnuriFirst, url: String(u || '') }); });   // -3 = 다른 주소로 넘어가며 취소됨

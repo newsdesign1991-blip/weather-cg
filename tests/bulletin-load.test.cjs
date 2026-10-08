@@ -28,7 +28,7 @@ function ctx() {
     sliceBetween('const KMA_TERMS = {', 'function bulAssignDir('),                                  // parseBulletin(지역 수 세기·칠하기 판정)
     sliceBetween('function wrnHttpFail(', '// 특보 줄로 읽지 못한 데이터 줄'),                         // 헬퍼 실패 판정(특보와 같은 틀)
     sliceBetween('// ===================== 통보문 불러오기 — 묶음 나누기', '// ===================== 통보문 불러오기 — 화면'),
-  ].join('\n') + '\nObject.assign(this, { parseBulletin, bulCleanLine, bulReadPage, bulSplitGroups, bulPickItems, bulPickDefault, bulGroupText, bulMergeWhen, bulAnnounceText, bulResultView, bulHttpFail, bulDir, termSiguns });',
+  ].join('\n') + '\nObject.assign(this, { BUL_STN, parseBulletin, bulCleanLine, bulReadPage, bulSplitGroups, bulPickItems, bulPickDefault, bulGroupText, bulMergeWhen, bulAnnounceText, bulResultView, bulHttpFail, bulDir, termSiguns });',
   _ctx, { filename: 'bulletin-load.js' });
   return _ctx;
 }
@@ -70,6 +70,9 @@ test('날씨누리 페이지 HTML → 날짜 묶음(보관본 33건 모두 본�
   assert.equal(now.where, '전국');   // PDF 링크의 관서 108
   assert.deepEqual(plain(now.groups[0].body), ['- (전라권) 광주.전남: 5~10mm/ 전북: 5mm 미만', '- (경상권) 부산.울산.경남: 5~20mm/ 대구.경북: 5~10mm', '- (제주도) 제주도: 5~10mm']);
   assert.equal(bulReadPage(FX.html.now_184_202610081100, 'html').where, '제주');
+  // 발표가 바뀐 직후(17:01 캡처) — PDF 링크는 아직 11시 것이지만 발표 시각은 페이지 표시(17:00)를 따른다
+  assert.match(FX.html.st_20260214080114, /rpt_wid_day_202602141100_108\.pdf/);
+  assert.equal(bulReadPage(FX.html.st_20260214080114, 'html').at, '2월 14일 17:00 발표');
 });
 
 test('페이지 통째 복사·PDF 글도 HTML과 똑같이 나뉜다(표 글자가 바로 붙어도)', () => {
@@ -184,6 +187,122 @@ test('받은 글 판정 — 빈 응답·본문 없음(페이지 모양 바뀜)·
   assert.equal(bulReadPage('<div class="cmp-view-content"><span>\u00c0\u00fc\u00b1\u00b9</span></div>', 'html').kind, 'broken');
 });
 
+test('경계 사례 — 묶음 1·3개, 날짜 표기, 달 넘김, 없음, 적설만, 비+눈, 해상 줄, 줄바꿈·빈 줄에도 줄이 빠지지 않음', () => {
+  const { bulReadPage, bulPickItems, bulPickDefault, bulGroupText } = ctx();
+  // 원문 몸만 주면 HTML(본문 span)·평문(페이지 통째 — 앞뒤에 다른 글)·창 본문 글(body) 세 가지로 만들어 같은 결과인지 본다
+  const AT = '2026년 10월 17일 (토)요일 17:00 발표';
+  const asHtml = (b) => `<div class="cmp-view-announce"><span>${AT}</span></div><div class="cmp-view-content"><p class="summary">${b.split('\n').map((l) => `<span class="depth_3">${l}</span>`).join('')}</p></div>`;
+  const read = (b) => {
+    const r = [bulReadPage(asHtml(b), 'html'), bulReadPage(`날씨누리 메뉴\n${AT}\n${b}\n평년(오늘)\n18.2`, 'text'), bulReadPage(`${AT}\n${b}`, 'body')];
+    const s = r.map((p) => JSON.stringify([p.kind, p.at, (p.groups || []).map((g) => [g.kind, g.when, g.body])]));
+    assert.equal(s[1], s[0], 'text = html'); assert.equal(s[2], s[0], 'body = html');
+    for (const p of r) assert.ok(!p.dropped, '빠진 줄 없음');
+    return r[0];
+  };
+  const labels = (p) => plain(bulPickItems(p.groups).map((it) => it.label));
+  const heads = (p) => plain(bulPickItems(p.groups).map((it) => bulGroupText(it.groups).split('\n')[0]));
+  // 묶음 1개
+  const one = read('□ (종합) 내일 남부 비\n* 예상 강수량(18일)\n- (전라권) 광주.전남: 5~20mm\n- (경상권) 부산.울산.경남: 5~30mm');
+  assert.deepEqual(labels(one), ['18일 · 비']); assert.equal(one.at, '10월 17일 17:00 발표');
+  // 묶음 3개 + '17일~18일'·줄마다 '(권역, 17일)'
+  const three = read('* 예상 강수량(17일~18일)\n- (수도권, 17일) 경기남서부: 5mm 안팎\n- (충청권) 대전.세종.충남, 충북: 20~60mm\n* 예상 강수량(19일)\n- (전라권) 전북, 광주.전남: 30~80mm\n* 소나기에 의한 예상 강수량(20일 오후)\n- (강원도) 강원내륙.산지: 5~20mm');
+  assert.deepEqual(labels(three), ['17일~18일 · 비', '19일 · 비', '20일 오후 · 소나기']);
+  assert.deepEqual(heads(three), ['* 예상 강수량(17~18일)', '* 예상 강수량(19일)', '* 소나기에 의한 예상 강수량(20일)']);
+  // '17~18일' 표기는 그대로 한 묶음
+  assert.deepEqual(labels(read('* 예상 강수량(17~18일)\n- (수도권, 16일) 경기남서부: 5mm 안팎\n- (충청권, 17일) 충북: 20~60mm')), ['17~18일 · 비']);
+  // 다음 달로 넘어감
+  const month = read('* 예상 강수량(31일~11월 1일)\n- (제주도) 제주도: 20~60mm\n* 예상 강수량(11월 2일)\n- (전라권) 광주.전남: 5~10mm');
+  assert.deepEqual(heads(month), ['* 예상 강수량(31일~1일)', '* 예상 강수량(2일)']);
+  // 예상 강수량 없음 = 정상 없음
+  assert.equal(read('□ (종합) 전국 맑음\n○ (오늘, 17일) 전국 맑음').kind, 'none');
+  // 적설만 — 첫 항목, cm 표시
+  const snow = read('* 예상 적설(18일)\n- (강원도) 강원산지: 3~8cm/ 강원동해안: 1~5cm');
+  assert.deepEqual(labels(snow), ['18일 · 적설(cm)']); assert.equal(bulPickDefault(bulPickItems(snow.groups)), 0);
+  // 비+눈 섞임 — 처음 고르는 건 비, 적설·강수는 따로
+  const mix = read('* 예상 적설(22일)\n- (수도권) 경기북동부: 1~3cm\n* 예상 강수량(22일)\n- (수도권) 서울.인천.경기: 5~10mm\n* 예상 적설 및 강수량(23일)\n- (수도권) 경기북동부: 1cm 미만/ 1mm 미만');
+  assert.deepEqual(labels(mix), ['22일 · 적설(cm)', '22일 · 비', '23일 · 적설·강수']);
+  assert.equal(bulPickDefault(bulPickItems(mix.groups)), 1);
+  // 해상 줄도 줄째 남는다(칠할 때 '못 찾음'으로 알린다 — 말없이 빠지지 않게)
+  assert.equal(read('* 예상 강수량(18일)\n- (수도권) 서해5도: 5~20mm\n- (해상) 서해중부해상: 10~30mm\n- (제주도) 제주도: 5~10mm').groups[0].body.length, 3);
+  // 줄바꿈된 '(많은 곳 …)' 줄 — 앞 줄에 잇고, 뒤따르는 지역 줄도 빠지지 않는다
+  const wrap = read('* 예상 강수량(18일)\n- (경상권) 부산.울산.경남: 30~80mm\n(많은 곳 경남남해안 100mm 이상)\n- (제주도) 제주도: 20~60mm');
+  assert.deepEqual(plain(wrap.groups[0].body), ['- (경상권) 부산.울산.경남: 30~80mm (많은 곳 경남남해안 100mm 이상)', '- (제주도) 제주도: 20~60mm']);
+  // 평문: 값 앞에서 잘린 줄(':'로 끝남)은 잇고, 한 줄씩 띄운 글도 줄이 빠지지 않으며, 표 글자는 안 섞인다
+  const t = bulReadPage(`${AT}\n* 예상 강수량(10일)\n\n- (경상권) 부산.울산.경남: 5~20mm/ 대구.경북:\n5~10mm\n\n- (제주도) 제주도: 5~10mm\n\n평년(오늘)\n12.3`, 'text');
+  assert.deepEqual(plain(t.groups[0].body), ['- (경상권) 부산.울산.경남: 5~20mm/ 대구.경북: 5~10mm', '- (제주도) 제주도: 5~10mm']);
+  assert.equal(t.dropped, 0);
+  // 묶음이 끝난 뒤 남은 강수량 줄은 dropped로 센다(붙여넣기는 이때 나누지 않고 그대로 붙인다)
+  assert.equal(bulReadPage('* 예상 강수량(10일)\n- (제주도) 제주도: 5~10mm\n○ (모레) 흐림\n- (전라권) 광주.전남: 5mm', 'text').dropped, 1);
+  // 본문 칸이 비었음 — '한글 깨짐'이 아니라 형식 오류
+  assert.equal(bulReadPage(`<div class="cmp-view-announce"><span>${AT}</span></div><div class="cmp-view-content">  </div>`, 'html').kind, 'format');
+});
+
+test('화면 흐름 — 붙여넣기 가로채기 조건, 정상 없음이면 지난 칸 비우기, 창에서 같은 글 다시 읽으면 그대로', () => {
+  const src = [
+    sliceBetween('function bulShowPage(', '// [통보문 불러오기]'),
+    sliceBetween('function bulFromWnuri(', '// 붙여넣기 칸에 페이지 통째'),
+    sliceBetween('function bulOnPaste(', '\n}\n') + '\n}\n',
+  ].join('\n');
+  const c = ctx();
+  const run = (pre) => {
+    const k = { ...c, shown: [], els: {} };
+    vm.createContext(k);
+    vm.runInContext(`let bulFetchSeq = 0, bulWaitWnd = false, bulFilled = '', bulWndLast = '', bulPickList = [];
+      const $ = (s) => els[s]; const showBulResult = (r) => { shown.push(r); bulWaitWnd = !!(r && r.kind === 'busy' && r.src === 'wnd'); };
+      const bulResetPick = () => { bulPickList = []; };
+      function bulFillPick(groups) { bulPickList = bulPickItems(groups); bulFilled = $('#bulPaste').value = bulGroupText(bulPickList[0].groups); return bulPickList[0]; }
+      ${pre || ''}\n${src}\nthis.api = { bulOnPaste, bulFromWnuri, bulShowPage, get filled() { return bulFilled; }, set filled(v) { bulFilled = v; }, set wait(v) { bulWaitWnd = v; } };`, k);
+    k.els['#bulPaste'] = { value: '' };
+    return k;
+  };
+  const paste = (k, text) => { const e = { clipboardData: { getData: () => text }, prevented: false, preventDefault() { this.prevented = true; } }; k.api.bulOnPaste(e); return e.prevented; };
+  let k = run();
+  // 강수량 줄만·머리+한 묶음은 그대로 붙음(예전 방식)
+  assert.equal(paste(k, '- (수도권, 16일) 경기남서부: 5mm 안팎\n- (충청권) 대전.세종.충남, 충북: 20~60mm'), false);
+  assert.equal(paste(k, '* 예상 강수량(16~17일)\n- (수도권, 16일) 경기남서부: 5mm 안팎'), false);
+  // 페이지 통째(표 글자 섞임) · 묶음 여럿 → 나눠서 고르기
+  assert.equal(paste(k, FX.text.copy_fullpage_202610081100), true);
+  assert.equal(k.shown.at(-1).kind, 'ok');
+  assert.equal(paste(k, '* 예상 강수량(17~18일)\n- (수도권) 경기: 5mm\n* 예상 강수량(19일)\n- (전라권) 전북: 5mm'), true);
+  // 묶음 밖에 남은 강수량 줄이 있으면 나누지 않는다(줄이 빠지는 것보다 그대로 붙이는 게 낫다)
+  assert.equal(paste(k, '* 예상 강수량(10일)\n- (제주도) 제주도: 5~10mm\n○ (모레) 흐림\n- (전라권) 광주.전남: 5mm\n평년(오늘)'), false);
+  // 발표 시각은 있는데 강수량 줄이 있으면(머리 없이) '없음'으로 가로채지 않는다
+  assert.equal(paste(k, '2026년 10월 08일 (목)요일 11:00 발표\n- (제주도) 제주도: 5~10mm'), false);
+  assert.equal(paste(k, FX.text.pdf_202610071700), true);   // 강수량 없는 통보문 한 판 → '없음' 카드
+  assert.equal(k.shown.at(-1).kind, 'none');
+  // 정상 없음: 칸이 지난번에 채운 글 그대로면 비우고 카드에 알린다, 손댄 글은 그대로
+  k = run();
+  k.api.bulShowPage(c.bulReadPage(FX.html.now_108_202610081100, 'html'), 'fetch');
+  assert.match(k.els['#bulPaste'].value, /^\* 예상 강수량\(10일\)/);
+  k.api.bulShowPage(c.bulReadPage(FX.html.now_109_202610081100, 'html'), 'fetch');
+  assert.equal(k.els['#bulPaste'].value, ''); assert.equal(k.shown.at(-1).cleared, true);
+  assert.ok(c.bulResultView(k.shown.at(-1)).lines.some((l) => /비웠어요/.test(l)));
+  k.api.bulShowPage(c.bulReadPage(FX.html.now_108_202610081100, 'html'), 'fetch');
+  k.els['#bulPaste'].value += '\n- (수도권) 서울: 5mm';   // 사용자가 고침
+  k.api.bulShowPage(c.bulReadPage(FX.html.now_109_202610081100, 'html'), 'fetch');
+  assert.match(k.els['#bulPaste'].value, /서울: 5mm/); assert.equal(k.shown.at(-1).cleared, false);
+  // 오류는 칸을 건드리지 않는다
+  const before = k.els['#bulPaste'].value;
+  k.api.bulShowPage({ kind: 'format' }, 'fetch');
+  assert.equal(k.els['#bulPaste'].value, before);
+  // 창 읽기: 같은 글을 다시 읽으면(첫 읽기 아님) 고친 칸을 덮지 않는다, 창을 다시 열면(first) 늘 반영
+  k = run();
+  const d = { text: '* 예상 강수량(10일)\n- (제주도) 제주도: 5~10mm\n\n* 소나기에 의한 예상 강수량(11일)\n- (전라권) 전북: 5mm', announce: '2026년 10월 08일 (목)요일 11:00 발표', url: 'https://www.weather.go.kr/w/forecast/overall/short-term.do?stnId=184', first: true };
+  k.api.bulFromWnuri(d);
+  assert.equal(k.shown.at(-1).kind, 'ok'); assert.equal(k.shown.at(-1).where, '제주'); assert.equal(k.shown.at(-1).n, 2);
+  k.els['#bulPaste'].value = '고친 글';
+  const n = k.shown.length;
+  k.api.bulFromWnuri({ ...d, first: false });
+  assert.equal(k.els['#bulPaste'].value, '고친 글'); assert.equal(k.shown.length, n);
+  k.api.bulFromWnuri({ ...d, first: true });
+  assert.notEqual(k.els['#bulPaste'].value, '고친 글');
+  // 창이 닫히면 기억을 지운다(다시 열면 같은 글도 반영)
+  k.api.bulFromWnuri({ closed: true });
+  k.els['#bulPaste'].value = '고친 글';
+  k.api.bulFromWnuri({ ...d, first: false });
+  assert.notEqual(k.els['#bulPaste'].value, '고친 글');
+});
+
 test('헬퍼 실패 판정 — 이 경로는 인증키를 안 써서 401·403·429는 "사이트가 막음"', () => {
   const { bulHttpFail } = ctx();
   const k = (s, b) => bulHttpFail(s, b).kind;
@@ -263,6 +382,14 @@ test('데스크톱 날씨누리 창 — 메인 창만 열 수 있고, 날씨누�
   assert.match(main, /setPermissionRequestHandler\(\(_w, _p, cb\) => cb\(false\)\)/);
   assert.match(main, /on\('will-download', \(e\) => e\.preventDefault\(\)\)/);
   assert.match(main, /win\.on\('closed', \(\) => \{ if \(wnuri && !wnuri\.isDestroyed\(\)\) wnuri\.destroy\(\); \}\);/);
+  // 창에는 preload(앱 API)를 주지 않는다 — 바깥 페이지에 노출되는 함수 없음
+  const wbw = /wnuri = new BrowserWindow\(\{[\s\S]*?\n {2}\}\);/.exec(main)[0];
+  assert.doesNotMatch(wbw, /preload|nodeIntegration: true|contextIsolation: false|sandbox: false|webviewTag/);
+  // 이미 떠 있으면 새로고침 뒤 읽는다(열어 둔 채 발표가 바뀌어도 지난 통보문을 읽지 않게)
+  assert.match(main, /wnuri\.focus\(\); wnuri\.webContents\.reload\(\); return; \}/);
+  // 이동·리다이렉트 검사는 이벤트 객체의 주소를 먼저 본다
+  assert.match(main, /wc\.on\('will-navigate', \(e, u0\) => \{ const u = \(e && e\.url\) \|\| u0; if \(!wnuriOk\(u\)\)/);
+  assert.match(main, /if \(isMain && !wnuriOk\(u\)\) e\.preventDefault\(\);/);
   // 허용 주소 판정
   const okSrc = /const WNURI_HOST = [^\n]+\nconst wnuriOk = [^\n]+/.exec(main)[0];
   const c = { URL }; vm.createContext(c); vm.runInContext(okSrc.replace('const wnuriOk', 'this.wnuriOk = function (u) { return wnuriOk0(u); }; const wnuriOk0'), c);
