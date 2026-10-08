@@ -12,7 +12,7 @@
 ## 1. 구조
 
 ```
-index.html          뼈대: head 인라인(서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 13개
+index.html          뼈대: head 인라인(웹판 막기·서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 13개
                     + 마크업 + 테마 + 데이터 스크립트 12개 + <script src="js/…"> 41개(맨 끝)
 js/                 앱 로직 41개 — 아래 표 순서가 곧 로드 순서
 css/                스타일 13개 — 아래 표 순서가 곧 덮어쓰기 우선순위
@@ -144,7 +144,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 
 | 자리 | 내용 |
 |---|---|
-| head 맨 앞 | 서비스워커 등록, `html.isDesktop` |
+| head 맨 앞 | **웹판 막기**(7장 — 첫 스크립트), 서비스워커 등록, `html.isDesktop` |
 | 그 다음 | **모듈 로드 실패 가드**(7장) |
 | | `default-presets.js` + 배치 슬롯으로 `WCG_DEFAULTS` 교체(`var _per/_mas`), `font-data.js` + `#fontEmbed`, Pretendard preload |
 | | `<link rel="stylesheet" href="css/…?v=…">` 13개 |
@@ -196,6 +196,13 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   (문법 오류·이름 중복 포함, boot.js는 문법 오류만)를 내면 → 남은 파일과 boot.js를 실행하지 않고(`window.stop()`),
   localStorage 쓰기를 막고, '앱을 다 불러오지 못했어요 — 새로고침' 안내를 띄운다. 반쯤 깨진 앱이 하던 작업을 덮어쓰지 않게.
   기록은 `window.__wcgModFail`. 정상일 때는 오류 리스너 하나뿐이다. 부팅(boot.js) 중·부팅 뒤 실행 오류는 앱 오류라 건드리지 않는다.
+
+- **웹판 막기**(2026-10-09 — 웹판은 접고 데스크톱 설치판 하나로 간다. index.html head의 **첫 스크립트**): 데스크톱 앱(`window.wcgDesktop`·`app://`)과
+  로컬 개발(`file://`·`localhost`·`127.x`·`[::1]`·`*.localhost`)이 아니면(GitHub Pages·LAN 주소 등) '날씨 CG 메이커는 설치판으로 재배포 예정입니다' 카드를
+  `document.write`로 쓰고 바로 뒤에 `<plaintext>`를 열어 문서의 나머지(css·데이터·js·부팅·자동 저장·서비스워커 등록)를 숨긴 글자로만 읽게 한다.
+  파싱이 끝나면 미리 받던 파일도 멈춘다(`window.stop`). **head에서 바로 `window.stop()`을 부르면 안 된다** — body가 없어 크로미움이 화면을 끝내 그리지 않는다(실제로 확인).
+  저장된 작업(localStorage)은 지우지 않는다(쓰기만 막음). 닫기 없음. 기록은 `window.__wcgWebBlocked`. 판정 `wcgGateOf`·막힌 화면은 `tests/web-gate.test.cjs`.
+  다시 웹으로 열려면 이 스크립트를 지운다(push·배포는 사람이 설치판 배포 때).
 
 ## 8. 테스트 · 도구
 

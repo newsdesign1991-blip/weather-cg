@@ -18,6 +18,7 @@
 - 고친 뒤(배포 전 필수 3단계): `node tools/stamp-version.cjs`(?v= 갱신) → `node --test tests/*.test.cjs desktop/test/*.test.cjs`
   → `node desktop/test/boot-check.cjs . --wait=9000`이 `"ok": true`. 테스트는 정적 검사라 못 보는 로드 오류가 있다(MODULES.md 2장 규칙 3) —
   boot-check를 못 돌리는 환경(Electron 없음·GitHub 웹)이면 **배포(main push)하지 말고** 브랜치로 올려 사람에게 넘긴다. 데스크톱 개발판은 hot reload가 없다(Ctrl+R).
+- **웹판은 2026-10-09부터 막혀 있다**(index.html head 첫 스크립트 — 데스크톱 앱·로컬 개발만 동작, MODULES.md 7장). 앞으로는 데스크톱 설치판으로 배포한다.
 - 배포: 저장소 루트가 곧 사이트(GitHub Pages). 위 3단계를 마친 뒤
   `git add index.html js css <고친 파일>`(경로를 적어서, `-A` 금지) → commit → push. `index.html`·`js/`·`css/`는 한 커밋에 함께.
 - 디버그 eval·콘솔은 `(() => { … })()`로 감싸고 앱 전역(`S` `sel` `mode` …)에 대입하지 않는다(자동 저장으로 실제 작업에 남는다).
