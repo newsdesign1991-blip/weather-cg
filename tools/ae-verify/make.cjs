@@ -12,7 +12,7 @@ const zlib = require('node:zlib');
 const { buildAeJsx } = require('../../desktop/wns/ae-jsx.js');
 
 const SPEC_DIR = path.join(__dirname, '..', '..', 'desktop', 'test', 'ae-specs');
-const DEFAULT = ['ease-fade', 'ease-vf', 'blinds-one', 'typhoon-prog', 'typhoon-prog-cam', 'compare-prog-each', 'cam-map-rot', 'cam-map-mtn', 'labelcomp-leader', 'typhoon-camera'];
+const DEFAULT = ['ease-fade', 'ease-vf', 'blinds-one', 'typhoon-prog', 'typhoon-prog-cam', 'compare-prog-each', 'cam-map-rot', 'cam-map-mtn', 'labelcomp-leader', 'typhoon-camera', 'compare-name-follow'];
 const outDir = process.argv[2] && !/^[a-z0-9-]+$/.test(process.argv[2]) ? process.argv[2] : path.join(os.tmpdir(), 'wcg-ae-verify');
 const names = process.argv.slice(process.argv[2] === outDir ? 3 : 2);
 

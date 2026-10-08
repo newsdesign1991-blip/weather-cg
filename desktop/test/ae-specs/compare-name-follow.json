@@ -1,0 +1,253 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261008_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "compareRig": {
+    "bg": "f_00000.png",
+    "reveal": {
+     "start": 1,
+     "path": 2.5,
+     "labelLen": 0.5
+    },
+    "typhoons": [
+     {
+      "color": "#FF5A5A",
+      "lineW": 2.2,
+      "iconFile": "f_00002.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1300,
+        "y": 900
+       },
+       {
+        "x": 1230,
+        "y": 835
+       },
+       {
+        "x": 1160,
+        "y": 790
+       },
+       {
+        "x": 1090,
+        "y": 725
+       },
+       {
+        "x": 1020,
+        "y": 680
+       },
+       {
+        "x": 950,
+        "y": 615
+       }
+      ],
+      "iconAt": [
+       0,
+       2,
+       4,
+       5
+      ],
+      "nameLabel": {
+       "txt": "A",
+       "x": 950,
+       "y": 560,
+       "size": 34,
+       "weight": 800,
+       "col": "#FF5A5A",
+       "follow": [
+        13,
+        -4
+       ],
+       "always": 1
+      },
+      "labels": [
+       {
+        "idx": 1,
+        "px": 1230,
+        "py": 835,
+        "txt": "1일",
+        "bx": 1380,
+        "by": 743,
+        "bw": 130,
+        "bh": 60,
+        "size": 44,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#FFAAAA",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 2,
+        "px": 1160,
+        "py": 790,
+        "txt": "2일",
+        "bx": 1000,
+        "by": 700,
+        "bw": 130,
+        "bh": 60,
+        "size": 44,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#FF5A5A",
+        "fillOp": 1,
+        "stroke": "#FFAAAA",
+        "strokeW": 0,
+        "radius": 14
+       }
+      ],
+      "prog": {
+       "start": 1,
+       "end": 3,
+       "curve": "ioc"
+      },
+      "head": 1
+     },
+     {
+      "color": "#5AC8FF",
+      "lineW": 2.2,
+      "iconFile": "f_00002.png",
+      "iconH": 270,
+      "iconRenderH": 225,
+      "iconScreenH": 15,
+      "points": [
+       {
+        "x": 1300,
+        "y": 900
+       },
+       {
+        "x": 1230,
+        "y": 835
+       },
+       {
+        "x": 1160,
+        "y": 790
+       },
+       {
+        "x": 1090,
+        "y": 725
+       },
+       {
+        "x": 1020,
+        "y": 680
+       },
+       {
+        "x": 950,
+        "y": 615
+       }
+      ],
+      "iconAt": [
+       0,
+       2,
+       4,
+       5
+      ],
+      "nameLabel": {
+       "txt": "B",
+       "x": 950,
+       "y": 560,
+       "size": 34,
+       "weight": 800,
+       "col": "#5AC8FF",
+       "always": 1
+      },
+      "labels": [
+       {
+        "idx": 1,
+        "px": 1230,
+        "py": 835,
+        "txt": "1일",
+        "bx": 1380,
+        "by": 743,
+        "bw": 130,
+        "bh": 60,
+        "size": 44,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#5AC8FF",
+        "fillOp": 1,
+        "stroke": "#FFAAAA",
+        "strokeW": 0,
+        "radius": 14
+       },
+       {
+        "idx": 2,
+        "px": 1160,
+        "py": 790,
+        "txt": "2일",
+        "bx": 1000,
+        "by": 700,
+        "bw": 130,
+        "bh": 60,
+        "size": 44,
+        "track": -25,
+        "weight": 600,
+        "col": "#FFFFFF",
+        "fill": "#5AC8FF",
+        "fillOp": 1,
+        "stroke": "#FFAAAA",
+        "strokeW": 0,
+        "radius": 14
+       }
+      ]
+     }
+    ],
+    "labelCurve": 1,
+    "leaderGap": 16,
+    "bgPlace": {
+     "x": -960,
+     "y": -540,
+     "k": 1
+    },
+    "camera": {
+     "anchor": [
+      1160,
+      545
+     ],
+     "sBaked": 1.02,
+     "keys": [
+      {
+       "t": 0,
+       "x": 1160,
+       "y": 545,
+       "s": 1.02
+      },
+      {
+       "t": 3,
+       "x": 1000,
+       "y": 600,
+       "s": 1.4
+      }
+     ],
+     "ease": [
+      34,
+      85
+     ]
+    }
+   },
+   "name": "태풍 비교 리깅"
+  }
+ ]
+}

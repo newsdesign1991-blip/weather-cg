@@ -179,8 +179,9 @@ const HELPER_VER_MIN = 20261008;   // 20261008: 타임라인 = AE(앱 이징 곡
 // 이 버전 이상 헬퍼만 아는 AE 보내기 확장(헬퍼 20261008). 옛 헬퍼는 새 필드를 무시하고 지금처럼 들어간다(가장 가까운 결과).
 const AE_EXT_VER = 20261008;
 let _helperVer = null;   // 마지막으로 확인한 헬퍼 버전(null = 아직 모름, 0 = ver 없는 옛 헬퍼) — 타임라인 'AE 차이' 표시가 이 헬퍼 기준으로 바뀐다
-// 지금 헬퍼가 AE 확장을 아는가 — 데스크톱 내장 헬퍼는 늘 새것, 아직 모르면(확인 전) 새것으로 본다(보낼 때 다시 확인)
-function aeHelperExt() { return WNS_DESKTOP || _helperVer == null || _helperVer >= AE_EXT_VER; }
+// 지금 헬퍼가 AE 확장을 아는가 — 확인한 버전(/ping) 기준, 아직 모르면(확인 전) 새것으로 본다(보낼 때 다시 확인).
+// 데스크톱도 버전으로 본다: 내장 헬퍼를 못 띄우면 웹판 파이썬 헬퍼(옛 버전일 수 있음)에 대신 붙는다(desktop/main.js helperKind 'external').
+function aeHelperExt() { return _helperVer == null || _helperVer >= AE_EXT_VER; }
 // 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
 async function pingHelper() {
   try {

@@ -106,7 +106,7 @@ function tlLayerPlan(opt) {
       else if (zoom) cam.diff.push('AE에선 확대한 만큼 지도 그림(PNG)이 흐려집니다(화면은 다시 그려 선명)');
       if (zoom && !ty) { try { if (MAP.styles[S.style] && MAP.styles[S.style].sea) cam.diff.push('AE에선 해상 구역 경계선도 확대한 만큼 굵어집니다(화면은 굵기 그대로)'); } catch (e) {} }
       if (turn && ty && !cmpMap && ((S.typhoon && S.typhoon.places) || []).some((p) => !p.off)) cam.diff.push('AE에선 지명표시 이름표가 지도와 함께 돕니다(화면은 세워 둠)');
-      if (cmpMap && ((S.typhoon && S.typhoon.compare) || []).some((c) => c.show && c.showName !== 0 && !c.labelPos)) cam.diff.push('AE에선 옮기지 않은 비교 이름표가 카메라를 따라 움직이지 않습니다(이름표를 한 번 끌어 두면 같아집니다)');
+      // 옮기지 않은 비교 이름표(마지막 지점을 따라감)도 새 헬퍼는 그 지점 널의 toComp로 따라간다(nameLabel.follow) — 차이 아님
       // AE는 키들이 보는 영역만큼 크게 구워 보낸다(블리드, 각 변 프레임 1배까지) — 그보다 멀리 축소·이동하면 가장자리가 빈다
       try { if (typeof aeBleedBox === 'function') { const b = aeBleedBox(stateForSave().map, ks); if (b && b.clipped) cam.diff.push('AE에선 아주 크게 축소·이동한 키에서 지도 가장자리(프레임 3배 밖)가 비어 보입니다'); } } catch (e) {}
     } else if (!ty || cmpMap) cam.diff.push('AE로는 카메라 움직임이 안 들어갑니다(태풍 단일 지도만 지원)' + OLD);

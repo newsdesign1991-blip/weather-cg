@@ -355,6 +355,43 @@ test('비교 예보 = 화면(호길이 비율 = easeInOutC, 예보마다 막대)
   assert.ok(R['비교 선두 자리(px)'] < 0.08, '비교 선두 ' + R['비교 선두 자리(px)']);   // 리그 좌표 소수 1자리
 });
 
+// ===================== 비교 이름표(옮기지 않음) — 카메라를 따라 마지막 지점 + (13, −4) =====================
+// 화면 drawCompareTracks: labelPos가 없으면 pos = camProjectXY(마지막 지점) + (13, −4)(지금 카메라 — 세운 채·크기 그대로).
+// AE(헬퍼 nameLabel.follow): 이름표 Position = 그 지점 널의 toComp([0,0]) + follow(출력 px). 옮긴 이름표(labelPos)는 고정.
+test('비교 이름표(옮기지 않음) = 화면 — 카메라(키 3개·확대·방향)를 따라 마지막 지점 + (13, −4), 옮긴 이름표는 고정', async () => {
+  for (const res of ['1920x1080', '2158x1214', '1920x1080-vf']) {
+    const P1 = REAL14.slice(0, 10).map(([lon, lat], i) => ({ lon, lat, label: i + '일', fcst: i > 4 }));
+    const P2 = REAL14.slice(2, 14).map(([lon, lat], i) => ({ lon: lon + 1.5, lat: lat - 0.5, label: i + '일', fcst: true }));
+    const S = { style: 'typhoonCompare', res, map: { x: 1160, y: 545, s: 1.02 }, labels: [], texts: [], legend: { on: 0 },
+      typhoon: { issues: [{ points: REAL14.map(([lon, lat]) => ({ lon, lat })) }], labels: [], places: [], compare: [
+        { id: 'A', name: 'KMA', color: '#FF5A5A', show: 1, points: P1, labels: [] },
+        { id: 'B', name: 'JTWC', color: '#5AC8FF', show: 1, points: P2, labels: [], labelPos: { x: 900, y: 300 } }] },
+      anim: { dur: 6, fps: FPS, reveal: 'dissolve', tracks: [{ id: 'k1', kind: 'typhoon', key: 'typhoon', start: 1, len: 2, ps: 1, pe: 3 }], cam: { keys: [] } } };
+    fitView(S);
+    const m = S.map;
+    S.anim.cam.keys = [{ id: 'c1', t: 0.5, x: m.x, y: m.y, s: m.s, rz: 0 }, { id: 'c2', t: 2.0, x: m.x - 220, y: m.y + 40, s: m.s * 1.4, rz: 12 }, { id: 'c3', t: 3.5, x: m.x - 380, y: m.y - 30, s: m.s * 1.15, rz: -8 }];
+    const scr = screenCtx(JSON.parse(JSON.stringify(S)));
+    const { spec, M, ctx } = await build(S);
+    const cr = spec.layers[0].compareRig, L = (nm) => (spec.vfEnter ? M.comps.find((c) => c.name === 'VF_전체') : M.main).list.find((x) => x.name === nm);
+    assert.ok(cr.typhoons[0].nameLabel.follow && cr.typhoons[1].nameLabel.follow === undefined, res + ' follow는 옮기지 않은 이름표만');
+    const W = spec.comp.w, H = spec.comp.h, kx = W / 1920, ky = H / 1080;
+    const vk = (ctx.aePt(1, 0).x - ctx.aePt(0, 0).x) / kx;   // 노말 VF 축소(아니면 1)
+    for (const t of frames(0, 4)) {
+      const c = scr.camAt(t); scr.S.map = { x: c.x, y: c.y, s: c.s };
+      const full = scr.compareScreenPts(P1, null), last = full[full.length - 1];
+      // camProjectXY(rz만) = SVG 바깥 좌표에서 프레임 가운데(960, 540) 기준 회전 → +V(13, −4) → 출력 배율
+      const q = ctx.aePt(last.x, last.y), qx = q.x / kx - 960, qy = q.y / ky - 540, th = (+c.rz || 0) * Math.PI / 180;
+      const app = [(960 + qx * Math.cos(th) - qy * Math.sin(th) + 13 * vk) * kx, (540 + qx * Math.sin(th) + qy * Math.cos(th) - 4 * vk) * ky];
+      note(res === '2158x1214' ? '비교 이름표 자리 터치(px)' : '비교 이름표 자리(px)', hyp(L('이름0').tf.position.valueAtTime(t), app));
+      const fixed = ctx.aePt(900, 300);
+      note('비교 이름표 고정(px)', hyp(L('이름1').tf.position.valueAtTime(t), [fixed.x, fixed.y]));
+    }
+  }
+  assert.ok(R['비교 이름표 자리(px)'] < 0.08, '비교 이름표 ' + R['비교 이름표 자리(px)']);   // 리그 좌표 소수 1자리
+  assert.ok(R['비교 이름표 자리 터치(px)'] < 0.5, '비교 이름표 터치 ' + R['비교 이름표 자리 터치(px)']);   // 가로·세로 배율이 달라 회전이 아주 조금 다르다
+  assert.ok(R['비교 이름표 고정(px)'] < 0.06, '고정 ' + R['비교 이름표 고정(px)']);
+});
+
 test('오차 요약(보고용)', () => {
   const rows = Object.entries(R).sort().map(([k, v]) => `${k}: ${v < 1e-3 ? v.toExponential(2) : v.toFixed(4)}`);
   for (const r of rows) console.log('  ' + r);

@@ -177,11 +177,12 @@ const leadTail = (gap) => 'var lft=bx-hw,rgt=bx+hw;var useL=Math.abs(P[0]-lft)<=
   'Math.sqrt((kx-P[0])*(kx-P[0])+(ky-P[1])*(ky-P[1]));if(kd<0.001)kd=1;' +
   'var sx=P[0]+(kx-P[0])/kd*Math.min(GAP,kd*0.9),sy=P[1]+(ky-P[1])/kd*Math.min(GAP,kd*0.9);' +
   'createPath([[sx,sy],[kx,ky],[ax,ay]],[],[],false);';
+// 함수 선언(TUBEF)은 표현식 맨 바깥에 — 블록(if/else) 안 함수 선언은 ES3 문법 밖이라 옛 ExtendScript 표현식 엔진에서 깨질 수 있다(helper.py _TUBEF)
+const TUBEF = 'function cl(a){var o=[a[0]],j;for(j=1;j<a.length-1;j++){var v=o[o.length-1],cx=P[j][0]-P[j-1][0],cy=P[j][1]-P[j-1][1];if((a[j][0]-v[0])*cx+(a[j][1]-v[1])*cy>0)o.push(a[j]);}if(a.length>1)o.push(a[a.length-1]);return o;}' +
+  'function nrm(a){while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;}' +
+  'function arc(C,r,a0,dir){var out=[];for(var s=1;s<=9;s++){var a=a0+dir*Math.PI*(s/10);out.push([C[0]+Math.cos(a)*r,C[1]+Math.sin(a)*r]);}return out;}';
 const TUBE = 'var Lr=[],Rr=[],i;for(i=0;i<N;i++){var A=P[Math.max(0,i-1)],B=P[Math.min(N-1,i+1)],dx=B[0]-A[0],dy=B[1]-A[1],ln=Math.sqrt(dx*dx+dy*dy)||1;dx/=ln;dy/=ln;' +
   'Lr.push([P[i][0]-dy*R[i],P[i][1]+dx*R[i]]);Rr.push([P[i][0]+dy*R[i],P[i][1]-dx*R[i]]);}' +
-  'function cl(a){var o=[a[0]],j;for(j=1;j<a.length-1;j++){var v=o[o.length-1],cx=P[j][0]-P[j-1][0],cy=P[j][1]-P[j-1][1];if((a[j][0]-v[0])*cx+(a[j][1]-v[1])*cy>0)o.push(a[j]);}if(a.length>1)o.push(a[a.length-1]);return o;}' +
-  'function nrm(a){while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;}' +
-  'function arc(C,r,a0,dir){var out=[];for(var s=1;s<=9;s++){var a=a0+dir*Math.PI*(s/10);out.push([C[0]+Math.cos(a)*r,C[1]+Math.sin(a)*r]);}return out;}' +
   'var Lc=cl(Lr),Rc=cl(Rr),pp=Lc.slice(0);' +
   'var Ce=P[N-1],Le=Lc[Lc.length-1],aLe=Math.atan2(Le[1]-Ce[1],Le[0]-Ce[0]),aDe=Math.atan2(Ce[1]-P[N-2][1],Ce[0]-P[N-2][0]);pp=pp.concat(arc(Ce,R[N-1],aLe,nrm(aDe-aLe)>=0?1:-1));' +
   'for(i=Rc.length-1;i>=0;i--)pp.push(Rc[i]);' +
@@ -418,7 +419,7 @@ function emitTyphoonRig(L, rig) {
         const tube = pre + fmt('var I=%s,RR=%s,RA=%s,P=[],R=[],k,q;', [ilist, efl(idxs.map((i) => float(get(index(A, i), key, 0)))), efl(RA)]) +
           'for(k=0;k<I.length;k++){if(f>=I[k]){q=thisComp.layer("TP"+I[k]).position;P.push([q[0],q[1]]);R.push(RR[k]);}}' +
           fmt('if(%s){var a=thisComp.layer("TP"+f).position,b=thisComp.layer("TP"+(f+1)).position;P.push([a[0]+(b[0]-a[0])*r,a[1]+(b[1]-a[1])*r]);R.push(RA[f]+(RA[f+1]-RA[f])*r);}', [hcond]) +
-          'var N=P.length;if(N<2){createPath([[0,0],[0,0]],[],[],false);}else{' + TUBE + '}';
+          TUBEF + 'var N=P.length;if(N<2){createPath([[0,0],[0,0]],[],[],false);}else{' + TUBE + '}';
         const opx = pre + fmt('var I=%s,RA=%s,c=0,k;for(k=0;k<I.length;k++)if(f>=I[k])c++;if(%s)c++;c>=2?100:0', [ilist, efl(RA), hcond]);
         L.push(fmt('try{var sl=TG.layers.addShape();sl.name="\\ubc18\\uacbd\\uc120_%s";sl.property("Position").setValue([0,0]);sl.property("Anchor Point").setValue([0,0]);if(CAM){sl.parent=CAM;}' +
           'sl.property("Opacity").expression=%s;' +
@@ -703,11 +704,14 @@ function emitCompareRig(L, rig) {
       const nsz = int(float(get(nl, 'size', 34))); const ncol = js(get(nl, 'col', '#FFFFFF')); const nwt = suitePs(get(nl, 'weight', 800)); const ntxt = js(get(nl, 'txt', ''));
       const tnl = tappc(n - 1);
       const nfade = on(get(nl, 'always')) ? '' : fmt('var op=nt.property("Opacity");op.setValueAtTime(%f,0);op.setValueAtTime(%f,100);ezR(op);', [tnl, tnl + 0.3]);
+      // follow [dx, dy] — 옮기지 않은 이름표: 화면은 '마지막 지점의 지금 화면 자리 + (dx, dy)' → 카메라가 있으면 그 널의 toComp로 따라간다(helper.py nfol)
+      const nfw = pt2(get(nl, 'follow'));
+      const nfol = (nfw && cs) ? fmt('nt.property("Position").expression=%s;', [pyJsonStr(fmt('var P=thisComp.layer("C%d_%d").toComp([0,0]);[P[0]+%s,P[1]+%s]', [ti, n - 1, ef(nfw[0]), ef(nfw[1])]))]) : '';
       deferred.push(fmt('try{var nt=TG.layers.addText("%s");nt.name="\\uc774\\ub984%d";var d=nt.property("Source Text").value;d.fontSize=%d;' +
         'd.applyFill=true;d.fillColor=hx("%s");d.applyStroke=true;d.strokeColor=hx("#0A1526");d.strokeWidth=4.5;try{d.strokeOverFill=false;}catch(e){}' +
         'try{d.font="%s";}catch(e){}try{d.tracking=0;}catch(e){}nt.property("Source Text").setValue(d);' +
         'var r=nt.sourceRectAtTime(0,false);nt.property("Anchor Point").setValue([r.left,r.top+r.height/2]);nt.property("Position").setValue([%f,%f]);',
-      [ntxt, ti, nsz, ncol, nwt, float(get(nl, 'x', 0)), float(get(nl, 'y', 0))]) + nfade + '}catch(e){}');
+      [ntxt, ti, nsz, ncol, nwt, float(get(nl, 'x', 0)), float(get(nl, 'y', 0))]) + nfol + nfade + '}catch(e){}');
     }
     // 수치라벨
     const icon_idx = new Set(iter(get(ty, 'iconAt', [])).map(x => int(round(float(x))).toString()));
@@ -985,12 +989,14 @@ function buildAeJsx(spec, framesDir) {
       if (bl) {
         // 블라인드 — 레이어는 늘 100%, Venetian Blinds 완료도 = 앱 덮임 식. 진행 = 슬라이더(키 2개, 칠 곡선)
         need(L, 'slid');
-        if (ez) need(L, 'ezE');
+        if (ez) need(L, 'fadeE');   // ezE(슬라이더 이징) + 효과를 못 붙이면 대신 쓸 불투명 페이드
         const cx = fmt('var g=effect("PROG")(1)/100;g<=0?100:(g>=0.999?0:Math.max(0,1-%s-g)*%s)', [ef(bl[2]), bl[3] ? '50' : '100']);
         const vbs = (d) => fmt('var vb=%s.property("ADBE Effect Parade").addProperty("ADBE Venetian Blinds");try{vb.property(2).setValue(%f);vb.property(3).setValue(%f);vb.property(4).setValue(0);}catch(e){}vb.property(1).expression=%s;',
           [v, d, bl[0], pyJsonStr(cx)]);
-        L.push(fmt('(function(){var pr=slid(%s,"PROG");pr.setValueAtTime(%f,0);pr.setValueAtTime(%f,100);%s%s%s})();',
-          [v, s, e, ez ? fmt('ezE(pr,%f,%f);', ez) : 'ez2(pr);', vbs(bl[1]), bl[3] ? vbs(bl[1] + 180.0) : '']));
+        // 효과·슬라이더를 못 붙이면(AE 판·언어 차이) 스크립트 전체가 멈추지 않게 — 그 레이어만 지금처럼 불투명 페이드로(helper.py fb)
+        const fb = ez ? fmt('fadeE(%s,%f,%f,%f,%f);', [v, s, e, ez[0], ez[1]]) : fmt('fadeL(%s,%f,%f);', [v, s, e]);
+        L.push(fmt('(function(){try{var pr=slid(%s,"PROG");pr.setValueAtTime(%f,0);pr.setValueAtTime(%f,100);%s%s%s}catch(err){%s}})();',
+          [v, s, e, ez ? fmt('ezE(pr,%f,%f);', ez) : 'ez2(pr);', vbs(bl[1]), bl[3] ? vbs(bl[1] + 180.0) : '', fb]));
       } else if (ez) {
         need(L, 'fadeE');
         L.push(fmt('fadeE(%s,%f,%f,%f,%f);', [v, s, e, ez[0], ez[1]]));

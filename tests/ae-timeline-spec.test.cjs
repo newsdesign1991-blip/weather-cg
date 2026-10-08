@@ -425,6 +425,9 @@ async function runTyphoon(seed, compare, ver) {
       assert.deepEqual(ty.prog, { start: r4(sp[0]), end: r4(sp[1]), curve: 'ioc' }, tag + ' 비교 진행 ' + c.id);
       assert.equal(ty.head, c.showIcons !== 0 ? 1 : 0); close(ty.headK, 10 / 6, 1e-12);
       assert.equal(ty.nameLabel.always, 1, tag + ' 이름표 늘 보임');
+      // 옮기지 않은 이름표 = 마지막 지점 + (13, −4)(화면 drawCompareTracks — 카메라를 따라감) → follow(출력 px, VF 축소 포함). 옮긴 이름표는 고정
+      if (c.labelPos) assert.equal(ty.nameLabel.follow, undefined, tag + ' 옮긴 이름표는 고정');
+      else assert.deepEqual(ty.nameLabel.follow, [r4(13 * vfk(S.res) * k.kx), r4(-4 * vfk(S.res) * k.ky)], tag + ' 옮기지 않은 이름표는 마지막 지점을 따라감');
       ends.push(ty.prog.end);
       progCheck(slider('CPROG' + i, 'PROG'), ty.prog);
     });

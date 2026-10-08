@@ -478,6 +478,8 @@ async function sendToAE() {
             let pos = c.labelPos;
             if (!pos) { const last = sp[sp.length - 1]; const [x, y] = camProjectXY(last.x, last.y); pos = { x: x + 13, y: y - 4 }; }
             nameLabel = { txt: aeArrow(c.name || ''), x: SX(+pos.x), y: SY(+pos.y), size: (c.labelSize || 34) * kk, weight: (c.labelWeight || 800), col: (c.labelCol || c.color), always: 1 };   // 출력 해상도 배율
+            // 옮기지 않은 이름표 — 화면은 마지막 지점의 지금 화면 자리 + (13, −4)(카메라를 따라감) → 새 헬퍼가 그 지점 널의 toComp로(출력 px 오프셋, 노말 VF 축소 포함)
+            if (!c.labelPos) nameLabel.follow = [+(13 * vk * kx).toFixed(4), +(-4 * vk * ky).toFixed(4)];
           }
           // 수치라벨(리치 박스)
           const labels = [];

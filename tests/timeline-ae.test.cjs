@@ -125,7 +125,7 @@ test('태풍 — 카메라(키 있을 때) · 범례 · 제목 · 태풍 경로(
   assert.deepEqual(arr(typ.children[0].span), [1, 3]);
   assert.equal(P[0].diff.length, 0, '태풍 단일 + 이동만(확대 = 작업 뷰) = AE 그대로');
 });
-test('카메라 AE 차이(새 헬퍼 20261008) — 위치·확대·방향·키 3개+는 그대로 들어간다. 남는 것: 기울기, 확대 시 그림 선명도·크기, 붙은 지명표시 회전, 옮기지 않은 비교 이름표', () => {
+test('카메라 AE 차이(새 헬퍼 20261008) — 위치·확대·방향·키 3개+·옮기지 않은 비교 이름표는 그대로 들어간다. 남는 것: 기울기, 확대 시 그림 선명도·크기, 붙은 지명표시 회전', () => {
   const S = tyS({ map: { x: 1160, y: 545, s: 1.02 } }); S.anim.cam.keys = [{ id: 'c1', t: 0.4, x: 1, y: 1, s: 1.02 }, { id: 'c2', t: 3, x: 2, y: 2, s: 1.35 }];
   let cam = arr(planCtx(S).tlLayerPlan())[0];
   assert.deepEqual(arr(cam.diff), ['AE에선 확대한 만큼 지도 그림(PNG)이 흐려지고 태풍 아이콘·선 굵기·지명표시도 같이 커집니다(화면은 크기 그대로)']);
@@ -146,10 +146,10 @@ test('카메라 AE 차이(새 헬퍼 20261008) — 위치·확대·방향·키 3
   // 일반 지도 카메라 — 새 헬퍼는 들어간다(지도 묶음 = CAM 자식). 확대하면 그림 선명도만
   const g = sggS({ map: { x: 1160, y: 545, s: 1.02 } }); g.anim.cam = { keys: [{ id: 'c1', t: 1, x: 0, y: 0, s: 1.02 }, { id: 'c2', t: 2, x: 5, y: 0, s: 1.4 }] };
   assert.deepEqual(arr(arr(planCtx(g).tlLayerPlan())[0].diff), ['AE에선 확대한 만큼 지도 그림(PNG)이 흐려집니다(화면은 다시 그려 선명)']);
-  // 비교 지도 — 이름표를 한 번도 옮기지 않았으면(마지막 지점 따라감) 그 이름표만 차이
+  // 비교 지도 — 이름표를 한 번도 옮기지 않았어도(마지막 지점 따라감) 새 헬퍼는 그 지점 널을 따라가게 해(nameLabel.follow) 차이 없음
   const cm = { style: 'typhoonCompare', res: '1920x1080', map: { x: 1160, y: 545, s: 1.02 }, labels: [], texts: [], legend: { on: 0 },
     typhoon: { issues: [{ points: PTS }], labels: [], compare: [{ id: 'c1', name: 'KMA', color: '#FF5A5A', show: 1 }] }, anim: { dur: 6, fps: 29.97, tracks: [], cam: { keys: [{ id: 'k', t: 1, x: 0, y: 0, s: 1.02 }] } } };
-  assert.ok(arr(planCtx(cm).tlLayerPlan())[0].diff.some((d) => d.includes('비교 이름표')));
+  assert.equal(arr(planCtx(cm).tlLayerPlan())[0].diff.length, 0);
   cm.typhoon.compare[0].labelPos = { x: 1, y: 2 };
   assert.equal(arr(planCtx(cm).tlLayerPlan())[0].diff.length, 0);
 });
