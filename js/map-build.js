@@ -4,7 +4,8 @@
 // ===================== 실행 취소 =====================
 const undoStack = [], redoStack = [];
 let lastTag = '', lastT = -1e9;
-const snap = () => JSON.parse(JSON.stringify(S));
+// 카메라 미리보기 중엔 S.map이 카메라 뷰로 덮여 있다 — 되돌리기 기록엔 작업 뷰를 넣는다(stateForSave, anim.js)
+const snap = () => JSON.parse(JSON.stringify(typeof stateForSave === 'function' ? stateForSave() : S));
 
 // tag를 주면 600ms 안의 같은 조작(슬라이더 드래그 등)은 한 번으로 묶는다. tag가 없으면 항상 기록.
 function pushUndo(tag) {
@@ -28,6 +29,7 @@ function bumpMapContent() {
 function applyState(next) {
   const styleChanged = S.style !== next.style;
   const resChanged = S.res !== next.res;
+  if (typeof animStateReplaced === 'function') animStateReplaced();   // 미리보기 카메라 백업(옛 작업 뷰)·가속 그룹 버림 — 되돌린 S.map이 새 작업 뷰
   S = next; normStyle(); sel = []; lastTag = '';
   // 타임라인이 닫혀 있으면 편집은 평면 — 타임라인에서 기울인 채 쌓인 기록을 되돌려도 틸트로 돌아가지 않게
   if (!$('#timeline')?.classList.contains('on') && S.map3d && (+S.map3d.rx || +S.map3d.ry || +S.map3d.rz)) S.map3d = { on: 0, rx: 0, ry: 0, rz: 0, persp: S.map3d.persp || 2.2 };
@@ -41,6 +43,7 @@ function applyState(next) {
     updateFrameGuideLabel();
   }
   if (typeof applyTilt === 'function') applyTilt();   // 되돌린 S.map3d·내용에 맞춰 틸트 클래스·캔버스도 갱신
+  if (typeof tlAfterStateApplied === 'function') tlAfterStateApplied();   // 타임라인 막대·키를 되돌린 값으로 + 미리보기 중이면 그 시각 프레임 다시(B3)
 }
 // 불러오기·새로 시작 경계 스냅샷에 저장 대상 파일(projFileHandle) 전/후를 붙여 둔다 — 되돌리면 파일도 같이 되돌려
 // 불러온 파일 B를 옛 작업 A로 묻지 않고 덮어쓰지 않게.

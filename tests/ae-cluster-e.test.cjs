@@ -188,10 +188,10 @@ test('AE 배경엔 라벨 지시선·앵커가 없고, 지시선은 라벨별 �
   assert.match(bg, /#L_labels > \[data-fleader-id\], #L_labels > \[data-fanchor-id\]'\)\.forEach\(\(n\) => n\.remove\(\)\)/);
   assert.match(fnSource('function aeLabelCompData('), /leader: leaderIds\.has\(id\)/);
   const send = sliceBetween('async function sendToAE()', '// 폴더를 물어보고');
-  const lab = send.slice(send.indexOf('const labData = aeLabelCompData()'), send.indexOf("addImg('VF_제목바'"));
-  const ldr = lab.indexOf("if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), { start: ls0, len: AE_LEN })");
-  const comp = lab.indexOf("name: '라벨_' + li, fade: { start: ls0, len: AE_LEN");
-  assert.ok(ldr >= 0 && comp > ldr, '지시선 레이어는 그 라벨 프리컴프 바로 아래, 같은 start/len');
+  const lab = send.slice(send.indexOf("if (L.kind === 'label')"), send.indexOf('// 컴프 길이'));
+  const ldr = lab.indexOf("if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), fade)");
+  const comp = lab.indexOf("name: '라벨_' + li, fade: fade ? { start: fade.start, len: fade.len, rise: aeSz(26) } : null");
+  assert.ok(ldr >= 0 && comp > ldr, '지시선 레이어는 그 라벨 프리컴프 바로 아래, 같은 start/len(라벨 막대 타이밍)');
   // 헬퍼가 이미 받는 레이어 형식(file+fade)만 쓴다
   assert.match(send, /const addImg = \(name, blob, fade\) => \{[^\n]*specLayers\.push\(\{ file: /);
 });
@@ -199,14 +199,14 @@ test('AE 배경엔 라벨 지시선·앵커가 없고, 지시선은 라벨별 �
 // ── C100: 컴프 길이 — sendToAE의 계산 블록을 그대로 돌린다 ──
 function compDur(specLayers, opt = {}) {
   const block = sliceBetween('    // 컴프 길이', '    const sid = ');
-  const fn = new Function('start0', 'A', 'specLayers', 'S', 'ANIM_START', 'AE_LEN', `${block}\nreturn dur;`);
-  return fn(opt.start0 ?? 1, { dur: opt.dur ?? 6 }, specLayers, { res: opt.res || '1920x1080' }, 1.0, 1.0);
+  const fn = new Function('durBase', 'specLayers', 'S', 'ANIM_START', 'ANIM_VF_ENTER_LEN', `${block}\nreturn dur;`);
+  return fn(opt.dur ?? 6, specLayers, { res: opt.res || '1920x1080' }, 1.0, 1.2);
 }
-test('AE 컴프 길이는 타임라인 길이·태풍 리빌·라벨 키·비교 리빌까지 포함', () => {
+test('AE 컴프 길이 = 타임라인 길이(화면 = AE), 넘친 내용(리빌·라벨 키·비교 리빌·카메라 키)만 잘리지 않게', () => {
   assert.equal(compDur([], { dur: 6 }), 6);                               // 타임라인 6초 = 컴프 6초(A.dur에 여유 두 번 안 더함, MXF와 같은 길이)
   assert.equal(compDur([], { dur: 7.5 }), 7.5);                           // 타임라인 7.5초 그대로
   assert.equal(compDur([{ fade: { start: 1, len: 1 } }], { dur: 6 }), 6);  // 내용이 타임라인 안이면 타임라인 길이
-  assert.equal(compDur([], { dur: 2 }), 6);                               // 최소 6초 유지
+  assert.equal(compDur([], { dur: 2 }), 2);                               // 타임라인 2초 = 컴프 2초(예전 '최소 6초'는 없앰 — MP4·MXF와 같은 길이)
   assert.equal(compDur([{ fade: { start: 8, len: 1 } }], { dur: 2 }), 10);
   const rig = (labels) => ({ typhoonRig: { reveal: { start: 1, path: 8, labelLen: 1 }, labels } });
   assert.equal(compDur([rig([])], { dur: 2 }), 10);                        // 1+8=9 → 10
@@ -215,7 +215,9 @@ test('AE 컴프 길이는 타임라인 길이·태풍 리빌·라벨 키·비교
   assert.equal(compDur([rig([{ revStart: null, revLen: null }])], { dur: 2 }), 11); // 1+8+1=10 → 11
   assert.equal(compDur([{ compareRig: { reveal: { start: 4, path: 4, labelLen: 1 } } }], { dur: 2 }), 10);
   assert.equal(compDur([rig([{ revStart: 9.5, revLen: 1.5 }])], { dur: 6 }), 12);   // 타임라인보다 긴 리빌은 내용 끝+여유
-  assert.equal(compDur([], { dur: 2, res: '1920x1080-vf' }), 6);          // VF 진입(1+1)도 최소 6초 안
+  assert.equal(compDur([], { dur: 2, res: '1920x1080-vf' }), 3);          // VF 진입(1+1.2=2.2)이 넘치면 그 끝+여유
+  assert.equal(compDur([], { dur: 6, res: '1920x1080-vf' }), 6);
+  assert.equal(compDur([{ typhoonRig: { reveal: { start: 1, path: 2, labelLen: 1 }, labels: [], camera: { keys: [{ t: 0.4 }, { t: 7.2 }] } } }], { dur: 6 }), 8);   // 길이 밖 카메라 키도 안 잘림
 });
 
 // ── C14: 반경 외곽선 굵기도 출력 배율 / C59: 비교 아이콘은 화면처럼 noIcon 무시 ──

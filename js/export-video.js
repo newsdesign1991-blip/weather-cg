@@ -109,6 +109,7 @@ async function bakeMp4() {
   } finally {
     if (btn) btn.disabled = false;
     animOff();
+    if (typeof tlRefreshPreview === 'function') tlRefreshPreview();   // 타임라인이 열려 있으면 재생헤드 시각 프레임으로 돌아간다
   }
 }
 
@@ -153,6 +154,7 @@ async function exportPngSeq() {
   } finally {
     btn.disabled = false;
     animOff();
+    if (typeof tlRefreshPreview === 'function') tlRefreshPreview();   // 타임라인이 열려 있으면 재생헤드 시각 프레임으로 돌아간다
   }
 }
 
@@ -406,5 +408,6 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   } finally {
     if (mv) mv.disabled = false;
     animOff();
+    if (typeof tlRefreshPreview === 'function') tlRefreshPreview();   // 타임라인이 열려 있으면 재생헤드 시각 프레임으로 돌아간다
   }
 }

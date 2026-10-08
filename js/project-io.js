@@ -82,7 +82,7 @@ async function saveBlobAs(blob, suggestedName, type) {
 // 프로젝트 저장. 처음(또는 다른 이름으로=saveAs)엔 위치를 고르고, 이후 Ctrl+S는 같은 파일에 덮어쓴다.
 let projFileHandle = null;
 async function saveProject(saveAs) {
-  const snap = JSON.parse(JSON.stringify(S));
+  const snap = JSON.parse(JSON.stringify(stateForSave()));   // 카메라 미리보기 중이어도 작업 뷰로 저장(B5)
   // 그림(PNG)에 작업 데이터를 심어 저장 — 탐색기 미리보기 + 다시 불러오기 둘 다 되는 한 파일.
   // 이름을 '날씨CG_날짜.wcg.png'로 해서 일반 사진 PNG와 헷갈리지 않게 한다(확장자는 .png라 썸네일은 그대로).
   const day = (() => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`; })();

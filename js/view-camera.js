@@ -19,7 +19,7 @@ function sizeFit() {
   const ar = sz[0] / sz[1];
   let w = availW, h = w / ar;
   if (h > availH) { h = availH; w = h * ar; }
-  fit.style.width = w.toFixed(2) + 'px';
+  fit.style.width = w.toFixed(2) + 'px'; _fitCssW = w;   // 틸트 캔버스 CSS 보정용(레이아웃 다시 안 읽게)
   fit.style.height = h.toFixed(2) + 'px';
 }
 function applyView() {
@@ -39,15 +39,25 @@ function updateFrameGuideLabel() {
 // 카메라 3D 회전(미리보기) — '지도만' 기울인다. 지도 레이어를 #camCanvas에 래스터해 CSS로 기울이고,
 // #cg의 지도 레이어는 숨겨(뒤 캔버스가 비침) 제목·범례는 평면으로 위에 남긴다. 추출은 drawExportFrame가 같은 원근으로 합성.
 let _tiltRasterSig = null, _camRasterToken = 0, _exportingFrames = false;
-let _camRasterBusy = false, _camDragging = false;   // 재래스터 동시 1개(coalesce) · 드래그 중 저해상 플래그
+let _camRasterBusy = false, _camDragging = false, _fitCssW = 0, _tiltRasterAt = 0;   // _tiltRasterAt: 마지막으로 굽기 시작한 때(재생 중 굽기 간격)   // 재래스터 동시 1개(coalesce) · 드래그 중 저해상 플래그
 let _tiltPanCanvas = null, _tiltPanBase = null;     // 틸트 팬: 시작 때 캔버스 텍스처를 얼려 두고 드래그 중엔 즉시 이동(재래스터 지연 제거)
 let _wheelZoomTimer = 0, _wheelZoomBase = null;     // 휠 줌 GPU: 휠 도는 동안 CSS transform, 멈추면 1회 확정
 let _wheelUndoArmed = true, _wheelUndoTimer = 0;    // 휠 줌 undo: 한 번 도는 동안(연속 휠) undo는 1회만 쌓는다
 const camActive3d = () => { const m = S.map3d || {}; return !!m.on && (Math.abs(+m.rx || 0) > 0.05 || Math.abs(+m.ry || 0) > 0.05 || Math.abs(+m.rz || 0) > 0.05); };
 // 회전만 바뀔 때(드래그) — 캔버스 CSS transform만 갱신. 래스터·리렌더 없음 → 아주 가볍고 부드럽다.
+// 캔버스에 구운 그림의 카메라(cv._cam)와 지금 카메라(S.map)가 다르면(굽는 중·재생 중 굽기 간격) 평면 이동·확대를 CSS로 메운다 —
+// 지도 평면에서 r배·이동한 뒤 기울이므로(rotate… translate scale, 오른쪽부터 적용) 다음 래스터 전까지도 카메라가 부드럽게 움직인다.
 function updateCamCanvasTransform() {
   const m = S.map3d || {}, cv = document.querySelector('#camCanvas');
-  if (cv) cv.style.transform = `rotateX(${+m.rx || 0}deg) rotateY(${+m.ry || 0}deg) rotateZ(${+m.rz || 0}deg)`;
+  if (!cv) return;
+  let comp = '';
+  const k = cv._cam;
+  if (k && (Math.abs(k.x - S.map.x) > 1e-4 || Math.abs(k.y - S.map.y) > 1e-4 || Math.abs(k.s - S.map.s) > 1e-6)) {
+    const r = S.map.s / (k.s || 1), u = (_fitCssW || fit.clientWidth || 1920) / 1920;
+    const tx = (S.map.x - r * k.x + (r - 1) * 960) * u, ty = (S.map.y - r * k.y + (r - 1) * 540) * u;
+    comp = ` translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${r.toFixed(5)})`;
+  }
+  cv.style.transform = `rotateX(${+m.rx || 0}deg) rotateY(${+m.ry || 0}deg) rotateZ(${+m.rz || 0}deg)` + comp;
 }
 function applyTilt() {
   if (_exportingFrames) return;   // 추출은 drawExportFrame가 직접 합성한다 — 미리보기 캔버스는 건드리지 않음
@@ -76,7 +86,11 @@ function applyTilt() {
   // 지도 위치(S.map)·재생 프레임(animT)·내용 리비전(칠·태풍·되돌리기)이 바뀔 때만 다시 래스터. 회전만 바뀌면 CSS transform만 갱신(부드럽게).
   // 드래그 중(',d')엔 저해상으로 굽고, 놓으면 사인이 바뀌어 고해상으로 다시 굽는다.
   const sig = Math.round(S.map.x) + ',' + Math.round(S.map.y) + ',' + (+S.map.s).toFixed(4) + ',' + ((_camVfScale() || {}).k || 1) + (animT != null ? ',' + animT.toFixed(2) : '') + (_camDragging ? ',d' : '') + ',' + _mapContentRev;   // VF 전체 크기·지도 내용 리비전도 래스터에 들어가므로 사인에 포함
-  if (sig !== _tiltRasterSig) { _tiltRasterSig = sig; if (!_camRasterBusy) rasterTiltCanvas(cv); }
+  if (sig !== _tiltRasterSig) {
+    const lite = typeof _animFast !== 'undefined' && _animFast;
+    if (lite && performance.now() - _tiltRasterAt < 300) return;   // 재생 중: 간격이 차면 다음 프레임에 다시(사인을 안 바꿔 둔다)
+    _tiltRasterSig = sig; if (!_camRasterBusy) rasterTiltCanvas(cv);
+  }
 }
 // 틸트 미리보기 캔버스 재래스터 — 동시 1개만(coalesce). 드래그 중엔 저해상(0.5)으로 가볍게, 놓으면 고해상.
 // 굽는 사이 더 최신 요청(_tiltRasterSig 변경)이 오면 끝난 뒤 한 번 더 → 항상 최신으로 수렴, 큐가 안 쌓임.
@@ -84,11 +98,14 @@ function rasterTiltCanvas(cv) {
   if (!cv) return;
   _camRasterBusy = true;
   const doing = _tiltRasterSig;
-  const q = _camDragging ? 0.5 : 1;
+  const q = (typeof _animFast !== 'undefined' && _animFast) ? 0.34 : _camDragging ? 0.5 : 1;   // 재생·스크럽 중 = 저해상(멈추면 정확히 다시)
+  const cam = { x: S.map.x, y: S.map.y, s: S.map.s };   // 이 그림의 카메라(복제는 아래 svgToImage 첫 동기 구간에서 — 지금 S.map 기준)
+  _tiltRasterAt = performance.now();
   const exW = Math.round(1920 * (1 + 2 * CAM_BLEED) * q), exH = Math.round(1080 * (1 + 2 * CAM_BLEED) * q);
-  svgToImage(exW, exH, CAM_MAP_LAYERS, camBleedViewBox()).then((img) => {
+  svgToImage(exW, exH, CAM_MAP_LAYERS, camBleedViewBox(), false, true).then((img) => {   // 쓰는 굵기 글꼴만(미리보기 — 그림은 같다)
     if (cv.width !== exW) cv.width = exW; if (cv.height !== exH) cv.height = exH;
     const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, exW, exH); ctx.drawImage(img, 0, 0, exW, exH);
+    cv._cam = cam; updateCamCanvasTransform();
     _camRasterBusy = false;
     if (_tiltRasterSig !== doing && camActive3d()) rasterTiltCanvas(cv);
   }).catch(() => { _camRasterBusy = false; });
@@ -190,6 +207,8 @@ svg.addEventListener('pointerdown', (e) => {
     return;
   }
   e.preventDefault(); e.stopPropagation();
+  const autoKey = typeof tlCamAutoKeyOn === 'function' && tlCamAutoKeyOn();   // 카메라 키 미리보기 중 = 놓을 때 자동 키
+  if (autoKey) { animStop(); tlSettleCancel(); animSeek(tlHeadT); }   // 재생·가벼운 미리보기를 멈추고 그 시각의 정확한 카메라 뷰에서 시작
   const p0 = toUser(e), sx = e.clientX, sy = e.clientY;
   const m0 = { x: S.map.x, y: S.map.y, s: S.map.s }, r0 = camRot();
   if ((btn === 1 || btn === 2) && camActive3d()) _camDragging = true;   // 틸트 팬/줌 드래그: 저해상으로 가볍게
@@ -222,6 +241,13 @@ svg.addEventListener('pointerdown', (e) => {
     _camDragging = false;   // 드래그 끝 → 다음 applyTilt는 고해상으로 다시 굽는다(사인에서 ',d' 빠짐)
     _tiltPanCanvas = null; _tiltPanBase = null;   // 얼린 텍스처 해제 → 아래 applyTilt가 정확히 다시 굽는다
     if (btn === 2) _altGestureUntil = performance.now() + 400;   // 오른쪽 줌을 놓으며 오는 contextmenu는 무시(구역 지우기·브라우저 메뉴 방지)
+    // 카메라 키가 있는 미리보기 중이면 Alt 조작 = 지금 시각의 카메라 키(만들기/고치기). 라벨·작업 뷰는 안 옮긴다(B4).
+    if (((moved && (btn === 1 || btn === 2)) || (btn === 0 && rotReady)) && autoKey) {
+      if (btn === 2) renderStrokeScale();
+      setFlatPanLOD(false);
+      tlCamAutoKey();
+      return;
+    }
     if (moved && (btn === 1 || btn === 2)) {
       // 평면 팬/줌: 라벨 박스를 이동량만큼 실제로 옮겨 '지도에 붙은 채' 유지(놓을 때 원위치로 튀지 않게). 틸트는 빌보드라 제외.
       { const r = S.map.s / (m0.s || 1); shiftMapAttached(S.map.x - m0.x * r, S.map.y - m0.y * r, r); }   // 비교 라벨도 함께(팬 시 이름표 튐 방지)
@@ -258,6 +284,7 @@ function tiltPanShift() {
   const ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.drawImage(_tiltPanCanvas, dx, dy);
+  cv._cam = { x: S.map.x, y: S.map.y, s: S.map.s };   // 이 텍스처는 이미 지금 카메라 — CSS 보정은 0
 }
 // 드래그 중 초경량 팬/줌 — #bgMapT는 renderMapTransform(속성만), #L_typhoon은 변환으로만 이동(리렌더 없음). 틸트면 캔버스만 갱신.
 function lightPanZoom(base) {
@@ -283,11 +310,15 @@ svg.addEventListener('wheel', (e) => {
   if (!e.altKey || !camMoveActive()) return;
   e.preventDefault(); e.stopPropagation();
   if (S.mapLock) { status('지도가 잠겨 있습니다 — 잠금을 풀어야 확대됩니다', true); return; }   // 지도 잠금: 휠 줌 차단
-  if (_wheelUndoArmed) { pushUndo('mapzoom'); _wheelUndoArmed = false; }   // 연속 휠은 undo 1회만
+  if (_wheelUndoArmed) {   // 연속 휠은 undo 1회만
+    if (typeof tlCamAutoKeyOn === 'function' && tlCamAutoKeyOn()) { animStop(); tlSettleCancel(); animSeek(tlHeadT); }   // 카메라 키 미리보기 중: 그 시각의 정확한 카메라 뷰에서 시작
+    pushUndo('mapzoom'); _wheelUndoArmed = false;
+  }
   clearTimeout(_wheelUndoTimer); _wheelUndoTimer = setTimeout(() => { _wheelUndoArmed = true; }, 500);
   if (camActive3d()) {   // 틸트: 기존 방식(캔버스 재래스터)
     zoomMapAbout(960, 540, S.map.s * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
     renderMapTransform(); renderStrokeScale(); if (isTyphoon()) renderTyphoon(); applyTilt();
+    if (typeof tlCamAutoKeyOn === 'function' && tlCamAutoKeyOn()) { clearTimeout(_wheelZoomTimer); _wheelZoomTimer = setTimeout(() => { if (tlCamAutoKeyOn()) tlCamAutoKey(); }, 220); }   // 틸트도 휠 멈추면 그 시각 키
     return;
   }
   // 평면: GPU CSS transform으로 즉시 확대(리페인트 없음), 휠 멈추면(180ms) 1회만 확정.
@@ -297,6 +328,7 @@ svg.addEventListener('wheel', (e) => {
   clearTimeout(_wheelZoomTimer);
   _wheelZoomTimer = setTimeout(() => {
     const base = _wheelZoomBase; _wheelZoomBase = null;
+    if (typeof tlCamAutoKeyOn === 'function' && tlCamAutoKeyOn()) { renderStrokeScale(); setFlatPanLOD(false); tlCamAutoKey(); return; }   // 카메라 키 미리보기 중 = 그 시각 키(라벨 안 옮김, B4)
     if (base) {   // 라벨·비교 라벨·참고이미지를 지도에 붙은 채 유지(확대량만큼 위치·크기 갱신)
       const r = S.map.s / (base.s || 1); shiftMapAttached(S.map.x - base.x * r, S.map.y - base.y * r, r);
     }

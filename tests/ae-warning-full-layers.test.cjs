@@ -71,7 +71,7 @@ test('AE warning layer stacking follows the current manual priority order', () =
 test('AE send path uses full warning masks instead of final visible color fragments', () => {
   assert.match(
     html,
-    /const warningDefs = aeWarningFillDefs\(\);[\s\S]*aeWarningFillBlob\(def\)/,
+    /const warningDefs = aeWarningFillDefs\(\);[\s\S]*aeWarningFillBlob\(L\.wrnDef\)/,
   );
 });
 

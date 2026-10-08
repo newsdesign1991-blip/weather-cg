@@ -1,4 +1,4 @@
-/* [모듈] js/anim.js — 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙, 블라인드, renderAnimFrame, 재생/정지/탐색 */
+/* [모듈] js/anim.js — 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙, 블라인드, renderAnimFrame(정확 경로·미리보기 가속), 재생/정지/탐색, 저장용 상태 */
 'use strict';
 
 // ===================== 영상 (타임라인) =====================
@@ -9,13 +9,17 @@ const anim = () => (S.anim ||= { dur: 6, fps: 29.97, reveal: 'dissolve', blindSi
 function typhoonTrack() { return anim().tracks.find((x) => x.kind === 'typhoon'); }
 // 애니 대상 라벨 = 숨김 아니고 지점(idx)에 붙은 것
 function typhoonLabels() { return labelList().filter((b) => !b.off && b.idx != null); }
-// 트랙 start/len 을 경로키+라벨키의 최소~최대로 동기화(기존 저장/로직 호환)
+// 트랙 start/len 을 경로키+라벨키의 최소~최대로 동기화(기존 저장/로직 호환).
+// 숨긴 라벨의 키(다시 켤 때 그대로 쓰려고 남겨 둔 것)는 길이에서 뺀다.
 function syncTyphoonSpan(tr) {
   let mn = tr.ps, mx = tr.pe;
   // 라인 모드는 라벨이 안 보이므로 경로 키만으로 길이를 잡는다
-  if (!typhoonLineMode()) for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (!e) continue; mn = Math.min(mn, e.s); mx = Math.max(mx, e.e); }
-  tr.start = +Math.max(0, mn).toFixed(2);
-  tr.len = +Math.max(0.05, mx - tr.start).toFixed(2);
+  if (!typhoonLineMode()) {
+    const vis = new Set(typhoonLabels().map((b) => b.id));
+    for (const id in (tr.lab || {})) { const e = tr.lab[id]; if (!e || !vis.has(id)) continue; mn = Math.min(mn, e.s); mx = Math.max(mx, e.e); }
+  }
+  tr.start = +Math.max(0, mn).toFixed(4);
+  tr.len = +Math.max(0.05, mx - tr.start).toFixed(4);
 }
 function ensureTyphoonKeys(tr) {
   if (!tr) return null;
@@ -27,21 +31,21 @@ function ensureTyphoonKeys(tr) {
   const pts = curTyphoonPoints();
   const { lo, hi } = typhoonAnimWindow(pts); const span = Math.max(1, hi - lo);
   const lineMode = typhoonLineMode();   // 라인 모드: 안 보이는 라벨 키는 새로 만들지 않는다(기존 키는 일반 모드 복귀용으로 보존)
-  const ids = {};
   for (const b of labs) {
-    ids[b.id] = 1;
     if (!tr.lab[b.id] && !lineMode) {   // 새로 붙은 라벨: 경로가 그 지점을 지나는 시각에 등장하도록 기본값
       const frac = span > 0 ? Math.min(1, Math.max(0, (b.idx - lo) / span)) : 0;
       const st = tr.ps + easeInOutCInv(frac) * Math.max(0.001, tr.pe - tr.ps);
       tr.lab[b.id] = { s: +st.toFixed(2), e: +(st + 0.9).toFixed(2) };
     }
   }
-  for (const id in tr.lab) if (!ids[id]) delete tr.lab[id];   // 삭제·숨김된 라벨 정리
+  // 지운 라벨(또는 지점에서 떨어진 라벨)의 키만 정리 — 숨긴 라벨의 키는 다시 켤 때 손본 타이밍 그대로 쓰게 남긴다(B16)
+  const exist = new Set(labelList().filter((b) => b.idx != null).map((b) => b.id));
+  for (const id in tr.lab) if (!exist.has(id)) delete tr.lab[id];
   syncTyphoonSpan(tr);
   return tr;
 }
 let animT = null;      // 재생/미리보기 중인 시각(초). null 이면 평소 상태.
-let tlHeadT = 0;       // 타임라인 재생헤드 위치(초) — animT와 달리 지도 이동/정지로 null 되지 않고 유지(카메라 키 찍는 시각 기준).
+let tlHeadT = 0;       // 타임라인 재생헤드(CTI) 위치(초) — animT와 달리 지도 이동/정지로 null 되지 않고 유지(카메라 키 찍는 시각 기준).
 let animRAF = 0;
 let animPlaying = false;
 let tlH = 280;         // 타임라인 높이
@@ -129,8 +133,19 @@ function restoreCamMap() {
     _camSavedMap = null; renderMapTransform(); applyTilt();
   }
 }
+// 저장·되돌리기 스냅샷용 상태 — 카메라 미리보기 중엔 S.map/S.map3d가 '카메라 보간 뷰'로 덮여 있으므로
+// 작업 뷰(_camSavedMap)로 바꾼 사본을 준다(B5: 자동 저장·프로젝트 저장·되돌리기 기록이 카메라 뷰를 작업 위치로 굳히지 않게).
+function stateForSave() {
+  if (!_camSavedMap) return S;
+  const o = Object.assign({}, S);
+  o.map = Object.assign({}, S.map, { x: _camSavedMap.x, y: _camSavedMap.y, s: _camSavedMap.s });
+  o.map3d = _camSavedMap.m3 ? JSON.parse(JSON.stringify(_camSavedMap.m3)) : CAM3D_DEFAULT();
+  return o;
+}
+// S를 통째로 갈아끼웠다(되돌리기·다시 실행) — 새 S.map은 이미 작업 뷰이므로 카메라 백업은 버린다(옛 뷰가 덮이지 않게).
+function animStateReplaced() { _camSavedMap = null; animFastOff(); }
 
-// 트랙 이름·색 — 타임라인 왼쪽 목록과 클립에 쓴다
+// 트랙 이름·색 — (옛 호환용 이름) 타임라인은 tlLayerPlan의 이름을 쓴다
 function trackInfo(tr) {
   if (tr.kind === 'typhoon') return { name: '태풍 경로', col: (S.typhoon && S.typhoon.iconCol) || '#E5231E' };
   if (tr.kind === 'typcmp') { const c = ((S.typhoon && S.typhoon.compare) || []).find((x) => x.id === tr.key); return { name: c ? ('비교 · ' + (c.name || '')) : '(지운 비교)', col: c ? c.color : '#888' }; }
@@ -156,18 +171,16 @@ const ANIM_LABEL_LEN = 1.0;  // 라벨 올라오는 시간
 const ANIM_MTN_LEN = 0.6;
 // 색 밝기 (높을수록 밝음) — 밝은 색부터 애니메이션한다
 const lumOf = (h) => { const [r, g, b] = hex2rgb(h); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-function autoTracks() {
+// 자동 구성 계획(부작용 없음) — 지금 화면이면 어떤 트랙이 생기는지. autoTracks(타임라인 버튼)와 AE 보내기(트랙이 아예 없을 때의 기본 타이밍)가 같이 쓴다.
+// 반환 { tracks, dur, msg } (tracks가 비면 만들 것이 없음). id는 새로 받는다.
+function autoTrackPlan() {
   const A = anim();
   if (isTyphoon()) {
     // 태풍은 칠/라벨 트랙 대신 '경로 애니메이션' 트랙 하나. 길이 = 홀드 + 경로2초 + 라벨1.2초 + 꼬리1초.
     const hold = animStart(), PATHs = 2.0, LABELs = typhoonLineMode() ? 0 : 1.2, tail = 1.0;   // 라인 모드는 경로 시각 라벨이 없다
-    pushUndo();
-    A.tracks = [{ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: +hold.toFixed(2), len: +(PATHs + LABELs).toFixed(2), ps: +hold.toFixed(2), pe: +(hold + PATHs).toFixed(2) }];   // 라벨별 키(lab)는 ensureTyphoonKeys가 채움
-    for (const c of ((S.typhoon && S.typhoon.compare) || [])) A.tracks.push({ id: 'k' + seq++, kind: 'typcmp', key: c.id, start: +hold.toFixed(2), len: +PATHs.toFixed(2) });   // 비교 예보마다 타임라인 트랙(끌어서 타이밍 조정)
-    A.dur = Math.max(4, Math.ceil((hold + PATHs + LABELs + tail) * 2) / 2);
-    buildTimeline(); animSeek(0);
-    status('태풍 경로 애니메이션 트랙 구성됨 · ' + A.dur + '초');
-    return;
+    const tracks = [{ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: +hold.toFixed(2), len: +(PATHs + LABELs).toFixed(2), ps: +hold.toFixed(2), pe: +(hold + PATHs).toFixed(2) }];   // 라벨별 키(lab)는 ensureTyphoonKeys가 채움
+    for (const c of ((S.typhoon && S.typhoon.compare) || [])) tracks.push({ id: 'k' + seq++, kind: 'typcmp', key: c.id, start: +hold.toFixed(2), len: +PATHs.toFixed(2) });   // 비교 예보마다 타임라인 트랙(끌어서 타이밍 조정)
+    return { tracks, dur: Math.max(4, Math.ceil((hold + PATHs + LABELs + tail) * 2) / 2), msg: '태풍 경로 애니메이션 트랙 구성됨' };
   }
   const F = fills();
   const seen = {};
@@ -200,15 +213,56 @@ function autoTracks() {
   // 산 색칠도 지도 칠처럼 애니메이션 — 그 산 색과 같은 타이밍에 번지듯/드러나듯 나온다
   for (const m of (S.mtns || [])) if (!m.off) push('mtn', m.id, startForFill(m.col), ANIM_FILL_LEN);
   // 제목 텍스트: 트랙 없음 -> 애니메이션 없이 계속 보인다. 경계선도 처음부터 그대로.
-
-  if (!tracks.length) { status(wrnNoneLeftMapEmpty() ? wrnNoneEmptyText('애니메이션을 만드세요') : '칠한 색도 라벨도 없습니다 — 먼저 CG를 만드세요', true); return; }
-  pushUndo();
-  A.tracks = tracks;
+  if (!tracks.length) return { tracks, dur: A.dur, msg: '' };
   const end = Math.max(...tracks.map((x) => x.start + x.len));
-  A.dur = Math.max(6, Math.ceil((end + 0.6) * 2) / 2);   // 기본 길이 6초, 넘치면 늘린다
+  return { tracks, dur: Math.max(6, Math.ceil((end + 0.6) * 2) / 2), msg: `${tracks.length}개 트랙 만듦 (밝은색→어두운색, 5프레임 간격) — 막대를 끌어 조정하세요` };   // 기본 길이 6초, 넘치면 늘린다
+}
+// 손본 트랙 수 — 자동 구성 결과와 시작·길이(경로·라벨 키)가 다른 트랙(같은 대상끼리 비교)
+function animTouchedCount(plan) {
+  const A = anim(); let n = 0;
+  const same = (a, b) => Math.abs((+a || 0) - (+b || 0)) < 0.005;
+  for (const tr of A.tracks) {
+    const d = plan.tracks.find((x) => x.kind === tr.kind && String(x.key) === String(tr.key));
+    if (!d) { n++; continue; }
+    if (tr.kind === 'typhoon') {
+      if (!same(tr.ps, d.ps) || !same(tr.pe, d.pe)) { n++; continue; }
+      const tmp = JSON.parse(JSON.stringify(d)); ensureTyphoonKeys(tmp);
+      if (Object.keys(tr.lab || {}).some((id) => tmp.lab[id] && (!same(tr.lab[id].s, tmp.lab[id].s) || !same(tr.lab[id].e, tmp.lab[id].e)))) n++;
+    } else if (!same(tr.start, d.start) || !same(tr.len, d.len)) n++;
+  }
+  return n;
+}
+// 계획을 적용한다 — mode 'all'=모두 다시 구성, 'add'=있는 트랙은 그대로 두고 트랙이 없는 대상만 기본 타이밍으로 더한다
+function applyAutoTrackPlan(plan, mode) {
+  const A = anim();
+  pushUndo();
+  if (mode === 'add') {
+    let added = 0;
+    for (const d of plan.tracks) if (!A.tracks.some((x) => x.kind === d.kind && String(x.key).toUpperCase() === String(d.key).toUpperCase())) { A.tracks.push(d); added++; }
+    const end = Math.max(A.dur, ...A.tracks.map((x) => (+x.start || 0) + (+x.len || 0)));
+    if (end > A.dur) A.dur = Math.ceil((end + 0.4) * 2) / 2;
+    buildTimeline(); animSeek(tlHeadT);
+    status(added ? `새 항목 ${added}개에 기본 타이밍을 더했습니다 — 손본 타이밍은 그대로` : '새로 더할 항목이 없습니다 — 모두 타이밍이 있어요');
+    return;
+  }
+  A.tracks = plan.tracks;
+  A.dur = plan.dur;
   buildTimeline();
   animSeek(0);
-  status(`${tracks.length}개 트랙 만듦 (밝은색→어두운색, 5프레임 간격) — 클립을 끌어 조정하세요`);
+  status(plan.msg + (isTyphoon() ? ' · ' + A.dur + '초' : ''));
+}
+function autoTracks() {
+  const plan = autoTrackPlan();
+  if (!plan.tracks.length) { status(wrnNoneLeftMapEmpty() ? wrnNoneEmptyText('애니메이션을 만드세요') : '칠한 색도 라벨도 없습니다 — 먼저 CG를 만드세요', true); return; }
+  const touched = anim().tracks.length ? animTouchedCount(plan) : 0;
+  if (!touched) { applyAutoTrackPlan(plan, 'all'); return; }
+  // 손본 타이밍이 있으면 덮어쓰기 전에 묻는다(B13) — 토스 카드
+  const m = tossModal({
+    title: '자동 구성을 다시 할까요?', sub: `손본 타이밍 ${touched}개가 있어요`,
+    bodyHTML: '<p style="margin:0;font-size:13px;line-height:1.6;color:var(--on-surface-var)"><b style="color:var(--on-surface)">새 항목만 추가</b>는 손본 타이밍을 그대로 두고, 타이밍이 없는 칠·라벨·산에만 기본 타이밍을 넣습니다.<br><b style="color:var(--on-surface)">모두 다시 구성</b>은 지금 화면 기준으로 전부 새로 만듭니다(되돌리기 Ctrl+Z).</p>',
+    footHTML: '<button class="tossBtn ghost" data-act="cancel">취소</button><button class="tossBtn ghost" data-act="all">모두 다시 구성</button><button class="tossBtn pri" data-act="add">새 항목만 추가</button>',
+  });
+  m.foot.querySelectorAll('button').forEach((b) => { b.onclick = () => { const act = b.dataset.act; m.close(); if (act !== 'cancel') applyAutoTrackPlan(autoTrackPlan(), act); }; });
 }
 
 // 지금 지도 색칠과 하나도 안 맞는(=이전 지도에서 만든) 타임라인 트랙은 열 때 비운다.
@@ -280,15 +334,128 @@ function teardownBlind() {
   for (const g of document.querySelectorAll('#L_mtn > g')) g.removeAttribute('clip-path');
 }
 
+// ===== 미리보기 가속(재생·스크럽·끌기 중에만) =====
+// 정확한 경로는 존 수백 개의 fill을 매 프레임 바꿔 SVG 전체를 다시 래스터하고(평균 22ms), 카메라 키는 속성 transform이라
+// 지도 전체를 매 프레임 다시 그린다(39~69ms). 움직이는 동안만 ① 바탕(베이스색) 위에 '색마다 겹친 그룹'의 opacity만 바꾸고
+// (AE에서 색 레이어 opacity를 올리는 것과 같은 합성 — mixHex 선형 보간 = 알파 합성) ② 카메라는 지도 묶음의 CSS transform으로
+// GPU 합성만 한다. 멈추면 tlSettle이 정확한 경로로 그 프레임을 한 번 다시 그린다. 추출(_exportingFrames)은 늘 정확한 경로.
+let _animFast = null;
+const camKeysRotate = () => camKeys().some((k) => Math.abs(+k.rx || 0) > 0.05 || Math.abs(+k.ry || 0) > 0.05 || Math.abs(+k.rz || 0) > 0.05);
+function animFastOn() {
+  if (_animFast || _exportingFrames) return;
+  const A = anim(), F = fills();
+  const blinds = (A.reveal || 'dissolve') === 'blinds';
+  const fast = { groups: [], softKids: [], cam: null, blinds, masks: new Map(), tilt: false };
+  // ① 칠: 서울 아님(한강 위 오버레이가 섞이는 식이 달라 정확 경로 유지)·태풍 아님. 번짐 = 그룹 opacity, 블라인드 = 그룹 마스크(슬랫 무늬 rect 하나)
+  if (!isTyphoon() && !isSeoul()) {
+    const trk = new Set(A.tracks.filter((x) => x.kind === 'fill').map((x) => String(x.key).toUpperCase()));
+    const gm = $('#gMain');
+    if (trk.size && gm) {
+      if (blinds) teardownBlind();   // 정확 경로의 베이스 복제(L_mapBase)·슬랫 클립(rect 수백 개) 걷기 — 가속은 바탕 조각 + 색 그룹 마스크
+      const byHost = new Map();   // 부모(본토 #gMain / 인셋 그룹) → { key → <g> }
+      const groupFor = (host, key) => {
+        let m = byHost.get(host); if (!m) { m = new Map(); byHost.set(host, m); }
+        let g = m.get(key);
+        if (!g) {
+          g = el('g', { 'data-animfast': key, opacity: blinds ? '1' : '0', 'pointer-events': 'none' });
+          g.style.willChange = 'opacity';
+          if (host === gm) gm.append(g);   // 본토: #gMain 맨 끝(부드러운 경계 #gMainSoft 위)
+          else { const zs = host.querySelectorAll(':scope > .zone'); const last = zs[zs.length - 1]; if (last) last.after(g); else host.prepend(g); }   // 인셋: 마지막 조각 바로 뒤(경계선 아래)
+          m.set(key, g); fast.groups.push({ g, key });
+        }
+        return g;
+      };
+      for (const [id, arr] of zoneEls) {
+        const col = F[id]; if (!col) continue;
+        const key = col.toUpperCase(); if (!trk.has(key)) continue;
+        for (const { el: e } of arr) {
+          const host = e.parentNode; if (!host) continue;
+          const cl = e.cloneNode(false);
+          cl.setAttribute('class', 'zoneAF'); cl.removeAttribute('data-id'); cl.setAttribute('fill', col);
+          cl.setAttribute('stroke', 'none');   // 칠만(테두리는 바로 뒤 복제가 원래 순서대로). 경계를 넓혀 틈을 덮는 방법은 경계가 0.5px 밀려 더 달라져 안 씀(측정)
+          const g = groupFor(host, key); g.append(cl);
+          // 그 조각의 원래 테두리(구역선 색·투명도)는 칠 위에 그대로 — 정확한 그림처럼 '칠 → 그 조각 테두리' 순서
+          const sk = e.getAttribute('stroke');
+          if (sk && sk !== 'none') { const so = e.cloneNode(false); so.setAttribute('class', 'zoneAF'); so.removeAttribute('data-id'); so.setAttribute('fill', 'none'); g.append(so); }
+          e.setAttribute('fill', S.base);   // 바탕 = 베이스색(진행도 0과 같은 그림)
+        }
+      }
+      // 부드러운 경계(#gMainSoft): 그 색 조각은 바탕(베이스)으로 두고, 같은 필터·클립을 건 복제를 색 그룹 안에 겹친다
+      const soft = $('#gMainSoft');
+      if (soft) for (const p of soft.children) {
+        const col = F[p.dataset.id]; if (!col) continue; const key = col.toUpperCase(); if (!trk.has(key)) continue;
+        const g = groupFor(gm, key);
+        let sg = g.querySelector(':scope > g[data-soft]');
+        if (!sg) { sg = el('g', { 'data-soft': '1', filter: soft.getAttribute('filter') || '' }); const cp = soft.getAttribute('clip-path'); if (cp) sg.setAttribute('clip-path', cp); g.append(sg); }
+        const cl = p.cloneNode(false); cl.removeAttribute('data-id'); cl.removeAttribute('clip-path'); cl.setAttribute('fill', col); sg.append(cl);
+        p.setAttribute('fill', S.base); p.removeAttribute('clip-path'); fast.softKids.push(p);
+      }
+    }
+  }
+  // ② 카메라: 회전·기울기가 없는 키일 때만(틸트는 래스터 캔버스라 정확 경로) — 지도 묶음을 GPU 변환으로
+  if (camKeys().length && !camKeysRotate() && !camActive3d()) {
+    if (_camSavedMap) { S.map.x = _camSavedMap.x; S.map.y = _camSavedMap.y; S.map.s = _camSavedMap.s; S.map3d = _camSavedMap.m3 || CAM3D_DEFAULT(); _camSavedMap = null; }   // S.map은 작업 뷰로(화면은 CSS가 덮는다)
+    const nodes = ['#mapT', '#bgMapT', '#seaT'].map((q) => document.querySelector(q)).concat([document.querySelector('#L_mapBase [data-blindmapt]')]).filter(Boolean);
+    fast.camStyle = nodes.map((n) => n.getAttribute('style'));   // 끝나면 원래 style 속성 그대로 되돌린다(직렬화까지 같게)
+    for (const n of nodes) n.style.willChange = 'transform';
+    fast.cam = nodes;
+  }
+  // ③ 틸트(기울기·방향 키 또는 지금 기울어 있음): 정확 경로로 그리되, 지도 래스터는 300ms에 한 번·저해상, 그 사이는 CSS 보정(view-camera.js applyTilt)
+  fast.tilt = !!(camKeys().length && (camKeysRotate() || camActive3d()));
+  _animFast = (fast.groups.length || fast.cam || fast.tilt) ? fast : null;
+}
+// 블라인드 가속 — 색마다 마스크 하나: 슬랫 무늬(pattern) 안 rect 하나의 y·height만 매 프레임 바꾼다(정확 경로는 색마다 rect 수백 개를 다시 씀).
+// 무늬·영역은 정확 경로 paintBlindClip과 같은 자리(중심 960·540, 반경 1300, 슬랫 간격·각도). 마스크 이름 반환.
+function animFastMask(key, gp) {
+  const F = _animFast; let m = F.masks.get(key);
+  const pitch = blindPitch(), angle = blindAngle(), cx = 960, cy = 540, R = 1300;
+  if (!m) {
+    const i = F.masks.size, id = 'bmF' + i, defs = svg.querySelector('defs');
+    const pat = el('pattern', { id: 'bpF' + i, patternUnits: 'userSpaceOnUse', x: cx - R, y: cy - R, width: R * 2, height: pitch });
+    const r = el('rect', { x: 0, y: 0, width: R * 2, height: 0, fill: '#fff' }); pat.append(r);
+    const mk = el('mask', { id, maskUnits: 'userSpaceOnUse', maskContentUnits: 'userSpaceOnUse', x: -4000, y: -4000, width: 10000, height: 10000 });
+    const area = el('rect', { x: cx - R, y: cy - R, width: R * 2, height: R * 2, fill: `url(#bpF${i})` });
+    if (angle) area.setAttribute('transform', `rotate(${angle} ${cx} ${cy})`);
+    mk.append(area); defs.append(pat, mk);
+    m = { id, r, pat, mk, h: -1 }; F.masks.set(key, m);
+  }
+  const raw = clamp01(gp) * pitch, openH = raw + (raw > 0 ? 0.75 : 0);
+  if (Math.abs(openH - m.h) > 1e-3) { m.h = openH; m.r.setAttribute('y', (pitch - openH) / 2); m.r.setAttribute('height', openH); }
+  return m.id;
+}
+const setAttrIf = (n, k, v) => { if (v == null) { if (n.hasAttribute(k)) n.removeAttribute(k); } else if (n.getAttribute(k) !== v) n.setAttribute(k, v); };
+function animFastOff() {
+  const f = _animFast; if (!f) return;
+  _animFast = null;
+  for (const { g } of f.groups) g.remove();
+  for (const m of f.masks.values()) { m.pat.remove(); m.mk.remove(); }
+  if (f.blinds) for (const g of document.querySelectorAll('#L_mtn > g[mask]')) { g.removeAttribute('mask'); g.removeAttribute('opacity'); }
+  if (f.cam) f.cam.forEach((n, i) => { const v = f.camStyle[i]; if (v == null) n.removeAttribute('style'); else n.setAttribute('style', v); });
+  // 바탕으로 바꿔 둔 존·부드러운 경계 조각은 곧 이어지는 정확한 프레임(또는 renderAll)이 다시 칠한다
+}
+// 가속 카메라 — CSS로 지도 묶음만 옮기고, S.map은 이 프레임 동안만 카메라 값으로 빌려 태풍·지도 고정 산을 그린다(끝나면 작업 뷰로 되돌림)
+function animFastCam(t, draw) {
+  const c = camAt(t);
+  if (!c) { draw(); return; }
+  const tr = `translate(${c.x}px, ${c.y}px) scale(${c.s})`;
+  for (const n of _animFast.cam) n.style.transform = tr;
+  const m0 = { x: S.map.x, y: S.map.y, s: S.map.s };
+  S.map.x = c.x; S.map.y = c.y; S.map.s = c.s; _tyLiteDraw = true;
+  try { if (S.mtns && S.mtns.some((m) => m.anchor)) renderMtns(); draw(); }
+  finally { S.map.x = m0.x; S.map.y = m0.y; S.map.s = m0.s; _tyLiteDraw = false; }
+}
+
 // t초 시점의 화면. 재생·미리보기·영상 추출이 모두 이걸 쓴다.
 function renderAnimFrame(t) {
+  if (_animFast && _exportingFrames) animFastOff();   // 추출은 늘 정확한 경로
+  if (_animFast && _animFast.cam) { animFastCam(t, () => renderAnimFrameBody(t)); _mapContentRev++; return; }
   renderAnimFrameBody(t);
   // 틸트 미리보기는 이번 프레임 내용(animT·칠·태풍)까지 다 그린 뒤 한 번 굽는다(먼저 구우면 한 단계 옛 그림)
   _mapContentRev++;
   if (camActive3d() || fit.classList.contains('mapTilt')) applyTilt();
 }
 function renderAnimFrameBody(t) {
-  applyCam(t, true);   // 카메라 키프레임이 있으면 S.map을 보간 적용(지도+태풍만 이동, 제목·범례 고정)
+  if (!(_animFast && _animFast.cam)) applyCam(t, true);   // 카메라 키프레임이 있으면 S.map을 보간 적용(지도+태풍만 이동, 제목·범례 고정)
   // 태풍 지도: 경로가 스으윽 이동(2초) → 각 지점 등장 시 라벨이 개별 생성. 프레임(t)마다 결정적으로 계산.
   if (isTyphoon()) {
     animT = t;
@@ -332,7 +499,25 @@ function renderAnimFrameBody(t) {
   };
 
   let blindProg = null, blindIdx = null;   // 블라인드일 때 색별 진행도/클립 인덱스 (아래 산에서도 쓴다)
-  if (reveal === 'blinds') {
+  const fastFill = _animFast && _animFast.groups.length && reveal !== 'blinds' && !_animFast.blinds;
+  const fastBlind = _animFast && _animFast.groups.length && reveal === 'blinds' && _animFast.blinds;
+  if (fastBlind) {
+    // 가속 블라인드(미리보기 전용): 진행도는 정확 경로와 같은 식, 그리기는 색 그룹 마스크(무늬 rect 하나)
+    const prog = {};
+    for (const c in colProg) prog[c] = colProg[c];
+    const fcols = new Set(Object.values(F).map((c) => (c || '').toUpperCase()));
+    for (const m of (S.mtns || [])) { if (m.off) continue; const k = (m.col || '').toUpperCase(); if (!k || k in colProg || fcols.has(k)) continue; const v = easeOut(clamp01(progOf('mtn', m.id))); prog[k] = prog[k] == null ? v : Math.min(prog[k], v); }
+    for (const { g, key } of _animFast.groups) {
+      const gp = prog[key];
+      if (gp == null || gp >= 0.999) { setAttrIf(g, 'opacity', '1'); setAttrIf(g, 'mask', null); }
+      else if (gp <= 0) setAttrIf(g, 'opacity', '0');
+      else { setAttrIf(g, 'opacity', '1'); setAttrIf(g, 'mask', `url(#${animFastMask(key, gp)})`); }
+    }
+    blindProg = prog;
+  } else if (fastFill) {
+    // 가속(미리보기 전용): 색 그룹 opacity만 — 존 fill·#gMainSoft는 바탕 그대로
+    for (const { g, key } of _animFast.groups) { const p = colProg[key]; g.setAttribute('opacity', (p === undefined ? 1 : clamp01(p)).toFixed(3)); }
+  } else if (reveal === 'blinds') {
     // 색깔마다 '자기 트랙 진행도'로 열리는 슬랫으로 각자 드러난다 (지도 전체가 한 번에 열리지 않게)
     ensureBlind(); blindOn = true;
     ensureClip('bclipHide');   // 빈 클립(rect 없음) = 아무것도 안 보임 — 시작 전 산을 숨긴다
@@ -375,7 +560,7 @@ function renderAnimFrameBody(t) {
 
   // 부드러운 경계 오버레이(#gMainSoft)도 애니메이션에 맞춰 같이 드러나게 —
   // 각 복제본을 원본 존의 '지금 프레임' 칠/클립에 그대로 맞춘다 (안 그러면 애매 구역만 처음부터 꽉 차 보인다).
-  {
+  if (!fastFill && !fastBlind) {
     const soft = $('#gMainSoft');
     if (soft) for (const p of soft.children) {
       const arr = zoneEls.get(p.dataset.id); const z = arr && arr[0] && arr[0].el;
@@ -447,7 +632,13 @@ function renderAnimFrameBody(t) {
     g.removeAttribute('opacity');
     const path = g.querySelector('path');
     if (!path) continue;
-    if (reveal === 'blinds') {
+    if (fastBlind) {   // 가속 블라인드 — 산도 그 색 마스크로(시작 전 숨김, 다 열리면 그냥)
+      path.setAttribute('fill', it.col); g.removeAttribute('clip-path');
+      const gp = blindProg[(it.col || '').toUpperCase()];
+      if (gp == null || gp >= 0.999) g.removeAttribute('mask');
+      else if (gp <= 0) { g.setAttribute('opacity', '0'); g.removeAttribute('mask'); }
+      else g.setAttribute('mask', `url(#${animFastMask((it.col || '').toUpperCase(), gp)})`);
+    } else if (reveal === 'blinds') {
       path.setAttribute('fill', it.col);
       const key = (it.col || '').toUpperCase();
       const gp = blindProg ? blindProg[key] : null;
@@ -482,6 +673,8 @@ function clearVfEnter() {
 
 // 애니메이션 상태를 걷어내고 평소 화면으로
 function animOff() {
+  animFastOff();     // 미리보기 가속 그룹·CSS 변환 제거
+  if (typeof tlSettleCancel === 'function') tlSettleCancel();
   animT = null;
   _exportingFrames = false; showExportMask(false);   // 추출 종료 — 미리보기 캔버스 갱신 재개, 가리개 제거
   clearExportCache();          // 추출 정적 레이어 캐시 비움(다음 추출은 새로 굽는다)
@@ -500,39 +693,29 @@ function stopAnimForSwap() {
   tlHeadT = 0;
 }
 
+// t초로 이동 — 그 시각의 정확한 프레임을 바로 그리고 재생헤드(CTI)를 옮긴다(동기). 끌기·재생 중 반복 그리기는 타임라인 스케줄러가 묶는다.
 function animSeek(t) {
   const A = anim();
   t = Math.max(0, Math.min(t, A.dur));
   tlHeadT = t;   // 재생헤드 위치 기억(카메라 키 찍는 시각 기준 — 지도 이동/정지로 animT가 null 돼도 유지)
+  animFastOff();
   renderAnimFrame(t);
-  $('#tlTime').textContent = t.toFixed(2) + 's';
-  const head = $('#tlHead');
-  if (head) head.style.left = (t * tlPxPerSec()) + 'px';
+  if (typeof tlPlaceHead === 'function') tlPlaceHead();
 }
 
+// 재생/멈춤 — 재생헤드(CTI)에서 시작한다(B6). 끝(또는 작업 영역 끝)에 있으면 처음(작업 영역 시작)부터.
+// 프레임 그리기는 타임라인 스케줄러(tlFrame, rAF 하나)가 맡는다.
 function animPlay() {
   if (animPlaying) return animStop();
   if (typeof typhoonRaf !== 'undefined' && typhoonRaf) { cancelAnimationFrame(typhoonRaf); typhoonRaf = 0; }   // '애니메이션 확인' 미리보기 루프가 살아 있으면 정리(겹쳐 재생돼 번쩍이는 것 방지)
-  const A = anim();
   // 태풍 지도는 경로 애니가 내재적(renderAnimFrame이 시각으로 계산)이라 트랙/카메라 키가 없어도 재생된다.
   if (!hasAnim()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
-  animPlaying = true;
-  $('#tlPlay').textContent = '멈춤';
-  // 재생헤드가 끝(또는 거의 끝)에 있으면 처음부터 재생 — 카메라 키를 편집하면 헤드가 마지막 키에 가 있어
-  // 그냥 누르면 끝에서 시작해 '카메라가 마지막으로 툭' 하고 끝나 버린다.
-  const startT = (animT != null && animT < A.dur - 0.02) ? animT : 0;
-  const t0 = performance.now() - startT * 1000;
-  const tick = () => {
-    if (!animPlaying) return;
-    const t = (performance.now() - t0) / 1000;
-    if (t >= A.dur) { animSeek(A.dur); animStop(); return; }
-    animSeek(t);
-    animRAF = requestAnimationFrame(tick);
-  };
-  animRAF = requestAnimationFrame(tick);
+  if (typeof tlPlayStart === 'function') { tlPlayStart(); return; }
 }
 function animStop() {
+  const was = animPlaying;
   animPlaying = false;
   cancelAnimationFrame(animRAF);
-  $('#tlPlay').textContent = '재생';
+  if (typeof tlPlayStopped === 'function') tlPlayStopped(was);
+  else { const b = $('#tlPlay'); if (b) b.textContent = '재생'; }
 }

@@ -6,6 +6,8 @@
 // (예전엔 여기에 Wanted를 심었지만 CG 텍스트는 Wanted를 안 써서 폰트가 Malgun으로 대체돼 렌더가 달라졌음.)
 let _suiteFontCss = null;
 let _suiteFontsReady = false;
+// 굵기별 @font-face 한 줄(미리보기 래스터가 쓰는 굵기만 넣을 때 — suiteFontCssFor)
+const _suiteFontRules = {};
 async function suiteFontCss() {
   if (_suiteFontCss != null) { await ensureSuiteFontsLoaded(); return _suiteFontCss; }
   const W = [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'SemiBold'], [700, 'Bold'], [800, 'ExtraBold'], [900, 'Heavy']];
@@ -16,13 +18,23 @@ async function suiteFontCss() {
       const b = new Uint8Array(buf); let bin = '';
       for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
       bufs.push([wt, buf]);
-      return "@font-face{font-family:'SUITE CG';font-style:normal;font-weight:" + wt + ";src:url(data:font/otf;base64," + btoa(bin) + ") format('opentype');}";
+      const rule = "@font-face{font-family:'SUITE CG';font-style:normal;font-weight:" + wt + ";src:url(data:font/otf;base64," + btoa(bin) + ") format('opentype');}";
+      _suiteFontRules[wt] = rule;
+      return rule;
     } catch (e) { return ''; }
   }));
   _suiteFontCss = rules.join('\n');
   _suiteFontBufs = bufs;
   await ensureSuiteFontsLoaded();
   return _suiteFontCss;
+}
+// 미리보기 래스터(틸트 캔버스)용 — 복제본 <text>가 실제로 쓰는 굵기의 글꼴만 넣는다(7굵기 ≈ 2.9MB를 매번 직렬화·디코드하던 비용).
+// 쓰지 않는 글꼴만 빠지므로 그림은 같다. 굵기를 못 읽는 글자가 하나라도 있으면 전부 넣는다. 추출(svgToImage 기본)은 늘 전부.
+async function suiteFontCssFor(root) {
+  const all = await suiteFontCss();
+  const ws = new Set();
+  for (const t of root.querySelectorAll('text')) { const w = parseInt(t.getAttribute('font-weight') || '', 10); if (!_suiteFontRules[w]) return all; ws.add(w); }
+  return [...ws].sort().map((w) => _suiteFontRules[w]).join('\n');
 }
 // 같은 base64 폰트를 브라우저 폰트시스템(document.fonts)에도 올려 둔다.
 // <img> 안 SVG는 폰트를 이 캐시에서 찾으므로, 미리 로드해 두면 export 첫 렌더부터 SUITE가 확실히 적용된다(폴백 레이스 방지).
@@ -176,7 +188,7 @@ function syncSeoulExport(clone) {
 }
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
 // stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
-async function svgToImage(W, H, keep, viewBox, stripText) {
+async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
   brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다(복제본에 최신 그림)
   const clone = svg.cloneNode(true);
   if (stripText) clone.querySelectorAll('text').forEach((n) => n.remove());
@@ -192,7 +204,7 @@ async function svgToImage(W, H, keep, viewBox, stripText) {
     if (durl) { im.setAttribute('href', durl); try { im.removeAttribute('crossorigin'); } catch (e) {} }
     else im.remove();
   });
-  clone.querySelector('#fontStyle').textContent = await suiteFontCss();
+  clone.querySelector('#fontStyle').textContent = fontsUsedOnly ? await suiteFontCssFor(clone) : await suiteFontCss();   // fontsUsedOnly = 미리보기 래스터(쓰는 굵기만)
   const xml = new XMLSerializer().serializeToString(clone);
   // data: URL로 렌더 — blob: URL은 브라우저에 따라 <img> 안 SVG의 base64 @font-face(SUITE)가 첫 렌더에 안 먹어 폴백 폰트로 새는 일이 있다. data:는 자체완결이라 폰트까지 확실히 적용된다.
   const img = new Image();

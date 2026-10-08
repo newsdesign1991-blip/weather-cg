@@ -92,7 +92,7 @@
 <link rel="stylesheet" href="css/start-tour.css?v=36750797">
 <link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
 <link rel="stylesheet" href="css/menus-windows.css?v=decbdfb6">
-<link rel="stylesheet" href="css/timeline.css?v=90312092">
+<link rel="stylesheet" href="css/timeline.css?v=85d8efa7">
 <link rel="stylesheet" href="css/dialogs.css?v=7b46d2b5">
 <link rel="stylesheet" href="css/panel-misc.css?v=4640b3e8">
 <link rel="stylesheet" href="css/toss-modal.css?v=1d02ed6c">
@@ -822,18 +822,20 @@
      <span>크기·부드럽게는 <b>색 팔레트</b> 카드</span>
    </div>
 
-   <!-- 타임라인. 색칠·라벨이 나오는 순서와 시각을 여기서 정한다. -->
-   <div id="timeline">
+   <!-- 타임라인(AE식). 레이어(칠·라벨·산·태풍 경로·카메라…)가 나오는 시각을 여기서 정한다 — 같은 타이밍이 AE로 보내기에도 들어간다. -->
+   <div id="timeline" tabindex="-1">
      <div class="tlGrip" id="tlGrip" title="끌어서 높이 조절"></div>
      <div class="tlBar">
-       <button id="tlAuto" title="지금 화면(칠·라벨)을 그대로 애니메이션 트랙으로 만듭니다">지금 화면으로 자동 구성</button>
-       <div class="sep"></div>
-       <button id="tlPlay" class="pri">재생</button>
-       <button id="tlStop">처음으로</button>
-       <span class="tlTime" id="tlTime">0.00s</span>
-       <div class="sep"></div>
-       <button id="tlCamKey" title="지금 지도 위치·확대를 현재 시각의 카메라 키로 찍습니다 (같은 시각이면 갱신). 이동 모드에서 지도를 움직여 잡으세요.">카메라 키 찍기</button>
-       <button id="tlCamDel" title="현재 시각 근처의 카메라 키를 지웁니다">키 삭제</button>
+       <div class="tlTimeBox" id="tlTimeBox" title="현재 시각 — 클릭해 입력(1.5 · 1:15 · 45f · +10), 좌우로 끌어 이동, Ctrl+클릭 = 표기 바꾸기(타임코드/초/프레임)">
+         <div class="tlTimeBig" id="tlTime">0;00;00;00</div>
+         <div class="tlTimeSub" id="tlTimeSub">00000 · 29.97 fps</div>
+       </div>
+       <div class="tlSeg">
+         <button class="tlBtn icon" id="tlStop" title="처음으로 (Home)" aria-label="처음으로"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5h2.4v14H6zM20 5.6v12.8a.6.6 0 01-.92.5L9.5 12.5a.6.6 0 010-1L19.08 5.1a.6.6 0 01.92.5z"/></svg></button>
+         <button class="tlBtn" id="tlPlay" title="재생/멈춤 (Space) — 지금 시각부터"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.8v14.4a.8.8 0 001.22.68l11.5-7.2a.8.8 0 000-1.36L8.22 4.12A.8.8 0 007 4.8z"/></svg><span class="lbl">재생</span></button>
+       </div>
+       <button class="tlBtn" id="tlAuto" title="지금 화면(칠·라벨·산)으로 레이어 타이밍을 만듭니다 — 손본 타이밍이 있으면 먼저 묻습니다">지금 화면으로 자동 구성</button>
+       <button class="tlBtn" id="tlCamKey" title="지금 지도 위치·확대·회전을 현재 시각의 카메라 키로 찍습니다(같은 시각이면 갱신). 키가 있으면 Alt로 지도를 움직이기만 해도 그 시각에 키가 생깁니다."><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2l8.8 8.8-8.8 8.8L3.2 12z"/></svg>카메라 키 찍기</button>
        <div class="sep"></div>
        <label class="tlNum">길이 <input type="number" id="tlDur" min="0.5" max="60" step="0.5"><span>초</span></label>
        <label class="tlNum">fps
@@ -857,7 +859,7 @@
          <label class="tlNum">슬랫 <input type="number" id="tlBlindSize" min="8" max="400" step="2"><span>px</span></label>
          <label class="tlNum">각도 <input type="number" id="tlBlindAngle" min="-90" max="90" step="1"><span>°</span></label>
        </span>
-       <div class="sep"></div>
+       <span class="tlGrow"></span>
        <div class="exportGroup">
          <button class="tintBtn" id="tlBake" title="타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다">MP4로 추출</button>
          <button class="tintBtn" id="tlExportPng" title="프레임을 PNG 여러 장으로 — 편집 툴(프리미어/AE)에서 방송용 코덱으로 렌더">PNG 시퀀스로 추출</button>
@@ -868,20 +870,50 @@
        </div>
        <span class="tlTime" id="tlInfo"></span>
        <button id="tlReset" class="tlResetBtn" title="타임라인의 모든 키·트랙·효과·길이 설정을 지워 처음 상태로 되돌립니다 (되돌리기 Ctrl+Z)">초기화</button>
-       <button class="tlClose" id="tlClose" title="닫기">✕</button>
+       <button class="tlClose" id="tlClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.4 5l5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
      </div>
      <p class="tlNote" id="tlNote"></p>
-     <div class="tlBody">
-       <div class="tlNames" id="tlNames"></div>
-       <div class="tlGrid" id="tlGrid">
-         <div class="tlRuler" id="tlRuler"></div>
-         <div class="tlTracks" id="tlTracks"></div>
-         <div class="tlHead" id="tlHead"></div>
+     <div class="tlBody" id="tlBody">
+       <div class="tlHeadRow">
+         <div class="tlColHdr" id="tlColHdr">
+           <button class="tlShy" id="tlShy" title="정적 레이어(애니 없는 배경·경계선·제목·범례) 숨기기 — AE의 '샤이' 스위치" aria-label="정적 레이어 숨기기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 5c5 0 9 4.5 10 7-1 2.5-5 7-10 7S3 14.5 2 12c1-2.5 5-7 10-7zm0 3a4 4 0 100 8 4 4 0 000-8zm0 2.2a1.8 1.8 0 110 3.6 1.8 1.8 0 010-3.6z"/></svg></button>
+           <span style="text-align:center">#</span>
+           <span></span>
+           <span style="padding-left:6px">레이어 이름</span>
+           <span class="r" title="시작(AE In) — 초:프레임">시작</span>
+           <span class="r" title="등장 길이 — 초:프레임">길이</span>
+         </div>
+         <div class="tlTimeHdr" id="tlTimeHdr">
+           <div class="tlNav" id="tlNav" title="보이는 범위 — 가운데를 끌면 이동, 양끝을 끌면 확대/축소"><div class="tlNavWin" id="tlNavWin"></div></div>
+           <div class="tlWork" id="tlWork" title="작업 영역(재생 범위) — 양끝을 끌거나 B/N 키(재생헤드로)"><i class="h a"></i><i class="h b"></i></div>
+           <canvas class="tlRulerCv" id="tlRuler"></canvas>
+         </div>
        </div>
+       <div class="tlScroll" id="tlScroll">
+         <div class="tlGridIn">
+           <div class="tlNames" id="tlNames"></div>
+           <div class="tlGrid" id="tlGrid"><div class="tlTracks" id="tlTracks"></div></div>
+         </div>
+       </div>
+       <div class="tlCtiClip" id="tlCtiClip">
+         <div class="tlSnapLine" id="tlSnapLine"></div>
+         <div class="tlHead" id="tlHead"><div class="tlCtiHead" id="tlCtiHead" title="재생헤드 — 끌어서 이동(Shift = 스냅)"><svg viewBox="0 0 13 18" aria-hidden="true"><path fill="currentColor" d="M1 0h11a1 1 0 011 1v10.6a1 1 0 01-.32.73L7.18 17.6a1 1 0 01-1.36 0L.32 12.33A1 1 0 010 11.6V1a1 1 0 011-1z"/></svg></div></div>
+       </div>
+       <div class="tlNameEdge" id="tlNameEdge" title="끌어서 이름 열 폭 조절"></div>
+       <div class="tlReadout" id="tlReadout"></div>
+     </div>
+     <div class="tlFoot" id="tlFoot">
+       <span class="hint"><b>Space</b> 재생 · <b>PageUp/Down</b> 1프레임 · <b>J/K</b> 이전/다음 키 · <b>[ ]</b> 시작/끝 맞추기 · <b>Alt+[ ]</b> 자르기 · <b>Shift</b> 끌기 스냅 · <b>Alt+휠</b> 확대</span>
+       <span class="warnTxt" id="tlFootWarn"></span>
+       <span class="tlGrow"></span>
+       <span class="tlZoom" title="Alt+휠 = 마우스 위치 기준 시간 확대 · Shift+휠 = 좌우 이동 · ; = 프레임 단위/전체">
+         <button class="tlFitBtn" id="tlFit">전체 맞춤</button>
+         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 19l6-9 4 6 3-4 5 7z" opacity=".55"/></svg>
+         <input type="range" id="tlZoom" min="0" max="1000" value="0" aria-label="시간 확대">
+         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M1 21l8-13 5 8 3-5 6 10z"/></svg>
+       </span>
      </div>
      <p class="tlEmpty" id="tlEmpty">트랙이 없습니다 — <b>지금 화면으로 자동 구성</b>을 누르면 칠한 색과 라벨로 순서를 만들어 줍니다.</p>
-     <!-- 카메라 키 숫자 편집 — 타임라인(카메라 트랙) 아래에 도킹(AE처럼). -->
-     <div class="camKeyEditor" id="camKeyEditor"></div>
    </div>
 
    <!-- 카메라 조작 안내 (영상 추출 모드에서만). Alt + 마우스로 지도 카메라를 움직여 키를 찍는다. -->
@@ -891,7 +923,7 @@
      <div class="cgRow"><b>Alt + 왼쪽</b> 드래그 — 3D 회전</div>
      <div class="cgRow"><b>Alt + 오른쪽</b> 드래그 — 확대(→)·축소(←)</div>
      <div class="cgRow"><b>Alt + 휠</b> 위·아래 — 확대·축소</div>
-     <div class="cgRow cgTip">원하는 시각에 맞춘 뒤 <b>카메라 키 찍기</b></div>
+     <div class="cgRow cgTip">키가 있으면 원하는 시각에서 <b>Alt로 움직이기만</b> 해도 그 시각에 키가 생깁니다</div>
    </div>
    <div class="startOverlay" id="startOverlay">
      <div class="startBoard">
@@ -1165,34 +1197,36 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/core.js?v=18ffceb7"></script>
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
-<script src="js/map-build.js?v=7a81dab9"></script>
-<script src="js/map-render.js?v=cfa0464c"></script>
+<script src="js/map-build.js?v=60c1b8ef"></script>
+<script src="js/map-render.js?v=cc2484c2"></script>
 <script src="js/vf-legend.js?v=06464ea1"></script>
-<script src="js/labels-mountains.js?v=ed7b1391"></script>
+<script src="js/labels-mountains.js?v=84a9ae7a"></script>
 <script src="js/typhoon-core.js?v=499ee16c"></script>
-<script src="js/typhoon-render.js?v=d0c379ef"></script>
+<script src="js/typhoon-render.js?v=689a1c77"></script>
 <script src="js/typhoon-panel.js?v=bd6299cf"></script>
 <script src="js/typhoon-api.js?v=dff04bf9"></script>
 <script src="js/panels.js?v=5a0de650"></script>
-<script src="js/view-camera.js?v=b67be5f2"></script>
-<script src="js/pointer-drag.js?v=34b47f2a"></script>
+<script src="js/view-camera.js?v=29295ced"></script>
+<script src="js/pointer-drag.js?v=7f8260da"></script>
 <script src="js/warnings.js?v=fba4f760"></script>
 <script src="js/warnings-apply.js?v=6034c101"></script>
 <script src="js/bulletin.js?v=e95a54b7"></script>
 <script src="js/forecast-panel.js?v=80d231d0"></script>
 <script src="js/warnings-load.js?v=f130397b"></script>
-<script src="js/presets.js?v=a55f520a"></script>
-<script src="js/cg-setup.js?v=225ae355"></script>
+<script src="js/presets.js?v=27fad655"></script>
+<script src="js/cg-setup.js?v=bd1de6aa"></script>
 <script src="js/modals-notices.js?v=8028bd20"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
-<script src="js/export-image.js?v=bdb1e05c"></script>
-<script src="js/export-video.js?v=1ebfaf8d"></script>
+<script src="js/export-image.js?v=f5a166b5"></script>
+<script src="js/export-video.js?v=580febba"></script>
 <script src="js/export-blobs.js?v=8a163fbc"></script>
-<script src="js/ae-export.js?v=a526f4bc"></script>
-<script src="js/project-io.js?v=2a59fd24"></script>
-<script src="js/wiring.js?v=9f9aaf56"></script>
-<script src="js/anim.js?v=c2a7515d"></script>
-<script src="js/timeline-ui.js?v=dcfd671a"></script>
+<script src="js/ae-export.js?v=dd03eafe"></script>
+<script src="js/project-io.js?v=30cf5197"></script>
+<script src="js/wiring.js?v=82e23669"></script>
+<script src="js/anim.js?v=c247cdc7"></script>
+<script src="js/timeline-plan.js?v=2035a9f3"></script>
+<script src="js/timeline-ui.js?v=2a586265"></script>
+<script src="js/timeline-input.js?v=17b54e2d"></script>
 <script src="js/floating-panels.js?v=0ac75a13"></script>
 <script src="js/tour.js?v=71eb1a05"></script>
-<script src="js/boot.js?v=789dc9cf"></script>
+<script src="js/boot.js?v=1c1424c4"></script>

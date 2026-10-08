@@ -202,7 +202,7 @@ test('소스: 증분·조각 되돌리기·라이브 foreignObject·워커 인�
   for (const f of ['svgToImage', 'svgBlob', 'previewPng']) assert.match(fn(f), /brushFinalize\(\)/, f);
   assert.match(fn('buildZones'), /brushZonesChanged\(\)/);
   assert.match(fn('markBrushRegions'), /brushSelEls/);   // 선택 강조는 그 시도만
-  assert.match(html, /setInterval\(\(\) => \{ if \(!brushStroke\) saveWork\(\); \}, 1500\)/);
+  assert.match(html, /setInterval\(\(\) => \{ if \(!brushStroke\) saveWork\(\);[^}\n]*\}, 1500\)/);   // 자동 저장(+ 타임라인 행 확인)
 });
 
 test('처음부터 굽기 = 바꾸기 전 계산(같은 색 쌓기·다른 색 덮기·지우개·대소문자 같은 색)', () => {
