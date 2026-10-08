@@ -1,0 +1,102 @@
+/* [모듈] css/start-tour.css — 시작 화면(빈 아트보드), 둘러보기(투어) 오버레이, 파일 드롭 안내, CG 구성 열기 버튼 */
+  /* 처음 켰을 때 빈 화면 + 안내 (지도는 덮고, 상단바 z10·드롭다운 z40 은 위라 메뉴는 눌린다) */
+  .startOverlay {
+    position: absolute; inset: 0; z-index: 9; display: none;
+    align-items: center; justify-content: center; padding: 26px 74px;
+    /* 바탕(체커)은 위 .app·.stage 공용 규칙 — 창 기준으로 맞물린다 */
+  }
+  .startOverlay.on { display: flex; }
+  /* 빈 아트보드 — 실제 .fit과 같은 16:9·그림자. 포토샵처럼 캔버스는 떠 있는 채로 선택 안내 */
+  .startBoard {
+    aspect-ratio: 1920 / 1080; width: 100%; max-width: 100%; max-height: 100%;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    background: var(--surface-hi); border: 1px solid var(--outline-var);
+    box-shadow: 0 8px 40px var(--shade); border-radius: 3px;
+  }
+  .startCard { padding: 30px 44px; max-width: 560px; }
+  .startTitle { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.28; color: var(--on-surface); }
+  .startSub { margin-top: 14px; font-size: 15px; color: var(--on-surface-var); word-break: keep-all; }   /* 좁은 창에서 '를'처럼 조사만 떨어지지 않게 낱말 단위로 줄바꿈 */
+  .startSteps { margin-top: 26px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  /* '또는' 구분선 + 예전 작업 불러오기 버튼 */
+  .startAlt { margin: 22px auto 14px; max-width: 320px; display: flex; align-items: center; gap: 10px; color: var(--on-surface-var); font-size: 12.5px; }
+  .startAlt::before, .startAlt::after { content: ''; flex: 1; height: 1px; background: var(--outline-var); }
+  #startLoad, #startResume { padding: 9px 18px; font-size: 13px; }   /* 42→36px(약 −12%, 다른 버튼과 같은 비율) */
+  .startBtns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  /* ===== 둘러보기(온보딩 투어) — 어두운 오버레이 + 스포트라이트 구멍 + 설명 카드 ===== */
+  .tourWrap { position: fixed; inset: 0; z-index: 9988; display: none; pointer-events: none; }
+  .tourWrap.on { display: block; }
+  #tourBlock { position: fixed; inset: 0; z-index: 9989; pointer-events: auto; }   /* 어두운 영역 클릭 차단 */
+  .tourSpot {
+    position: fixed; z-index: 9990; border-radius: 12px; pointer-events: none; opacity: 0;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 72%, transparent), 0 0 0 9999px rgba(6, 8, 12, .76);
+    transition: left .34s cubic-bezier(.4, 0, .15, 1), top .34s cubic-bezier(.4, 0, .15, 1),
+      width .34s cubic-bezier(.4, 0, .15, 1), height .34s cubic-bezier(.4, 0, .15, 1), opacity .2s;
+  }
+  /* 제목줄 아래에 — 데스크톱에선 제목줄이 창 끌기 영역이라 거기 겹치면 눌리지 않는다 */
+  .tourBar { position: fixed; top: calc(var(--tbH, 0px) + 12px); right: 16px; left: auto; z-index: 9996; display: flex; gap: 8px; pointer-events: auto; }
+  /* 어두운 투어 배경 위에서도 확실히 보이게 — 밝은 알약 + 테두리 + 그림자 + 굵게 */
+  .tourBar .tourX, .tourBar .tourNever {
+    background: #FFFFFF; color: #10131A; border: 1.5px solid rgba(0,0,0,.12);
+    box-shadow: 0 6px 18px rgba(0,0,0,.5); font-weight: 800;
+  }
+  .tourBar .tourX:hover, .tourBar .tourNever:hover { background: #EEF1F6; border-color: var(--primary); color: #10131A; }
+  .tourBar .tourX { width: 34px; height: 34px; padding: 0; border-radius: 10px; font-size: 15px; }
+  .tourBar .tourNever { border-radius: 10px; padding: 0 14px; height: 34px; }
+  /* 설명 카드 — 팝업 공통 카드(반사 테두리·반경 18). 화살표 색은 카드 바탕(--card-fill)과 같게 */
+  .tourCard {
+    position: fixed; z-index: 9995; width: 300px; max-width: calc(100vw - 24px);
+    border: 1px solid transparent; border-radius: 18px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    padding: 16px 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+    opacity: 0; transform: scale(.96); pointer-events: none;
+    transition: opacity .18s ease, transform .2s cubic-bezier(.34, 0, .15, 1),
+      left .3s cubic-bezier(.4, 0, .15, 1), top .3s cubic-bezier(.4, 0, .15, 1);
+  }
+  .tourCard.show { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .tourStepNo { font-size: 11px; font-weight: 700; color: var(--pop-label); letter-spacing: .04em; }
+  .tourTitle { margin-top: 3px; font-size: 16px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); }
+  .tourBody { margin-top: 7px; font-size: 13px; line-height: 1.6; color: var(--pop-muted); word-break: keep-all; overflow-wrap: anywhere; }
+  .tourNav { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
+  .tourNavBtn { border-radius: 10px; }
+  .tourArrow { position: absolute; width: 0; height: 0; border-style: solid; }
+  .tourCard.pos-right .tourArrow { left: -9px; border-width: 9px 9px 9px 0; border-color: transparent var(--card-fill) transparent transparent; }
+  .tourCard.pos-left .tourArrow { right: -9px; border-width: 9px 0 9px 9px; border-color: transparent transparent transparent var(--card-fill); }
+  .tourCard.pos-below .tourArrow { top: -9px; border-width: 0 9px 9px 9px; border-color: transparent transparent var(--card-fill) transparent; }
+  .tourCard.pos-above .tourArrow { bottom: -9px; border-width: 9px 9px 0 9px; border-color: var(--card-fill) transparent transparent transparent; }
+  /* 상단바 오른쪽 끝 i(둘러보기) 버튼 */
+  .tourInfoBtn { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .tourInfoBtn svg { width: 18px; height: 18px; }
+  /* 파일을 창에 끌어다 놓기 안내 */
+  .dropHint {
+    position: fixed; inset: 0; z-index: 9970; display: none; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--primary) 15%, rgba(6, 8, 12, .58)); backdrop-filter: blur(2px); pointer-events: none;
+  }
+  .dropHint.on { display: flex; }
+  /* 크기는 다른 버튼·팝업과 같은 비율로 약 −12% (글자 22→19px, 여백 34·50→28·42) */
+  .dropHintCard {
+    padding: 28px 42px; border-radius: 20px; text-align: center;
+    border: 2.5px dashed color-mix(in srgb, var(--primary) 65%, #fff); background: var(--surface-c);
+    font-size: 19px; font-weight: 800; color: var(--on-surface); box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+  }
+  .dropHintSub { margin-top: 7px; font-size: 12.5px; font-weight: 600; color: var(--on-surface-var); }
+  /* 단계 알약 40→35px, 글자 14→13px */
+  .startStep {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+    color: var(--on-surface-var); background: var(--surface);
+    padding: 9px 16px; border-radius: 11px; border: 1px solid var(--outline-var);
+    transition: color .2s, border-color .2s;
+  }
+  .startStep .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--on-surface-var); flex: none; transition: background .2s, border-color .2s; }
+  /* 단계 알약 — 누르면 CG 구성 창이 열린다. 창에서 고르는 대로(picked) 바로 체크, 적용되면 done */
+  .startStep { cursor: pointer; }
+  .startStep:hover { color: var(--on-surface); border-color: color-mix(in srgb, var(--primary) 55%, var(--outline-var)); }
+  .startStep.done, .startStep.picked { color: var(--on-surface); border-color: var(--primary); }
+  .startStep.done .dot, .startStep.picked .dot { background: var(--primary); border-color: var(--primary); }
+  /* 시작 화면의 'CG 구성 열기' — 큰 파란 버튼(49→43px, 글자 16→15px) */
+  .startSetupBtn {
+    margin-top: 22px; padding: 13px 30px; font-size: 15px; font-weight: 800; letter-spacing: -.01em;
+    border: none; border-radius: 13px; background: var(--accent-grad, var(--primary)); color: #fff;
+    box-shadow: 0 10px 26px -10px rgba(49,130,246,.85);
+  }
+  .startSetupBtn:hover { background: var(--accent-grad, var(--primary)); filter: brightness(1.07); }
+

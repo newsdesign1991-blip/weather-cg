@@ -1,9 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const path = require('node:path');
+const appSource = require('../tools/app-source.cjs');   // js/·css/로 나뉜 앱을 '한 파일' 텍스트로 합쳐 읽는다(MODULES.md)
 const vm = require('node:vm');
 
-const html = fs.readFileSync('index.html', 'utf8');
+const html = appSource(path.join(__dirname, '..', 'index.html'));
 
 test('VF output has a nested persistent scale group and editor-only controls', () => {
   assert.match(html, /id="L_vfWrap"[\s\S]*id="L_vfScale"[\s\S]*id="L_bg"/);
@@ -133,7 +135,7 @@ test('CG uses local SUITE weights while editor UI uses Pretendard', () => {
   // Pretendard는 앱에 내장(CDN 안 씀) — 파일과 @font-face가 있어야 한다
   assert.match(html, /@font-face\s*\{[^}]*font-family:\s*'Pretendard Variable'[^}]*FontNew\/PretendardVariable\.woff2/);
   assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/orioncactus\/pretendard/);
-  assert.ok(fs.statSync('FontNew/PretendardVariable.woff2').size > 1e6);
+  assert.ok(fs.statSync(path.join(__dirname, '..', 'FontNew/PretendardVariable.woff2')).size > 1e6);
   // UI 쪽에 Wanted Sans 직접 지정이 남지 않게(비교 이름표 CG 글꼴 선택지 CMP_FONTS는 예외)
   assert.doesNotMatch(html.replace(/const CMP_FONTS = [^\n]*/, ''), /font(-family)?:[^;}\n]*'Wanted Sans Variable'/);
   assert.match(html, /'font-family':\s*'"SUITE CG"/);

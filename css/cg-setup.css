@@ -1,0 +1,141 @@
+/* [모듈] css/cg-setup.css — CG 구성 모달(옅은 틴트 머리·2판·선택 카드·창 안 알림·바닥 버튼·좁은 창) */
+  /* ===== CG 구성 모달 — 옅은 파란 틴트 머리(근무표 최신 팝업과 같은 결) + 아래 좌우 2판(CG 종류=파란 기운, 지도 종류=청록 기운) =====
+     두 판은 성격이 다른 메뉴라 바탕색을 은은하게 다르게. 선택 카드는 판 색으로 테두리 + 체크.
+     열고 닫기 = 아래에서 살짝 올라오며 블러 + 스케일(앱 메뉴 전환과 같은 결). body 잠금 없이 고정 막(.cgSetupOv)만 켠다. */
+  :root, :root[data-theme="dark"] {
+    --cgs-res: #4a94ff; --cgs-res-on: #a9caff;
+    --cgs-res-bg: color-mix(in srgb, #3182f6 10%, var(--surface-c)); --cgs-res-line: color-mix(in srgb, #3182f6 30%, var(--outline-var));
+    --cgs-map: #22b5a5; --cgs-map-on: #86e0d5;
+    --cgs-map-bg: color-mix(in srgb, #14b8a6 9%, var(--surface-c)); --cgs-map-line: color-mix(in srgb, #14b8a6 28%, var(--outline-var));
+    --cgs-card: #2a2a2a; --cgs-card-hover: #313131; --cgs-muted: #a3a3a3;
+    --cgs-done-off-bg: color-mix(in srgb, #3182f6 30%, var(--surface-c)); --cgs-done-off-fg: rgba(255,255,255,.5);
+  }
+  :root[data-theme="light"] {
+    --cgs-res: #2f77f6; --cgs-res-on: #1b56d2;
+    --cgs-res-bg: #f1f6ff; --cgs-res-line: #d4e3fd;
+    --cgs-map: #0e9384; --cgs-map-on: #0b6e63;
+    --cgs-map-bg: #eefaf7; --cgs-map-line: #c8ebe5;
+    --cgs-card: #ffffff; --cgs-card-hover: #fafcff; --cgs-muted: #64748b;
+    --cgs-done-off-bg: #c4dbfd; --cgs-done-off-fg: #ffffff;
+  }
+  .cgSetupOv {
+    position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center;
+    padding: calc(var(--tbH, 0px) + 18px) 24px 24px;
+    background: var(--pop-ov); backdrop-filter: blur(4px);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .34s ease, visibility 0s linear .34s;
+  }
+  .cgSetupOv.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity .32s ease; }
+  /* 카드 = 팝업 공통 카드(반사 테두리·반경 20·--pop-shadow). 폭 1080→1000 */
+  .cgSetupCard {
+    position: relative; width: min(1000px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
+    color: var(--on-surface); border: 1px solid transparent; border-radius: 20px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-shadow);
+    opacity: 0; transform: scale(.95); filter: blur(8px); translate: 0 34px;
+    transition: opacity .3s ease, transform .34s ease, filter .3s ease, translate .34s ease;
+  }
+  .cgSetupOv.on .cgSetupCard { opacity: 1; transform: none; filter: none; }
+  /* 열 때는 근무표 팝업처럼 아래에서 올라오며 끝에서 부드럽게 멈춘다(.46초) — 닫힐 땐 위 규칙대로 .34초 동안 내려가며 흐려진다 */
+  .cgSetupOv.on .cgSetupCard { translate: none; transition: opacity .32s ease, transform .46s cubic-bezier(.16,1,.3,1), filter .36s ease, translate .46s cubic-bezier(.16,1,.3,1); }
+  /* 팝업 카드 자체(tabindex=-1)에 포커스를 둘 땐 테두리 없이 — 첫 Tab 부터 안쪽 버튼에 링이 보인다 */
+  .cgSetupCard:focus, .tossCard:focus, .confirmCard:focus, .slotCard:focus, .imgPopInner:focus { outline: none; }
+  /* 머리 — 진한 파란 띠(85px) 대신 옅은 틴트 + 기본색 제목 17px, 부제는 제목 옆 한 줄(좁으면 아래로). 높이 약 59px */
+  .cgsHead { flex: none; display: flex; align-items: center; gap: 12px; padding: 13px 14px 13px 22px; background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line); }
+  .cgsHeadTxt { flex: 1; min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 9px; row-gap: 1px; }
+  .cgsTitle { font-size: 17px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; color: var(--on-surface); }
+  .cgsSub { font-size: 12px; font-weight: 500; color: var(--pop-muted); word-break: keep-all; }
+  .cgsBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 16px 18px; }
+  /* 좁은 창에서 본문이 스크롤될 때 — 윈도 기본 스크롤바(흰 바탕·화살표) 대신 앱 스크롤바(두 테마 모두 --scrollbar) */
+  .cgsBody::-webkit-scrollbar { width: 10px; }
+  .cgsBody::-webkit-scrollbar-track { background: transparent; }
+  .cgsBody::-webkit-scrollbar-thumb { background-color: var(--scrollbar); background-clip: padding-box; border: 2px solid transparent; border-radius: 6px; }
+  .cgsBody::-webkit-scrollbar-thumb:hover { background-color: var(--on-surface-var); }
+  .cgsPane { min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 12px; border-radius: 16px; }
+  .cgsPaneRes { --acc: var(--cgs-res); --acc-on: var(--cgs-res-on); background: var(--cgs-res-bg); border: 1px solid var(--cgs-res-line); }
+  .cgsPaneStyle { --acc: var(--cgs-map); --acc-on: var(--cgs-map-on); background: var(--cgs-map-bg); border: 1px solid var(--cgs-map-line); }
+  .cgsPaneHead { display: flex; align-items: center; gap: 10px; }
+  .cgsPaneIcon { flex: none; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 18%, transparent); }
+  .cgsPaneIcon svg { width: 18px; height: 18px; }
+  .cgsPaneTxt { flex: 1; min-width: 0; }
+  .cgsPaneTitle { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); }
+  .cgsStepNo { width: 18px; height: 18px; flex: none; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; background: var(--acc); }
+  .cgsPaneSub { margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--cgs-muted); word-break: keep-all; }
+  .cgsPick {
+    flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    color: var(--cgs-muted); background: var(--tag-bg);
+  }
+  .cgsPick.on { color: var(--acc-on); background: color-mix(in srgb, var(--acc) 17%, transparent); }
+  .cgsChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  /* 선택 카드 — 토스 반사 테두리(--refl) + 아이콘 칩 + 이름/설명, 오른쪽 위 동그라미(고르면 판 색 체크). 높이 78→66px */
+  .cgsCard {
+    position: relative; display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 11px 30px 11px 12px;
+    text-align: left; color: var(--on-surface); font-weight: 600;
+    border: 1px solid transparent; border-radius: 14px;
+    background: linear-gradient(var(--cgs-card), var(--cgs-card)) padding-box, var(--refl) border-box;
+    box-shadow: var(--shadow-card);
+    transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s, opacity .18s;
+  }
+  .cgsCard:hover { background: linear-gradient(var(--cgs-card-hover), var(--cgs-card-hover)) padding-box, var(--refl) border-box; transform: translateY(-1px); }
+  .cgsCard:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  .cgsCard::after {
+    content: ''; position: absolute; top: 9px; right: 9px; width: 16px; height: 16px; box-sizing: border-box;
+    display: grid; place-items: center; border-radius: 50%; border: 1.6px solid var(--outline);
+    color: #fff; font-size: 10px; font-weight: 900; line-height: 1;
+  }
+  .cgsCard.choicePending {
+    background: linear-gradient(color-mix(in srgb, var(--acc) 11%, var(--cgs-card)), color-mix(in srgb, var(--acc) 11%, var(--cgs-card))) padding-box, linear-gradient(var(--acc), var(--acc)) border-box;
+    box-shadow: 0 0 0 1px var(--acc), 0 10px 26px -12px color-mix(in srgb, var(--acc) 75%, transparent);
+  }
+  .cgsCard.choicePending::after { content: '\2713'; background: var(--acc); border-color: var(--acc); animation: choiceCheck .32s cubic-bezier(.2,1.5,.35,1); }
+  .cgsCardIcon { flex: none; width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 14%, transparent); }
+  .cgsCardIcon svg { width: 19px; height: 19px; }
+  .cgsCardTxt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cgsCardTxt b { font-size: 13.5px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; word-break: keep-all; }
+  .cgsCardTxt small { font-size: 11px; font-weight: 600; line-height: 1.4; color: var(--cgs-muted); word-break: keep-all; white-space: pre-line; }
+  .cgsNote { margin: 0; font-size: 11px; line-height: 1.5; color: var(--cgs-muted); }
+  .cgsNote b { color: var(--on-surface); font-weight: 700; }
+  .cgsPane .presetMoreToggle { margin-top: auto; }
+  .presetManageNote { margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--cgs-muted); }
+  .cgsFoot { position: relative; flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 18px 14px 22px; border-top: 1px solid var(--outline-var); }
+  /* 창 안 알림(토스트) — 창이 떠 있으면 작업 화면의 #status·flash가 막 뒤에 가려지므로 개인 배치 저장·초기화 결과는 여기 띄운다.
+     반전 색(밝은 테마=어두운 알약, 어두운 테마=밝은 알약)이라 두 테마 모두 판 위에서 또렷하다. */
+  .cgsToast {
+    position: absolute; left: 50%; bottom: calc(100% + 12px); z-index: 2; max-width: min(520px, calc(100% - 32px)); width: max-content;
+    padding: 10px 16px; border-radius: 14px; font-size: 13px; font-weight: 700; line-height: 1.45; text-align: center; word-break: keep-all;
+    color: var(--surface-c); background: color-mix(in srgb, var(--on-surface) 90%, var(--surface-c));
+    box-shadow: 0 12px 30px -10px rgba(0,0,0,.55);
+    opacity: 0; transform: translate(-50%, 8px) scale(.97); pointer-events: none;
+    transition: opacity .2s ease, transform .26s cubic-bezier(.2,.8,.2,1);
+  }
+  .cgsToast.on { opacity: 1; transform: translate(-50%, 0); }
+  .cgsSummary { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--cgs-muted); }
+  .cgsSummary b { color: var(--on-surface); font-weight: 800; }
+  /* 바닥 버튼 46→40px (근무표 주 버튼 모양: 그라디언트·반경 12) */
+  /* 취소 = 토스 모달 .tossBtn.ghost 와 같은 결(옅은 바탕 + 1px 안쪽 테두리 — 밝은 테마 카드 바탕에 묻히지 않게) */
+  .cgsCancel { height: 40px; padding: 0 18px; border: none; border-radius: 12px; font-size: 13.5px; font-weight: 700; background: var(--surface-hi); color: var(--on-surface); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .cgsCancel:hover { background: var(--btn-hover); }
+  .cgsDone {
+    height: 40px; min-width: 132px; padding: 0 22px; border: none; border-radius: 12px; font-size: 14px; font-weight: 800;
+    background: var(--accent-grad, var(--primary)); color: var(--on-primary); box-shadow: 0 4px 12px -4px rgba(49,130,246,.5);
+  }
+  .cgsDone:not(:disabled) { animation: cgsDoneOn .28s cubic-bezier(.2,.9,.25,1); }   /* 두 가지 다 고르면 살짝 떠오르며 켜진다 */
+  @keyframes cgsDoneOn { from { opacity: .4; transform: translateY(5px); } }
+  /* 켜진 버튼 호버도 진한 파랑 유지(일반 button:hover 회색이 덮지 않게) */
+  .cgsDone:not(:disabled):hover { background: var(--accent-grad, var(--primary)); color: var(--on-primary); filter: brightness(1.08); }
+  /* 꺼진 '선택 완료' = 토스식 옅은 파랑(회색 '취소'와 모양이 확실히 다르게 — 둘 다 골라야 진한 파랑으로 켜진다) */
+  .cgsDone:disabled, .cgsDone:disabled:hover { opacity: 1; cursor: not-allowed; filter: none; background: var(--cgs-done-off-bg); color: var(--cgs-done-off-fg); box-shadow: none; }
+  /* 좁은 창 — 두 판을 위아래로, 본문만 스크롤 */
+  @media (max-width: 900px) {
+    .cgSetupOv { padding: calc(var(--tbH, 0px) + 10px) 12px 12px; }
+    .cgsBody { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; }
+    .cgsHead { padding: 11px 12px 11px 16px; }
+    .cgsFoot { padding: 10px 12px 12px 16px; }
+  }
+  @media (max-width: 560px) {
+    .cgsChoices { grid-template-columns: minmax(0, 1fr); }
+    .cgsFoot { flex-wrap: wrap; }
+    .cgsSummary { flex-basis: 100%; }
+    .cgsCancel, .cgsDone { flex: 1; min-width: 0; }
+  }

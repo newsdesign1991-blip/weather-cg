@@ -1,0 +1,204 @@
+/* [모듈] css/titlebar.css — 맨 위 제목줄(데스크톱 창 제목표시줄 겸용)·글자 메뉴·추출 버튼, 좁은 창, 테마 토글, 로고, 알림, 추출 목록, 드롭다운 */
+  /* ===== 맨 위 제목줄 (데스크톱 앱 창 제목표시줄 겸용) =====
+     왼쪽: 글자 메뉴(테두리 없는 데스크톱 메뉴바식 — 앱 아이콘은 뺐다), 오른쪽: 확대 비율·밝기·둘러보기·공지·설정(렌치).
+     플로팅 바(#topbar)엔 칠하기·브러쉬·이동·되돌리기·다시만 남는다.
+     데스크톱(html.isDesktop): 빈 곳을 끌면 창 이동·더블클릭 최대화, 오른쪽 끝엔 윈도 창 버튼이 겹쳐 그려진다
+     (Window Controls Overlay) — env(titlebar-area-*)로 그 자리를 비운다. 웹에선 env 값이 없어 평소 여백.
+     높이 --tbH 는 desktop/main.js 의 TITLEBAR_H 와 같아야 한다. */
+  :root { --tbH: 36px; }
+  .titlebar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--tbH);
+    display: flex; align-items: center; gap: 2px; overflow: hidden; white-space: nowrap;
+    padding: 0 calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px) 0 12px;
+    background: var(--surface); color: var(--on-surface); font-size: 13px; user-select: none;
+  }
+  .titlebar .tbMenus, .titlebar .tbGroup, .titlebar .tbRight { display: flex; align-items: center; flex: none; }
+  .titlebar .tbMenus, .titlebar .tbGroup { gap: 1px; }
+  .titlebar .tbRight { gap: 4px; }
+  .titlebar .tbFill { flex: 1 1 auto; min-width: 8px; align-self: stretch; }   /* 빈 곳 = 창 끌기 자리 */
+  .titlebar .tbSep { width: 1px; height: 14px; flex: none; margin: 0 6px; background: var(--outline-var); }
+  /* 글자 메뉴 — 테두리·알약 없이 글자만, 올리면 둥근 배경, 메뉴가 열려 있으면 눌린 배경 */
+  #titlebar .tbMenu {
+    height: 26px; padding: 0 9px; display: inline-flex; align-items: center; gap: 0;
+    background: none; border: 0; border-radius: 7px; box-shadow: none; filter: none;
+    color: var(--on-surface); font-size: 13px; font-weight: 500; letter-spacing: -.01em;
+  }
+  /* 테두리 없는 글자 메뉴라 호버 배경이 '누를 수 있음'의 유일한 신호 — --state-hover(4~6%)는 너무 옅어서 9%, 열림(.on 13%)보단 옅게 */
+  #titlebar .tbMenu:hover { background: color-mix(in srgb, var(--on-surface) 9%, transparent); }
+  #titlebar .tbMenu.on { background: color-mix(in srgb, var(--on-surface) 13%, transparent); }
+  #titlebar .tbMenu.pri { background: var(--nav-active-bg); color: var(--nav-active-fg); font-weight: 600; }   /* 영상으로 추출(타임라인) 켜짐 */
+  #titlebar .tbMenu:disabled { opacity: .4; background: none; }
+  /* 프로젝트 = 플로피 디스크 아이콘 버튼(저장 버튼 느낌). 글자 메뉴와 같은 높이·호버 */
+  #titlebar .tbIconMenu { width: 30px; padding: 0; justify-content: center; color: var(--on-surface); }
+  #titlebar .tbIconMenu svg { width: 18px; height: 18px; display: block; opacity: 1; }
+  /* 이미지로 추출·영상으로 추출·AE로 보내기 — 특별한 버튼: 각각 둥근 사각형 + 파란 반투명 채움 + 파란 글자 + 채운 아이콘(currentColor).
+     밝은 테마는 파랑을 한 단계 진하게(바탕 대비 4.5:1 이상). 열림(.on)·타임라인 켜짐(.pri)은 꽉 찬 파랑(아이콘도 흰색으로 따라감).
+     세 버튼 폭은 grid 균등 칸(1fr)으로 '가장 넓은 버튼'에 맞춘다 — 좁은 창에서 여백·글자가 줄어도 같은 폭 유지,
+     AE로 보내기가 숨으면(display:none) 칸이 안 생겨 나머지 둘도 서로 같은 폭. */
+  :root, :root[data-theme="dark"] { --tb-act-fg: #9cc3ff; --tb-act-bg: rgba(74,148,255,.15); --tb-act-hover: rgba(74,148,255,.27); --tb-act-ring: rgba(106,168,255,.34); }
+  :root[data-theme="light"] { --tb-act-fg: #1b56d2; --tb-act-bg: rgba(49,130,246,.11); --tb-act-hover: rgba(49,130,246,.2); --tb-act-ring: rgba(49,130,246,.3); }
+  #titlebar #exportGroup { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+  #titlebar .tbAction {
+    height: 26px; padding: 0 12px; justify-content: center; gap: 6px; border-radius: 8px; font-weight: 650;
+    background: var(--tb-act-bg); color: var(--tb-act-fg); box-shadow: inset 0 0 0 1px var(--tb-act-ring);
+  }
+  #titlebar .tbAction svg { flex: none; width: 15px; height: 15px; display: block; opacity: 1; }
+  #titlebar .tbAction:hover { background: var(--tb-act-hover); }
+  #titlebar .tbAction.on, #titlebar .tbAction.pri {
+    background: var(--primary); color: #fff; font-weight: 700;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 4px 12px -5px rgba(49,130,246,.75);
+  }
+  #titlebar .tbAction.on:hover, #titlebar .tbAction.pri:hover { background: var(--primary-hover); }
+  #titlebar .tbAction:disabled { opacity: .45; background: var(--tb-act-bg); }
+  #titlebar .zoomInfo { font-size: 12px; min-width: 38px; font-variant-numeric: tabular-nums; }
+  #titlebar .tourInfoBtn {
+    width: 28px; height: 28px; border: 0; border-radius: 7px; background: none;
+    color: var(--on-surface-var);
+  }
+  #titlebar .tourInfoBtn:hover { background: color-mix(in srgb, var(--on-surface) 9%, transparent); color: var(--on-surface); }
+  #titlebar .tourInfoBtn svg { width: 17px; height: 17px; }
+  /* 밝은 테마: --on-surface-var(#94a3b8)는 제목줄 바탕(#f1f4f8)에서 대비 2.3:1이라 흐리다 → 글자색 쪽으로 당겨 약 4.7:1 */
+  html[data-theme="light"] #titlebar .zoomInfo,
+  html[data-theme="light"] #titlebar .tourInfoBtn:not(:hover) { color: color-mix(in srgb, var(--on-surface) 75%, var(--surface)); }
+  #titlebar #noticeBtn.hasNew::after, #titlebar #helperBtn.hasNew::after { top: 2px; right: 2px; border-color: var(--surface); }
+  #titlebar .themeToggle .tgTrack { width: 40px; height: 20px; }
+  #titlebar .themeToggle .tgThumb { width: 16px; height: 16px; }
+  html[data-theme="light"] #titlebar .themeToggle .tgThumb { transform: translateX(20px); }
+  html.isDesktop .titlebar { -webkit-app-region: drag; }
+  html.isDesktop .titlebar button, html.isDesktop .titlebar input { -webkit-app-region: no-drag; }
+  /* 드롭다운이 열려 있는 동안엔 제목줄 전체를 끌기 영역에서 뺀다 — 끌기 영역 클릭은 페이지에 안 와서
+     빈 곳·확대 비율·아이콘을 눌러도 메뉴가 안 닫히기 때문(윈도 메뉴바처럼 닫히게). 닫히면 다시 창 끌기. */
+  html.isDesktop.menuOpen .titlebar { -webkit-app-region: no-drag; }
+  /* CG 구성 창(어두운 막이 제목줄까지 덮음)도 같다 — 막 위 제목줄 자리를 눌러 '바깥 클릭 = 취소'가 되게(창 끌기·더블클릭 최대화 대신).
+     드롭다운 close()가 menuOpen 을 지우므로 클래스를 따로 둔다. */
+  html.isDesktop.cgsOpen .titlebar { -webkit-app-region: no-drag; }
+  /* 좁은 창 — 글자 메뉴 여백부터 줄여 한 줄에 다 들어가게 (창 버튼·서로 안 겹치게) */
+  @media (max-width: 1280px) {
+    #titlebar .tbMenu { padding: 0 7px; }
+    #titlebar .tbAction { padding: 0 10px; }
+    .titlebar .tbSep { margin: 0 4px; }
+  }
+  @media (max-width: 1040px) {
+    #titlebar .tbMenu { padding: 0 5px; font-size: 12.5px; }
+    #titlebar .tbAction { padding: 0 8px; }
+    #titlebar #exportGroup { gap: 4px; }
+    .titlebar { padding-left: 8px; }
+  }
+  /* 구분선·오른쪽 묶음 간격은 정말 좁을 때만 줄인다(1000px 안팎에선 자리가 남아 4px 유지 — 글자에 붙어 보이지 않게) */
+  @media (max-width: 860px) {
+    .titlebar .tbSep { margin: 0 2px; }
+    .titlebar .tbRight { gap: 2px; }
+    #titlebar .tbAction { padding: 0 7px; gap: 5px; font-size: 12px; }
+    #titlebar .tbAction svg { width: 13px; height: 13px; }
+  }
+  /* 아이콘 버튼은 좁아져도 정사각에 가깝게 — 위의 글자 메뉴 여백 줄이기가 덮지 않게 */
+  #titlebar .tbMenu.tbIconMenu { width: 30px; padding: 0; }
+  /* 조작 안내 — 스테이지(캔버스) 우하단 */
+  .ctrlHint {
+    position: absolute; left: 16px; bottom: 16px; z-index: 9; pointer-events: none;
+    display: flex; align-items: center; gap: 8px;
+    background: color-mix(in srgb, var(--surface-c) 82%, transparent); border: 1px solid var(--outline-var);
+    border-radius: 999px; padding: 6px 13px; color: var(--on-surface-var); font-size: 11px;
+    backdrop-filter: blur(6px); box-shadow: 0 2px 8px var(--shade);
+  }
+  /* 라이트/다크 토글 스위치 (썸이 좌우로 미끄러지며 해/달 아이콘) */
+  .themeToggle { padding: 2px !important; background: none !important; border: none !important; box-shadow: none !important; }
+  .themeToggle:hover { background: none !important; }
+  .tgTrack {
+    display: inline-flex; align-items: center; position: relative;
+    width: 44px; height: 22px; border-radius: 999px;
+    background: var(--surface-hi); border: 1px solid var(--outline); transition: background .2s;
+  }
+  .tgThumb {
+    position: absolute; top: 1px; left: 1px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--on-surface); color: var(--surface-c);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .2s ease; box-shadow: 0 1px 3px var(--shade);
+  }
+  .tgThumb svg { width: 12px; height: 12px; }
+  /* 다크=달, 라이트=해. (.tgThumb 스코프로 .tgThumb svg 규칙보다 우선순위 높게) */
+  .tgThumb .tgSun { display: none; }
+  .tgThumb .tgMoon { display: block; }
+  html[data-theme="light"] .tgThumb { transform: translateX(22px); }
+  html[data-theme="light"] .tgThumb .tgSun { display: block; }
+  html[data-theme="light"] .tgThumb .tgMoon { display: none; }
+
+  .ctrlHint span { display: inline-flex; align-items: center; gap: 5px; }
+  .ctrlHint svg { width: 14px; height: 14px; flex: none; opacity: .85; }
+  .ctrlHint b { color: var(--on-surface); font-weight: 600; }
+  .ctrlHint .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--on-surface-var); opacity: .5; }
+  #mapAltHint { display: inline-flex; align-items: center; gap: 8px; }
+  .ctrlHint .mapAltLabel { color: var(--primary); font-weight: 700; }
+
+  /* 사이드바 맨 위 로고 헤더 (카드 바닥 위에 뜬다) */
+  .appHeader {
+    position: sticky; top: -10px; z-index: 5; display: flex; align-items: center; gap: 11px;
+    margin: -10px -11px 0; padding: 14px 15px 12px; background: var(--surface);
+  }
+  .ahLogo {
+    width: 38px; height: 38px; flex: none; display: flex; align-items: center; justify-content: center;
+    filter: drop-shadow(0 2px 4px var(--shade));
+  }
+  .ahText { line-height: 1.25; min-width: 0; }
+  .ahTop { font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); }
+  .ahSub { font-size: 11.5px; font-weight: 600; color: var(--on-surface-var); }
+  /* 알림: 평소엔 안 보이고 알릴 때만 잠깐 */
+  #status {
+    position: absolute; top: 58px; left: 16px; z-index: 11;
+    background: color-mix(in srgb, var(--surface-c) 95%, transparent); border: 1px solid var(--outline-var);
+    border-radius: 10px; padding: 8px 12px; color: var(--on-surface);
+    opacity: 0; transition: opacity .25s; pointer-events: none;
+    backdrop-filter: blur(6px); max-width: 340px; box-shadow: 0 2px 10px var(--shade);
+  }
+  /* 추출: 뽑을 것 고르는 토글 목록 */
+  .exPick { display: flex; flex-direction: column; gap: 5px; }
+  .exItem {
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer;
+    background: var(--surface-hi); border: 1px solid transparent; border-radius: 12px;
+  }
+  .exItem:hover { background: var(--btn-hover); }
+  .exItem.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+  .exItem .box {
+    width: 18px; height: 18px; flex: none; border-radius: 6px;
+    border: 1.5px solid var(--outline); display: flex; align-items: center; justify-content: center;
+  }
+  .exItem.on .box { background: var(--primary); border-color: var(--primary); }
+  .exItem.on .box::after { content: '✓'; color: var(--on-primary); font-size: 11px; line-height: 1; }
+  .exItem .lb { flex: 1; }
+  .exItem .sub { color: var(--on-surface-var); font-size: 10px; }
+
+  /* 아이콘 + 글자 버튼 (툴바의 타임라인 등) */
+  button.hasIcon { display: inline-flex; align-items: center; gap: 5px; }
+  button.hasIcon svg { flex: none; }
+  .mode { display: flex; border: 1px solid var(--outline-var); border-radius: 10px; overflow: hidden; }
+  .mode button { border: none; border-radius: 0; }
+  .mode button.on { background: var(--accent-grad, var(--primary)); color: var(--on-primary); }
+  #cgMode button { flex: 1; }   /* 어두운/밝은 버튼이 폭을 반씩 채우게 (한쪽 쏠림 방지) */
+  /* 드롭다운 메뉴 버튼 — 프로젝트(플로피 아이콘)·이미지로 추출. 맨 위 제목줄(#titlebar .tbMenu)에 있다. CG 구성은 모달(#cgSetupOv) */
+  .menuBtn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding-left: 12px; padding-right: 12px; }
+  .menuBtn svg { flex: none; opacity: .85; }
+  .menuBtn.on { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+  .menuBtn.on svg { opacity: 1; }
+  /* 살짝 색 있는 버튼 (이미지로 추출·영상으로 추출·초기화) — active(.on/.pri) 때는 원래 강조색이 이긴다 */
+  .tintBtn { background: color-mix(in srgb, var(--primary) 15%, var(--btn)); border-color: color-mix(in srgb, var(--primary) 34%, var(--btn-line)); color: var(--on-surface); font-weight: 700; }
+  .tintBtn:hover { background: color-mix(in srgb, var(--primary) 26%, var(--btn)); }
+  /* 추출 묶음 — 두 버튼을 붙여 한 성격으로 (모드 토글과 같은 세그먼트) */
+  .exportGroup { display: flex; }
+  .exportGroup .tintBtn { border-radius: 0; }
+  .exportGroup .tintBtn:first-child { border-top-left-radius: var(--rb); border-bottom-left-radius: var(--rb); }
+  .exportGroup .tintBtn:last-child { border-top-right-radius: var(--rb); border-bottom-right-radius: var(--rb); border-left-width: 0; }
+  /* 드롭다운 — 근무표 드롭다운·팝오버처럼 반사 테두리 + 두 겹 그림자(반경 16) */
+  .menuDrop {
+    position: fixed; z-index: 40; width: 380px; max-height: 84vh; overflow-y: auto;
+    border: 1px solid transparent; border-radius: 16px;
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-drop-shadow);
+    /* 슈욱 — 버튼 아래에서 살짝 내려오며 나타난다 (앱 공통 ease 커브) */
+    opacity: 0; visibility: hidden; transform: translateY(-12px) scale(0.97); transform-origin: top left;
+    pointer-events: none;
+    transition: opacity .16s ease, transform .22s cubic-bezier(0.34, 0, 0.15, 1), visibility 0s linear .22s;
+  }
+  .menuDrop.on {
+    opacity: 1; visibility: visible; transform: translateY(0) scale(1); pointer-events: auto;
+    transition: opacity .16s ease, transform .22s cubic-bezier(0.34, 0, 0.15, 1);
+  }

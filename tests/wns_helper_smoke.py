@@ -1,3 +1,4 @@
+# 주의: tools/wns-helper/helper.py는 2026-07 옛 사본이다(원본은 저장소 밖 R:\[F]_Util\WNS\_src\helper.py — tools/wns-helper/README.md). 이 점검은 그 사본의 범례 기능만 본다.
 import importlib.util
 from pathlib import Path
 

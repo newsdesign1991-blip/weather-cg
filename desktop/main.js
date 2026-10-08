@@ -130,7 +130,7 @@ function stopOwnExternalHelper() {
 
 // ---------- 창 ----------
 // 창 제목표시줄 = 웹앱 맨 위 제목줄(#titlebar). 윈도 기본 제목줄은 숨기고 최소화·최대화·닫기 버튼만
-// 오른쪽 끝에 겹쳐 그린다(titleBarOverlay). 높이는 index.html 의 --tbH(36px)와 반드시 같게.
+// 오른쪽 끝에 겹쳐 그린다(titleBarOverlay). 높이는 css/titlebar.css 의 --tbH(36px)와 반드시 같게.
 // 색은 웹앱이 테마(밝기)에 맞춰 wcgDesktop.setTitleBar 로 다시 맞춘다 — 아래 값은 어두운 테마 기본.
 const TITLEBAR_H = 36;
 const TITLEBAR_DARK = { color: '#0f0f0f', symbolColor: '#f1f1f1' };

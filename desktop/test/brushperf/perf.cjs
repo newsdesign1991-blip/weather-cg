@@ -6,6 +6,7 @@
 // 창이 화면에 잠깐 뜬다(포커스는 안 뺏음) — 숨김 창은 rAF/프레임이 안 돌아 렌더 비용을 못 잰다.
 // 결과 표: node table.cjs --out=<결과 폴더> [태그...] / 상세: node show.cjs <결과.json> [시나리오,...]
 const { spawn, execFileSync } = require('child_process');
+const { rmTestProfile } = require('../test-profile.cjs');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
@@ -34,7 +35,7 @@ async function waitUntil(t) { while (true) { const d = t - performance.now(); if
   });
   let mainLog = '';
   proc.stdout.on('data', (d) => { mainLog += d; }); proc.stderr.on('data', (d) => { mainLog += d; });
-  const kill = () => { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {} };
+  const kill = () => { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {} rmTestProfile(proc.pid); };   // + 임시 사용자 폴더 정리
   process.on('exit', kill);
   let page = null;
   for (let i = 0; i < 80 && !page; i++) {

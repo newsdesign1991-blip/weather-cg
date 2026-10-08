@@ -4,10 +4,12 @@
 //  - --eval: 부팅 후 페이지에서 실행할 식(await 가능). 결과(JSON 직렬화)를 evalResult로 출력. DOM 클릭/키 이벤트로 기능 점검에 쓴다.
 //  - --size: 창 크기(가로x세로). 점검 모드에서만 main.js가 이 크기로 창을 만든다(최소 크기 제한도 풀림) — 좁은 창 화면 점검용.
 //  - 출력: JSON {ok, errors[], ignored[], smoke{}, evalResult}. 오류가 있으면 종료코드 1.
+//  - 끝낼 때 Electron 임시 사용자 폴더(%TEMP%\wcg-test-<pid>)도 지운다(test-profile.cjs).
 const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
+const { rmTestProfile } = require('./test-profile.cjs');
 
 const DESK = path.resolve(__dirname, '..');
 const ELECTRON = path.join(DESK, 'node_modules', 'electron', 'dist', 'electron.exe');
@@ -24,17 +26,24 @@ const BENIGN = /127\.0\.0\.1:372[01]|ERR_CONNECTION_REFUSED|ERR_INTERNET_DISCONN
 
 const freePort = () => new Promise((res) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
 
+let proc = null;
+const kill = () => {
+  if (!proc) return;
+  try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {}
+  rmTestProfile(proc.pid);   // 임시 사용자 폴더(실행마다 수십 MB)
+  proc = null;
+};
+
 (async () => {
   if (!fs.existsSync(ELECTRON)) { console.log(JSON.stringify({ ok: false, errors: ['electron 없음: ' + ELECTRON] })); process.exit(2); }
   if (!fs.existsSync(path.join(appDir, 'index.html'))) { console.log(JSON.stringify({ ok: false, errors: ['index.html 없음: ' + appDir] })); process.exit(2); }
   const port = await freePort();
-  const proc = spawn(ELECTRON, ['.', `--remote-debugging-port=${port}`], {
+  proc = spawn(ELECTRON, ['.', `--remote-debugging-port=${port}`], {
     cwd: DESK, env: { ...process.env, WCG_APP_DIR: appDir, WCG_TEST: '1', WCG_TEST_SIZE: SIZE }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
   });
   let mainLog = '';
   proc.stdout.on('data', (d) => { mainLog += d; });
   proc.stderr.on('data', (d) => { mainLog += d; });
-  const kill = () => { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {} };
   let page = null;
   for (let i = 0; i < 60 && !page; i++) {
     await sleep(400);
@@ -77,4 +86,4 @@ const freePort = () => new Promise((res) => { const s = net.createServer(); s.li
   const out = { ok: errors.length === 0, appDir, errors, ignored, smoke: smoke.result.result.value, evalResult };
   console.log(JSON.stringify(out, null, 2));
   process.exit(out.ok ? 0 : 1);
-})().catch((e) => { console.log(JSON.stringify({ ok: false, errors: ['점검기 오류: ' + e.message] })); process.exit(2); });
+})().catch((e) => { kill(); console.log(JSON.stringify({ ok: false, errors: ['점검기 오류: ' + e.message] })); process.exit(2); });

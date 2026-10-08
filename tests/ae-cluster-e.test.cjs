@@ -4,12 +4,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const appSource = require('../tools/app-source.cjs');   // js/·css/로 나뉜 앱을 '한 파일' 텍스트로 합쳐 읽는다(MODULES.md)
 const path = require('node:path');
 const vm = require('node:vm');
 const { execFileSync } = require('node:child_process');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const html = appSource(path.join(root, 'index.html'));
 const RF = 30000 / 1001;
 
 function sliceBetween(startText, endText, from = 0) {
