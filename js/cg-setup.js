@@ -267,12 +267,14 @@ async function pickOutDir() {
   catch (e) { return null; }   // 취소·시스템폴더 차단 등
 }
 async function clearOutDir() { await idbSet('outDir', null); }
-// '출력 폴더' 버튼 라벨을 현재 상태로 갱신
+// 타임라인 '저장 폴더'(영상 출력 폴더) 버튼 라벨을 현재 상태로 갱신 — 글자 span(.tlDirLbl)만 바꾼다(폴더 아이콘 svg 유지).
+// 이미지로 추출은 이 폴더를 쓰지 않는다(팝업에서 따로 폴더를 고른다 — js/export-dialog.js).
 async function updateOutDirBtn() {
   const b = $('#exSetDir'); if (!b) return;
   let h = null; try { h = await idbGet('outDir'); } catch (e) { /* 무시 */ }
-  if (h) { b.textContent = '출력 폴더: ' + h.name + ' (해제)'; b.classList.add('on'); b.title = '클릭하면 해제 — 저장할 때 위치를 다시 고릅니다. 지금: ' + h.name; }
-  else { b.textContent = '출력 폴더 지정'; b.classList.remove('on'); b.title = '렌더·추출을 정해둔 폴더로 바로 저장(예: R:\\Upload). 안 정하면 저장창이 뜹니다.'; }
+  const lbl = b.querySelector('.tlDirLbl') || b;
+  if (h) { lbl.textContent = '저장 폴더: ' + h.name; b.classList.add('on'); b.title = '영상 저장 폴더: ' + h.name + ' — 클릭하면 해제(저장할 때 위치를 다시 고릅니다)'; }
+  else { lbl.textContent = '저장 폴더'; b.classList.remove('on'); b.title = '영상(MP4·PNG 시퀀스·MXF·MOV)을 정해둔 폴더로 바로 저장(예: R:\\Upload). 안 정하면 저장할 때 위치를 고릅니다.'; }
 }
 // 폴더 안에서 안 겹치는 이름 (0723.mov, 0723-2.mov …)
 async function uniqueName(dir, base, ext) {

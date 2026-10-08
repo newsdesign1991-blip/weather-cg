@@ -1,4 +1,4 @@
-/* [모듈] js/floating-panels.js — 떼어낸 창(도킹), 패널 크기, 제목줄 색, 레이아웃 저장/불러오기, 제목줄 메뉴(setupMenus — 추출·프로젝트·설정(렌치)), 시작 화면 */
+/* [모듈] js/floating-panels.js — 떼어낸 창(도킹), 패널 크기, 제목줄 색, 레이아웃 저장/불러오기, 제목줄 메뉴(setupMenus — 프로젝트·설정(렌치)), 시작 화면 */
 'use strict';
 // ===================== 떼어낸 창 (포토샵식 도킹) =====================
 // .sec 노드를 사이드바 <-> 창 사이로 '옮기기만' 한다. 새로 만들면 지금까지 연결한
@@ -85,6 +85,7 @@ const TITLEBAR_DIM = [
   ['#tourWrap.on', 'rgba(6, 8, 12, .76)'],
   ['#tossOv', ''], ['#confirmOverlay.on', ''], ['#slotOverlay.on', ''], ['#bulHelpPop.on', ''], ['#dropHint.on', ''],
   ['#cgSetupOv.on', 'var(--pop-ov)'],   // CG 구성 창 — 막이 서서히 나타나 배경색 대신 최종 색(.cgSetupOv 배경과 같은 변수, 테마마다 다름)을 읽는다
+  ['#exportOv.on', 'var(--pop-ov)'],    // 이미지로 추출 팝업 — CG 구성 창과 같은 막
 ];
 function titleBarDimLayers() {
   const out = [];
@@ -573,12 +574,13 @@ function loadLayout() {
   renderWins();
 }
 
-// 상단 메뉴바(맨 위 제목줄) — 설정 섹션(이미지로 추출·프로젝트)을 드롭다운으로 올린다. CG 종류·지도 종류는 CG 구성 창(setupCgSetup).
+// 상단 메뉴바(맨 위 제목줄) — 설정 섹션(프로젝트)을 드롭다운으로 올린다. CG 종류·지도 종류는 CG 구성 창(setupCgSetup),
+// 이미지로 추출은 팝업(setupExportDialog — js/export-dialog.js).
 // + 제목줄 오른쪽 끝 렌치(#helperBtn, data-menu="cfg") = '설정' 드롭다운(배치 지정하기·기본값 굽기·설정 옮기기·기능 확장팩 상태).
 function setupMenus() {
   const drop = $('#menuDrop');
   if (!drop) return;
-  for (const s of ['out', 'proj', 'cfg']) { const n = secNode(s); if (n) { n.classList.remove('closed'); n.style.display = 'none'; drop.append(n); } }
+  for (const s of ['proj', 'cfg']) { const n = secNode(s); if (n) { n.classList.remove('closed'); n.style.display = 'none'; drop.append(n); } }
   // 배치 지정하기 — 구운 배치 파일을 꽂아 개인/완전 기본 배치로 지정(팝업). 예전엔 사이드바 맨 아래, 지금은 설정(렌치) 메뉴 맨 위.
   // 팝업을 여니 드롭다운은 먼저 닫는다(close는 아래에서 정의 — 누를 땐 이미 있다).
   { const sb = $('#slotBtn'); if (sb) sb.onclick = () => { close(); openPresetSlots(); }; }

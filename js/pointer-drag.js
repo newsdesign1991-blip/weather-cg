@@ -403,7 +403,7 @@ window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
   if ($('#tourWrap')?.classList.contains('on')) return;   // 투어 중 ←/→는 단계 넘기기 전용(지도·선택 이동 금지)
-  if (cgSetupIsOpen()) return;   // CG 구성 창이 떠 있는 동안엔 뒤의 지도 단축키(되돌리기·삭제·이동 등)를 막는다
+  if (cgSetupIsOpen() || exportIsOpen()) return;   // CG 구성 창·이미지로 추출 팝업이 떠 있는 동안엔 뒤의 지도 단축키(되돌리기·삭제·이동 등)를 막는다
   // 브러쉬 크기: [ 줄이기, ] 키우기
   if (mode === 'brush' && (e.key === '[' || e.key === ']')) {
     e.preventDefault();

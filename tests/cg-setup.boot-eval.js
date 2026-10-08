@@ -95,9 +95,11 @@ R.proj = { drop: $('#menuDrop').classList.contains('on'), shown: $$('#menuDrop >
 document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await sleep(300);
 R.projClosed = !$('#menuDrop').classList.contains('on');
 // 9) 추출 3개
-$('#titlebar [data-menu="out"]').click(); await sleep(350);
-R.outMenu = { drop: $('#menuDrop').classList.contains('on'), shown: $$('#menuDrop > .sec').filter((n) => n.style.display !== 'none').map((n) => n.dataset.sec), btnBg: getComputedStyle($('#titlebar [data-menu="out"]')).backgroundColor };
-document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await sleep(300);
+// 이미지로 추출 = 드롭다운이 아니라 팝업(#exportOv) — 열면 제목줄 버튼 .on, Esc 로 닫힌다
+$('#exportBtn').click(); await sleep(400);
+R.outPop = { open: $('#exportOv').classList.contains('on'), drop: $('#menuDrop').classList.contains('on'), btnOn: $('#exportBtn').classList.contains('on'), cards: $$('#exportOv .exItemCard').length, exOpen: document.documentElement.classList.contains('exOpen') };
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await sleep(400);
+R.outPop.closed = !$('#exportOv').classList.contains('on') && !$('#exportBtn').classList.contains('on') && !document.documentElement.classList.contains('exOpen');
 $('#tlToggle').click(); await sleep(500);
 R.tlOn = { timeline: $('#timeline').classList.contains('on'), pri: $('#tlToggle').classList.contains('pri'), bg: getComputedStyle($('#tlToggle')).backgroundColor };
 $('#tlToggle').click(); await sleep(500);

@@ -3,6 +3,7 @@
 //  - 앱폴더 기본값: 이 파일 기준 ../..(WeatherCG). git 작업트리 경로를 주면 그 코드를 띄운다.
 //  - --eval: 부팅 후 페이지에서 실행할 식(await 가능). 결과(JSON 직렬화)를 evalResult로 출력. DOM 클릭/키 이벤트로 기능 점검에 쓴다.
 //  - --size: 창 크기(가로x세로). 점검 모드에서만 main.js가 이 크기로 창을 만든다(최소 크기 제한도 풀림) — 좁은 창 화면 점검용.
+//  - --keepalive: 긴 --eval 동안 숨김 창이 프레임을 계속 그리게 깨운다(그림을 많이 굽는 점검 — tests/export-render.test.cjs).
 //  - 출력: JSON {ok, errors[], ignored[], smoke{}, evalResult}. 오류가 있으면 종료코드 1.
 //  - 끝낼 때 Electron 임시 사용자 폴더(%TEMP%\wcg-test-<pid>)도 지운다(test-profile.cjs).
 const { spawn, execFileSync } = require('child_process');
@@ -20,6 +21,7 @@ const WAIT = +opt('wait', 8000);
 const EVAL = opt('eval', '');
 const SHOT = opt('shot', '');
 const SIZE = /^\d{3,4}x\d{3,4}$/.test(opt('size', '')) ? opt('size', '') : '';
+const KEEPALIVE = args.includes('--keepalive');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // 이 환경에서 원래 나는 무해한 오류(헬퍼 꺼짐, 외부 네트워크) — 따로 모아 보여만 준다
 const BENIGN = /127\.0\.0\.1:372[01]|ERR_CONNECTION_REFUSED|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|apihub\.kma\.go\.kr|api\.mapbox\.com|jsdelivr|favicon/i;
@@ -71,7 +73,11 @@ const kill = () => {
     // 파일이면 async 함수 '본문'(return 으로 결과), 인라인이면 '식'
     const isFile = fs.existsSync(EVAL);
     const code = isFile ? fs.readFileSync(EVAL, 'utf8') : EVAL;
+    // --keepalive: 긴 eval(그림 수백 장) 동안 2초마다 작은 캡처를 요청해 숨김 창이 프레임을 계속 그리게 한다
+    // (숨김 창은 새 프레임을 안 그려 img.decode·toBlob 이 멈출 때가 있다 — 결과는 기다리지 않는다)
+    const keep = KEEPALIVE ? setInterval(() => { try { ws.send(JSON.stringify({ id: ++id, method: 'Page.captureScreenshot', params: { format: 'jpeg', quality: 5, clip: { x: 0, y: 0, width: 4, height: 4, scale: 1 } } })); } catch (e) {} }, 2000) : null;
     const r = await send('Runtime.evaluate', { returnByValue: true, awaitPromise: true, expression: isFile ? `(async () => { ${code}\n})()` : `(async () => (${code}))()` });
+    if (keep) clearInterval(keep);
     evalResult = r.result.exceptionDetails ? { error: (r.result.exceptionDetails.exception && r.result.exceptionDetails.exception.description) || r.result.exceptionDetails.text } : r.result.result.value;
     await sleep(500);
   }

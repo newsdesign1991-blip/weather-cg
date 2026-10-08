@@ -39,7 +39,8 @@ function importSettings() {
 }
 
 // 여러 파일을 압축 없이(store) ZIP 한 개로 묶는다 — 폴더 선택 없이 다운로드 폴더로 바로 받게. file://에서도 됨.
-function zipStore(files) {   // files: [{name, data: Uint8Array}]
+// mtime(Date)을 주면 항목 날짜·시각(DOS 형식, 로컬 시각)을 그 값으로 — 안 주면 0(탐색기에 1980년 등으로 보일 수 있음, 옛 호출 그대로).
+function zipStore(files, mtime) {   // files: [{name, data: Uint8Array}]
   const enc = new TextEncoder();
   const parts = [];
   let offset = 0;
@@ -48,16 +49,19 @@ function zipStore(files) {   // files: [{name, data: Uint8Array}]
   const u32 = (n) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n >>> 0, true); return b; };
   const push = (a) => { parts.push(a); offset += a.length; };
   const FLAG = 0x0800;   // 파일명 UTF-8 플래그(비트11) — 한글 이름이 깨지지 않게(Windows 탐색기 포함)
+  const dt = mtime && typeof mtime.getFullYear === 'function' && !isNaN(mtime.getTime()) ? mtime : null;
+  const dosTime = dt ? (dt.getHours() << 11) | (dt.getMinutes() << 5) | (dt.getSeconds() >> 1) : 0;
+  const dosDate = dt ? ((Math.max(1980, dt.getFullYear()) - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate() : 0;
   for (const f of files) {
     const name = enc.encode(f.name), data = f.data, crc = _crc32(data), localOff = offset;
-    push(u32(0x04034b50)); push(u16(20)); push(u16(FLAG)); push(u16(0)); push(u16(0)); push(u16(0)); // ver, flag(UTF-8), method(store), time, date
+    push(u32(0x04034b50)); push(u16(20)); push(u16(FLAG)); push(u16(0)); push(u16(dosTime)); push(u16(dosDate)); // ver, flag(UTF-8), method(store), time, date
     push(u32(crc)); push(u32(data.length)); push(u32(data.length)); push(u16(name.length)); push(u16(0));
     push(name); push(data);
     central.push({ name, crc, size: data.length, localOff });
   }
   const cdStart = offset;
   for (const c of central) {
-    push(u32(0x02014b50)); push(u16(20)); push(u16(20)); push(u16(FLAG)); push(u16(0)); push(u16(0)); push(u16(0)); // sig, made, need, flag(UTF-8), method, time, date
+    push(u32(0x02014b50)); push(u16(20)); push(u16(20)); push(u16(FLAG)); push(u16(0)); push(u16(dosTime)); push(u16(dosDate)); // sig, made, need, flag(UTF-8), method, time, date
     push(u32(c.crc)); push(u32(c.size)); push(u32(c.size)); push(u16(c.name.length)); push(u16(0)); push(u16(0)); // sizes, name/extra/comment len
     push(u16(0)); push(u16(0)); push(u32(0)); push(u32(c.localOff)); push(c.name); // disk, int/ext attr, local offset
   }

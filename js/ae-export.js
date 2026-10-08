@@ -1,4 +1,4 @@
-/* [모듈] js/ae-export.js — After Effects 보내기(레이어 분해 blob·sendToAE), doExport, 추출 선택, download */
+/* [모듈] js/ae-export.js — After Effects 보내기(레이어 분해 blob·sendToAE), download */
 'use strict';
 
 // ===== After Effects 자동 임포트(로컬 헬퍼 경유) — 타임라인과 같은 애니메이션 =====
@@ -514,66 +514,7 @@ async function sendToAE() {
   }
 }
 
-// 폴더를 물어보고 그 안에 이미지를 만든다. 폴더 선택을 못 쓰는 브라우저는 한 장씩 내려받는다.
-async function doExport() {
-  const keys = EXPORT_TARGETS.filter((t) => exportPick.has(t.key)).map((t) => t.key);
-  if (!keys.length) { status('뽑을 항목을 하나 이상 고르세요', true); return; }
-  const [W, H] = RES[S.res].size;
-  const btn = $('#doExport');
-  btn.disabled = true;
-  // 작업 중 효과(js/busy-fx.js) — 저장 위치를 고른 뒤 굽는 동안: 추출 메뉴 섹션·뽑기 버튼·제목줄 '이미지로 추출'. 실패해도 finally에서 끈다
-  const fx = [fxSec('out'), btn, '#titlebar [data-menu=out]'];
-  let fxOn = false, saved = false;
-  try {
-    // 저장 대상을 '굽기 전에' 준비 — 폴더 권한 요청·저장창은 클릭 직후(사용자 활성화 안)에만 뜬다. 굽기가 길면 활성화가 끝나 다운로드로 새던 문제.
-    // 폴더 선택기(directory picker)는 file://·다운로드·바탕화면 같은 '시스템 폴더'를 막는다.
-    // → 파일 저장 대화상자(showSaveFilePicker)로 '이름 + 위치'를 고르게 한다(파일 저장은 다운로드 폴더도 허용).
-    //   미지원(file:// 일부)이면 그 이름 그대로 다운로드 폴더로 받는다. 여러 장이면 ZIP 한 개로 묶는다.
-    const total = keys.reduce((a, k) => a + exportCount(k), 0);
-    if (!total) { status('뽑을 게 없습니다 (라벨이 없을 수 있음)', true); return; }
-    const single = total === 1;
-    const out = single ? await prepareOutput(dateTag(), 'png', 'image/png', '이미지(PNG)') : await prepareOutput(dateTag(), 'zip', 'application/zip', '이미지 묶음(zip)');
-    if (!out) { status('저장을 취소했습니다'); return; }
-    fxBusy(fx, true); fxOn = true;
-    status('굽는 중…', true);
-    const files = [];
-    for (const k of keys) for (const f of await exportBlobs(k)) files.push({ name: `${f.name}.png`, blob: f.blob });
-    if (!files.length) { status('뽑을 게 없습니다 (라벨이 없을 수 있음)', true); return; }
-
-    if (single && files.length === 1) {
-      await out.write(await files[0].blob.arrayBuffer());
-      $('#exInfo').textContent = `${out.name} 저장됨`; status('저장됨: ' + out.name); flashDone('이미지 저장 완료'); saved = true;
-    } else {
-      const zf = [];
-      for (const f of files) zf.push({ name: f.name, data: await blobBytes(f.blob) });
-      await out.write(zipStore(zf));
-      $('#exInfo').textContent = `${files.length}장을 ${out.name} 로 저장 (압축 풀어서 사용)`;
-      status(`${files.length}장 저장됨 · ${out.name}`); flashDone('이미지 저장 완료'); saved = true;
-    }
-  } catch (err) {
-    status('추출 실패: ' + err.message, true);
-  } finally {
-    btn.disabled = false;
-    if (fxOn) fxBusy(fx, false);
-    if (saved) fxArrive(['#titlebar [data-menu=out]', btn, $('#exInfo')]);   // 도착 — 버튼에 한 번 빛 + 저장 안내 줄이 떠오름
-  }
-}
-
-function buildExportPick() {
-  const w = $('#exPick');
-  w.textContent = '';
-  for (const t of EXPORT_TARGETS) {
-    const d = document.createElement('div');
-    d.className = 'exItem' + (exportPick.has(t.key) ? ' on' : '');
-    d.innerHTML = `<div class="box"></div><div class="lb"></div>`;
-    d.querySelector('.lb').innerHTML = `${t.label}<div class="sub">${t.sub}</div>`;
-    d.onclick = () => {
-      if (exportPick.has(t.key)) exportPick.delete(t.key); else exportPick.add(t.key);
-      d.classList.toggle('on', exportPick.has(t.key));
-    };
-    w.append(d);
-  }
-}
+// 폴더를 물어보고 그 안에 이미지를 만드는 '이미지로 추출'(팝업·저장)은 js/export-dialog.js(renderExport)로 옮겼다.
 
 function download(blob, filename) {
   const a = document.createElement('a');
