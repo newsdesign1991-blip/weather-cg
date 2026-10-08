@@ -92,6 +92,13 @@ R.cgsOpenClass.closed = document.documentElement.classList.contains('cgsOpen');
 // 8) 프로젝트 아이콘 → 프로젝트 드롭다운
 $('#titlebar [data-menu="proj"]').click(); await sleep(350);
 R.proj = { drop: $('#menuDrop').classList.contains('on'), shown: $$('#menuDrop > .sec').filter((n) => n.style.display !== 'none').map((n) => n.dataset.sec), hasSave: !!$('#menuDrop #save') && $('#save').offsetParent !== null, btnOn: $('#titlebar [data-menu="proj"]').classList.contains('on') };
+// 플로피는 AE로 보내기 바로 오른쪽, 드롭다운은 화면 안(버튼 오른쪽 끝 기준), 장면 설정 버튼은 색 있는 배경
+{
+  await sleep(250);   // 드롭다운 열림 변형(.22초) 끝난 뒤 잰다
+  const ae = $('#aeSend').getBoundingClientRect(), pj = $('#titlebar [data-menu="proj"]').getBoundingClientRect(), dr = $('#menuDrop').getBoundingClientRect();
+  R.layout = { projRightOfAe: pj.left >= ae.right && Math.abs((pj.top + pj.bottom) / 2 - (ae.top + ae.bottom) / 2) < 2, gap: Math.round(pj.left - ae.right),
+    projDropInView: dr.left >= 0 && dr.right <= innerWidth && Math.abs(dr.right - pj.right) < 2, sceneBg: getComputedStyle($('#cgSetupBtn')).backgroundImage };
+}
 document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await sleep(300);
 R.projClosed = !$('#menuDrop').classList.contains('on');
 // 9) 추출 3개

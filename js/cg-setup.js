@@ -81,7 +81,8 @@ function applyPendingStyle() {
 }
 
 // ===================== CG 구성 (CG 종류 + 지도 종류 고르기 창) =====================
-// 맨 위 'CG 구성'·시작 화면 'CG 구성 열기'로 연다. 카드를 눌러도 바로 바뀌지 않고(pendingRes/pendingStyle),
+// 화면에 보이는 이름은 '장면 설정'(2026-10-09 바꿈). 코드·주석은 옛 이름(cgSetup·CG 구성) 그대로 둔다.
+// 맨 위 '장면 설정'·시작 화면 '장면 설정 열기'로 연다. 카드를 눌러도 바로 바뀌지 않고(pendingRes/pendingStyle),
 // 둘 다 골라 '선택 완료'를 눌러야 적용된다. 닫기(X·Esc·바깥 클릭·취소)는 아무것도 안 바꾼다.
 let _cgsOpener = null, _cgsResetT = 0;
 function cgSetupIsOpen() { const ov = document.getElementById('cgSetupOv'); return !!(ov && ov.classList.contains('on')); }
@@ -200,7 +201,7 @@ function setupCgSetup() {
   // 창이 떠 있는 채 창 크기가 900px 를 넘나들면(좌우 ↔ 위아래) 안내 방향도 다시 맞춘다
   window.matchMedia('(max-width: 900px)').addEventListener('change', () => { if (cgSetupIsOpen()) syncCgSetup(); });
   // 시작 화면 단계 알약(CG 종류 선택 · 지도 종류 선택)도 누르면 CG 구성 창을 연다(버튼처럼 보이는데 안 눌리지 않게)
-  document.querySelectorAll('#startOverlay .startStep').forEach((s) => { s.title = 'CG 구성 열기'; s.onclick = openCgSetup; });
+  document.querySelectorAll('#startOverlay .startStep').forEach((s) => { s.title = '장면 설정 열기'; s.onclick = openCgSetup; });
   syncCgSetup();
 }
 

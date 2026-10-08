@@ -36,10 +36,10 @@ test('제목줄은 .app 앞에 있고 메뉴·추출·보기 버튼을 모두 �
   for (const id of ['cgSetupBtn', 'exportBtn', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'menubar', 'exportGroup', 'tbInfoGroup']) {
     assert.match(titlebar, new RegExp(`id="${id}"`), `${id} 가 제목줄에 없음`);
   }
-  // 글자 메뉴 — 아이콘 SVG 없이 글자만. 예외: 프로젝트(플로피 디스크 아이콘 버튼), 추출 3버튼(.tbAction = 채운 아이콘 + 글자)
+  // 글자 메뉴 — 아이콘 SVG 없이 글자만. 예외: 프로젝트(플로피 디스크 아이콘 버튼), 추출 3버튼(.tbAction)·장면 설정(.tbScene) = 채운 아이콘 + 글자
   for (const b of titlebar.match(/<button[^>]*class="[^"]*tbMenu[^"]*"[^>]*>[\s\S]*?<\/button>/g)) {
     if (/data-menu="proj"/.test(b)) continue;
-    if (/class="[^"]*\btbAction\b/.test(b)) {
+    if (/class="[^"]*\b(tbAction|tbScene)\b/.test(b)) {
       assert.equal((b.match(/<svg/g) || []).length, 1, '추출 버튼엔 아이콘이 딱 하나: ' + b.slice(0, 80));
       assert.match(b, /<\/svg><span class="tbLbl">[^<]*[^<\s][^<]*<\/span><\/button>$/, '추출 버튼은 아이콘 뒤에 글자(.tbLbl span)가 있어야 한다');
       continue;
@@ -49,8 +49,11 @@ test('제목줄은 .app 앞에 있고 메뉴·추출·보기 버튼을 모두 �
   }
 });
 
-test('CG 구성 — 출력 화면·지도 종류 두 글자 메뉴를 하나로 합쳤다', () => {
-  assert.match(titlebar, /<button class="tbMenu" id="cgSetupBtn"[^>]*>CG 구성<\/button>/);
+test('장면 설정(옛 CG 구성) — 출력 화면·지도 종류 두 글자 메뉴를 하나로 합쳤다', () => {
+  assert.match(titlebar, /<button class="tbMenu tbScene" id="cgSetupBtn"[^>]*>[\s\S]*?<span class="tbLbl">장면 설정<\/span><\/button>/);
+  // 화면에 보이는 글(주석 뺀)엔 옛 이름 'CG 구성'이 남지 않는다
+  const shown = html.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1');
+  assert.doesNotMatch(shown, /CG 구성/);
   // 옛 두 메뉴와 그 드롭다운 카드·따로 적용 버튼은 없다
   for (const m of ['out0', 'style']) assert.equal(html.split(`data-menu="${m}"`).length - 1, 0, `data-menu="${m}" 이 남아 있음`);
   assert.doesNotMatch(html, /data-sec="out0"|<div class="sec[^"]*" data-sec="style"|id="resApply"|id="styleApply"/);
@@ -74,6 +77,26 @@ test('프로젝트 = 플로피 디스크 아이콘 버튼, 추출 3개 = 파란 
   assert.match(html, /#titlebar \.tbAction\.on, #titlebar \.tbAction\.pri \{[^}]*background: var\(--primary\)/);
   // 밝은 테마는 파란 글자를 한 단계 진하게(대비)
   assert.match(html, /:root\[data-theme="light"\] \{ --tb-act-fg: #1b56d2;/);
+});
+
+test('사용자 요청(10-09): 저장(플로피)은 AE로 보내기 오른쪽, 장면 설정은 아이콘 + 색 있는 버튼', () => {
+  // 플로피 = 오른쪽 묶음(.tbRight)에서 렌더 버튼 묶음 바로 뒤, 왼쪽 메뉴(.tbMenus)엔 없다
+  const right = block(titlebar, /<div class="tbRight">/, 'div');
+  const nav = block(titlebar, /<nav class="tbMenus"[^>]*>/, 'nav');
+  assert.doesNotMatch(nav, /data-menu="proj"/);
+  const afterGroup = right.slice(right.indexOf(block(right, /<div class="tbGroup" id="exportGroup">/, 'div')) + block(right, /<div class="tbGroup" id="exportGroup">/, 'div').length);
+  assert.match(afterGroup, /^\s*(<!--[\s\S]*?-->\s*)?<button class="menuBtn tbMenu tbIconMenu" data-menu="proj"/, '렌더 버튼 묶음 바로 다음이 플로피');
+  // 오른쪽 묶음이라 드롭다운은 버튼 오른쪽 끝에 맞춰 연다(화면 밖으로 안 나가게)
+  assert.match(html, /const alignR = !!btn\.closest\('\.tbRight'\);/);
+  // 장면 설정 = 채운 아이콘 하나 + 글자, 보라 틴트(두 테마), 열리면 꽉 찬 그라데이션
+  const scene = /<button[^>]*id="cgSetupBtn"[^>]*>[\s\S]*?<\/button>/.exec(titlebar)[0];
+  const svg = /<svg[^>]*>[\s\S]*?<\/svg>/.exec(scene)[0];
+  assert.match(svg, /fill="currentColor"/); assert.doesNotMatch(svg, /stroke=/); assert.match(svg, /aria-hidden="true"/);
+  assert.match(html, /#titlebar \.tbScene \{[^}]*background: var\(--tb-scene-bg\); color: var\(--tb-scene-fg\)/);
+  assert.match(html, /#titlebar \.tbScene\.on \{[^}]*background: linear-gradient\(/);
+  assert.equal((html.match(/--tb-scene-fg: #/g) || []).length, 2, '밝은·어두운 테마 둘 다');
+  // 장면 설정 버튼 글자를 통째로 덮는 코드가 없다(아이콘이 지워지지 않게)
+  assert.doesNotMatch(html, /\$\('#cgSetupBtn'\)\.(textContent|innerText|innerHTML) =/);
 });
 
 test('추출 3버튼 — 같은 폭(grid 균등 칸), 채운 아이콘(currentColor), 맨 왼쪽 앱 아이콘 없음', () => {

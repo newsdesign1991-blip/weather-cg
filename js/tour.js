@@ -40,14 +40,14 @@ function tourAllClosed() { document.querySelectorAll('#panel .sec.toolSec').forE
 
 function tourStepList() {
   return [
-    { title: 'CG 구성', body: '맨 위 <b>CG 구성</b>을 누르면 이 창이 열립니다. 왼쪽 <b>CG 종류</b>(터치 스크린 · 노말 CG · 노말 VF · 날씨 팀)와 오른쪽 <b>지도 종류</b>(시도군 · 시도 · 특보 · 태풍 등)를 <b>둘 다</b> 고르고 <b>선택 완료</b>를 눌러야 적용돼요. CG 종류마다 화면 크기와 지도 · 제목 배치를 따로 기억합니다.',
+    { title: '장면 설정', body: '맨 위 왼쪽 <b>장면 설정</b>을 누르면 이 창이 열립니다. 왼쪽 <b>CG 종류</b>(터치 스크린 · 노말 CG · 노말 VF · 날씨 팀)와 오른쪽 <b>지도 종류</b>(시도군 · 시도 · 특보 · 태풍 등)를 <b>둘 다</b> 고르고 <b>선택 완료</b>를 눌러야 적용돼요. CG 종류마다 화면 크기와 지도 · 제목 배치를 따로 기억합니다.',
       target: () => document.querySelector('#cgSetupOv .cgSetupCard'), setup: () => tourCgSetup(), delay: 380, rect: cgsCardRect },
     { title: '지도 종류 선택 · 지도 잠금', body: '<b>태풍 지도</b>에서는 아트보드 <b>오른쪽 위</b>에 버튼 두 개가 나옵니다. <b>접힌 지도 아이콘</b> = <b>지도 종류 선택</b> — 파란 지도 · 밝은/어두운 위성지도 · Mapbox 실시간 타일 중에서 고르고, 개인 Mapbox URL도 붙일 수 있어요. <b>자물쇠 아이콘</b> = <b>지도 잠금</b> — 켜면 지도가 실수로 움직이지 않게 고정됩니다(다시 누르면 해제).',
       target: () => { const b = document.querySelector('.basemapBtn'); return (b && b.offsetParent) ? b : (document.querySelector('.fit') || $('#stage')); }, setup: () => tourMenuClose(), delay: 300 },
-    { title: '프로젝트 (플로피 디스크 아이콘)', body: '<b>CG 구성</b> 옆 <b>플로피 디스크 아이콘</b>이에요. 작업을 저장 · 불러오고 최근 파일을 엽니다. 저장 파일은 그림(PNG)이라 파일 탐색기에서 미리보기가 그대로 보여요.',
-      target: () => $('#menuDrop'), setup: () => tourMenu('proj'), delay: 320 },
     { title: '이미지로 렌더 · 영상으로 렌더 · AE로 보내기', body: '파란 버튼 세 개예요. <b>이미지로 렌더</b>는 창에서 완성 화면·레이어(색칠만·경계선만 등)를 골라 렌더하면, 고른 폴더 안 <b>오늘 날짜 폴더</b>에 카드 이름 그대로 저장해요. <b>영상으로 렌더</b>는 타임라인을 열어 영상(MP4·PNG 시퀀스·MXF)으로 렌더하고, <b>AE로 보내기</b>는 레이어째 애프터이펙트로 넘깁니다.',
       target: () => $('#exportGroup'), setup: () => tourMenuClose(), delay: 280 },
+    { title: '프로젝트 (플로피 디스크 아이콘)', body: '파란 렌더 버튼들 바로 오른쪽 <b>플로피 디스크 아이콘</b>이에요. 작업을 저장 · 불러오고 최근 파일을 엽니다. 저장 파일은 그림(PNG)이라 파일 탐색기에서 미리보기가 그대로 보여요.',
+      target: () => $('#menuDrop'), setup: () => tourMenu('proj'), delay: 320 },
     { title: '칠하기 · 브러쉬 · 이동 모드', body: '작업은 이 세 모드를 상황에 맞게 바꿔 가며 합니다. ① 칠하기 = 지역을 클릭해 색칠, ② 브러쉬 = 고른 영역 안에만 부드럽게 덧칠, ③ 이동 = 지도 · 글자 · 산의 위치를 끌어서 옮기기. 색칠하려면 칠하기, 자리 잡으려면 이동으로 바꾸세요.',
       target: () => { const b = document.getElementById('mPaint'); return b ? b.closest('.mode') : null; }, setup: () => tourMenuClose(), delay: 280 },
     { title: '밝기 전환 (다크 · 라이트)', body: '사이드바를 어둡게/밝게 바꿉니다. 편한 쪽으로 쓰면 되고, 작업물(방송에 나가는 지도)에는 영향이 없습니다.',

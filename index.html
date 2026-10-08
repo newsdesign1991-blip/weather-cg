@@ -88,7 +88,7 @@
 <link rel="stylesheet" href="css/base.css?v=505143ba">
 <link rel="stylesheet" href="css/sidebar.css?v=7796a853">
 <link rel="stylesheet" href="css/stage.css?v=974b23b9">
-<link rel="stylesheet" href="css/titlebar.css?v=29f661d5">
+<link rel="stylesheet" href="css/titlebar.css?v=a7acf55d">
 <link rel="stylesheet" href="css/start-tour.css?v=36750797">
 <link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
@@ -104,11 +104,9 @@
 <header class="titlebar" id="titlebar">
   <nav class="tbMenus" aria-label="메뉴">
     <div class="tbGroup" id="menubar">
-      <!-- CG 구성 = CG 종류(화면) + 지도 종류를 한 창(#cgSetupOv)에서 고른다. 드롭다운이 아니라 모달이라 menuBtn 이 아님 -->
-      <button class="tbMenu" id="cgSetupBtn" title="CG 구성 — CG 종류와 지도 종류 고르기" aria-haspopup="dialog">CG 구성</button>
-      <button class="menuBtn tbMenu tbIconMenu" data-menu="proj" title="프로젝트 — 저장·불러오기" aria-label="프로젝트 — 저장·불러오기">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5.2 3.6h11.2l4 4v11.2a1.6 1.6 0 01-1.6 1.6H5.2a1.6 1.6 0 01-1.6-1.6V5.2a1.6 1.6 0 011.6-1.6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7.6 3.6v4.6h7.6V3.6M7.2 20.4v-6.1h9.6v6.1"/><rect x="12.1" y="4.9" width="1.8" height="2.2" rx=".4" fill="currentColor"/></svg>
-      </button>
+      <!-- 장면 설정(옛 이름 CG 구성 — 코드·주석의 cgSetup/CG 구성은 이 버튼과 창) = CG 종류(화면) + 지도 종류를 한 창(#cgSetupOv)에서 고른다.
+           드롭다운이 아니라 모달이라 menuBtn 이 아님. 보라 틴트 + 채운 아이콘(.tbScene), 글자는 .tbLbl 안에만 -->
+      <button class="tbMenu tbScene" id="cgSetupBtn" title="장면 설정 — CG 종류와 지도 종류 고르기" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 3h4a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm10 0h4a2 2 0 012 2v3a2 2 0 01-2 2h-4a2 2 0 01-2-2V5a2 2 0 012-2zm0 9h4a2 2 0 012 2v5a2 2 0 01-2 2h-4a2 2 0 01-2-2v-5a2 2 0 012-2z"/></svg><span class="tbLbl">장면 설정</span></button>
     </div>
   </nav>
   <div class="tbFill"></div>
@@ -120,6 +118,10 @@
       <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 렌더 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm-2.2 6v8l6.4-4z"/></svg><span class="tbLbl">영상으로 렌더</span></button>
       <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a1 1 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .72.73 1.2 1.39.91z"/></svg><span class="tbLbl">AE로 보내기</span></button>
     </div>
+    <!-- 프로젝트(저장·불러오기) = 플로피 디스크 아이콘 — 렌더 버튼들 바로 오른쪽. .tbRight 안이라 드롭다운은 버튼 오른쪽 끝에 맞춰 왼쪽으로 펼친다 -->
+    <button class="menuBtn tbMenu tbIconMenu" data-menu="proj" title="프로젝트 — 저장·불러오기" aria-label="프로젝트 — 저장·불러오기">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5.2 3.6h11.2l4 4v11.2a1.6 1.6 0 01-1.6 1.6H5.2a1.6 1.6 0 01-1.6-1.6V5.2a1.6 1.6 0 011.6-1.6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7.6 3.6v4.6h7.6V3.6M7.2 20.4v-6.1h9.6v6.1"/><rect x="12.1" y="4.9" width="1.8" height="2.2" rx=".4" fill="currentColor"/></svg>
+    </button>
     <div class="tbSep"></div>
     <span class="zoomInfo" id="zoomV">100%</span>
     <div class="tbSep"></div>
@@ -153,7 +155,7 @@
     <!-- 머리 = 근무표 최신 팝업처럼 옅은 틴트 + 제목·부제(아이콘 타일 없음) + 유리 원 닫기 -->
     <div class="cgsHead">
       <div class="cgsHeadTxt">
-        <div class="cgsTitle" id="cgsTitle">CG 구성</div>
+        <div class="cgsTitle" id="cgsTitle">장면 설정</div>
         <div class="cgsSub">CG 종류와 지도 종류를 고른 뒤 선택 완료를 누르세요</div>
       </div>
       <button class="cgsX" id="cgsX" aria-label="닫기" title="닫기 (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
@@ -324,7 +326,7 @@
           <p class="hint" style="margin:2px 0 0">두께·아이콘 크기는 <b>일반·라인 모드 모두</b> 적용.</p>
         </div>
         <p class="hint" id="typInfo"></p>
-        <p class="hint" style="margin:2px 0">여러 예보 비교는 <b>CG 구성 → 태풍 비교</b>.</p>
+        <p class="hint" style="margin:2px 0">여러 예보 비교는 <b>장면 설정 → 태풍 비교</b>.</p>
         <!-- 자동이 안 될 때: 수동 입력 (분리) -->
         <div class="fieldGroup" style="margin:8px 0;border:1px dashed var(--outline-var);border-radius:10px;padding:8px">
           <div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기</div>
@@ -1002,7 +1004,7 @@
        <div class="startCard">
          <div class="startTitle">CG 종류와 지도 종류를 고르세요</div>
          <div class="startSub">맨 위 <b>CG&nbsp;구성</b>에서 두 가지를 고르고 <b>선택&nbsp;완료</b>를 누르면 제작이 시작돼요.</div>
-         <button id="startSetup" class="startSetupBtn">CG 구성 열기</button>
+         <button id="startSetup" class="startSetupBtn">장면 설정 열기</button>
          <div class="startSteps">
            <div class="startStep" data-step="res"><span class="dot"></span>CG 종류 선택</div>
            <div class="startStep" data-step="style"><span class="dot"></span>지도 종류 선택</div>
@@ -1288,8 +1290,8 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/forecast-panel.js?v=40d42aed"></script>
 <script src="js/warnings-load.js?v=c8ba991c"></script>
 <script src="js/presets.js?v=27fad655"></script>
-<script src="js/cg-setup.js?v=f6d7eafd"></script>
-<script src="js/modals-notices.js?v=8bb80e22"></script>
+<script src="js/cg-setup.js?v=4f6deb0d"></script>
+<script src="js/modals-notices.js?v=fd41c6a3"></script>
 <script src="js/busy-fx.js?v=68bb53cf"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
 <script src="js/export-image.js?v=9c69190f"></script>
@@ -1304,5 +1306,5 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/timeline-ui.js?v=05af56f8"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
 <script src="js/floating-panels.js?v=2fad8f53"></script>
-<script src="js/tour.js?v=7b2ffbab"></script>
+<script src="js/tour.js?v=d40b4e6a"></script>
 <script src="js/boot.js?v=6e4199a5"></script>

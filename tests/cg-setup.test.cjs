@@ -36,7 +36,7 @@ const cssRule = (sel) => {
 
 test('CG 구성 창 — 상단 컬러 헤더 + 좌(CG 종류)·우(지도 종류) 두 판 + 선택 완료', () => {
   assert.match(modal, /role="dialog" aria-modal="true"/);
-  assert.match(modal, /<div class="cgsTitle" id="cgsTitle">CG 구성<\/div>/);
+  assert.match(modal, /<div class="cgsTitle" id="cgsTitle">장면 설정<\/div>/);   // 화면 이름 = 장면 설정(옛 CG 구성)
   assert.match(modal, /<div class="cgsSub">CG 종류와 지도 종류를 고른 뒤 선택 완료를 누르세요<\/div>/);
   const res = block(modal, /<section class="cgsPane cgsPaneRes"/, 'section');
   const sty = block(modal, /<section class="cgsPane cgsPaneStyle"/, 'section');
@@ -106,7 +106,7 @@ test('고르기만 하고, 둘 다 골라 선택 완료를 눌러야 적용 — 
 test('시작 화면 — CG 종류와 지도 종류를 고르세요 + CG 구성 열기, 새로 시작하면 창이 바로 뜬다', () => {
   const ov = block(html, /<div class="startOverlay" id="startOverlay">/, 'div');
   assert.match(ov, /<div class="startTitle">CG 종류와 지도 종류를 고르세요<\/div>/);
-  assert.match(ov, /<button id="startSetup" class="startSetupBtn">CG 구성 열기<\/button>/);
+  assert.match(ov, /<button id="startSetup" class="startSetupBtn">장면 설정 열기<\/button>/);
   assert.match(ov, /data-step="res"><span class="dot"><\/span>CG 종류 선택</);
   assert.match(ov, /data-step="style"><span class="dot"><\/span>지도 종류 선택</);
   assert.match(html, /startSetupBtn\.onclick = openCgSetup;/);
@@ -120,7 +120,7 @@ test('시작 화면 — CG 종류와 지도 종류를 고르세요 + CG 구성 �
 test('둘러보기 — 출력 화면·지도 종류 두 단계를 CG 구성 한 단계로', () => {
   const list = fn('tourStepList');
   assert.doesNotMatch(list, /tourMenu\('(out0|style)'\)/);
-  assert.match(list, /\{ title: 'CG 구성', body: [^\n]*\n\s*target: \(\) => document\.querySelector\('#cgSetupOv \.cgSetupCard'\), setup: \(\) => tourCgSetup\(\)/);
+  assert.match(list, /\{ title: '장면 설정', body: [^\n]*\n\s*target: \(\) => document\.querySelector\('#cgSetupOv \.cgSetupCard'\), setup: \(\) => tourCgSetup\(\)/);
   assert.match(html, /function tourMenuClose\(\) \{ if \(_closeMenu\) _closeMenu\(\); closeCgSetup\(\); \}/);
 });
 
@@ -210,7 +210,7 @@ test('시작 화면 부제 줄바꿈·단계 알약(고르는 대로 체크, 누
   assert.match(cssRule('.startSub'), /word-break: keep-all/);
   assert.match(fn('syncCgSetup'), /classList\.toggle\('picked', s\.dataset\.step === 'res' \? !!rl : !!sl\)/);
   assert.match(fn('showStartScreen'), /classList\.remove\('done', 'picked'\)/);
-  assert.match(fn('setupCgSetup'), /#startOverlay \.startStep'\)\.forEach\(\(s\) => \{ s\.title = 'CG 구성 열기'; s\.onclick = openCgSetup; \}\)/);
+  assert.match(fn('setupCgSetup'), /#startOverlay \.startStep'\)\.forEach\(\(s\) => \{ s\.title = '장면 설정 열기'; s\.onclick = openCgSetup; \}\)/);
   assert.match(fn('tourStepList'), /setup: \(\) => tourCgSetup\(\), delay: 380, rect: cgsCardRect \}/);
   assert.match(fn('tourPlace'), /const r = step\.rect \? step\.rect\(el\) : el\.getBoundingClientRect\(\);/);
   // 변형(scale .95)을 빼고 잰다 — 가짜 카드로 확인
@@ -251,4 +251,8 @@ test('부팅 점검: CG 구성 고르기·완료·취소, 프로젝트 아이콘
   assert.deepEqual([R.tlOn.timeline, R.tlOn.pri, R.tlOff.timeline, R.tlOff.pri], [true, true, false, false]);
   assert.equal(R.ae.shown, true);
   assert.ok(R.titlebar.scroll <= R.titlebar.client && R.titlebar.navRight < R.titlebar.rightLeft, JSON.stringify(R.titlebar));
+  // 사용자 요청(10-09): 플로피는 AE로 보내기 바로 오른쪽, 장면 설정은 색 있는 버튼(투명 배경 아님)
+  assert.ok(R.layout.projRightOfAe && R.layout.gap >= 0 && R.layout.gap <= 10, JSON.stringify(R.layout));
+  assert.ok(R.layout.projDropInView, '플로피 드롭다운이 화면 안');
+  assert.notEqual(R.layout.sceneBg, 'none', '장면 설정 버튼에 색');
 });
