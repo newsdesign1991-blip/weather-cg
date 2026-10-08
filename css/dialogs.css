@@ -1,0 +1,171 @@
+/* [모듈] css/dialogs.css — 인증키 안내, 특보 불러오기 결과 카드·빈 상태 카드, 알림 색 점, API 설정 창, 확인 모달, 배치 지정하기 모달·플로피 */
+  /* 인증키가 없을 때만 뜨는 안내. 눌러서 바로 API 설정을 열 수 있다. */
+  .nokey {
+    display: none; margin-bottom: 7px; padding: 8px 10px; border-radius: 8px;
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    color: var(--on-surface); line-height: 1.5; cursor: pointer;
+  }
+  .nokey.on { display: block; }
+  .nokey:hover { background: color-mix(in srgb, var(--danger) 22%, transparent); }
+  /* 키가 없으면 가져오기 버튼은 눌러도 소용없다 */
+  .sec.nokeyed .btns > button.pri[id$="Open"] { opacity: .45; }
+
+  /* ===== 특보 불러오기 결과 카드 =====
+     정상(초록 체크) · 오류(빨간 느낌표) · 불러오는 중(회색 고리)을 한눈에 구분한다.
+     '발효 중인 특보 0건'은 정상이므로 초록 — 빨강·'실패'로 보이면 사용자가 고장으로 오해한다. */
+  .wrnRes {
+    --tone: var(--on-surface-var);
+    display: flex; gap: 10px; align-items: flex-start; margin: 8px 0 4px; padding: 11px 12px;
+    border-radius: var(--rb); font-family: var(--ui-font); line-height: 1.5;
+    background: color-mix(in srgb, var(--tone) 9%, var(--surface-hi));
+    border: 1px solid color-mix(in srgb, var(--tone) 34%, transparent);
+  }
+  .wrnRes[hidden] { display: none; }
+  .wrnRes[data-tone="ok"] { --tone: var(--ok); }
+  .wrnRes[data-tone="err"] { --tone: var(--danger); }
+  .wrnRes[data-tone="warn"] { --tone: var(--caution); }   /* 칠은 했지만 확인할 게 있음(주황) */
+  .wrnResIc {
+    flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; color: #fff; background: var(--tone);
+  }
+  .wrnRes[data-tone="busy"] .wrnResIc { background: transparent; color: var(--on-surface-var); }
+  .wrnRes[data-tone="busy"] .wrnResIc svg { animation: wrnSpin .9s linear infinite; }
+  @keyframes wrnSpin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .wrnRes[data-tone="busy"] .wrnResIc svg { animation: none; } }
+  .wrnResBody { flex: 1; min-width: 0; }
+  .wrnResT { font-size: 12.5px; font-weight: 700; color: var(--on-surface); word-break: keep-all; }
+  .wrnResM { font-size: 11px; color: color-mix(in srgb, var(--on-surface) 50%, var(--on-surface-var)); margin-top: 1px; }
+  .wrnResL { margin: 6px 0 0; padding: 0 0 0 15px; font-size: 11.5px; color: var(--on-surface); word-break: keep-all; }
+  .wrnResL li + li { margin-top: 2px; }
+  .wrnResD { font-size: 10.5px; color: var(--on-surface-var); margin-top: 5px; overflow-wrap: anywhere; }
+  .wrnResA { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .wrnResA button { flex: 1 1 auto; min-width: 0; padding: 6px 10px; font-size: 11.5px; }
+  /* 특보 목록 자리 — 발효 중인 특보가 0건일 때의 빈 상태 카드(정상 안내, 파란 정보 톤) */
+  .wrnEmpty {
+    display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 8px; padding: 12px;
+    border-radius: var(--rb); font-family: var(--ui-font); line-height: 1.5;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface-hi));
+    border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+  .wrnEmpty .wrnResIc { background: var(--primary); }
+  .wrnEmpty .t { font-size: 12.5px; font-weight: 700; color: var(--on-surface); word-break: keep-all; }
+  .wrnEmpty .s { font-size: 11px; color: color-mix(in srgb, var(--on-surface) 50%, var(--on-surface-var)); margin-top: 2px; word-break: keep-all; }
+  /* 알림(#status) 색 점 — 정상=초록, 확인 필요=주황, 오류=빨강. 다른 알림(톤 없음)은 그대로. */
+  #status[data-tone="ok"], #status[data-tone="err"], #status[data-tone="warn"] { padding-left: 26px; }
+  #status[data-tone="ok"]::before, #status[data-tone="err"]::before, #status[data-tone="warn"]::before {
+    content: ''; position: absolute; left: 11px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%;
+  }
+  #status[data-tone="ok"]::before { background: var(--ok); }
+  #status[data-tone="warn"]::before { background: var(--caution); }
+  #status[data-tone="err"]::before { background: var(--danger); }
+  #status[data-tone="err"] { border-color: color-mix(in srgb, var(--danger) 55%, var(--outline-var)); }
+
+  /* ===== API 설정 (우하단 플로팅) ===== */
+  #apiGear.warn { border-color: var(--danger); color: var(--danger); }
+  #apiGear.warn::after {
+    content: ''; position: absolute; top: 6px; right: 8px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--danger);
+  }
+  #apiGear {
+    position: fixed; right: 16px; bottom: 16px; z-index: 28;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface-c); border: 1px solid var(--outline);
+    border-radius: 999px; padding: 7px 13px 7px 10px;
+    box-shadow: 0 3px 14px var(--shade); color: var(--on-surface-var);
+  }
+  #apiGear:hover { background: var(--btn-hover); color: var(--on-surface); }
+  #apiGear.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  /* API 설정 팝오버 — 팝업 공통 카드(반사 테두리·반경 16) + 옅은 틴트 머리 + 유리 닫기 */
+  #apiPop {
+    position: fixed; right: 16px; bottom: 60px; z-index: 28; width: 300px; overflow: hidden;
+    border: 1px solid transparent; border-radius: 16px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-drop-shadow); display: none; transform-origin: bottom right;
+  }
+  #apiPop.on { display: block; animation: popPopIn .22s cubic-bezier(.16,1,.3,1) both; }
+  .apiHead {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 7px 7px 14px; font-size: 12.5px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface);
+    background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line);
+  }
+  .apiBody { padding: 12px 14px 14px; }
+
+  /* ===== 확인 모달 (토스 카드: 옅은 틴트 머리 + 아래 내용 — 근무표 최신 팝업과 같은 결) =====
+     DOM은 한 번만 — .on 으로 열고(막 페이드 + 카드 올라옴), 닫을 땐 popAnimClose(.popClosing .34초) 뒤 .on 을 뗀다. */
+  .confirmOverlay {
+    position: fixed; inset: 0; z-index: 200; display: none; padding: 20px;
+    align-items: center; justify-content: center;
+    background: var(--pop-ov); backdrop-filter: blur(4px);
+  }
+  .confirmOverlay.on { display: flex; animation: popOvIn .32s ease both; }
+  .confirmOverlay.on .confirmCard { animation: popCardIn .46s cubic-bezier(.16,1,.3,1) both; }
+  .confirmOverlay.popClosing { animation: popOvOut .34s ease both; }
+  .confirmOverlay.popClosing .confirmCard { animation: popCardOut .34s ease both; }
+  .confirmCard {
+    width: min(340px, 90vw); border-radius: 18px; overflow: hidden;
+    border: 1px solid transparent;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-shadow);
+  }
+  /* 머리 — 꽉 찬 파랑·빨강 띠 대신 옅은 틴트 + 기본색 제목(경고는 옅은 빨강 + 빨간 제목). 높이 47→43px */
+  .confirmHead {
+    padding: 12px 16px 11px; font-size: 14.5px; font-weight: 800; letter-spacing: -.02em;
+    color: var(--on-surface); background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line);
+  }
+  .confirmHead.warn { color: var(--danger); background: var(--pop-hd-red); border-bottom-color: var(--pop-hd-red-line); }
+  .confirmBody { padding: 14px 16px 14px; }
+  .confirmMsg { margin: 0 0 14px; font-size: 12.5px; line-height: 1.6; color: var(--on-surface); white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+  .confirmBtns { display: flex; gap: 8px; justify-content: flex-end; }
+  .confirmBtns button { min-width: 72px; height: 32px; padding: 0 14px; font-size: 12.5px; border-radius: 10px; }
+  .confirmBtns button.pri { background: var(--accent-grad, var(--primary)); color: var(--on-primary); border: none; font-weight: 700; }
+  .confirmBtns button.pri.warn { background: var(--danger); box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--danger) 70%, transparent); }
+  /* 어두운 테마 --danger(#ff6b6b)는 흰 글자 대비 2.8:1 → 버튼 바탕만 진한 빨강(4.5:1). 머리 제목의 빨강 글자는 그대로 */
+  :root:not([data-theme="light"]) .confirmBtns button.pri.warn { background: #dc3545; }
+  .confirmInput { width: 100%; box-sizing: border-box; margin: 0 0 12px; padding: 7px 10px; font-size: 13px;
+    background: var(--surface-field); border: 1px solid var(--outline); border-radius: 10px; color: var(--on-surface); }
+  .confirmInput:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(49,130,246,.14); }
+
+  /* ===== 배치 지정하기(기본 배치 슬롯) 모달 — 팝업 공통 카드 + 옅은 틴트 머리 + 유리 닫기 ===== */
+  #slotOverlay { position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; padding: 20px; background: var(--pop-ov); backdrop-filter: blur(4px); }
+  #slotOverlay.on { display: flex; animation: popOvIn .32s ease both; }
+  #slotOverlay.on .slotCard { animation: popCardIn .46s cubic-bezier(.16,1,.3,1) both; }
+  #slotOverlay.popClosing { animation: popOvOut .34s ease both; }
+  #slotOverlay.popClosing .slotCard { animation: popCardOut .34s ease both; }
+  .slotCard { width: min(640px, 94vw); max-height: 88vh; overflow: auto; border: 1px solid transparent; border-radius: 20px; background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box; box-shadow: var(--pop-shadow); font-family: var(--ui-font); }
+  .slotHead { padding: 11px 12px 11px 18px; font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line); display: flex; justify-content: space-between; align-items: center; }
+  .slotBody { padding: 14px 16px; }
+  .slotGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .slotGrid { grid-template-columns: 1fr; } }
+  .slot { border: 1px solid var(--outline-var); border-radius: 14px; padding: 12px; background: var(--cgs-card); text-align: center; transition: border-color .15s, background .15s; }
+  .slot.drag { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--cgs-card)); }
+  /* 플로피 디스크 — 장착(filled)=테마 틴트색 플로피, 빈(empty)=점선 플로피 아웃라인 */
+  .slotDrive { width: 120px; height: 100px; margin: 2px auto 8px; display: flex; align-items: center; justify-content: center; }
+  .flopSvg { width: 88px; height: 88px; }
+  .slotDrive.filled .flopSvg { filter: drop-shadow(0 6px 9px rgba(0,0,0,.35)); animation: flopIn .3s cubic-bezier(.2,.9,.25,1); }
+  @keyframes flopIn { from { transform: translateY(-16px) scale(.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+  .flopBody { stroke: rgba(0,0,0,.28); stroke-width: 1.5; }
+  .flop-personal .flopBody { fill: var(--primary); }
+  .flop-master .flopBody { fill: var(--danger); }
+  .flopSlider { fill: rgba(255,255,255,.82); }
+  .flopShutter { fill: #9aa7bd; stroke: rgba(0,0,0,.12); }
+  .flopLabel { fill: #f7fbff; }
+  .flopName { font: 800 15px var(--ui-font); }
+  .flop-personal .flopName { fill: color-mix(in srgb, var(--primary) 72%, #000); }
+  .flop-master .flopName { fill: color-mix(in srgb, var(--danger) 72%, #000); }
+  .flopDate { font: 600 9.5px var(--ui-font); fill: #6b7789; }
+  .flopDashed { color: var(--on-surface-var); opacity: .5; }
+  .flopDashed path, .flopDashed rect { fill: none; stroke: currentColor; stroke-width: 2; stroke-dasharray: 5 5; }
+  .slot.drag .flopDashed { color: var(--primary); opacity: .9; }
+  .slot h4 { margin: 0 0 3px; font-size: 13.5px; font-weight: 800; color: var(--on-surface); }
+  .slot .sub { font-size: 10.5px; color: var(--pop-muted); margin-bottom: 8px; }
+  .slot .slotState { font-size: 12px; color: var(--pop-muted); min-height: 32px; line-height: 1.5; }
+  .slot .slotState b { color: var(--on-surface); }
+  .slot .badge { display: inline-block; margin-left: 5px; padding: 1px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; background: var(--primary); color: var(--on-primary); vertical-align: middle; }
+  .slot .drop { margin: 8px 0 10px; font-size: 11px; color: var(--pop-muted); }
+  .slot .drop b { color: var(--on-surface-var); }
+  .slot .slotBtns { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  .slot .slotBtns button { font-size: 12px; padding: 6px 11px; }
+  .slotFootHint { margin-top: 12px; font-size: 11px; color: var(--pop-muted); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+  .slotFootHint b { color: var(--on-surface); }
+

@@ -1,0 +1,245 @@
+/* [모듈] css/sidebar.css — 토스 반사 카드, 아이콘 칩, 섹션 접기 애니, 갈래 색, 근무표식 사이드바(눌린 블록·플로팅·크기 조절), 입력칸·버튼 높이·스와치·눈 버튼 */
+  /* ===== 토스 반사 카드 ===== */
+  .sec {
+    border: 1px solid transparent; border-radius: var(--rc);
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--shadow-card);
+  }
+  .sec > h3 {
+    margin: 0; padding: 14px 15px; font-size: 14px; font-weight: 700; letter-spacing: -.02em;
+    color: var(--on-surface); border-radius: var(--rc);
+    cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none;
+    word-break: keep-all;   /* '그림자'가 '그/림자'로 안 쪼개지게 (한글은 단어 단위로만 줄바꿈) */
+  }
+  .sec > h3:hover { background: var(--state-hover); }
+  /* 아이콘 칩 */
+  .secIcon {
+    width: 30px; height: 30px; flex: none; padding: 6px; border-radius: 9px;
+    background: var(--surface-hi); color: var(--on-surface-var);
+  }
+  /* 태풍 아이콘 실루엣 — 태풍 모양을 섹션 강조색으로 칠한다(원래 아이콘 색감과 통일) */
+  .secIconMask { display: block; width: 100%; height: 100%; background: currentColor;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+    -webkit-mask-size: contain; mask-size: contain; }
+  /* 접기 화살표 */
+  .sec > h3::after {
+    content: '\25BE'; color: var(--on-surface-var); font-size: 10px; margin-left: 4px;
+    transition: transform .2s;
+  }
+  .sec.closed > h3::after { transform: rotate(-90deg); }
+  /* 열고 접기 애니메이션 — grid-template-rows 1fr<->0fr 로 높이를 부드럽게.
+     (내용은 .bodyInner 로 감싸 overflow:hidden 으로 잘리게 하고, 패딩도 그 안에 둬서 같이 접힌다) */
+  .sec > .body { display: grid; grid-template-rows: 1fr; }
+  html.anim-ready .sec > .body { transition: grid-template-rows .34s cubic-bezier(0.34, 0, 0.15, 1); }
+  .sec.closed > .body { grid-template-rows: 0fr; }
+  /* .bodyInner = 클리퍼(패딩 없음 → 0fr 로 완전히 접힘), .bodyPad = 실제 패딩(클리퍼 안이라 같이 잘림) */
+  .sec > .body > .bodyInner { min-height: 0; overflow: hidden; transition: opacity .22s ease; }
+  .sec.closed > .body > .bodyInner { opacity: 0; }
+
+  /* 갈래별 아이콘/태그 색 — 제목은 중립, 아이콘·칩만 계열색 */
+  .sec[data-grp="map"]   .secIcon { color: var(--grp-map-on);   background: color-mix(in srgb, var(--grp-map) 16%, var(--surface-hi)); }
+  .sec[data-grp="map"]   .tag     { color: var(--grp-map-on);   background: color-mix(in srgb, var(--grp-map) 16%, transparent); }
+  .sec[data-grp="paint"] .secIcon { color: var(--grp-paint-on); background: color-mix(in srgb, var(--grp-paint) 16%, var(--surface-hi)); }
+  .sec[data-grp="paint"] .tag     { color: var(--grp-paint-on); background: color-mix(in srgb, var(--grp-paint) 16%, transparent); }
+  .sec[data-grp="text"]  .secIcon { color: var(--grp-text-on);  background: color-mix(in srgb, var(--grp-text) 16%, var(--surface-hi)); }
+  .sec[data-grp="text"]  .tag     { color: var(--grp-text-on);  background: color-mix(in srgb, var(--grp-text) 16%, transparent); }
+  .sec.special .secIcon { color: var(--sp-on); background: color-mix(in srgb, var(--sp-line) 16%, var(--surface-hi)); }
+  .sec.special .tag     { color: var(--sp-on); background: color-mix(in srgb, var(--sp-line) 16%, transparent); }
+  .sec.special[data-sec="fct"] .secIcon { color: var(--fc-on); background: color-mix(in srgb, var(--fc-line) 16%, var(--surface-hi)); }
+  .sec.special[data-sec="fct"] .tag     { color: var(--fc-on); background: color-mix(in srgb, var(--fc-line) 16%, transparent); }
+  .sec.pinned .secIcon { color: var(--primary); background: color-mix(in srgb, var(--primary) 15%, var(--surface-hi)); }
+  .sec.pinned .tag     { color: var(--primary); background: color-mix(in srgb, var(--primary) 15%, transparent); }
+
+  /* '이 지도에서 편집' 묶음 라벨 (카드들 사이 구분선) */
+  .grpHead {
+    margin: 4px 5px 0; padding: 2px; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .04em; color: var(--on-surface-var);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .grpHead::before, .grpHead::after { content: ''; flex: 1; height: 1px; background: var(--outline-var); }
+
+  /* h3 오른쪽의 갈래 태그 (칩) */
+  .sec > h3 .tag {
+    margin-left: auto; font-size: 9.5px; font-weight: 700; letter-spacing: 0;
+    color: var(--on-surface-var); background: var(--tag-bg);
+    padding: 3px 9px; border-radius: 999px;
+    white-space: nowrap; flex: none; /* 제목이 길어져도 칩은 한 줄로 (세로로 접히는 것 방지) */
+  }
+
+  /* ===== 근무표식 사이드바 (근무표 #side-nav와 같은 디자인 언어) =====
+     납작한 목록: 카드·그림자 없음, 아이콘 단색(글자색을 따라감), 열린 항목 = 파란 틴트 배경 + 파란 글자.
+     #panel 안에서만 적용 — 메뉴 드롭다운·떼어낸 창으로 옮겨진 섹션은 위의 카드 스타일 그대로. */
+  :root, :root[data-theme="dark"] { --nav-active-bg: rgba(106,168,255,.14); --nav-active-fg: #8ab4ff; }
+  :root[data-theme="light"] { --nav-active-bg: rgba(49,130,246,.1); --nav-active-fg: #2f77f6; }
+  .panel { background: var(--surface-c); box-shadow: none; border-right: 1px solid var(--outline-var); gap: 3px; padding: 8px 12px 0; }
+  #panel > .appHeader { background: var(--surface-c); margin: -8px -12px 6px; padding: 13px 14px 10px; top: -8px; gap: 10px; }
+  #panel > .appHeader .ahLogo { width: 32px; height: 32px; }
+  #panel > .appHeader .ahLogo svg { width: 31px; height: 31px; }
+  #panel > .appHeader .ahTop { font-size: 15px; letter-spacing: -.03em; }
+  #panel > .appHeader .ahSub { font-size: 11px; }
+  #panel > .panelFooter { margin: 0 -12px; padding: 10px; box-shadow: none; }
+  #panel > .sec { border: 0; border-radius: 12px; background: none; box-shadow: none; }
+  /* 섹션 머리 — 43→38px(사이드바 배율 1.3에서 56→49px). 글자 13.5px·아이콘 19px */
+  #panel > .sec > h3 {
+    padding: 9px 11px; gap: 11px; border-radius: 12px;
+    font-size: 13.5px; font-weight: 600; color: var(--on-surface-var);
+    transition: background .13s, color .13s;
+  }
+  #panel > .sec > h3:hover { background: var(--surface-hi); color: var(--on-surface); }
+  #panel > .sec:not(.closed) > h3 { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+  #panel > .sec > h3 .secIcon { width: 19px; height: 19px; padding: 0; border-radius: 0; background: none; color: currentColor; }
+  #panel > .sec > h3 .tag { display: none; }   /* 갈래 칩(지도·글자·특수·칠하기)은 사이드바에서 숨김 */
+  /* 접기 표시: 근무표 꺾쇠(›)처럼 얇은 선 — 닫힘=오른쪽, 열림=아래. 칩이 없으니 항상 오른쪽 끝 */
+  #panel > .sec > h3::after {
+    content: ''; flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; font-size: 0;
+    border-right: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor;
+    opacity: .55; transform: translateY(-2px) rotate(45deg);
+  }
+  #panel > .sec.closed > h3::after { transform: rotate(-45deg); }
+  /* 펼친 항목 = '눌린' 블록. 머리(h3)+내용을 사이드바 바탕보다 한 톤 어두운 바탕 + 은은한 안쪽 그림자로 한 덩어리로 감싼다
+     → 아래 내용이 '그 메뉴 안'이라는 게 한눈에 보인다. 닫힌 항목은 예전처럼 바탕 없이 납작한 목록.
+     바탕은 ::before 한 겹(불투명도만 전환) — 색 자체에 트랜지션을 걸면 테마 전환 때 이전 색이 남는 크로미움 버그를 피한다. */
+  :root, :root[data-theme="dark"] {
+    --sec-well: #161616;
+    --sec-well-sh: inset 0 1px 3px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.035);
+  }
+  :root[data-theme="light"] {
+    --sec-well: #eef1f5;
+    --sec-well-sh: inset 0 1px 3px rgba(15,23,42,.09), inset 0 0 0 1px rgba(15,23,42,.05);
+  }
+  #panel > .sec { position: relative; isolation: isolate; border-radius: 14px; }
+  #panel > .sec::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    border-radius: inherit; background: var(--sec-well); box-shadow: var(--sec-well-sh);
+    opacity: 0; transition: opacity .26s ease;
+  }
+  #panel > .sec:not(.closed)::before { opacity: 1; }
+  /* 밝은 테마: 블록 안의 카드·목록칸(surface-hi)은 흰색으로 띄워 회색 바탕과 구분 (어두운 테마는 원래 값이 이미 더 밝다) */
+  :root[data-theme="light"] #panel > .sec:not(.closed) { --surface-hi: #ffffff; }
+  /* 펼친 내용 — 블록 안쪽 여백(가장자리에 붙지 않게) */
+  #panel > .sec > .body > .bodyInner > .bodyPad { padding: 9px 9px 12px; }
+  #panel > .sec:not(.closed) { margin: 3px 0 6px; }
+  #panel > .grpHead { margin: 10px 4px 4px; }
+  /* 열 때 깜빡이는 강조 — 납작한 목록이라 카드 그림자 없이 얇은 링만 */
+  @keyframes flashSecFlat {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(49,130,246,0); }
+    30%, 70% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent); }
+  }
+  #panel > .sec.flash { animation-name: flashSecFlat; }
+  /* 플로팅 — 근무표 카드처럼 창 가장자리에서 띄운 둥근 사각형(반경 20, 반사 테두리, 부드러운 그림자) */
+  #panel {
+    margin: 10px 0 10px 10px; border-radius: 20px; border: 1px solid transparent;
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
+    box-shadow: var(--shadow-card);
+  }
+  .app.dockR #panel { margin: 10px 10px 10px 0; box-shadow: var(--shadow-card); }
+  /* 크기 조절 — 손잡이(바·알약) 없이 사이드바 끝선을 잡고 끌면 된다(보이지 않는 잡기 영역 + 좌우 커서) */
+  .panelResize, .panelResize:hover, .panelResize.on { background: transparent; border-left: 0; }
+  .panelResize::after { display: none; }
+  /* 스크롤바도 평소엔 숨기고 사이드바에 마우스를 올렸을 때만 얇게 */
+  #panel::-webkit-scrollbar { width: 6px; }
+  #panel::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+  #panel:hover::-webkit-scrollbar-thumb { background: var(--scrollbar); }
+
+  /* 항목 안의 작은 구분 머리 */
+  .subhead {
+    display: flex; align-items: baseline; gap: 5px;
+    font-size: 11.5px; font-weight: 700; color: var(--on-surface);
+    margin: 14px 0 8px; padding-top: 12px; border-top: 1px solid var(--outline-var);
+  }
+  .subhead:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .subhead span { font-weight: 500; font-size: 10px; color: var(--on-surface-var); }
+  .subhead.work { color: var(--grp-paint-on); }
+  .body { padding: 0; }
+  .bodyPad { padding: 0 15px 15px; }
+
+  /* wrap = 안전망. 칸이 줄 폭을 넘으면 잘려 안 보이는 게 아니라 다음 줄로 내려간다.
+     (date/time 처럼 고유 폭이 큰 칸을 새로 넣었을 때 조용히 잘려나가는 걸 막는다) */
+  .row { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; flex-wrap: wrap; }
+  .row > label { width: 58px; flex: none; color: var(--on-surface-var); }
+  .row.wide > label { width: 74px; }
+  /* date·time·datetime-local을 빼먹으면 그 칸만 안 줄어들어 패널 밖으로 잘려나간다 */
+  input[type=number], input[type=text], input[type=date], input[type=time],
+  input[type=datetime-local], input[type=password], select, textarea {
+    flex: 1; min-width: 0; background: var(--surface-field); border: 1px solid var(--outline);
+    color: var(--on-surface); border-radius: var(--ri); padding: 6px 9px; font: inherit;   /* 32→28px(약 −12%) */
+  }
+  textarea { width: 100%; resize: vertical; font-family: ui-monospace, monospace; font-size: 10px; }
+  input[type=range] { flex: 1; min-width: 0; accent-color: var(--primary); }
+  input[type=checkbox] { accent-color: var(--primary); }
+  input[type=color] {
+    width: 30px; height: 26px; padding: 0; border: 1px solid var(--outline);
+    border-radius: 8px; background: none; cursor: pointer; flex: none; overflow: hidden;
+  }
+  /* 색이 둥근 박스를 꽉 채우게 — 기본 스와치의 여백/테두리(네모 속 네모)를 없앤다 */
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: none; border-radius: 6px; }
+  input[type=color]::-moz-color-swatch { border: none; border-radius: 6px; }
+  input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(49,130,246,.14); }
+  /* 버튼에 background/background-color 트랜지션을 걸지 말 것.
+     테마를 바꿀 때(=변수만 갈아끼울 때) 크로미움이 트랜지션에 물려 버튼만 이전 테마 색으로
+     남는다. 새로고침해야 풀린다. hover는 트랜지션 없이도 충분히 자연스럽다. */
+  /* 기본 버튼 높이 34→30px(약 −12%, 사이드바 배율 1.3에서 44→39px) — 사이드바·드롭다운·툴바·떼어낸 창이 한꺼번에 따라온다 */
+  button {
+    background: var(--btn); border: 1px solid var(--btn-line); color: var(--on-surface);
+    border-radius: var(--rb); padding: 7px 10px; font: inherit; font-weight: 600; letter-spacing: -.01em; cursor: pointer;
+  }
+  button:hover { background: var(--btn-hover); }
+  button.pri {
+    background: var(--accent-grad, var(--primary)); border: none; color: var(--on-primary); font-weight: 700;
+    box-shadow: 0 4px 12px -4px rgba(49,130,246,.5);
+  }
+  button.pri:hover { filter: brightness(1.05); }
+  button:disabled { opacity: .4; cursor: default; }
+  /* 선택 카드 체크 표시가 톡 튀어나오는 애니메이션 (CG 구성 창 .cgsCard) */
+  @keyframes choiceCheck { from { opacity: 0; transform: scale(.3) rotate(-20deg); } }
+  .presetManage { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--outline-var); }
+  .presetManageTitle { margin-bottom: 9px; color: var(--on-surface); font-size: 12px; font-weight: 800; }
+  .presetReset { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--outline-var); }
+  .presetResetTitle { margin-bottom: 8px; color: var(--danger); font-size: 11px; font-weight: 800; }
+  /* 개인 배치 저장/초기화 — 평소엔 접어두고 아래 화살표로 슈욱 펼침 */
+  .presetMoreToggle { width: 100%; margin-top: 10px; background: transparent; border: none; color: var(--pop-muted); font-size: 11.5px; font-weight: 700; padding: 6px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; }
+  .presetMoreToggle:hover { background: var(--state-hover); color: var(--on-surface); }
+  .presetMoreToggle svg { width: 14px; height: 14px; transition: transform .28s ease; }
+  .presetMoreToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  /* 접힌 동안엔 visibility도 숨김 — 안 보이는 저장·초기화 버튼에 Tab 포커스가 들어가지 않게(펼치면 바로, 접히면 애니메이션 뒤) */
+  .presetMoreBody { max-height: 0; overflow: hidden; opacity: .0; visibility: hidden; transition: max-height .32s ease, opacity .28s ease, visibility 0s linear .32s; }
+  .presetMoreBody.open { max-height: 340px; opacity: 1; visibility: visible; transition: max-height .32s ease, opacity .28s ease, visibility 0s; }
+  .presetMoreBody .presetManage { margin-top: 4px; border-top: none; padding-top: 4px; }
+  /* 잘 안 쓰는 CG 종류 카드(날씨 팀) — 골라지지 않았을 때 흐리게(눈에 덜 띄게) */
+  #resBtns button.resDim:not(.choicePending):not(:hover) { opacity: .55; }
+  .btns { display: flex; gap: 7px; flex-wrap: wrap; }
+  .btns > button { flex: 1; }
+  /* 사이드바·떼어낸 창 버튼은 한 줄 — 좁은 칸에서 '기상청 단기예/보 열기'·'붙여넣은 걸로 / 읽기'처럼 끊겨 두 줄(높이 ×1.5)로 커지지 않게.
+     nowrap 이면 글자 폭이 그 버튼의 최소 폭이 돼 긴 쪽이 조금 더 넓어지고(flex: 1 이어도), 둘이 한 줄에 안 들어가면 다음 줄로 내려간다.
+     max-width 100% = 줄보다 넓어지진 않게. overflow:hidden 은 주지 말 것(flex 최소 폭이 0이 돼 다시 같은 폭으로 줄어든다) */
+  #panel .btns > button, #panel .btns > a.linkBtn, #wins .btns > button, #wins .btns > a.linkBtn { white-space: nowrap; max-width: 100%; }
+  /* 칸이 많은 줄(예보 종류 3칸·색 계열 5칸)은 좌우 여백만 줄여 한 줄에 들어가게 */
+  #fctKindBtns > button { padding-left: 6px; padding-right: 6px; }
+  #swapRamp > button { padding-left: 4px; padding-right: 4px; }
+  /* 안내문도 낱말 단위로만 줄바꿈('붙여넣/으면' 같은 끊김 없게) — 긴 주소·코드만 아무 데서나 */
+  .hint { color: var(--on-surface-var); line-height: 1.6; margin: 6px 0 0; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+  /* 체크박스 글은 낱말 단위로만 줄바꿈('경계에/서' 같은 끊김 없게) */
+  .chk { display: flex; align-items: center; gap: 5px; color: var(--on-surface-var); cursor: pointer; word-break: keep-all; overflow-wrap: anywhere; }
+  .chk input { flex: none; }
+
+  /* 포토샵식 눈 버튼 */
+  .eye {
+    flex: none; width: 26px; height: 26px; padding: 0; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .eye::before {
+    content: ''; width: 16px; height: 16px; background: currentColor;
+    -webkit-mask: var(--eye-on) center/contain no-repeat; mask: var(--eye-on) center/contain no-repeat;
+  }
+  .eye.off { color: var(--on-surface-var); opacity: .5; }
+  .eye.off::before { -webkit-mask-image: var(--eye-off); mask-image: var(--eye-off); }
+  :root {
+    --eye-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 5C6 5 2 12 2 12s4 7 10 7 10-7 10-7-4-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z'/%3E%3C/svg%3E");
+    --eye-off: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 4.3L3.3 3l17.7 17.7-1.3 1.3-3.2-3.2A11 11 0 0112 19C6 19 2 12 2 12a17 17 0 014.3-4.9L2 4.3zM12 7a5 5 0 014.6 7l-2-2A3 3 0 0011 8.4l-2-2A5 5 0 0112 7zm0 10c1 0 2-.2 2.8-.5l-1.6-1.6a3 3 0 01-3.6-3.6L7.4 9.5A9 9 0 004.3 12c.9 1.2 3.5 5 7.7 5z'/%3E%3C/svg%3E");
+  }
+  /* 텍스트 목록의 눈 */
+  .item .eye { width: 20px; height: 20px; background: none; border: none; }
+  .item .eye::before { width: 14px; height: 14px; }
+
+  .pal { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 9px; }

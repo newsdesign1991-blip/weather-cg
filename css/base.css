@@ -1,0 +1,198 @@
+/* [모듈] css/base.css — 글꼴(@font-face: Pretendard·SUITE CG), 색 역할·토스 팔레트·팝업 공통 토큰(다크/라이트), html/body·앱 뼈대, 사이드바 바닥·footer, 작은 버튼 */
+  @font-face { font-family: 'Pretendard Variable'; font-style: normal; font-display: swap; font-weight: 45 920; src: url('../FontNew/PretendardVariable.woff2') format('woff2-variations'), url('../FontNew/PretendardVariable.woff2') format('woff2'); }
+  /* CG 출력 전용 글꼴. 편집기 UI는 아래 --ui-font(Pretendard)를 쓴다. */
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 300; src: url('../FontNew/SUITE-Light.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 400; src: url('../FontNew/SUITE-Regular.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 500; src: url('../FontNew/SUITE-Medium.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 600; src: url('../FontNew/SUITE-SemiBold.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 700; src: url('../FontNew/SUITE-Bold.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 800; src: url('../FontNew/SUITE-ExtraBold.otf') format('opentype'); }
+  @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 900; src: url('../FontNew/SUITE-Heavy.otf') format('opentype'); }
+
+  * { box-sizing: border-box; }
+
+  /* ===== 머티리얼 3 색 역할 =====
+     색은 전부 여기서만 정한다. 아래 규칙에 #hex를 직접 쓰면 라이트 모드에서 깨진다.
+     surface(바닥) < surface-c(패널) < surface-hi(입력칸·항목) 순으로 밝아진다. */
+  :root, :root[data-theme="dark"] {
+    /* 토스 카드 팔레트 (스케줄 앱과 동일) */
+    --surface: #0f0f0f;
+    --surface-c: #212121;
+    --surface-hi: #272727;
+    --surface-field: #272727;
+    --outline: #3a3a3a;
+    --outline-var: #303030;
+    --on-surface: #f1f1f1;
+    --on-surface-var: #aaaaaa;
+    --primary: #3182f6;
+    --on-primary: #ffffff;
+    --primary-hover: #4a94ff;
+    --btn: #272727;
+    --btn-hover: #323232;
+    --btn-line: #3a3a3a;
+    --state-hover: rgba(255,255,255,.06);
+    --tag-bg: rgba(255,255,255,.07);
+    --shade: rgba(0,0,0,.5);
+    --stage: #0b0d10;
+    --stage-check: #14171c;
+    --scrollbar: #3a3a3a;
+    /* 카드 토큰 (radius는 두 테마 공용) */
+    --card-fill: #212121;
+    --refl: linear-gradient(135deg, rgba(255,255,255,.2), rgba(255,255,255,.05) 40%, rgba(0,0,0,.32) 100%);
+    --shadow-card: 0 1px 2px rgba(0,0,0,.28), 0 12px 28px -16px rgba(0,0,0,.55);
+    --rc: 18px; --rb: 10px; --ri: 10px;
+    --accent-grad: linear-gradient(135deg,#4a94ff,#2f77f6);
+    /* 갈래별 색 — 띠(accent)와 제목(on) */
+    --grp-map: #4a7f6a;      --grp-map-on: #9fd8bf;
+    --grp-paint: #b58b3c;    --grp-paint-on: #e9c884;
+    --grp-text: #8a6fb0;     --grp-text-on: #c3aee0;
+    --sp-bg: #2b2438;        --sp-line: #a06ee0;  --sp-on: #cbaaf5;  --sp-field: #1d1826;
+    /* 예보 — 특보(보라)와 아주 조금만 다르게 남색 쪽으로 */
+    --fc-bg: #262b3c;        --fc-line: #7d8ae6;  --fc-on: #b6c2f5;  --fc-field: #191d29;
+    --pin-bg: linear-gradient(#22384d, #1b2c3d);
+    --pin-line: #55a8dd;     --pin-on: #b3ddf7;   --pin-field: #101a24;
+    --pin-tag-on: #0d1a24; /* 태그 알약이 밝은 하늘색이라 글자는 어두워야 읽힌다 */
+    --pin-btn: #2f4d66;      --pin-btn-hover: #3b5f7d; --pin-btn-line: #4a7a9c;
+    --pin-top: #3d6480;      --pin-bot: #16222e;
+    --danger: #ff6b6b;
+    --ok: #2fb86c;   /* 정상·완료(초록) — 오류(danger)와 확실히 구분 */
+    --caution: #f0a43a;   /* 불러오긴 했지만 확인이 필요(주황) — 일부 줄을 못 읽음·지도에 없는 구역 */
+  }
+  :root[data-theme="light"] {
+    --surface: #f1f4f8;
+    --surface-c: #ffffff;
+    --surface-hi: #f2f5f9;
+    --surface-field: #ffffff;
+    --outline: #d3dae5;
+    --outline-var: #e2e8f0;
+    --on-surface: #334155;
+    --on-surface-var: #94a3b8;
+    --primary: #3182f6;
+    --on-primary: #ffffff;
+    --primary-hover: #2f77f6;
+    --btn: #ffffff;
+    --btn-hover: #f2f5f9;
+    --btn-line: #e2e8f0;
+    --state-hover: rgba(0,0,0,.04);
+    --tag-bg: rgba(0,0,0,.05);
+    --shade: rgba(20,24,40,.14);
+    --stage: #c9cfda;
+    --stage-check: #d5dae3;
+    --scrollbar: #cbd5e3;
+    --card-fill: #f8fafd;
+    --refl: linear-gradient(135deg, #ffffff, rgba(255,255,255,.5) 58%, rgba(15,23,42,.13) 100%);
+    --shadow-card: 0 1px 2px rgba(20,24,40,.04), 0 12px 28px -16px rgba(20,24,40,.17);
+    --grp-map: #2e7d63;      --grp-map-on: #17614a;
+    --grp-paint: #b07b12;    --grp-paint-on: #8a5d0b;
+    --grp-text: #7a5cb8;     --grp-text-on: #5b3f8c;
+    --sp-bg: #f4eefe;        --sp-line: #8b5cf6;  --sp-on: #6231bd;  --sp-field: #ffffff;
+    --fc-bg: #eef1fe;        --fc-line: #5c72f6;  --fc-on: #3140bd;  --fc-field: #ffffff;
+    --pin-bg: linear-gradient(#e6f2fc, #d8eaf8);
+    --pin-line: #1e7fc4;     --pin-on: #0d5387;   --pin-field: #ffffff;
+    --pin-tag-on: #ffffff; /* 라이트에선 알약이 진한 파랑이라 반대로 흰 글자 */
+    --pin-btn: #d3e7f7;      --pin-btn-hover: #c2ddf3; --pin-btn-line: #94c2e4;
+    --pin-top: #b9d9ef;      --pin-bot: #b0cfe6;
+    --danger: #d32f2f;
+    --ok: #16a34a;
+    --caution: #c27803;
+  }
+  /* ===== 팝업 공통 토큰 — 근무표 최신 팝업(공지·투표·일정)과 같은 결 =====
+     막 = 어두운 반투명 + 살짝 블러 · 카드 = 반사 테두리(--refl) 반경 18~20 · 머리 = 옅은 색 틴트(진한 색 띠·흰 글자 아님) + 기본색 제목 ·
+     닫기 = 유리 원 · 주 버튼 = --accent-grad. 열기 = 막 페이드 + 카드가 아래에서 올라옴(popCardIn), 닫기 = .popClosing(popAnimClose). */
+  :root, :root[data-theme="dark"] {
+    --pop-ov: rgba(6, 10, 20, .62);
+    --pop-shadow: 0 1px 2px rgba(0,0,0,.28), 0 22px 55px -14px rgba(0,0,0,.6);
+    --pop-drop-shadow: 0 1px 2px rgba(0,0,0,.28), 0 18px 46px -12px rgba(0,0,0,.6);
+    --pop-hd: rgba(106,168,255,.08);      --pop-hd-line: rgba(106,168,255,.13);
+    --pop-hd-red: rgba(255,120,110,.09);  --pop-hd-red-line: rgba(255,120,110,.16);
+    --pop-hd-green: rgba(74,222,128,.08); --pop-hd-green-line: rgba(74,222,128,.15);
+    --pop-x-bg: rgba(50,50,50,.55); --pop-x-line: rgba(255,255,255,.12); --pop-x-hover: rgba(78,78,78,.72);
+    --pop-muted: #a3a3a3; --pop-label: #6aa8ff;
+  }
+  :root[data-theme="light"] {
+    --pop-ov: rgba(15, 23, 42, .32);   /* 밝은 테마 막은 근무표(rgba(0,0,0,.3))처럼 옅게 — 짙은 회색으로 덮여 무거워 보이지 않게 */
+    --pop-shadow: 0 1px 2px rgba(20,24,40,.05), 0 22px 55px -14px rgba(20,24,40,.30);
+    --pop-drop-shadow: 0 1px 2px rgba(20,24,40,.05), 0 18px 46px -12px rgba(20,24,40,.34);
+    --pop-hd: rgba(49,130,246,.07);       --pop-hd-line: rgba(49,130,246,.12);
+    --pop-hd-red: rgba(224,72,60,.07);    --pop-hd-red-line: rgba(224,72,60,.14);
+    --pop-hd-green: rgba(22,163,74,.08);  --pop-hd-green-line: rgba(22,163,74,.15);
+    --pop-x-bg: rgba(255,255,255,.55); --pop-x-line: rgba(255,255,255,.65); --pop-x-hover: rgba(255,255,255,.92);
+    --pop-muted: #64748b; --pop-label: #3182f6;
+  }
+  /* 열기·닫기 움직임 — 근무표 ndModalFade/ndModalPop(.32·.46초) · 닫힘 ndModalPopOut(.34초)과 같은 값 */
+  @keyframes popOvIn { from { opacity: 0; } }
+  @keyframes popOvOut { to { opacity: 0; } }
+  @keyframes popCardIn { from { opacity: 0; transform: translateY(48px); } }
+  @keyframes popCardOut { to { opacity: 0; transform: translateY(34px); } }
+  @keyframes popPopIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+  .popClosing { pointer-events: none; }   /* 닫히는 동안(.34초)은 클릭이 아래로 지나간다 */
+
+  /* html까지 overflow:hidden — 어떤 자식이 넘쳐도 문서 자체가 스크롤돼 앱이 위로 밀리지 않게 */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  /* 편집기 UI 글꼴 — 앱에 넣은 Pretendard. 파일을 못 읽으면 Segoe UI + 맑은 고딕(윈도), 맥은 시스템 글꼴 */
+  :root { --ui-font: 'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif; }
+  body {
+    font-family: var(--ui-font);
+    background: var(--surface); color: var(--on-surface);
+    font-size: 12px; letter-spacing: -0.01em; overflow: hidden;
+  }
+  /* 뷰포트에 완전히 고정 — 브라우저 창/북마크바에 상단이 잘리지 않도록. 맨 위 제목줄(#titlebar, --tbH) 아래부터. */
+  .app { position: fixed; inset: var(--tbH, 0px) 0 0 0; display: flex; }
+
+  .panel {
+    /* 카드들이 뜨는 바닥. 폭 288px 고정 + zoom(--pz)으로 통째 확대. */
+    width: 288px; zoom: var(--pz, 1); flex: none; background: var(--surface);
+    overflow-y: auto; overscroll-behavior: contain;
+    padding: 10px 11px 0; box-shadow: 2px 0 16px -6px var(--shade);
+    scroll-behavior: smooth; position: relative;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  /* 사이드바 크기 조절 손잡이 (안쪽 모서리). 위치는 JS가 잡는다.
+     갤럭시탭 분할화면 손잡이처럼 가운데에 알약 그립을 '항상' 띄워서 조절 가능함을 알린다. */
+  .panelResize {
+    position: fixed; top: var(--tbH, 0px); bottom: 0; width: 12px; z-index: 20; cursor: ew-resize;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface-c);   /* 투명(체커 비침) 대신 어두운 배경 바로 채운다 */
+    border-left: 1px solid var(--outline-var); transition: background .15s;
+  }
+  .panelResize::after {    /* 가운데 알약 그립 */
+    content: ''; width: 5px; height: 46px; border-radius: 3px;
+    background: var(--on-surface-var); opacity: .55;
+    transition: opacity .15s, background .15s, height .15s;
+  }
+  .panelResize:hover, .panelResize.on { background: var(--surface-hi); }
+  .panelResize:hover::after, .panelResize.on::after { opacity: 1; background: var(--primary); height: 64px; }
+
+  /* 경계선 같은 (색줄 + 투명도) 한 묶음을 라운드 박스로 감싸 옆 묶음과 구분 */
+  .fieldGroup {
+    border: 1px solid var(--outline-var); border-radius: 12px;
+    padding: 8px 10px 2px; margin-bottom: 8px; background: var(--surface-hi);
+  }
+  .fieldGroup .row:last-child { margin-bottom: 6px; }
+  input[type=number], input[type=text], select { background: var(--surface-field) !important; }
+  .panel::-webkit-scrollbar { width: 8px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
+  /* 사이드바 맨 아래 고정 footer — '새로 시작' */
+  .panelFooter {
+    position: sticky; bottom: 0; z-index: 3; flex: 0 0 auto; margin: 0 -11px 0; padding: 11px;
+    background: var(--surface-c); border-top: 1px solid var(--outline-var);
+    box-shadow: 0 -6px 14px -8px var(--shade);
+  }
+  .panelFooter .footRow { display: flex; gap: 8px; align-items: stretch; }
+  .panelFooter .footRow .newBtn { flex: 1; }
+  .panelFooter .footIcon { flex: 0 0 auto; width: 38px; padding: 5px 0; display: inline-flex; align-items: center; justify-content: center; }
+  .panelFooter .footIcon svg { width: 17px; height: 17px; }
+  /* 상단바 작은 아이콘 버튼 (되돌리기/다시) */
+  .topbar .iconBtn { padding: 4px 7px; display: inline-flex; align-items: center; justify-content: center; }
+  .topbar .iconBtn svg { width: 16px; height: 16px; display: block; }
+  .topbar .iconBtn:disabled { opacity: .35; }
+  /* 스크롤 여백(옛 85vh 패딩 대체) — footer 앞에 두어야 sticky가 바닥에 제대로 붙는다 */
+  .panelScrollPad { flex: 0 0 auto; height: 70vh; pointer-events: none; }
+  /* 약간 붉은 톤 버튼 */
+  button.danger {
+    background: color-mix(in srgb, var(--danger) 15%, var(--surface-hi));
+    border-color: color-mix(in srgb, var(--danger) 42%, var(--outline-var));
+    color: var(--danger); font-weight: 700;
+  }
+  button.danger:hover { background: color-mix(in srgb, var(--danger) 26%, var(--surface-hi)); }
+

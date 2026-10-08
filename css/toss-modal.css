@@ -1,0 +1,158 @@
+/* [모듈] css/toss-modal.css — 토스 카드 모달, 공지 목록·작성, 접이식 묶음, 렌더 가리개, 참고 이미지 드롭, 토글 스위치, 지도 배경 버튼, 브러쉬 원·산 히트·가이드(포인터 통과) */
+  /* ===== 토스 카드 모달 (공지·안내 공통) — 근무표 최신 팝업과 같은 결 =====
+     옅은 틴트 머리(data-tone: blue 기본·red 경고·green 완료/작성) + 기본색 제목 16px·옆에 작은 부제 + 유리 닫기, 반사 테두리 카드.
+     열기 = 막 페이드 + 카드가 아래에서 올라옴, 닫기 = popAnimClose(.popClosing .34초 뒤 지움). 머리 높이 80→59px */
+  .tossOv { position: fixed; inset: 0; z-index: 100002; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--pop-ov); backdrop-filter: blur(4px); animation: popOvIn .32s ease both; }
+  .tossCard {
+    max-width: 500px; width: 100%; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
+    color: var(--on-surface); font-family: var(--ui-font);
+    border: 1px solid transparent; border-radius: 20px;
+    background: linear-gradient(var(--card-fill), var(--card-fill)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-shadow); animation: popCardIn .46s cubic-bezier(.16,1,.3,1) both;
+  }
+  .tossCard.wide { max-width: 600px; }
+  .tossOv.popClosing { animation: popOvOut .34s ease both; }
+  .tossOv.popClosing .tossCard { animation: popCardOut .34s ease both; }
+  .tossHead { flex: none; display: flex; align-items: center; gap: 10px; padding: 13px 14px 13px 20px; background: var(--pop-hd); border-bottom: 1px solid var(--pop-hd-line); }
+  .tossHead[data-tone="red"] { background: var(--pop-hd-red); border-bottom-color: var(--pop-hd-red-line); }
+  .tossHead[data-tone="green"] { background: var(--pop-hd-green); border-bottom-color: var(--pop-hd-green-line); }
+  .tossHeadTxt { flex: 1; min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; row-gap: 1px; }
+  .tossTitle { font-size: 16px; font-weight: 800; letter-spacing: -.02em; line-height: 1.35; color: var(--on-surface); word-break: keep-all; }
+  .tossHead[data-tone="red"] .tossTitle { color: var(--danger); }   /* 경고 — 틴트가 옅으니 제목 색으로도 알린다 */
+  .tossSub { font-size: 12px; font-weight: 500; color: var(--pop-muted); word-break: keep-all; }
+  .tossHeadAct { display: flex; gap: 6px; align-items: center; }
+  /* 한글은 낱말 단위로만 줄바꿈('만/듭니다' 끊김 없게) — 경로(.tossPath)는 아래에서 break-all 로 따로 */
+  .tossBody { padding: 16px 20px; overflow-y: auto; color: var(--on-surface); font-size: 13.5px; line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; }
+  /* 본문 스크롤바 — 윈도 기본(흰 바탕·화살표) 대신 앱 스크롤바(두 테마 --scrollbar). 이미지 팝업·배치 슬롯 창도 같게 */
+  .tossBody::-webkit-scrollbar, .slotCard::-webkit-scrollbar, .imgPopBody::-webkit-scrollbar { width: 10px; height: 10px; }
+  .tossBody::-webkit-scrollbar-track, .slotCard::-webkit-scrollbar-track, .imgPopBody::-webkit-scrollbar-track { background: transparent; }
+  .tossBody::-webkit-scrollbar-thumb, .slotCard::-webkit-scrollbar-thumb, .imgPopBody::-webkit-scrollbar-thumb { background-color: var(--scrollbar); background-clip: padding-box; border: 2px solid transparent; border-radius: 6px; }
+  .tossBody::-webkit-scrollbar-button, .slotCard::-webkit-scrollbar-button, .imgPopBody::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .tossBody p { margin: 0 0 9px; }
+  .tossBody ul { margin: 6px 0 0; padding-left: 18px; }
+  .tossBody li { margin-bottom: 6px; }
+  .tossFoot { flex: none; padding: 12px 20px 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  /* 바닥 버튼 42→38px. 주 버튼 = 앱 파랑 그라디언트(근무표 주 버튼), 보조 = 회색 + 얇은 테두리 */
+  .tossBtn { height: 38px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; }
+  .tossBtn.pri { background: var(--accent-grad, var(--primary)); color: #fff; box-shadow: 0 4px 12px -4px rgba(49,130,246,.5); }
+  .tossBtn.pri:hover { background: var(--accent-grad, var(--primary)); filter: brightness(1.06); }
+  .tossBtn.ghost { background: var(--surface-hi); color: var(--on-surface); font-weight: 700; box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .tossBtn.ghost:hover { background: var(--btn-hover); }
+  .tossStep { display: flex; gap: 10px; margin-bottom: 10px; }
+  .tossStep .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #FA2E1E; color: #fff; font-weight: 800; text-align: center; line-height: 22px; font-size: 12px; }
+  .tossPath { margin-top: 12px; padding: 10px 12px; background: var(--surface-hi); border-radius: 10px; font-size: 12.5px; color: var(--pop-muted); word-break: break-all; }
+  /* 닫기·머리 아이콘 버튼 = 유리 원(근무표 .modal-close) — CG 구성·토스·배치 슬롯·이미지 팝업·API 설정 공통. 글자색 X 아이콘(SVG) */
+  .cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button {
+    flex: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--pop-x-bg); border: 1px solid var(--pop-x-line); color: var(--on-surface);
+    box-shadow: 0 2px 8px rgba(15,23,42,.12); backdrop-filter: blur(10px);
+  }
+  .cgsX:hover, .tossX:hover, .tossHeadIcon:hover, .slotHead .x:hover, .imgPopHead button:hover, .apiHead button:hover { background: var(--pop-x-hover); }
+  .cgsX svg, .tossX svg, .slotHead .x svg, .imgPopHead button svg, .apiHead button svg { width: 15px; height: 15px; display: block; }
+  .tossHeadIcon svg { width: 16px; height: 16px; display: block; }
+  .slotHead .x { width: 30px; height: 30px; }
+  .imgPopHead button { width: 28px; height: 28px; }
+  .imgPopHead button svg { width: 14px; height: 14px; }
+  .apiHead button { width: 26px; height: 26px; box-shadow: none; }
+  .apiHead button svg { width: 13px; height: 13px; }
+  /* 움직임 줄이기 설정이면 팝업 등장 움직임을 끈다(닫힘은 popAnimClose가 바로 처리) */
+  @media (prefers-reduced-motion: reduce) {
+    .tossOv, .tossCard, .confirmOverlay.on, .confirmOverlay.on .confirmCard, #slotOverlay.on, #slotOverlay.on .slotCard,
+    .imgPop.on, .imgPop.on .imgPopInner, #apiPop.on { animation: none; }
+  }
+  /* 공지 목록·작성 */
+  .ntList { display: flex; flex-direction: column; gap: 10px; }
+  .ntItem { position: relative; border: 1px solid var(--outline-var); border-radius: 14px; padding: 12px 44px 12px 14px; background: var(--cgs-card); }
+  .ntItem .d { font-size: 11.5px; color: var(--pop-muted); font-weight: 700; margin-bottom: 3px; }
+  .ntItem .t { font-size: 15px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 5px; color: var(--on-surface); }
+  .ntItem .b { font-size: 13px; line-height: 1.6; color: var(--on-surface); }
+  .ntDelete { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid rgba(229,72,77,.28); border-radius: 8px; background: rgba(229,72,77,.08); color: #E5484D; cursor: pointer; }
+  .ntDelete:hover { background: #E5484D; color: #fff; border-color: #E5484D; }
+  .ntDelete:focus-visible { outline: 3px solid rgba(229,72,77,.28); outline-offset: 2px; }
+  .ntEmpty { color: var(--on-surface-var, #6b7280); text-align: center; padding: 26px 0; }
+  /* 자주 안 쓰는 '다른 나라' 불러오기 묶음 (접이식) */
+  .typOther > summary { cursor: pointer; font-size: 12px; color: var(--on-surface-var); padding: 5px 8px; border: 1px dashed var(--outline-var); border-radius: 8px; list-style: none; user-select: none; }
+  .typOther > summary::-webkit-details-marker { display: none; }
+  .typOther > summary::before { content: '▸ '; color: var(--on-surface-var); }
+  .typOther[open] > summary::before { content: '▾ '; }
+  .typOther > summary:hover { background: var(--btn-hover); }
+  /* 렌더(추출) 중 스테이지 깜빡임 가리개 — 라이브 SVG를 프레임마다 갱신해 깜빡이므로 덮어 둔다 */
+  /* 참고 이미지 드롭 박스 — 파일 끌어오면 강조 */
+  #tycRefDrop.drophot { border-color: var(--primary) !important; border-style: solid; background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--on-surface); }
+  /* 모바일풍 토글 스위치 (비교 태풍 탭의 표시 on/off) — 한 줄에 하나: 글자 왼쪽·스위치 오른쪽 */
+  .swtch { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; font-size: 12.5px; cursor: pointer; user-select: none; white-space: nowrap; margin: 5px 0; }
+  .swtch > span { flex: 1 1 auto; }
+  .swtch input { appearance: none; -webkit-appearance: none; margin: 0; flex: 0 0 auto; width: 38px; height: 22px; border-radius: 999px; cursor: pointer;
+    background: color-mix(in srgb, var(--on-surface-var, #9fb0c8) 40%, transparent); position: relative; transition: background .18s ease; }
+  .swtch input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .18s cubic-bezier(.4,0,.2,1); }
+  .swtch input:checked { background: var(--primary, #3B82F6); }
+  .swtch input:checked::after { transform: translateX(16px); }
+  .mapLockBtn { position: absolute; top: 56px; right: -48px; z-index: 40; width: 36px; height: 36px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,.85); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; color: #eaf2ff;
+    background: color-mix(in srgb, var(--surface-c, #0e1626) 85%, transparent); backdrop-filter: blur(3px); box-shadow: 0 2px 8px rgba(0,0,0,.45); transition: background .16s, color .16s, transform .1s; }
+  .mapLockBtn:hover { background: color-mix(in srgb, var(--surface-c, #0e1626) 82%, transparent); color: var(--on-surface, #eef); }
+  .mapLockBtn:active { transform: scale(.94); }
+  .mapLockBtn.locked { background: #E5301F; color: #fff; box-shadow: 0 2px 10px rgba(229,48,31,.45); }   /* 잠김 = 틴트 레드 */
+  /* 지도 배경(위성/파랑) 선택 버튼 — 아트보드 오른쪽 바깥 위에 붙어 있음 */
+  .basemapBtn { position: absolute; top: 12px; right: -48px; z-index: 40; width: 36px; height: 36px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,.85); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; color: #eaf2ff;
+    background: color-mix(in srgb, var(--surface-c, #0e1626) 85%, transparent); backdrop-filter: blur(3px); box-shadow: 0 2px 8px rgba(0,0,0,.45); transition: background .16s, color .16s, transform .1s; }
+  .basemapBtn:hover { background: color-mix(in srgb, var(--surface-c, #0e1626) 82%, transparent); color: var(--on-surface, #eef); }
+  .basemapBtn:active { transform: scale(.94); }
+  .basemapBtn.sat { background: #1f7a52; color: #fff; box-shadow: 0 2px 10px rgba(31,122,82,.45); }   /* 위성모드 = 초록 틴트 */
+  .basemapPop { position: absolute; top: 12px; right: 46px; z-index: 45; min-width: 150px; padding: 8px; border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-c, #12203a) 96%, #000); box-shadow: 0 10px 30px rgba(0,0,0,.4); border: 1px solid color-mix(in srgb, var(--on-surface,#fff) 10%, transparent); }
+  .basemapPop .bmHead { font-size: 11px; font-weight: 700; color: var(--on-surface-var, #9fb0c8); padding: 2px 6px 6px; }
+  .basemapPop .bmOpt { display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 9px; border: none; border-radius: 9px;
+    background: transparent; color: var(--on-surface, #eef); font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .basemapPop .bmOpt:hover { background: color-mix(in srgb, var(--on-surface,#fff) 10%, transparent); }
+  .basemapPop .bmOpt.on { background: color-mix(in srgb, var(--primary,#5B8CFF) 22%, transparent); }
+  .basemapPop .bmSw { width: 20px; height: 20px; border-radius: 6px; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+  .basemapPop .bmMbx { padding: 2px 4px 4px; }
+  .basemapPop .bmMbx textarea { width: 100%; box-sizing: border-box; resize: vertical; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--on-surface,#fff) 16%, transparent);
+    background: color-mix(in srgb, #000 30%, transparent); color: var(--on-surface, #eef); font-size: 11px; font-family: inherit; padding: 6px 8px; margin: 2px 0 6px; }
+  .basemapPop .bmApply { width: 100%; border: none; border-radius: 8px; padding: 7px; background: var(--primary, #5B8CFF); color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
+  .basemapPop .bmApply:hover { filter: brightness(1.06); }
+  .basemapPop .bmMbxHint { margin: 7px 2px 0; font-size: 10.5px; line-height: 1.4; color: var(--on-surface-var, #9fb0c8); }
+  #exportMask { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--surface-c, #0e1626) 88%, #000);
+    opacity: 0; pointer-events: none; transition: opacity .32s cubic-bezier(.4,0,.2,1); }
+  #exportMask.on { opacity: 1; pointer-events: auto; }
+  #exportMask .emCard { text-align: center; color: var(--on-surface, #eef); font-size: 18px; font-weight: 800; letter-spacing: -.01em;
+    transform: translateY(6px) scale(.985); transition: transform .32s cubic-bezier(.4,0,.2,1); }
+  #exportMask.on .emCard { transform: none; }
+  #exportMask .emSub { margin-top: 7px; font-size: 12.5px; color: var(--on-surface-var, #9fb0c8); font-weight: 500; }
+  #exportMask .emBar { margin: 18px auto 0; width: 280px; max-width: 62vw; height: 8px; border-radius: 999px; overflow: hidden;
+    background: color-mix(in srgb, var(--on-surface, #eef) 15%, transparent); }
+  #exportMask .emBarFill { display: block; height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, #5B8CFF, #7C5CFF); transition: width .25s cubic-bezier(.4,0,.2,1); }
+  #exportMask .emPct { margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--on-surface, #eef); font-variant-numeric: tabular-nums; }
+  /* 작성 폼 — 라벨은 근무표 섹션 라벨처럼 12.5px/700 강조색, 칸은 흰(다크=#272727) 바탕 반경 12 */
+  .ntForm label { display: block; font-size: 12.5px; font-weight: 700; margin: 0 0 6px; color: var(--pop-label); }
+  .tossHead[data-tone="green"] + .tossBody .ntForm label { color: var(--ok); }   /* 라벨 색 = 머리 톤(근무표 공지 작성처럼) */
+  .ntForm input, .ntForm textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--outline); border-radius: 12px; padding: 9px 12px; font-size: 13px; font-family: inherit; background: var(--surface-field); color: var(--on-surface); margin-bottom: 12px; }
+  .ntForm textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+  #noticeBtn, #helperBtn { position: relative; }
+  #noticeBtn.hasNew::after, #helperBtn.hasNew::after { content: ''; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #E5484D; border: 1.5px solid var(--surface-c, #fff); }
+  /* 마우스 주변 브러쉬 크기 원. non-scaling-stroke 는 dash 길이를 어긋나게 해서(원이 안 닫힘) 쓰지 않는다. */
+  #brushCursor { fill: none; stroke: #4a94ff; stroke-width: 2; stroke-opacity: .9; pointer-events: none; }
+  /* 브러쉬 그림은 순수 시각 오버레이 — 지도 전체 bbox를 덮으므로 클릭을 가로채면 안 된다
+     (가로채면 SHIFT 영역 선택·칠하기 클릭이 아래 존에 안 닿는다) */
+  .brushLayer { pointer-events: none; }
+  .movemode .zone, .movemode .insetHit { cursor: move; }
+  /* 산 히트 영역: 이동 모드에서만 잡히게. 칠하기 모드에선 통과시켜 아래 지도를 칠한다. */
+  .mtnHit { pointer-events: none; }
+  .movemode .mtnHit { pointer-events: all; }
+  .insetGrip circle { fill: #3b82f6; stroke: #fff; stroke-width: 2; cursor: nwse-resize; }
+  .insetGrip:hover circle { fill: #60a5fa; }
+  .insetGrip .gripArrow { stroke: #fff; stroke-width: 1.6; fill: none; pointer-events: none; }
+  .drag { cursor: move; }
+  .selbox { fill: none; stroke: #3b82f6; stroke-width: 2; stroke-dasharray: 6 4; pointer-events: none; }
+  /* 가이드는 화면 위에 덮이므로 마우스를 가로채면 안 된다 */
+  #L_guide, #L_guides { pointer-events: none; }
+  #L_sel { pointer-events: none; }
+  #L_sel .selGrip { pointer-events: all; } /* 그룹 크기 핸들만 잡힌다 */
+  .alignLine { stroke: #FF3B8D; stroke-width: 1.2; stroke-dasharray: 7 5; }
+  .selGroup { fill: none; stroke: #3b82f6; stroke-width: 1.4; }
+  .selGrip circle { fill: #3b82f6; stroke: #fff; stroke-width: 2; cursor: nwse-resize; }
+  .selGrip:hover circle { fill: #60a5fa; }
