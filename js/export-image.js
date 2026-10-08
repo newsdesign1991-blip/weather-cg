@@ -221,10 +221,15 @@ async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
   return img;
 }
 
-// 텍스처 삼각형 — src 삼각형을 dst 삼각형으로 어파인 매핑해 이미지 조각을 그린다(메시 워프용).
+// 텍스처 삼각형 — src 삼각형을 dst 삼각형으로 어파인 매핑해 이미지 조각을 그린다(메시 워프용 — WebGL을 못 쓸 때만).
+// 클립 삼각형만 무게중심에서 바깥으로 0.75px 부풀려 이웃 삼각형과 겹치게 한다(매핑은 원래 점 그대로) — 안 그러면 이음매가 어두운 실선으로 남는다.
+// 축소 샘플링은 'high'(밉맵) — 'low'는 1px 흰 선이 점선으로 끊긴다(미리보기 GL과 같은 까닭).
 function drawTexTri(cx, img, s0, s1, s2, d0, d1, d2) {
   cx.save();
-  cx.beginPath(); cx.moveTo(d0[0], d0[1]); cx.lineTo(d1[0], d1[1]); cx.lineTo(d2[0], d2[1]); cx.closePath(); cx.clip();
+  const gx = (d0[0] + d1[0] + d2[0]) / 3, gy = (d0[1] + d1[1] + d2[1]) / 3, E = 0.75;
+  const inf = (p) => { const dx = p[0] - gx, dy = p[1] - gy, L = Math.hypot(dx, dy) || 1; return [p[0] + dx / L * E, p[1] + dy / L * E]; };
+  const a0 = inf(d0), a1 = inf(d1), a2 = inf(d2);
+  cx.beginPath(); cx.moveTo(a0[0], a0[1]); cx.lineTo(a1[0], a1[1]); cx.lineTo(a2[0], a2[1]); cx.closePath(); cx.clip();
   const x0 = s0[0], y0 = s0[1], x1 = s1[0], y1 = s1[1], x2 = s2[0], y2 = s2[1];
   const u0 = d0[0], v0 = d0[1], u1 = d1[0], v1 = d1[1], u2 = d2[0], v2 = d2[1];
   const det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
@@ -233,6 +238,7 @@ function drawTexTri(cx, img, s0, s1, s2, d0, d1, d2) {
     const b = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det;
     const c = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det;
     const d = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+    cx.imageSmoothingQuality = 'high';
     cx.setTransform(a, c, b, d, u0 - a * x0 - b * y0, v0 - c * x0 - d * y0);
     cx.drawImage(img, 0, 0);
     cx.setTransform(1, 0, 0, 1, 0, 0);
@@ -251,8 +257,10 @@ function fadeEdgesCanvas(img, w, h, f) {
   x.globalCompositeOperation = 'source-over';
   return c;
 }
-// 확장 지도 이미지(블리드 포함, 프레임보다 큼)를 임의 3D 회전(rx,ry,rz)+원근으로 메시 워프. 프레임(W×H) 중앙 기준.
+// 확장 지도 이미지(블리드 포함, 프레임보다 큼)를 임의 3D 회전(rx,ry,rz)+원근으로 기울여 얹는다. 프레임(W×H) 중앙 기준.
+// 먼저 미리보기와 같은 WebGL 렌더러(js/tilt-gl.js tglWarp — 밉맵·비등방, 정확한 원근)로, 못 쓰면 24×24 메시 워프(2D 캔버스)로.
 function warpTilt3D(cx, img, W, H) {
+  if (tglWarp(cx, img, W, H)) return;
   const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;   // 확장 이미지 크기(프레임px 단위)
   img = fadeEdgesCanvas(img, iw, ih, CAM_EDGE_FADE / 100);   // 가장자리 부드럽게(미리보기 #camCanvas 마스크와 동일)
   const m = S.map3d || {};

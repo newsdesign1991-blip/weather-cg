@@ -87,7 +87,7 @@
 <link rel="preload" href="FontNew/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/base.css?v=505143ba">
 <link rel="stylesheet" href="css/sidebar.css?v=7796a853">
-<link rel="stylesheet" href="css/stage.css?v=907e0480">
+<link rel="stylesheet" href="css/stage.css?v=974b23b9">
 <link rel="stylesheet" href="css/titlebar.css?v=0d3f15d1">
 <link rel="stylesheet" href="css/start-tour.css?v=36750797">
 <link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
@@ -1034,7 +1034,7 @@
       <button data-mt="nationwide" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#2b4a6e,#1c3350)"></span>전국 지도</button>
       <button data-mt="seoul" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a8a,#2b7a5b)"></span>서울 지도</button>
     </div>
-    <div id="camClip"><canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas></div>
+    <div id="camClip"><canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas><canvas id="camGL" width="1" height="1" style="display:none"></canvas></div>
     <svg id="cg" class="paintmode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
       <defs>
         <style id="fontStyle"></style>
@@ -1257,7 +1257,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/core.js?v=18ffceb7"></script>
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
-<script src="js/map-build.js?v=60c1b8ef"></script>
+<script src="js/map-build.js?v=59810997"></script>
 <script src="js/map-render.js?v=cc2484c2"></script>
 <script src="js/vf-legend.js?v=06464ea1"></script>
 <script src="js/labels-mountains.js?v=84a9ae7a"></script>
@@ -1266,7 +1266,8 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/typhoon-panel.js?v=2f0c5859"></script>
 <script src="js/typhoon-api.js?v=6890636a"></script>
 <script src="js/panels.js?v=5a0de650"></script>
-<script src="js/view-camera.js?v=29295ced"></script>
+<script src="js/view-camera.js?v=25f1880f"></script>
+<script src="js/tilt-gl.js?v=23ca46fd"></script>
 <script src="js/pointer-drag.js?v=d4743ead"></script>
 <script src="js/warnings.js?v=fba4f760"></script>
 <script src="js/warnings-apply.js?v=6034c101"></script>
@@ -1279,16 +1280,16 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/modals-notices.js?v=8bb80e22"></script>
 <script src="js/busy-fx.js?v=68bb53cf"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
-<script src="js/export-image.js?v=7b00a8e9"></script>
+<script src="js/export-image.js?v=f3c6faf5"></script>
 <script src="js/export-video.js?v=2c93fead"></script>
 <script src="js/export-blobs.js?v=b0f799ef"></script>
 <script src="js/ae-export.js?v=4b1a0894"></script>
 <script src="js/export-dialog.js?v=3289e025"></script>
 <script src="js/project-io.js?v=804c79f1"></script>
 <script src="js/wiring.js?v=6ab36e09"></script>
-<script src="js/anim.js?v=e2f94ed9"></script>
+<script src="js/anim.js?v=63bd7015"></script>
 <script src="js/timeline-plan.js?v=065640cc"></script>
-<script src="js/timeline-ui.js?v=88e9c8e9"></script>
+<script src="js/timeline-ui.js?v=b5195167"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
 <script src="js/floating-panels.js?v=2fad8f53"></script>
 <script src="js/tour.js?v=77daf9d1"></script>

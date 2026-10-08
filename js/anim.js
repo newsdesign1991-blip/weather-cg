@@ -406,8 +406,9 @@ function animFastOn() {
     for (const n of nodes) n.style.willChange = 'transform';
     fast.cam = nodes;
   }
-  // ③ 틸트(기울기·방향 키 또는 지금 기울어 있음): 정확 경로로 그리되, 지도 래스터는 300ms에 한 번·저해상, 그 사이는 CSS 보정(view-camera.js applyTilt)
-  fast.tilt = !!(camKeys().length && (camKeysRotate() || camActive3d()));
+  // ③ 틸트(기울기·방향 키 또는 지금 기울어 있음): 정확 경로로 그리되, 지도 그림은 내용이 바뀐 프레임에서만(animMapKey) 300ms에 한 번
+  //   다시 굽고, 회전만 바뀐 프레임은 GPU 그리기·보정만(view-camera.js applyTilt·tiltWant)
+  fast.tilt = !!((camKeys().length && camKeysRotate()) || camActive3d());
   _animFast = (fast.groups.length || fast.cam || fast.tilt) ? fast : null;
 }
 // 블라인드 가속 — 색마다 마스크 하나: 슬랫 무늬(pattern) 안 rect 하나의 y·height만 매 프레임 바꾼다(정확 경로는 색마다 rect 수백 개를 다시 씀).
@@ -451,14 +452,45 @@ function animFastCam(t, draw) {
   finally { S.map.x = m0.x; S.map.y = m0.y; S.map.s = m0.s; _tyLiteDraw = false; }
 }
 
+// 재생·스크럽(가속) 중 '틸트 지도 그림'(CAM_MAP_LAYERS)을 바꾸는 값만 모은 열쇠 — 앞 프레임과 같으면 그 프레임은 다시 굽지 않는다
+// (회전만 바뀐 프레임). 칠·브러쉬·산 진행도(드러내기 방식 포함), 태풍 경로·비교선 진행도·선두 아이콘, 노말 VF 진입(래퍼가 지도까지 감싼다).
+// 카메라 위치·배율(S.map)은 view-camera.js tiltWant가 따로 본다. 라벨·제목·범례는 평면 오버레이라 안 넣는다.
+// 빠진 값이 있어도 멈추면 정확 경로(tlSettle)가 그 프레임을 다시 굽는다.
+let _animMapKeyLast = null;
+function animMapKey(t) {
+  const A = anim();
+  const k = [A.reveal || 'dissolve', A.blindSize, A.blindAngle, S.base];
+  if (S.res === '1920x1080-vf') k.push('v' + easeVf(clamp01((t - ANIM_START) / ANIM_VF_ENTER_LEN)).toFixed(3));
+  if (isTyphoon()) {
+    k.push('p' + (typhoonProg == null ? '-' : (+typhoonProg).toFixed(4)), 'h' + (+typhoonHeadFade).toFixed(3));
+    if (typhoonCmpProg) for (const id in typhoonCmpProg) k.push(id + ':' + (typhoonCmpProg[id] == null ? '-' : (+typhoonCmpProg[id]).toFixed(4)));
+    return k.join(',');
+  }
+  for (const tr of A.tracks) if (tr.kind === 'fill' || tr.kind === 'brush' || tr.kind === 'mtn') k.push(tr.kind + ':' + tr.key + ':' + trackProg(tr, t).toFixed(4));
+  // 트랙 없는 브러쉬 색(옛 데이터)은 '첫 칠 전 페이드인' — renderAnimFrameBody와 같은 식
+  const bt = new Set(A.tracks.filter((x) => x.kind === 'brush').map((x) => String(x.key || '').toUpperCase()));
+  if ([...document.querySelectorAll('image.brushLayer[data-col]')].some((im) => !bt.has((im.getAttribute('data-col') || '').toUpperCase()))) {
+    const bft = A.tracks.filter((x) => x.kind === 'fill'), ff = bft.length ? Math.min(...bft.map((x) => x.start)) : ANIM_FILL_LEN;
+    k.push('b' + clamp01(t / Math.max(ff, ANIM_FILL_LEN)).toFixed(3));
+  }
+  return k.join(',');
+}
 // t초 시점의 화면. 재생·미리보기·영상 추출이 모두 이걸 쓴다.
 function renderAnimFrame(t) {
   if (_animFast && _exportingFrames) animFastOff();   // 추출은 늘 정확한 경로
-  if (_animFast && _animFast.cam) { animFastCam(t, () => renderAnimFrameBody(t)); _mapContentRev++; return; }
-  renderAnimFrameBody(t);
-  // 틸트 미리보기는 이번 프레임 내용(animT·칠·태풍)까지 다 그린 뒤 한 번 굽는다(먼저 구우면 한 단계 옛 그림)
-  _mapContentRev++;
+  const lite = !!_animFast;
+  if (lite) brushFinalize();   // 남은 새 획 이미지는 그리기 전에 — 그건 진짜 내용 변경이라 리비전을 그대로 올린다
+  const rev0 = _mapContentRev;
+  if (_animFast && _animFast.cam) animFastCam(t, () => renderAnimFrameBody(t));
+  else renderAnimFrameBody(t);
+  // 틸트 미리보기는 이번 프레임 내용(animT·칠·태풍)까지 다 그린 뒤 한 번 굽는다(먼저 구우면 한 단계 옛 그림).
+  // 정확 경로(멈춘 프레임·추출)는 늘 다시 굽고, 가속(재생·스크럽) 중엔 그리기가 올린 리비전을 되돌린 뒤 지도 그림이 실제로 바뀐 때만 진행 리비전을 올린다.
+  const key = animMapKey(t);
+  if (lite) { _mapContentRev = rev0; if (key !== _animMapKeyLast) _mapAnimRev++; }
+  else _mapContentRev++;
+  _animMapKeyLast = key;
   if (camActive3d() || fit.classList.contains('mapTilt')) applyTilt();
+  else if (!lite && !_exportingFrames && camKeys().length) tiltPrewarmSoon();   // 평면에서 멈췄고 기울일 키가 있으면 진입 그림을 미리
 }
 function renderAnimFrameBody(t) {
   if (!(_animFast && _animFast.cam)) applyCam(t, true);   // 카메라 키프레임이 있으면 S.map을 보간 적용(지도+태풍만 이동, 제목·범례 고정)

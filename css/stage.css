@@ -81,6 +81,8 @@
   /* 카메라 3D 회전 미리보기 — 지도 래스터를 이 캔버스에 그려 기울이고, #cg의 지도 레이어는 숨겨 뒤로 비치게 한다.
      #cg의 오버레이(제목·범례)는 그대로 위에 남는다. */
   #camCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; transform-origin: center center; }
+  /* WebGL2가 되면 #camCanvas는 그림 버퍼로만 쓰고, 이 프레임 크기 캔버스에 밉맵 텍스처로 원근 투영해 그린다(js/tilt-gl.js — 1px 선 반짝임 방지) */
+  #camGL { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
   /* 3D 회전된 캔버스는 overflow로는 안 잘린다 → clip-path로 프레임(1920×1080)에 확실히 클립(추출과 동일하게).
      클립은 캔버스 래퍼(#camClip)에만 건다 — .fit에 걸면 아트보드 밖(right:-48px)의 자물쇠·지도배경 버튼까지 잘려 사라진다.
      회전 시 지도 밖(먼 거리·모서리)은 바다색으로 채운다(투명 방지). 근처는 확장 렌더한 실제 지도가 덮는다. */
