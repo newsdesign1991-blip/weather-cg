@@ -34,19 +34,21 @@ function pick(name) {
 const NAMES = [
   '_tnum', '_cnum', 'fmtKST', 'typPointFromRow', 'parseTypNow', 'typTdPointFromRow', 'parseTdRows', '_dtm', '_tmBack',
   '_scanEdgeReal', '_scanEdgeBoth', 'typhoonHasRows',
-  'KMA_INFLIGHT_MAX', 'KMA_HEDGE_MS', '_kmaQ', '_kmaTmMs', '_kmaTmUnseen', '_kmaTtl', 'kmaRequest', '_kmaPumpSoon', '_kmaPump',
+  'KMA_INFLIGHT_MAX', 'KMA_HEDGE_MS', 'KMA_TTL_PAST', '_kmaQ', '_kmaTmMs', '_kmaTmUnseen', '_kmaTtl', '_kmaDropRecent', 'kmaRequest', '_kmaPumpSoon', '_kmaPump',
   '_kmaFirst', '_kmaCoverTm', '_typScanRecent', '_typPastFind',
   '_kmaTm', 'typhoonApiUrlTm', 'typhoonApiUrl', 'typhoonTdUrlTm', 'typhoonTdUrl',
 ];
-const EXPORT = ['_scanEdgeReal', '_scanEdgeBoth', 'typhoonHasRows', 'kmaRequest', '_kmaFirst', '_kmaCoverTm', '_typScanRecent', '_typPastFind',
+const EXPORT = ['_scanEdgeReal', '_scanEdgeBoth', 'typhoonHasRows', 'kmaRequest', '_kmaFirst', '_kmaCoverTm', '_typScanRecent', '_typPastFind', '_kmaDropRecent',
   'typhoonApiUrl', 'typhoonTdUrl', 'typhoonApiUrlTm', 'typhoonTdUrlTm', '_kmaTm', '_tmBack', '_dtm', '_kmaTmMs', 'parseTypNow', 'parseTdRows', 'typPointFromRow', 'typTdPointFromRow'];
 
 // 앱 코드를 vm에 올린다. server(url, n번째) → { text, ms | hops, fail } 로 가짜 헬퍼를 정한다. hedgeMs로 다시 보내기 대기를 줄여 시험.
 // ms가 있으면 그만큼(타이머), 없으면 hops번 setImmediate 뒤에 응답(빠르게 — 도착 순서만 뒤섞는다).
+// o.names: 더 잘라 올릴 앱 이름들, o.ctx: 더 넣을 전역(가짜 $·status 등). /ping은 늘 살아 있음.
 function sandbox(server, o = {}) {
   const log = { sent: [], active: 0, maxActive: 0, aborted: [] };
   const fetch = (url, opts) => new Promise((resolve, reject) => {
     const u = new URL(url);
+    if (u.pathname === '/ping') return resolve({ ok: true, status: 200, text: async () => '{"ok": true}' });
     const k = u.searchParams.get('u');
     log.sent.push(k);
     log.active++; log.maxActive = Math.max(log.maxActive, log.active);
@@ -62,15 +64,15 @@ function sandbox(server, o = {}) {
     else { const hop = (n) => (n <= 0 ? reply() : setImmediate(() => hop(n - 1))); hop(r.hops || 0); }
     if (opts && opts.signal) opts.signal.addEventListener('abort', () => { clearTimeout(t); log.aborted.push(k); done(() => reject(new Error('AbortError'))); });
   });
-  const ctx = { fetch, WNS_HELPER: 'http://127.0.0.1:3720', apiKey: () => 'KEY', setTimeout, clearTimeout, AbortController, console, URL };
+  const ctx = { fetch, WNS_HELPER: 'http://127.0.0.1:3720', apiKey: () => 'KEY', setTimeout, clearTimeout, AbortController, console, URL, ...(o.ctx || {}) };
   vm.createContext(ctx);
   vm.runInContext(`
     const NOW = { v: 0 };
     class FD extends Date { constructor(...a) { if (a.length === 0) super(NOW.v); else super(...a); } static now() { return NOW.v; } }
     globalThis.Date = FD; globalThis.NOW = NOW;`, ctx);
-  let src = NAMES.map(pick).join('\n');
+  let src = NAMES.concat(o.names || []).map(pick).join('\n');
   if (o.hedgeMs != null) src = src.replace(/KMA_HEDGE_MS = \d+, KMA_HEDGE_BG_MS = \d+/, `KMA_HEDGE_MS = ${o.hedgeMs}, KMA_HEDGE_BG_MS = ${o.bgMs || o.hedgeMs * 5}`);
-  vm.runInContext(src + '\n' + EXPORT.map((n) => `globalThis.${n} = ${n};`).join('\n') + '\nglobalThis._kmaQ = _kmaQ;', ctx);
+  vm.runInContext(src + '\n' + EXPORT.concat(o.names || []).map((n) => `globalThis.${n} = ${n};`).join('\n') + '\nglobalThis._kmaQ = _kmaQ;', ctx);
   return { ctx, log };
 }
 
@@ -389,4 +391,140 @@ test('헬퍼가 실패를 주면(502·끊김) 조회 결과는 null — 옛 kmaG
   assert.equal(await W.ctx.kmaRequest(u, 200).p, null);
   fail = false;
   assert.equal(await W.ctx.kmaRequest(u, 200).p, 'data');
+});
+
+// ── 검토 보강(2026-10-08): 다시 불러오기 캐시, 아무도 안 기다리는 요청, accept 오류, 뒤에서 붙이는 TD가 사용자 편집을 덮지 않기 ──
+test('다시 불러오기(_kmaDropRecent): 최근 시각 기억만 버리고(새 발표를 놓치지 않게) 지난 시각 기억은 그대로 쓴다', async () => {
+  const W = sandbox(() => ({ text: 'x', ms: 1 }));
+  W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4);
+  const recent = W.ctx.typhoonApiUrl(0), past = W.ctx.typhoonApiUrlTm('202610010000');
+  await W.ctx.kmaRequest(recent, 0).p; await W.ctx.kmaRequest(past, 0).p;
+  assert.equal(W.log.sent.length, 2);
+  W.ctx._kmaDropRecent();
+  await W.ctx.kmaRequest(recent, 0).p; await W.ctx.kmaRequest(past, 0).p;
+  assert.deepEqual(W.log.sent, [recent, past, recent], '최근 시각만 다시 묻는다');
+});
+
+test('기다리는 쪽이 다 떠난 진행 중 요청은 다시 보내지 않는다(답이 정해진 뒤 인증키 사용량 아끼기)', async () => {
+  const W = sandbox(() => ({ text: 'late', ms: 200 }), { hedgeMs: 20 });
+  W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4);
+  const u = W.ctx.typhoonApiUrlTm('202610010000');
+  const h = W.ctx.kmaRequest(u, 0);
+  await new Promise((r) => setTimeout(r, 5));   // 보낸 뒤(진행 중)
+  h.cancel();
+  await new Promise((r) => setTimeout(r, 260));
+  assert.equal(W.log.sent.filter((x) => x === u).length, 1, '다시 보내기 안 함');
+  assert.equal(await W.ctx.kmaRequest(u, 0).p, 'late', '받은 응답은 기억해 둔다');
+  assert.equal(W.log.sent.length, 1);
+});
+
+test('_kmaFirst: accept가 던지면 멈춰 서지 않고 그 오류로 끝난다(버튼이 잠긴 채 남지 않게)', async () => {
+  const W = sandbox(() => ({ text: 'x', ms: 1 }));
+  W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4);
+  const urls = ['202610010000', '202610010600'].map(W.ctx.typhoonApiUrlTm);
+  await assert.rejects(W.ctx._kmaFirst(urls, () => { throw new Error('parse'); }), /parse/);
+});
+
+// attachEdgeTD(뒤에서 붙이기) — 가짜 화면($·status·문서)과 기상청 흉내로 돌린다.
+// 세계: TD 56(10-05 06~18 UTC, 괌 북서) → 태풍 28(10-06 00 UTC부터). 지금 트랙 = 태풍 28 → 발생 TD 3점이 붙어야 한다.
+function edgeWorld(o = {}) {
+  const T0 = Date.UTC(2026, 9, 6, 0);
+  const storms = [
+    { kind: 'td', id: 56, pts: [-18, -12, -6].map((h, i) => ({ t: T0 + h * H, lat: 14 + i * 0.3, lon: 142 - i * 0.5, ws: 14 })) },
+    { kind: 'typ', id: 28, pts: [0, 6, 12, 18, 24, 30, 36, 42, 48].map((h, i) => ({ t: T0 + h * H, lat: 15 + i * 0.6, lon: 140.5 - i * 0.7, ws: 25 })) },
+  ];
+  const model = kmaModel(storms);
+  const el = { '#status': { textContent: '' }, '#typAddTD': { disabled: false } };
+  const statuses = [];
+  const body = { tagName: 'BODY' };
+  const doc = { body, activeElement: body };
+  const core = storms[1].pts.map((p) => ({ tmef: tmStr(p.t), lat: p.lat, lon: p.lon, ws: p.ws, fcst: false, label: '' }));
+  const S = { typhoon: { issues: [{ points: core.slice() }], sel: 0, labels: [] } };
+  const W = sandbox((u) => ({ text: model(kindOf(u), tmOfUrl(u)), ms: o.ms || 5 }), {
+    hedgeMs: o.hedgeMs, bgMs: o.bgMs,
+    names: ['_typTyping', '_typEdgeSeq', 'attachEdgeTD', '_remapEdgePoints'],
+    ctx: {
+      S, document: doc, $: (s) => el[s] || null,
+      status: (m) => { el['#status'].textContent = m; statuses.push(m); },
+      curTyphoonIssue: () => (S.typhoon && S.typhoon.issues[S.typhoon.sel]) || null,
+      pushUndo: () => {}, renderTyphoon: () => {}, buildTyphoonPanel: () => {}, isTyphoonCompare: () => false, buildCompareSection: () => {},
+      wnsHelperOffNotice: () => {},
+    },
+  });
+  W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4, 45);
+  return { ...W, S, el, statuses, doc, core };
+}
+const DONE = '불러옴: 제28호 태풍';
+const CHECKING = DONE + ' · 발생·소멸 열대저압부 확인 중…';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test('뒤에서 붙이기(attachEdgeTD auto): 발생 TD 3점을 붙이고 문구가 끝남을 알린다 / 버튼도 다시 풀린다', async () => {
+  const W = edgeWorld();
+  await W.ctx.attachEdgeTD(true, DONE);
+  const pts = W.S.typhoon.issues[0].points;
+  assert.equal(pts.filter((p) => p._edgeTD).length, 3);
+  assert.equal(pts.length, W.core.length + 3);
+  assert.deepEqual(W.statuses, [CHECKING, W.statuses[1]]);
+  assert.match(W.statuses[1], /^과거·미래 트랙 붙임 — 발생 3점/);
+  assert.equal(W.el['#typAddTD'].disabled, false);
+});
+
+test('뒤에서 붙이기: 사용자가 글자 칸에 입력 중이면 그 칸을 떠날 때까지 미뤘다가 붙인다(입력·한글 조합을 덮지 않게)', async () => {
+  const W = edgeWorld();
+  W.doc.activeElement = { tagName: 'INPUT', type: 'text' };   // 이름 칸에 입력 중
+  const p = W.ctx.attachEdgeTD(true, DONE);
+  await sleep(400);   // 조회는 이미 끝났다
+  assert.equal(W.S.typhoon.issues[0].points.length, W.core.length, '입력 중에는 안 붙인다');
+  assert.equal(W.el['#status'].textContent, CHECKING, '그동안 문구는 확인 중');
+  W.doc.activeElement = W.doc.body;   // 칸을 떠남
+  await p;
+  assert.equal(W.S.typhoon.issues[0].points.filter((q) => q._edgeTD).length, 3);
+  // 체크박스·슬라이더에 포커스가 있는 것은 입력 중이 아니다
+  const W2 = edgeWorld();
+  W2.doc.activeElement = { tagName: 'INPUT', type: 'range' };
+  await W2.ctx.attachEdgeTD(true, DONE);
+  assert.equal(W2.S.typhoon.issues[0].points.filter((q) => q._edgeTD).length, 3);
+});
+
+test('뒤에서 붙이기: 확인하는 사이 지점 하나를 지우고 하나 넣으면(길이 같음) 붙이지 않고 문구를 불러옴으로 되돌린다', async () => {
+  const W = edgeWorld();
+  const p = W.ctx.attachEdgeTD(true, DONE);
+  const pts = W.S.typhoon.issues[0].points;
+  const added = { tmef: '202610081200', lat: 21, lon: 134, ws: 25, fcst: false, label: '' };
+  pts.splice(2, 1); pts.push(added);   // 같은 배열·같은 길이
+  await p;
+  assert.equal(W.S.typhoon.issues[0].points, pts);
+  assert.ok(pts.includes(added), '사용자가 넣은 점이 남는다');
+  assert.equal(pts.filter((q) => q._edgeTD).length, 0, '옛 지점 목록으로 덮어 붙이지 않는다');
+  assert.equal(W.el['#status'].textContent, DONE);
+});
+
+test('뒤에서 붙이기: 더 새 확인이 돌고 있으면 앞 확인은 문구를 되돌리지 않는다(같은 글자의 확인 중 문구를 끝난 것처럼 바꾸지 않게)', async () => {
+  const W = edgeWorld({ ms: 30 });
+  const p1 = W.ctx.attachEdgeTD(true, DONE);
+  await sleep(10);
+  const p2 = W.ctx.attachEdgeTD(true, DONE);   // 다시 불러오기 뒤 새 확인(같은 태풍 → 같은 문구)
+  await Promise.all([p1, p2]);
+  assert.ok(!W.statuses.includes(DONE), '앞 확인이 불러옴 문구로 되돌리지 않음: ' + JSON.stringify(W.statuses));
+  assert.equal(W.S.typhoon.issues[0].points.filter((q) => q._edgeTD).length, 3, '새 확인만 붙인다(두 번 붙지 않음)');
+  assert.equal(W.el['#typAddTD'].disabled, false);
+});
+
+test('버튼(attachEdgeTD 수동)은 사용자가 기다리므로 급한 조회처럼 빨리 다시 보낸다', async () => {
+  // 첫 요청마다 1.5초 늦음 — 급한 다시 보내기(30ms)면 곧 끝나고, 뒤에서 도는 확인 기준(600ms)이면 늦는다
+  const W = edgeWorld({ hedgeMs: 30, bgMs: 600 });
+  const seen = new Map();
+  const real = W.ctx.fetch;
+  W.ctx.fetch = (url, opts) => {
+    const k = new URL(url).searchParams.get('u');
+    if (!k) return real(url, opts);
+    const n = (seen.get(k) || 0) + 1; seen.set(k, n);
+    if (n === 1) return new Promise((resolve, reject) => { const t = setTimeout(() => reject(new Error('slow')), 1500); if (opts && opts.signal) opts.signal.addEventListener('abort', () => { clearTimeout(t); reject(new Error('AbortError')); }); });
+    return real(url, opts);
+  };
+  vm.runInContext('globalThis.fetch = fetch;', W.ctx);
+  const t0 = Date.now();
+  await W.ctx.attachEdgeTD(false);
+  assert.equal(W.S.typhoon.issues[0].points.filter((q) => q._edgeTD).length, 3);
+  assert.ok(Date.now() - t0 < 550, '버튼은 0.9초(여기선 30ms) 기준으로 다시 보낸다: ' + (Date.now() - t0) + 'ms');
 });
