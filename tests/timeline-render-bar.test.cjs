@@ -87,3 +87,11 @@ test("화면에 보이는 '추출'은 '렌더'로 — 제목줄·이미지 팝�
   const code = (s) => s.replace(/\/\/[^\n]*/g, '');
   for (const f of ['tlNote', 'renderExport', 'bakeMp4', 'wnsRender', 'tourStepList', 'tlUpdateFootWarn']) assert.doesNotMatch(code(fnSrc(f)), /추출/, f);
 });
+
+test('타임라인 초기화는 확인창(경고색)으로 먼저 묻고, 취소하면 아무것도 안 지운다', () => {
+  const i = html.indexOf("$('#tlReset').onclick = async () => {");
+  assert.ok(i >= 0, '초기화 핸들러가 async 여야 한다');
+  const h = html.slice(i, html.indexOf("$('#tlBake').onclick", i));
+  assert.match(h, /await tossConfirm\(\{[\s\S]*?title: '타임라인 초기화'[\s\S]*?danger: true/);
+  assert.match(h, /if \(!ok\) return;\s*\n\s*pushUndo\(\);/);   // 확인 뒤에야 되돌리기 기록·지우기
+});

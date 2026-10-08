@@ -87,7 +87,16 @@ function wire() {
     buildTimeline(); tlRefreshPreview();
     status(`카메라 키 ${tlFmtShort(t)} 저장 · 위치(${snap.x},${snap.y}) 확대 ×${snap.s.toFixed(2)}` + (ks.length < 2 ? ' — 다른 시각에 하나 더 찍으면 사이가 애니메이션됩니다' : ''));
   };
-  $('#tlReset').onclick = () => {
+  $('#tlReset').onclick = async () => {
+    // 한 번 누르면 키·트랙이 통째로 사라지니 먼저 묻는다(되돌리기는 그대로 된다)
+    const nTr = ((S.anim && S.anim.tracks) || []).length, nKey = camKeys().length;
+    const what = [nTr ? `트랙 ${nTr}개` : '', nKey ? `카메라 키 ${nKey}개` : ''].filter(Boolean).join('·');
+    const ok = await tossConfirm({
+      title: '타임라인 초기화',
+      message: `${what ? what + '와 ' : ''}길이·효과 설정을 모두 지우고 처음 상태로 되돌릴까요? 실수로 지웠다면 Ctrl+Z로 되돌릴 수 있어요.`,
+      ok: '초기화', cancel: '취소', danger: true,
+    });
+    if (!ok) return;
     pushUndo();
     animStop();
     S.anim = { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] };   // 모든 키·트랙·설정 초기화(카메라 키=anim.cam도 함께 사라짐)
