@@ -31,11 +31,13 @@ function ensureTyphoonKeys(tr) {
   const pts = curTyphoonPoints();
   const { lo, hi } = typhoonAnimWindow(pts); const span = Math.max(1, hi - lo);
   const lineMode = typhoonLineMode();   // 라인 모드: 안 보이는 라벨 키는 새로 만들지 않는다(기존 키는 일반 모드 복귀용으로 보존)
+  // 새 키는 프레임 경계로(AE 키프레임이 프레임 사이에 걸치지 않게 — 타임라인 끌기·입력과 같은 규칙)
+  const fps = (typeof anim === 'function' && +anim().fps) || 29.97, fq = (t) => +(Math.round(t * fps + 1e-6) / fps).toFixed(4);
   for (const b of labs) {
     if (!tr.lab[b.id] && !lineMode) {   // 새로 붙은 라벨: 경로가 그 지점을 지나는 시각에 등장하도록 기본값
       const frac = span > 0 ? Math.min(1, Math.max(0, (b.idx - lo) / span)) : 0;
       const st = tr.ps + easeInOutCInv(frac) * Math.max(0.001, tr.pe - tr.ps);
-      tr.lab[b.id] = { s: +st.toFixed(2), e: +(st + 0.9).toFixed(2) };
+      tr.lab[b.id] = { s: fq(st), e: fq(st + 0.9) };
     }
   }
   // 지운 라벨(또는 지점에서 떨어진 라벨)의 키만 정리 — 숨긴 라벨의 키는 다시 켤 때 손본 타이밍 그대로 쓰게 남긴다(B16)
@@ -175,11 +177,14 @@ const lumOf = (h) => { const [r, g, b] = hex2rgb(h); return 0.2126 * r + 0.7152 
 // 반환 { tracks, dur, msg } (tracks가 비면 만들 것이 없음). id는 새로 받는다.
 function autoTrackPlan() {
   const A = anim();
+  // 시작·끝은 프레임 경계로(소수 4자리) — AE 키프레임이 프레임 위에 앉고, I/O·J/K·[ ]가 막대 끝과 정확히 맞는다(29.97fps에서 1초 = 0;00;01;00 = 1.001초)
+  const fps = +A.fps || 29.97, fq = (t) => +(Math.round(t * fps + 1e-6) / fps).toFixed(4);
+  const fl = (a, len) => +(fq(a + len) - fq(a)).toFixed(4);   // 끝을 프레임에 맞춘 길이
   if (isTyphoon()) {
     // 태풍은 칠/라벨 트랙 대신 '경로 애니메이션' 트랙 하나. 길이 = 홀드 + 경로2초 + 라벨1.2초 + 꼬리1초.
     const hold = animStart(), PATHs = 2.0, LABELs = typhoonLineMode() ? 0 : 1.2, tail = 1.0;   // 라인 모드는 경로 시각 라벨이 없다
-    const tracks = [{ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: +hold.toFixed(2), len: +(PATHs + LABELs).toFixed(2), ps: +hold.toFixed(2), pe: +(hold + PATHs).toFixed(2) }];   // 라벨별 키(lab)는 ensureTyphoonKeys가 채움
-    for (const c of ((S.typhoon && S.typhoon.compare) || [])) tracks.push({ id: 'k' + seq++, kind: 'typcmp', key: c.id, start: +hold.toFixed(2), len: +PATHs.toFixed(2) });   // 비교 예보마다 타임라인 트랙(끌어서 타이밍 조정)
+    const tracks = [{ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: fq(hold), len: fl(hold, PATHs + LABELs), ps: fq(hold), pe: fq(hold + PATHs) }];   // 라벨별 키(lab)는 ensureTyphoonKeys가 채움
+    for (const c of ((S.typhoon && S.typhoon.compare) || [])) tracks.push({ id: 'k' + seq++, kind: 'typcmp', key: c.id, start: fq(hold), len: fl(hold, PATHs) });   // 비교 예보마다 타임라인 트랙(끌어서 타이밍 조정)
     return { tracks, dur: Math.max(4, Math.ceil((hold + PATHs + LABELs + tail) * 2) / 2), msg: '태풍 경로 애니메이션 트랙 구성됨' };
   }
   const F = fills();
@@ -189,7 +194,7 @@ function autoTrackPlan() {
   const cols = Object.keys(seen).sort((a, b) => lumOf(b) - lumOf(a));
 
   const tracks = [];
-  const push = (kind, key, start, len) => tracks.push({ id: 'k' + seq++, kind, key, start: +start.toFixed(2), len });
+  const push = (kind, key, start, len) => tracks.push({ id: 'k' + seq++, kind, key, start: fq(start), len: fl(start, len) });
 
   // 각 색은 앞 색보다 5프레임 뒤에 시작 (5 / fps 초)
   const step = 5 / (A.fps || 29.97);
@@ -220,7 +225,8 @@ function autoTrackPlan() {
 // 손본 트랙 수 — 자동 구성 결과와 시작·길이(경로·라벨 키)가 다른 트랙(같은 대상끼리 비교)
 function animTouchedCount(plan) {
   const A = anim(); let n = 0;
-  const same = (a, b) => Math.abs((+a || 0) - (+b || 0)) < 0.005;
+  // 반 프레임 남짓까지는 같은 값(옛 자동 구성은 소수 2자리, 지금은 프레임 경계 — 손본 값은 늘 1프레임 이상 다르다)
+  const tol = 0.6 / (+A.fps || 29.97), same = (a, b) => Math.abs((+a || 0) - (+b || 0)) < tol;
   for (const tr of A.tracks) {
     const d = plan.tracks.find((x) => x.kind === tr.kind && String(x.key) === String(tr.key));
     if (!d) { n++; continue; }

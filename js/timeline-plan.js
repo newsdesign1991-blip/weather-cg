@@ -232,16 +232,17 @@ function tlEnsureTrack(L, t) {
   const A = anim();
   if (L.track) return L.track;
   const st = tlQuant(Math.max(0, t));
+  const lenTo = (a, b) => +Math.max(tlFrameDur(), tlQuant(b) - a).toFixed(4);   // 끝도 프레임 경계로(최소 1프레임)
   if (L.kind === 'typhoon') {
-    const hold = st, tr = { id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: hold, len: 3.2, ps: hold, pe: +(hold + 2).toFixed(4) };
+    const hold = st, tr = { id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: hold, len: lenTo(hold, hold + 3.2), ps: hold, pe: tlQuant(hold + 2) };
     A.tracks.push(tr); ensureTyphoonKeys(tr); L.track = tr; return tr;
   }
-  if (L.kind === 'typcmp' && !A.tracks.some((x) => x.kind === 'typhoon')) {   // 비교 지도도 메인 경로 트랙이 있어야 재생된다(화면 규칙)
-    A.tracks.push({ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: st, len: 2, ps: st, pe: +(st + 2).toFixed(4) });
+  if (L.kind === 'typcmp' && !A.tracks.some((x) => x.kind === 'typhoon')) {   // 비교 지도: 타이밍 없는 다른 예보도 같은 시각에 그려지게 메인 경로 트랙을 같이(행은 숨김 — B19)
+    A.tracks.push({ id: 'k' + seq++, kind: 'typhoon', key: 'typhoon', start: st, len: lenTo(st, st + 2), ps: st, pe: tlQuant(st + 2) });
   }
   const span = L.implicit;
-  const tr = { id: 'k' + seq++, kind: L.kind, key: L.key, start: span ? tlQuant(span[0]) : st, len: span ? +(span[1] - span[0]).toFixed(4) : (TL_DEF_LEN[L.kind] || 0.8) };
-  if (!span) tr.start = st;
+  const a = span ? tlQuant(span[0]) : st;
+  const tr = { id: 'k' + seq++, kind: L.kind, key: L.key, start: a, len: lenTo(a, span ? span[1] : a + (TL_DEF_LEN[L.kind] || 0.8)) };
   A.tracks.push(tr); L.track = tr; return tr;
 }
 // Shift 스냅 대상(초) — 0·길이 끝·CTI·작업 영역·다른 막대 시작/끝(태풍 하위 포함)·카메라 키. skip = 끌고 있는 행·키 id

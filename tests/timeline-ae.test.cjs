@@ -192,9 +192,13 @@ test('트랙 없는 레이어를 끌면 그 시각에 기본 길이 트랙이 �
   const c = planCtx(S); const P = arr(c.tlLayerPlan());
   const lab = P.find((L) => L.id === 'label:l1');
   const tr = c.tlEnsureTrack(lab, 2.017);
-  close(tr.start, c.tlQuant(2.017)); assert.equal(tr.len, 1.0); assert.equal(tr.kind, 'label'); assert.equal(tr.key, 'l1');
+  // 시작·끝 모두 프레임 경계(기본 길이 1초 → 끝을 프레임에 맞춘 길이)
+  close(tr.start, c.tlQuant(2.017)); close(tr.start + tr.len, c.tlQuant(tr.start + 1.0), 1e-4); assert.equal(tr.kind, 'label'); assert.equal(tr.key, 'l1');
   const br = c.tlEnsureTrack(P.find((L) => L.kind === 'brush'), 3);
-  assert.equal(br.start, 0); close(br.len, 0.8);
+  assert.equal(br.start, 0); close(br.len, c.tlQuant(0.8), 1e-4);
+  // 자동 구성도 프레임 경계 — 시작·끝이 정수 프레임(AE 키프레임이 프레임 사이에 걸치지 않음)
+  const onFrame = (t) => Math.abs(t * 29.97 - Math.round(t * 29.97)) < 0.01;
+  for (const t of c.autoTrackPlan().tracks) assert.ok(onFrame(t.start) && onFrame(t.start + t.len), `${t.kind}:${t.key} ${t.start}+${t.len}`);
   const cmpS = { style: 'typhoonCompare', res: '1920x1080', labels: [], texts: [], legend: {}, typhoon: { issues: [{ points: PTS }], labels: [], compare: [{ id: 'c1', name: 'A', color: '#f00', show: 1 }] }, anim: { dur: 6, fps: 29.97, tracks: [], cam: { keys: [] } } };
   const cc = planCtx(cmpS); const row = arr(cc.tlLayerPlan()).find((L) => L.kind === 'typcmp');
   cc.tlEnsureTrack(row, 1);

@@ -114,6 +114,6 @@ setTimeout(checkNoticeOnBoot, tourWillOpen ? 1500 : 600);
 setTimeout(checkHelperFreshOnBoot, tourWillOpen ? 2400 : 1300);
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
-setInterval(() => { if (!brushStroke) saveWork(); if (typeof tlContentChanged === 'function') tlContentChanged(); }, 1500);   // 브러쉬 드래그 중엔 건너뛴다(손 떼면 저장)
+setInterval(() => { if (!brushStroke) saveWork(); if (typeof tlCheckRows === 'function') tlCheckRows(); }, 1500);   // 브러쉬 드래그 중엔 건너뛴다(손 떼면 저장). 타임라인은 행 구성만 확인(가속 미리보기는 건드리지 않음)
 window.addEventListener('beforeunload', saveWork);
 document.fonts.ready.then(() => { renderLabels(); renderMtns(); renderSel(); });

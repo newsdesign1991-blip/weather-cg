@@ -72,6 +72,9 @@ function wire() {
   $('#tlAuto').onclick = autoTracks;
   // 카메라 키 — 현재 시각(재생헤드, 프레임 단위)에 지금 지도 위치·확대·회전을 저장(같은 시각이면 갱신)
   $('#tlCamKey').onclick = () => {
+    // 재생·스크럽 중(가속 미리보기)엔 S.map이 작업 뷰이고 화면만 CSS로 카메라 뷰 — 멈추고 그 프레임을 정확히 그린 뒤 찍는다(보이는 뷰 = 키)
+    if (animPlaying) animStop();
+    if (_animFast) animSeek(tlQuant(+(tlHeadT || 0)));
     const t = tlQuant(+(tlHeadT || 0));   // 재생헤드 위치(지도 이동으로 animT가 null 돼도 유지)
     pushUndo();
     const ks = camKeys();

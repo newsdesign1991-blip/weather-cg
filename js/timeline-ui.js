@@ -31,7 +31,8 @@ const TL_KEY_SVG = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 .8h1
 
 // ===================== 상태(화면용 — 저장·되돌리기에 안 들어간다) =====================
 const TL_PAD = 12;
-const TLD = { STRUCT: 1, GEOM: 2, RULER: 4, FRAME: 8, HEAD: 16 };
+// CONTENT = 화면 내용을 실제로 다시 그렸다(renderAll·renderFills) — 미리보기 가속 그룹이 낡았으니 걷고 그 시각 프레임을 다시 그린다
+const TLD = { STRUCT: 1, GEOM: 2, RULER: 4, FRAME: 8, HEAD: 16, CONTENT: 32 };
 const TL_UI_KEY = 'wcg_tl_ui';
 const tlState = {
   pps: 100, zoom: 0, scrollX: 0, viewW: 0, hdrW: 0, maxEnd: 0,
@@ -374,7 +375,13 @@ function tlFrame(now) {
     if (t >= P.end) { t = P.end; tlState.playing = false; animPlaying = false; tlState.lowQ = false; tlPlayBtn(false); }
     tlHeadT = t; d |= TLD.FRAME | TLD.HEAD;
   }
-  if (d & TLD.STRUCT) { if (tlSync()) d |= TLD.GEOM; if (_animFast) animFastOff(); }
+  if (d & (TLD.STRUCT | TLD.CONTENT)) {
+    const changed = tlSync();
+    if (changed) d |= TLD.GEOM;
+    // 가속 그룹은 행 구성(트랙 있는 색)이 바뀌었거나 화면을 통째로 다시 그렸을 때만 걷는다 — 걷으면 그 프레임을 바로 다시 그린다.
+    // (예전: 1.5초 자동 점검마다 걷기만 하고 다시 안 그려, 스크럽·끌기를 누른 채 멈추면 칠이 바탕색으로 비고 카메라 뷰가 작업 뷰로 튀었다)
+    if (_animFast && (changed || (d & TLD.CONTENT))) { animFastOff(); if (animT != null) d |= TLD.FRAME; }
+  }
   if (d & (TLD.STRUCT | TLD.GEOM)) tlLayoutBars();
   if (d & (TLD.STRUCT | TLD.GEOM | TLD.RULER)) tlDrawRuler();
   if (d & TLD.FRAME) tlRenderFrame();
@@ -494,7 +501,13 @@ function tlRefreshPreview() {
 // 미리보기 중에 화면을 통째로 다시 그렸으면(renderAll) 그 위에 재생헤드 시각 프레임을 다시 얹는다(B14).
 function tlContentChanged(refreshFrame) {
   if (!tlState.isOpen || tlState.playing || _exportingFrames) return;
-  tlInvalidate(TLD.STRUCT | (refreshFrame && animT != null ? TLD.FRAME : 0));
+  tlInvalidate(TLD.STRUCT | TLD.CONTENT | (refreshFrame && animT != null ? TLD.FRAME : 0));
+}
+// 1.5초 자동 점검(boot.js) — renderAll을 안 거친 변경(새 라벨·제목 등)으로 행 구성이 바뀌었는지만 본다.
+// 끌기·스크럽 중엔 건너뛴다(손 떼면 buildTimeline). 행이 그대로면 아무것도 다시 그리지 않는다.
+function tlCheckRows() {
+  if (!tlState.isOpen || tlState.playing || tlState.dragging || _exportingFrames) return;
+  tlInvalidate(TLD.STRUCT);
 }
 // 되돌리기·다시 실행 뒤 — 막대·키를 되돌린 값으로, 미리보기 중이었으면 그 시각 프레임을 다시(B3)
 function tlAfterStateApplied() {

@@ -332,8 +332,9 @@ let tlClipKeys = null;   // Ctrl+C 한 카메라 키(시각은 첫 키 기준 �
 function tlKeydown(e) {
   const k = e.key, code = e.code;
   // Space·Numpad0 = 타임라인이 열려 있으면 늘(포커스 무관)
-  if (code === 'Space' && !e.ctrlKey && !e.altKey) { e.preventDefault(); animPlay(); return true; }
-  if (code === 'Numpad0') { e.preventDefault(); if (animPlaying) animStop(); else if (hasAnim()) tlPlayStart(true); return true; }
+  // 누른 채 있으면 오는 반복 keydown은 무시(재생·멈춤이 초당 수십 번 번갈아 깜빡이지 않게 — AE도 한 번 누름 = 한 번)
+  if (code === 'Space' && !e.ctrlKey && !e.altKey) { e.preventDefault(); if (!e.repeat) animPlay(); return true; }
+  if (code === 'Numpad0') { e.preventDefault(); if (e.repeat) return true; if (animPlaying) animStop(); else if (hasAnim()) tlPlayStart(true); return true; }
   if (!tlOwnsKeys()) return false;
   const ctrl = e.ctrlKey || e.metaKey, f1 = tlFrameDur(), A = anim();
   const step = (e.shiftKey ? 10 : 1) * f1;
@@ -370,8 +371,12 @@ function tlKeydown(e) {
   if (lk === 'k' || lk === 'j') { const ts = tlVisibleTimes(), t = +tlHeadT || 0, h = 0.5 * f1; const v = lk === 'k' ? ts.find((x) => x > t + h) : ts.filter((x) => x < t - h).pop(); if (v != null) tlSetT(v); return done(); }
   if (lk === 'i' || lk === 'o') { const ls = sel(); if (ls.length) { const sp = tlSpanNow(ls[0].L); tlSetT(lk === 'i' ? sp[0] : sp[1]); } return done(); }
   if (k === '[' || k === ']') {
-    const ls = sel(); if (!ls.length) { status('먼저 레이어를 고르세요 — [ ] 는 선택한 막대를 재생헤드에 맞춥니다', true); return done(); }
+    // 고른 레이어가 타이밍 없음(점선)이면 [ ] 로 그 시각에 트랙을 만든다(점선 막대 끌기와 같음 — AE: 어느 레이어든 [ ] = 시작/끝을 재생헤드로)
+    const bare = e.altKey ? [] : [...tlState.sel].map(tlRowById).filter((r) => r && !r.prop && !r.child && r.L.animatable && !r.L.gone && !tlSpanNow(r.L));
+    if (!sel().length && !bare.length) { status('먼저 레이어를 고르세요 — [ ] 는 선택한 막대를 재생헤드에 맞춥니다', true); return done(); }
     const t = +tlHeadT || 0; pushUndo();
+    for (const r of bare) tlEnsureTrack(r.L, t);
+    const ls = sel();
     for (const r of ls) {
       const sp = tlSpanNow(r.L), len = sp[1] - sp[0];
       if (e.altKey) {   // 자르기(길이 변함)

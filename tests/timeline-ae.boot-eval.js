@@ -99,6 +99,23 @@ $q('#tlAuto').click(); await sleep(700);
     order: spec.layers.map((l) => l.name), vfEnter: spec.vfEnter,
   } : null;
 }
+// 1-2) 스크럽·끌기를 누른 채 멈춤 — 1.5초 자동 점검(tlCheckRows)은 가속 미리보기를 걷지 않는다(예전: 걷기만 하고 다시 안 그려 칠이 바탕색으로 빔).
+//      화면을 통째로 다시 그렸으면(tlContentChanged) 걷고 그 프레임을 바로 다시 그린다.
+{
+  await openWork(sgg);
+  $q('#tlToggle').click(); await sleep(700);
+  $q('#tlAuto').click(); await sleep(700);
+  for (let i = 0; i < 4; i++) { const b = $q('#tossOv [data-act="all"]'); if (b) b.click(); await sleep(60); }
+  const look = () => { const zs = [...document.querySelectorAll('#gMain .zone')]; return { fast: document.querySelectorAll('[data-animfast]').length, base: zs.filter((z) => z.getAttribute('fill') === S.base).length, n: zs.length }; };
+  tlSetT(1.5, { live: true, settle: 100000 }); await sleep(250);
+  const a = look();
+  tlCheckRows(); await sleep(250);
+  const b = look();
+  tlContentChanged(); await sleep(250);
+  const c = look();
+  tlSettle(0); await sleep(300);
+  out.hold = { a, b, c, fastAfterSettle: !!_animFast, frameOnGrid: anim().tracks.every((t) => Math.abs(t.start * 29.97 - Math.round(t.start * 29.97)) < 0.01 && Math.abs((t.start + t.len) * 29.97 - Math.round((t.start + t.len) * 29.97)) < 0.01) };
+}
 // 2) 태풍 + 카메라 — 아이콘, Alt 팬 = 자동 키(라벨 그대로, B4), 자동 저장 = 작업 뷰(B5), AE 카메라
 {
   const P = []; for (let i = 0; i < 14; i++) P.push({ lon: 140 - i * 1.1, lat: 15 + i * 1.5, label: (20 + Math.floor(i / 2)) + '일 ' + (i % 2 ? '15' : '03') + '시', ws: 18 + i * 2, r15: 180 + i * 10, r25: i > 4 ? 60 + i * 5 : 0, r70: i > 6 ? 90 + i * 6 : 0, fcst: i > 6, tmef: '' });

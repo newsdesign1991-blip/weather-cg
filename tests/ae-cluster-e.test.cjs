@@ -338,7 +338,8 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
     assert.ok(A && A.length, '트랙 없음 → 자동 구성 계획');
     const fillT = A.filter((t) => t.kind === 'fill');
     assert.equal(fillT.length, 2);
-    for (const t of fillT) { assert.deepEqual(fz['색칠_' + t.key.slice(1)], { start: t.start, len: t.len }); assert.equal(t.len, 0.8); }
+    const fps = o.touch.comp.fps, fr = (t) => +(Math.round(t * fps) / fps).toFixed(4);   // 자동 구성은 프레임 경계(0.8초 → 24프레임)
+    for (const t of fillT) { assert.deepEqual(fz['색칠_' + t.key.slice(1)], { start: t.start, len: t.len }); close(t.len, fr(0.8), 1e-4); }
     assert.equal(fillT[0].start, 0, '터치 = 0초부터');
     for (const [id, nm] of [['l1', '라벨_1'], ['l2', '라벨_2']]) {
       const t = A.find((x) => x.kind === 'label' && x.key === id);
@@ -350,7 +351,7 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
     for (const k of ['tyFullTouch', 'tyFull1920']) {
       const tt = o[k].auto.find((x) => x.kind === 'typhoon'), rv = o[k].rig.reveal;
       close(rv.start, tt.ps); close(rv.path, tt.pe - tt.ps); assert.equal(rv.labelLen, 1);
-      assert.equal(rv.start, k === 'tyFullTouch' ? 0 : 1, '터치 0초, 노말 1초 홀드');
+      close(rv.start, k === 'tyFullTouch' ? 0 : fr(1), 1e-4, '터치 0초, 노말 1초 홀드(프레임 경계 0;00;01;00)');
     }
     // 손본 태풍 트랙(경로 1→9초, 라벨 9.5→11초) = 그대로
     assert.deepEqual(o.tyLong.reveal, { start: 1, path: 8, labelLen: 1 });
@@ -359,7 +360,8 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
   // 비교
   const ct = o.cmpTouch.rig.typhoons[0], cn = o.cmp1920.rig.typhoons[0];
   const cmpT = o.cmp1920.auto.find((x) => x.kind === 'typcmp');
-  assert.deepEqual(o.cmp1920.rig.reveal, { start: cmpT.start, path: cmpT.len, labelLen: +Math.min(1, Math.max(0.2, cmpT.len * 0.2)).toFixed(4) }, '비교 = 비교 예보 막대');
+  { const rv = o.cmp1920.rig.reveal;   // 비교 = 비교 예보 막대(끝 = 시작+길이 — 부동소수 덧셈 오차만 허용)
+    close(rv.start, cmpT.start); close(rv.path, cmpT.len, 1e-9); assert.equal(rv.labelLen, +Math.min(1, Math.max(0.2, cmpT.len * 0.2)).toFixed(4)); }
   close(ct.iconScreenH, 15 * kk); close(ct.lineW, 3 * kk); close(ct.iconRenderH, 90 * 0.62 * 2.5 / 1.05);
   close(ct.labels[0].bx, cn.labels[0].bx * kx, 0.11); close(ct.nameLabel.size, cn.nameLabel.size * kk);
   // MXF 30프레임

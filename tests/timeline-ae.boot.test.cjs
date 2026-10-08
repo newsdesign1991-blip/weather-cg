@@ -42,6 +42,12 @@ test('부팅 점검: AE식 타임라인 — 행·아이콘·오류 재현·AE �
   assert.ok(o.ae.mtnBase);
   assert.equal(o.ae.dur, 6);
   assert.equal(o.ae.order[0], '배경·지도');
+  // 스크럽을 누른 채 멈춤 — 자동 점검이 가속 미리보기를 걷지 않음(칠이 바탕색으로 비지 않음), 화면을 다시 그렸으면 걷고 바로 다시 그림
+  assert.ok(o.hold.a.fast > 0, '스크럽 중 = 가속 미리보기 ' + JSON.stringify(o.hold));
+  assert.equal(o.hold.b.fast, o.hold.a.fast, '1.5초 자동 점검 뒤에도 가속 그대로 ' + JSON.stringify(o.hold));
+  assert.ok(o.hold.c.fast > 0, '내용이 바뀌면 걷고 그 프레임을 다시(가속 다시 켜짐) ' + JSON.stringify(o.hold));
+  assert.equal(o.hold.fastAfterSettle, false, '손 떼면 정확한 그림');
+  assert.ok(o.hold.frameOnGrid, '자동 구성 막대 시작·끝 = 프레임 경계');
   // 태풍 + 카메라
   assert.ok(o.typ.typIcon && o.typ.camIcon, '태풍 경로 = 태풍 아이콘, 카메라 = 카메라 아이콘');
   assert.deepEqual(o.typ.rows.slice(0, 5), ['cam', 'cam:pos', 'cam:s', 'cam:rz', 'cam:rx']);
