@@ -5,6 +5,7 @@
 //  C) B의 최종 저장 획을 옛 앱에 넣어 구운 결과 vs 바꾼 앱 결과
 // 사용: node equiv.cjs --old=<옛 앱 폴더> [--new=<앱 폴더>] [--style=sgg] [--strokes=60] [--out=<결과 폴더>]
 const { spawn, execFileSync } = require('child_process');
+const { rmTestProfile } = require('../test-profile.cjs');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
@@ -30,7 +31,7 @@ async function launch(appDir) {
     cwd: DESK, env: { ...process.env, WCG_MAIN: path.join(DESK, 'main.js'), WCG_APP_DIR: appDir, WCG_TEST: '1', WCG_TEST_SIZE: '1920x1080' }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: false,
   });
   let mainLog = ''; proc.stdout.on('data', (d) => { mainLog += d; }); proc.stderr.on('data', (d) => { mainLog += d; });
-  const kill = () => { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {} };
+  const kill = () => { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {} rmTestProfile(proc.pid); };   // + 임시 사용자 폴더 정리
   KILLS.push(kill);
   let page = null;
   for (let i = 0; i < 80 && !page; i++) { await sleep(400); try { const l = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); page = l.find((p) => p.type === 'page' && p.url.startsWith('app://weathercg')); } catch (e) {} }

@@ -2,6 +2,7 @@
 // (추출은 equiv.cjs 가 본다. 여기선 바꾼 앱에 늘 붙어 있는 라이브 캔버스(foreignObject)가 화면 그림을 바꾸지 않는지 본다.)
 // 사용: node shotcmp.cjs --old=<옛 앱> --work=<equiv_<style>_work.json> [--style=sgg] [--out=<폴더>]
 const { spawn, execFileSync } = require('child_process');
+const { rmTestProfile } = require('../test-profile.cjs');
 const fs = require('fs'); const net = require('net'); const path = require('path');
 const args = process.argv.slice(2);
 const opt = (k, d) => { const a = args.find((x) => x === `--${k}` || x.startsWith(`--${k}=`)); if (!a) return d; return a.includes('=') ? a.slice(k.length + 3) : true; };
@@ -18,7 +19,7 @@ const KILLS = []; process.on('exit', () => { for (const k of KILLS) k(); });
 async function launch(appDir) {
   const port = await freePort();
   const proc = spawn(ELECTRON, [path.join(HERE, 'perf-main.js'), `--remote-debugging-port=${port}`], { cwd: DESK, env: { ...process.env, WCG_MAIN: path.join(DESK, 'main.js'), WCG_APP_DIR: appDir, WCG_TEST: '1', WCG_TEST_SIZE: '1920x1080' }, stdio: 'ignore', windowsHide: false });
-  const kill = () => { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {} };
+  const kill = () => { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) {} rmTestProfile(proc.pid); };   // + 임시 사용자 폴더 정리
   KILLS.push(kill);
   let page = null;
   for (let i = 0; i < 80 && !page; i++) { await sleep(400); try { const l = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); page = l.find((p) => p.type === 'page' && p.url.startsWith('app://weathercg')); } catch (e) {} }

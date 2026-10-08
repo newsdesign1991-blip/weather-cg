@@ -34,7 +34,7 @@ try {
   if (!same) { at = 0; while (at < got.length && got[at] === want[at]) at++; }
   console.log(`바뀐 경로 ${changed.length}개 — index.html·js·css 밖: ${bad.length ? bad.join(', ') : '없음'}`);
   console.log(`appSource(${post}) ${same ? '===' : '!=='} ${pre}:index.html (${want.length}자)` + (same ? '' : ` — 첫 차이 @${at}: ${JSON.stringify(want.slice(at, at + 60))} / ${JSON.stringify(got.slice(at, at + 60))}`));
-  process.exit(same && !bad.length ? 0 : 1);
+  process.exitCode = same && !bad.length ? 0 : 1;   // process.exit를 부르면 finally가 안 돌아 임시 폴더가 남는다
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
