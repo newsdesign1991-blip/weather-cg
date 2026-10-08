@@ -243,6 +243,7 @@ function exportProgress(done, total, label) {
   const pct = total ? Math.max(0, Math.min(100, Math.round(done / total * 100))) : 0;
   el.innerHTML = `<span class="tlProg"><span class="tlProgFill" style="width:${pct}%"></span></span>${label} ${done}/${total} · ${pct}%`;
   exportMaskProgress(pct, label);   // 가리개(렌더 중…) 안 진행바도 함께 채운다
+  fxProgress(null, pct / 100);      // 일하는 중인 제목줄 버튼(영상으로 추출·AE로 보내기) 아래 얇은 막대도(js/busy-fx.js)
 }
 // 렌더 중 스테이지 가리개 — 프레임마다 라이브 SVG를 갱신해 깜빡이므로 덮어 둔다(추출 결과엔 영향 없음).
 function showExportMask(on) {

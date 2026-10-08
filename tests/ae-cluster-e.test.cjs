@@ -246,6 +246,7 @@ async function runWns({ dur, fps, pool }) {
     anim: () => ({ dur, fps }), hasAnim: () => true, WNS_HELPER: 'http://h', RES: { '1920x1080': { size: [1920, 1080] } }, S: { res: '1920x1080' },
     wnsHelperOffNotice() {}, dateTag: () => 'd', prepareOutput: async () => ({ name: 'o.mxf', write: async () => {} }),
     $: (s) => els[s] || null, animStop() {}, animOff() {}, showExportMask() {}, flashDone() {},
+    fxBusy() {}, fxArrive() {},   // 작업 중·도착 효과(js/busy-fx.js) — 여기선 화면이 없으니 빈 함수
     status: (m) => statusMsgs.push(m), exportProgress: (d, t) => progress.push([d, t]),
     renderAnimFrame: (t) => times.push(t), drawExportFrame: async () => {},
     document: { createElement: () => ({ getContext: () => ({ getImageData: () => ({ data: { buffer: new ArrayBuffer(4) } }), putImageData() {} }), toBlob: (cb) => cb({}) }) },

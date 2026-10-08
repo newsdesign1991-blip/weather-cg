@@ -63,26 +63,37 @@ async function fetchWrn(keepSel, retry, opts) {
   const stale = () => seq !== wrnFetchSeq;
   const fail = (f) => { if (stale()) return null; showWrnResult({ ...f, ...extra, src: 'fetch' }); return false; };
   showWrnResult({ kind: 'busy' });
-  // 헬퍼가 떠 있는지 확인 — 꺼져 있으면 카드 + MXF와 같은 친절한 안내 모달
-  const hp = await pingHelper();
-  if (stale()) return null;
-  if (!hp.up) { fail({ kind: 'helperOff' }); wnsHelperOffNotice(); return false; }
-  let r;
-  try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(WRN_URL())); }
-  catch (e) { return fail(wrnHttpFail(0, e && e.message)); }   // 확인 직후 연결이 끊김(확장팩 멈춤 등)
-  if (!r.ok) { let b = ''; try { b = await r.text(); } catch (e) { /* 본문 없음 */ } return fail(wrnHttpFail(r.status, b)); }
-  let t;
+  // 작업 중 효과(js/busy-fx.js) — 섹션에 흐르는 그라디언트·불러오기 버튼 흐름·특보 목록 자리에 빛 훑는 막대.
+  // 겹친 요청(날짜를 빨리 바꿈)은 센다 — 버려진 요청·실패도 finally에서 끄고, 마지막 요청이 끝나야 꺼진다.
+  const fx = [fxSec('wrn'), $('#wrnFetch'), $('#wrnList')];
+  fxBusy(fx, true, { lines: 5, maxMs: 90000 });
+  let ok = false;
   try {
-    // 프록시는 보통 UTF-8로 변환해 준다. 혹시 EUC-KR 원문이 오면 한글이 깨지므로 반대로 한 번 더 디코드.
-    const buf = await r.arrayBuffer();
-    t = new TextDecoder('utf-8').decode(buf);
-    if (!/[가-힣]/.test(t)) t = new TextDecoder('euc-kr').decode(buf);
-  } catch (e) { return fail({ kind: 'net', detail: e && e.message }); }
-  if (stale()) return null;
-  $('#wrnPaste').value = t.slice(0, 200000);
-  const read = wrnReadText(t);
-  if (read.kind !== 'rows') return fail(read);   // 기상청 오류 문구·빈 응답·형식 이상(표 형식 바뀜 포함) — 지도는 그대로
-  return applyWrn(t, keepSel, 'fetch', extra);
+    // 헬퍼가 떠 있는지 확인 — 꺼져 있으면 카드 + MXF와 같은 친절한 안내 모달
+    const hp = await pingHelper();
+    if (stale()) return (ok = null);
+    if (!hp.up) { fail({ kind: 'helperOff' }); wnsHelperOffNotice(); return false; }
+    let r;
+    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(WRN_URL())); }
+    catch (e) { return fail(wrnHttpFail(0, e && e.message)); }   // 확인 직후 연결이 끊김(확장팩 멈춤 등)
+    if (!r.ok) { let b = ''; try { b = await r.text(); } catch (e) { /* 본문 없음 */ } return fail(wrnHttpFail(r.status, b)); }
+    let t;
+    try {
+      // 프록시는 보통 UTF-8로 변환해 준다. 혹시 EUC-KR 원문이 오면 한글이 깨지므로 반대로 한 번 더 디코드.
+      const buf = await r.arrayBuffer();
+      t = new TextDecoder('utf-8').decode(buf);
+      if (!/[가-힣]/.test(t)) t = new TextDecoder('euc-kr').decode(buf);
+    } catch (e) { return fail({ kind: 'net', detail: e && e.message }); }
+    if (stale()) return (ok = null);
+    $('#wrnPaste').value = t.slice(0, 200000);
+    const read = wrnReadText(t);
+    if (read.kind !== 'rows') return fail(read);   // 기상청 오류 문구·빈 응답·형식 이상(표 형식 바뀜 포함) — 지도는 그대로
+    return (ok = applyWrn(t, keepSel, 'fetch', extra));
+  } finally {
+    fxBusy(fx, false);
+    // 도착 효과 — 칠했으면(발효 0건 포함) 섹션 머리에 한 번 빛 + 결과 카드·들어온 특보 줄이 위에서부터 떠오른다
+    if (ok === true) fxArrive([fxSec('wrn'), $('#wrnResult'), ...fxRows($('#wrnList'))]);
+  }
 }
 
 // 특보 종류별 색 편집 줄
