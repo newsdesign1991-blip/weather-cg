@@ -1,7 +1,7 @@
 // tools/split-app.cjs — 한 파일 index.html → js/*.js + css/*.css + 얇은 index.html (코드 무변경 기계 분할)
 //
-// 2026-10-08 분할(기준 커밋 a6d0794)을 만든 1회용 도구다. 분할 결과를 증명하는 기록으로 남겨 둔다.
-// 이미 나뉜 저장소에서는 다시 돌릴 일이 없다(돌리면 '이미 분할된 index.html'로 멈춘다).
+// 2026-10-08 분할(기준 커밋 a6d0794)을 만든 도구다. 기준표(MAP)는 지금 구조(경계 조정 반영)를 적어 둔다.
+// 이미 나뉜 저장소의 index.html에 그대로 돌리면 '이미 분할된 index.html'로 멈춘다 — 재분할은 --src(한 파일)·--like로(MODULES.md 11·12장).
 //
 //   node tools/split-app.cjs --check                  검사·보고만(아무것도 안 씀)
 //   node tools/split-app.cjs                          저장소 루트 index.html을 그 자리에서 분할
@@ -35,7 +35,8 @@ const appSource = require('./app-source.cjs');
 const { versionOf } = require('./stamp-version.cjs');
 
 // ---------------------------------------------------------------------------
-// 기준표(분할 시점 기록). 순서 = 원본 순서 = 로드 순서.
+// 기준표(지금 구조). 순서 = 원본 순서 = 로드 순서. 처음 분할(ae0343d, 32개) 뒤 경계 조정(cg-setup 뒤쪽 → modals-notices,
+// export-video·forecast-panel 뒤쪽 → export-blobs·warnings-load)을 반영했다. 구조를 바꾸면 이 표도 같이 고친다(--like는 이 표를 안 씀).
 //  start: 그 파일이 시작되는 줄의 앞부분(본문 안에서 정확히 1번, 줄 맨 앞 — CSS는 앞 공백 허용)
 //  walk:  false면 표지 줄에서 바로 시작(기본은 표지 바로 위의 빈 줄·'//' 주석 줄을 이 파일로 함께 가져감)
 //  (--like가 만드는 기준표는 walk 대신 back: n — 표지 위로 정확히 n줄을 그 파일에 둔다)
@@ -60,13 +61,15 @@ const MAP = {
     { file: 'warnings.js', start: '// ===================== 기상특보 자동 색칠', desc: '기상특보: 파싱(parseWrn)·단계 색·발효 순서, 불러오기 결과 판정·문구(wrnReadText·wrnHttpFail·wrnResultView)' },
     { file: 'warnings-apply.js', start: '// ===================== API 주소', walk: false, desc: '기상청 API 주소·키(apiKey·apiUrl — 예보·태풍도 씀), 특보 런타임 목록·순서, 특보 적용(applyWrn)·칠(paintWrn)·발효 현황·목록(buildWrnList)' },
     { file: 'bulletin.js', start: '// ===================== 기상예보 자동 색칠', desc: '기상예보 파싱·색(기온/강수), 통보문 강수량 붙여넣기(용어 사전·지역 표현 파서·applyBulletin)' },
-    { file: 'forecast-panel.js', start: 'function applyFct(txt) {', desc: '예보 적용·고르기·목록, 작업 런타임 초기화(resetWorkRuntime), 특보 불러오기(fetchWrn)·결과 카드·특보 열' },
+    { file: 'forecast-panel.js', start: 'function applyFct(txt) {', desc: '예보 적용·고르기·목록, 작업 런타임 초기화(resetWorkRuntime), 예보 종류 버튼' },
+    { file: 'warnings-load.js', start: 'let wrnResLast = null;', desc: '특보 불러오기(fetchWrn)·결과 카드(showWrnResult), 특보 열(buildWrnCols)' },
     { file: 'presets.js', start: '// ===================== 해상도별 배치 프리셋', desc: '해상도별 배치 프리셋 + 작업 자동 저장(saveWork/loadWork), 배포 기본값 갱신, applyPreset' },
-    { file: 'cg-setup.js', start: '// ===================== 추출 =====================', desc: '해상도(RES)·CG 구성 창, 상태 표시(status·flash), 출력 폴더(IndexedDB), 팝업 닫힘 애니메이션, 토스 카드 모달(tossModal)' },
-    { file: 'notices.js', start: '// ===================== 공지사항', desc: '공지사항(시드·작성·삭제·부팅 확인) + 내보내기 진행 마스크, tossConfirm/tossPrompt' },
+    { file: 'cg-setup.js', start: '// ===================== 추출 =====================', desc: '해상도(RES)·CG 구성 창, 상태 표시(status·flash), 출력 폴더(IndexedDB·prepareOutput)' },
+    { file: 'modals-notices.js', start: 'function popAnimClose(ov, done) {', desc: '팝업 공통(닫힘 애니메이션·포커스 — popAnimClose·popFocusIn), 토스 카드 모달(tossModal), 공지사항(시드·작성·삭제·부팅 확인), 내보내기 진행 마스크, 확인/입력 모달(tossConfirm·tossPrompt)' },
     { file: 'preset-slots.js', start: '// ===================== 배치 지정하기', desc: '배치 지정하기(완전 기본/개인 슬롯, 구운 배치 파일)' },
     { file: 'export-image.js', start: 'let _suiteFontCss = null;', desc: '이미지 추출 공통: 출력 글꼴 임베드, 카메라 레이어·가장자리, 텍스트 오버레이, svgToImage, 3D 틸트 워프, drawExportFrame' },
-    { file: 'export-video.js', start: '// ===== 정확 MP4 (베이킹)', desc: '정확 MP4(베이킹)·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더, SVG/PNG blob·PNG 메타, 내보내기 대상(exportBlobs)' },
+    { file: 'export-video.js', start: '// ===== 정확 MP4 (베이킹)', desc: '정확 MP4(베이킹)·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더(wnsRender)' },
+    { file: 'export-blobs.js', start: 'const ALL_LAYERS = [', desc: '추출 핵심: 레이어 목록(ALL_LAYERS)·SVG→PNG blob(svgBlob·keepLayers)·미리보기, 프로젝트 파일 PNG 메타(pngEmbed·pngExtract·readProjectFile), 내보내기 대상(exportBlobs)' },
     { file: 'ae-export.js', start: '// ===== After Effects 자동 임포트', desc: 'After Effects 보내기(레이어 분해 blob·sendToAE), doExport, 추출 선택, download' },
     { file: 'project-io.js', start: '// ===== 설정 옮기기', desc: '설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기(bakeDefaults)' },
     { file: 'wiring.js', start: '// ===================== 배선 =====================', desc: '버튼·입력 배선 wire()(한 함수) + 사이드바 그룹·아이콘 구성(로드 때 실행, refreshToolGroup)' },

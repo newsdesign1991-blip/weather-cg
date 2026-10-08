@@ -1,4 +1,4 @@
-/* [모듈] js/cg-setup.js — 해상도(RES)·CG 구성 창, 상태 표시(status·flash), 출력 폴더(IndexedDB), 팝업 닫힘 애니메이션, 토스 카드 모달(tossModal) */
+/* [모듈] js/cg-setup.js — 해상도(RES)·CG 구성 창, 상태 표시(status·flash), 출력 폴더(IndexedDB·prepareOutput) */
 'use strict';
 
 // ===================== 추출 =====================
@@ -294,93 +294,4 @@ async function prepareOutput(base, ext, mime, label) {
     } catch (e) { if (e.name === 'AbortError') return null; }
   }
   return { name: base + '.' + ext + ' (다운로드 폴더)', write: async (bytes) => download(new Blob([bytes], { type: mime || 'application/octet-stream' }), base + '.' + ext) };
-}
-
-// ===================== 팝업 닫힘 애니메이션 (근무표 .nd-closing 과 같은 결) =====================
-// 막은 페이드아웃, 카드는 아래로 34px 내려가며 사라진다(.34초, CSS .popClosing). 끝나면 done()(숨기기·지우기).
-// DOM은 그대로 두고 class만 바꾼다(재생성 없음). 닫히는 중에 다시 열면 popAnimCancel 이 취소한다. 움직임 줄이기 설정이면 바로 닫는다.
-function popAnimClose(ov, done) {
-  if (!ov) return;
-  clearTimeout(ov._popT);
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce) { ov._popT = 0; ov.classList.remove('popClosing'); done(); return; }
-  ov.classList.add('popClosing');
-  ov._popT = setTimeout(() => { ov._popT = 0; ov.classList.remove('popClosing'); done(); }, 340);
-}
-function popAnimCancel(ov) {
-  if (!ov) return;
-  if (ov._popT) { clearTimeout(ov._popT); ov._popT = 0; }
-  ov.classList.remove('popClosing');
-}
-// 팝업 안 Tab 가두기 — Tab / Shift+Tab 은 카드 안에서만 돈다(막 뒤 제목줄·사이드바 버튼으로 새어 Enter로 눌리지 않게).
-// 카드엔 tabindex="-1" — 열 때 카드 자체에 포커스를 두고(테두리 없이), 첫 Tab 에 첫 버튼으로. CG 구성·토스 모달·확인창·배치 지정하기·이미지 안내가 같이 쓴다.
-function popTrapTab(card, e) {
-  const list = [...card.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-    .filter((n) => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden');
-  const a = document.activeElement;
-  if (!list.length) { e.preventDefault(); card.focus(); return; }
-  const first = list[0], last = list[list.length - 1], inside = card.contains(a) && a !== card;
-  if (e.shiftKey ? (!inside || a === first) : (!inside && a !== card) || a === last) {
-    e.preventDefault();
-    (e.shiftKey ? last : first).focus();
-  }
-}
-// 열 때: 연 버튼을 기억하고 포커스를 팝업 안(카드 또는 지정한 칸)으로. 닫을 때: 포커스가 팝업 안·body 에 있으면 연 버튼으로 돌려준다.
-function popFocusIn(ov, target, opener) {
-  ov._opener = opener !== undefined ? opener : document.activeElement;
-  if (target) { try { target.focus({ preventScroll: true }); } catch (e) {} }
-}
-function popFocusBack(ov) {
-  const back = ov._opener; ov._opener = null;
-  const a = document.activeElement;
-  if (!back || !back.isConnected || typeof back.focus !== 'function' || (a && a !== document.body && !ov.contains(a))) return;
-  if ($('#tourWrap')?.classList.contains('on')) return;   // 둘러보기 중엔 포커스를 옮기지 않는다(closeCgSetup 과 같게)
-  try { back.focus({ preventScroll: true }); } catch (e) {}
-}
-// 닫기 X 아이콘(유리 원 버튼 안) — 정적 문자열
-const POP_X_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
-
-// ===================== 토스 카드 모달 (공지·안내 공통) =====================
-// 근무표 최신 팝업처럼 옅은 틴트 머리(진한 색 띠 아님) + 기본색 제목 + 유리 닫기 + 아래 내용. 반환값으로 각 영역을 넘겨 추가 조작.
-// opt.tone: 'blue'(기본·안내) | 'red'(경고·문제) | 'green'(완료·작성) — 머리 틴트 색만 바뀐다.
-// 떠 있는 토스 모달을 조용히 치운다(새 모달로 바뀔 때) — onClose(공지 읽음 처리 등)는 부르지 않고 Esc 리스너만 함께 뗀다.
-// (DOM만 지우면 이전 모달의 Esc 리스너가 남아, 나중 Esc 한 번에 읽지도 않은 공지가 '읽음'이 됐다)
-let _tossDispose = null;
-function closeTossModal() { if (_tossDispose) _tossDispose(); const e = document.getElementById('tossOv'); if (e) e.remove(); }
-function tossModal(opt) {
-  opt = opt || {};
-  // 연 버튼 — 떠 있던 토스 모달 안에서 새 모달로 바뀌면(그 안 버튼이 곧 지워지니) 처음 연 버튼을 이어받는다
-  const prevOv = document.getElementById('tossOv');
-  const opener = prevOv && prevOv.contains(document.activeElement) ? prevOv._opener : document.activeElement;
-  closeTossModal();
-  const tone = opt.tone === 'red' || opt.tone === 'green' ? opt.tone : 'blue';
-  const ov = document.createElement('div');
-  ov.className = 'tossOv'; ov.id = 'tossOv';
-  ov.innerHTML =
-    `<div class="tossCard${opt.wide ? ' wide' : ''}" role="dialog" aria-modal="true" tabindex="-1">`
-    + `<div class="tossHead" data-tone="${tone}">`
-    +   `<div class="tossHeadTxt"><div class="tossTitle"></div>${opt.sub ? '<div class="tossSub"></div>' : ''}</div>`
-    +   `<div class="tossHeadAct"></div>`
-    +   `<button class="tossX" aria-label="닫기" title="닫기 (Esc)">${POP_X_SVG}</button>`
-    + `</div>`
-    + `<div class="tossBody">${opt.bodyHTML || ''}</div>`
-    + (opt.footHTML ? `<div class="tossFoot">${opt.footHTML}</div>` : '')
-    + `</div>`;
-  document.body.appendChild(ov);
-  ov.querySelector('.tossTitle').textContent = opt.title || '';   // 제목·부제는 textContent로(주입 안전)
-  if (opt.sub) ov.querySelector('.tossSub').textContent = opt.sub;
-  let closed = false;
-  const detach = () => { closed = true; window.removeEventListener('keydown', onKey); if (_tossDispose === dispose) _tossDispose = null; };
-  const dispose = () => { detach(); clearTimeout(ov._popT); ov.remove(); };   // 새 모달로 바뀔 때 — 애니메이션 없이 바로
-  // 닫기 = 닫힘 애니메이션(.34초) 뒤 지운다. 그 사이 새 모달이 뜨면 closeTossModal 이 #tossOv 를 바로 치운다.
-  const close = () => { if (closed) return; detach(); popAnimClose(ov, () => ov.remove()); popFocusBack(ov); if (opt.onClose) opt.onClose(); };
-  ov.querySelector('.tossX').onclick = close;
-  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
-  const card = ov.querySelector('.tossCard');
-  // Esc = 닫기, Tab = 카드 안에서만(토스 모달이 맨 위 층 — 확인창(z 200)보다 위)
-  const onKey = (e) => { if (e.key === 'Escape') close(); else if (e.key === 'Tab') popTrapTab(card, e); };
-  window.addEventListener('keydown', onKey);
-  _tossDispose = dispose;
-  popFocusIn(ov, card, opener);   // 포커스를 카드로(막 뒤 버튼이 Enter·Space 를 받지 않게) — 부르는 쪽이 입력칸 등에 다시 줘도 된다
-  return { ov, close, card, head: ov.querySelector('.tossHeadAct'), body: ov.querySelector('.tossBody'), foot: ov.querySelector('.tossFoot') };
 }
