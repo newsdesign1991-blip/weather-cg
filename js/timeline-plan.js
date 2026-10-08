@@ -86,18 +86,35 @@ function tlLayerPlan(opt) {
   const blinds = (A.reveal || 'dissolve') === 'blinds';
   const names = tlLegendNames();
   const ty = isTyphoon(), cmpMap = ty && isTyphoonCompare();
+  // AE 차이는 기능 확장팩(헬퍼) 버전에 따라 다르다 — 새 헬퍼(20261008+)는 이징 곡선·태풍 진행·비교 예보별 타이밍·블라인드·
+  // 일반/비교 지도 카메라·방향·지시선 따라가기를 화면 그대로 옮긴다(js/ae-export.js). 옛 헬퍼면 지금 문구 + 다시 실행 안내.
+  const ext = typeof aeHelperExt === 'function' ? aeHelperExt() : true;
+  const OLD = ' — 기능 확장팩을 새로 실행하면 같아집니다';
+  const s0 = +((stateForSave().map || {}).s) || 1;   // 작업 뷰 배율(미리보기 중이어도)
 
   // 카메라(키가 있을 때만) — 맨 위(AE 카메라 레이어처럼)
   const ks = camKeys();
   if (ks.length) {
     const cam = lay({ id: 'cam', kind: 'camera', name: '카메라', icon: 'camera', col: TL_CAM_COL, keys: ks });
-    if (!ty || cmpMap) cam.diff.push('AE로는 카메라 움직임이 안 들어갑니다(태풍 단일 지도만 지원)');
+    const zoom = ks.some((k) => Math.abs((+k.s || 1) / s0 - 1) > 0.01);
+    const tilt = ks.some((k) => Math.abs(+k.rx || 0) > 0.05 || Math.abs(+k.ry || 0) > 0.05);
+    const turn = ks.some((k) => Math.abs(+k.rz || 0) > 0.05);
+    if (ext) {
+      // 위치·확대·방향은 AE CAM·ROT 널로 화면과 같게(모든 키 같은 곡선). 남는 것 — 기울기, 확대 시 그림 선명도·크기, 화면 고정 글자 몇 가지
+      if (tilt) cam.diff.push('기울기는 AE에 안 들어갑니다(위치·확대·방향만)');
+      if (zoom && ty) cam.diff.push('AE에선 확대한 만큼 지도 그림(PNG)이 흐려지고 태풍 아이콘·선 굵기·지명표시도 같이 커집니다(화면은 크기 그대로)');
+      else if (zoom) cam.diff.push('AE에선 확대한 만큼 지도 그림(PNG)이 흐려집니다(화면은 다시 그려 선명)');
+      if (zoom && !ty) { try { if (MAP.styles[S.style] && MAP.styles[S.style].sea) cam.diff.push('AE에선 해상 구역 경계선도 확대한 만큼 굵어집니다(화면은 굵기 그대로)'); } catch (e) {} }
+      if (turn && ty && !cmpMap && ((S.typhoon && S.typhoon.places) || []).some((p) => !p.off)) cam.diff.push('AE에선 지명표시 이름표가 지도와 함께 돕니다(화면은 세워 둠)');
+      // 옮기지 않은 비교 이름표(마지막 지점을 따라감)도 새 헬퍼는 그 지점 널의 toComp로 따라간다(nameLabel.follow) — 차이 아님
+      // AE는 키들이 보는 영역만큼 크게 구워 보낸다(블리드, 각 변 프레임 1배까지) — 그보다 멀리 축소·이동하면 가장자리가 빈다
+      try { if (typeof aeBleedBox === 'function') { const b = aeBleedBox(stateForSave().map, ks); if (b && b.clipped) cam.diff.push('AE에선 아주 크게 축소·이동한 키에서 지도 가장자리(프레임 3배 밖)가 비어 보입니다'); } } catch (e) {}
+    } else if (!ty || cmpMap) cam.diff.push('AE로는 카메라 움직임이 안 들어갑니다(태풍 단일 지도만 지원)' + OLD);
     else {
-      if (camKeysRotate()) cam.diff.push('방향·기울기는 AE에 안 들어갑니다(위치·확대만)');
-      if (ks.length > 2) cam.diff.push('AE에선 3번째 키부터 이징 없이 들어갑니다');
+      if (camKeysRotate()) cam.diff.push('방향·기울기는 AE에 안 들어갑니다(위치·확대만)' + OLD);
+      if (ks.length > 2) cam.diff.push('AE에선 3번째 키부터 이징 없이 들어갑니다' + OLD);
       // AE는 작업 뷰로 구운 지도 PNG·태풍 리그를 CAM 널로 통째 확대한다 — 화면은 확대해도 아이콘·선 굵기를 그대로 다시 그린다
-      const s0 = +((stateForSave().map || {}).s) || 1;
-      if (ks.some((k) => Math.abs((+k.s || 1) / s0 - 1) > 0.01)) cam.diff.push('AE에선 확대한 만큼 지도 그림(PNG)이 흐려지고 태풍 아이콘·선 굵기·지명표시도 같이 커집니다(화면은 크기 그대로)');
+      if (zoom) cam.diff.push('AE에선 확대한 만큼 지도 그림(PNG)이 흐려지고 태풍 아이콘·선 굵기·지명표시도 같이 커집니다(화면은 크기 그대로)');
     }
   }
   // 범례·제목 — 맨 위 정적
@@ -118,14 +135,26 @@ function tlLayerPlan(opt) {
         lay({ id: 'cmp:' + c.id, kind: 'typcmp', key: c.id, name: c.name || '비교 예보', icon: 'typhoon2', col: c.color || '#888', track: tr, animatable: true,
           implicit: !tr && tt ? [+tt.ps, +tt.pe] : null, note: c.show ? '' : '숨김', dim: !c.show });
       }
-      // AE 비교 리그는 타이밍 하나(타이밍 있는 막대의 가장 이른 시작~가장 늦은 끝) — 막대끼리 다르거나, 타이밍 없는(처음부터 보이는) 예보가 섞여 있으면 차이
       const live = out.filter((L) => L.kind === 'typcmp' && !L.dim);
-      const all = live.map((L) => L.span || L.implicit), sp = all.filter(Boolean);
-      if (sp.length && (sp.length < all.length || sp.some((s) => Math.abs(s[0] - sp[0][0]) > 0.01 || Math.abs(s[1] - sp[0][1]) > 0.01))) for (const L of live) L.diff.push('AE에선 비교 예보가 한 타이밍(가장 이른 시작~가장 늦은 끝)으로 들어갑니다');
+      if (ext) {
+        // 새 헬퍼: 예보마다 막대·곡선·선두·라벨 창·이름표 그대로. 남는 것 — AE 비교선은 실선 하나(실황/예상 구분 없음), 비교 반경 없음
+        for (const L of live) {
+          const c = cmps.find((q) => q.id === L.key) || {};
+          const pts = c.points || [];
+          let nowJ = 0; pts.forEach((p, i) => { if (!p.fcst) nowJ = i; });   // 화면 typhoonDefaultNowIdx — 이 뒤가 점선(예상)
+          if (pts.length >= 2 && nowJ < pts.length - 1) L.diff.push('AE에선 예보선이 실선 하나로 들어갑니다(화면은 예상 구간 점선)');
+          if (c.showRadius) L.diff.push('AE에선 비교 예보 반경이 안 들어갑니다');
+        }
+      } else {
+        // 옛 AE 비교 리그는 타이밍 하나(타이밍 있는 막대의 가장 이른 시작~가장 늦은 끝) — 막대끼리 다르거나, 타이밍 없는(처음부터 보이는) 예보가 섞여 있으면 차이
+        const all = live.map((L) => L.span || L.implicit), sp = all.filter(Boolean);
+        if (sp.length && (sp.length < all.length || sp.some((s) => Math.abs(s[0] - sp[0][0]) > 0.01 || Math.abs(s[1] - sp[0][1]) > 0.01))) for (const L of live) L.diff.push('AE에선 비교 예보가 한 타이밍(가장 이른 시작~가장 늦은 끝)으로 들어갑니다' + OLD);
+      }
     } else {
       const typ = lay({ id: 'typ', kind: 'typhoon', key: 'typhoon', name: '태풍 경로', icon: 'typhoon', col: iconCol, track: tt, animatable: true });
+      if ((S.typhoon && S.typhoon.iconMode) === 'grade') typ.diff.push('AE에선 강도 숫자 아이콘 대신 일러스트 아이콘으로 들어갑니다');
       const kids = [];
-      kids.push({ id: 'typ:path', kind: 'typPath', name: '경로', icon: 'path', col: iconCol, span: tt ? [+tt.ps, +tt.pe] : null, parent: typ, diff: tt ? ['AE에선 경로가 등속으로 그려집니다(화면은 처음·끝이 부드럽게)'] : [], note: '' });
+      kids.push({ id: 'typ:path', kind: 'typPath', name: '경로', icon: 'path', col: iconCol, span: tt ? [+tt.ps, +tt.pe] : null, parent: typ, diff: tt && !ext ? ['AE에선 경로가 등속으로 그려지고 선두 아이콘·반경이 따라 자라지 않습니다(화면은 처음·끝이 부드럽게)' + OLD] : [], note: '' });
       if (!typhoonLineMode()) {
         const pts = curTyphoonPoints();
         for (const b of typhoonLabels().slice().sort((a, b2) => a.idx - b2.idx)) {
@@ -146,13 +175,15 @@ function tlLayerPlan(opt) {
     for (let i = labs.length - 1; i >= 0; i--) {
       const b = labs[i];
       const L = lay({ id: 'label:' + b.id, kind: 'label', key: b.id, name: String(b.txt || '(빈 라벨)').split('\n')[0], icon: 'tag', col: b.fill || '#888', track: findKey('label', b.id), animatable: true, note: b.style === 'leader' ? '지시선' : '' });
-      if (b.style === 'leader' && L.track) L.diff.push('AE에선 지시선이 같은 타이밍으로 나타나기만 하고 올라오는 박스를 따라가지 않습니다(박스만 26px 올라옴)');
+      if (b.style === 'leader' && L.track && !ext) L.diff.push('AE에선 지시선이 같은 타이밍으로 나타나기만 하고 올라오는 박스를 따라가지 않습니다(박스만 26px 올라옴)' + OLD);
     }
+    // 블라인드 — 새 헬퍼는 AE Venetian Blinds(덮이는 비율·타이밍·곡선 같음). 띠는 화면처럼 가운데가 아니라 한쪽 끝에서 열린다
+    const BLIND_DIFF = ext ? 'AE에선 블라인드 띠가 가운데가 아니라 한쪽 끝에서 열립니다(덮이는 비율·타이밍은 같음)' : 'AE에선 블라인드 대신 페이드로 들어갑니다' + OLD;
     const mtns = (S.mtns || []).filter((m) => !m.off);
     for (let i = mtns.length - 1; i >= 0; i--) {
       const m = mtns[i];
       const L = lay({ id: 'mtn:' + m.id, kind: 'mtn', key: m.id, name: m.txt || '산', icon: 'mtn', col: m.col || '#888', track: findKey('mtn', m.id), animatable: true });
-      if (blinds) L.diff.push('AE에선 블라인드 대신 페이드로 들어갑니다');
+      if (blinds) L.diff.push(BLIND_DIFF);
     }
     if (mtns.length) stat('mtnBase', '산(바탕)', 'mtn');
     stat('lines', '경계선', 'lines');
@@ -172,7 +203,7 @@ function tlLayerPlan(opt) {
       for (let i = defs.length - 1; i >= 0; i--) {
         const d = defs[i], U = d.col.toUpperCase();
         const L = lay({ id: 'wrn:' + d.key, kind: 'fill', key: U, name: d.name.replace(/_/g, ' '), note: U, icon: 'fill', col: U, track: findCol('fill', U), animatable: true, wrnDef: d });
-        if (blinds) L.diff.push('AE에선 블라인드 대신 페이드로 들어갑니다');
+        if (blinds) L.diff.push(BLIND_DIFF);
       }
     } else {
       const seen = {};
@@ -180,7 +211,7 @@ function tlLayerPlan(opt) {
       const cols = Object.keys(seen).sort((a, b) => lumOf(a) - lumOf(b));   // 어두운 → 밝은(위 → 아래)
       for (const U of cols) {
         const L = lay({ id: 'fill:' + U, kind: 'fill', key: U, name: names[U] || U, note: names[U] ? U : '', icon: 'fill', col: U, track: findCol('fill', U), animatable: true });
-        if (blinds) L.diff.push('AE에선 블라인드 대신 페이드로 들어갑니다');
+        if (blinds) L.diff.push(BLIND_DIFF);
       }
     }
   }

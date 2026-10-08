@@ -13,12 +13,7 @@ function ezR(prop){try{var n=1;try{n=prop.value.length||1;}catch(e){n=1;}var A=[
 function dshadow(l){try{var e=l.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");e.property("Shadow Color").setValue(hx("#000814"));e.property("Opacity").setValue(114.750000);e.property("Direction").setValue(180.000000);e.property("Distance").setValue(8.000000);e.property("Softness").setValue(20.000000);}catch(err){}}
 (function(){
 var CAM=null;
-CAM=TG.layers.addNull();CAM.name="CAM";CAM.enabled=false;CAM.property("Anchor Point").setValue([0.000000,0.000000]);
-CAM.property("Position").setValueAtTime(0.000000,[0.000000,0.000000]);
-CAM.property("Position").setValueAtTime(2.000000,[0.000000,0.000000]);
-CAM.property("Scale").setValueAtTime(0.000000,[100.000000,100.000000]);
-CAM.property("Scale").setValueAtTime(2.000000,[100.000000,100.000000]);
-try{ezR(CAM.property("Position"));ezR(CAM.property("Scale"));}catch(e){}
+CAM=TG.layers.addNull();CAM.name="CAM";CAM.enabled=false;CAM.property("Anchor Point").setValue([0.000000,0.000000]);CAM.property("Position").setValue([0.000000,0.000000]);
 var bgL=TG.layers.add(imp("f_00000.png"));bgL.name="\uc9c0\ub3c4";if(CAM){bgL.parent=CAM;}
 var icC=imp("f_00001.png"),icG=imp("f_00002.png");
 var icTC=imp("f_00003.png"),icTG=imp("f_00004.png");
@@ -35,5 +30,10 @@ try{var ic=TG.layers.add(icG);ic.name="\uc544\uc774\ucf580";ic.parent=TP0;ic.pro
 try{var ic=TG.layers.add(icG);ic.name="\uc544\uc774\ucf581";ic.parent=TP1;ic.property("Anchor Point").setValue([135.000000,135.000000]);ic.property("Position").setValue([0,0]);ic.property("Scale").setValue([5.666667,5.666667]);var op=ic.property("Opacity");op.setValueAtTime(1.652869,0);op.setValueAtTime(1.872869,100);ezR(op);}catch(e){}
 try{var ic=TG.layers.add(icG);ic.name="\uc544\uc774\ucf582";ic.parent=TP2;ic.property("Anchor Point").setValue([135.000000,135.000000]);ic.property("Position").setValue([0,0]);ic.property("Scale").setValue([5.666667,5.666667]);var op=ic.property("Opacity");op.setValueAtTime(2.305924,0);op.setValueAtTime(2.525924,100);ezR(op);}catch(e){}
 try{var ic=TG.layers.add(icC);ic.name="\uc544\uc774\ucf583";ic.parent=TP3;ic.property("Anchor Point").setValue([135.000000,135.000000]);ic.property("Position").setValue([0,0]);ic.property("Scale").setValue([18.888889,18.888889]);var op=ic.property("Opacity");op.setValueAtTime(3.000000,0);op.setValueAtTime(3.220000,100);ezR(op);}catch(e){}
+CAM.property("Position").setValueAtTime(0.000000,[0.000000,0.000000]);
+CAM.property("Position").setValueAtTime(2.000000,[0.000000,0.000000]);
+CAM.property("Scale").setValueAtTime(0.000000,[100.000000,100.000000]);
+CAM.property("Scale").setValueAtTime(2.000000,[100.000000,100.000000]);
+try{ezR(CAM.property("Position"));ezR(CAM.property("Scale"));}catch(e){}
 })();
 comp.openInViewer();app.endUndoGroup();

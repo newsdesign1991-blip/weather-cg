@@ -7,17 +7,23 @@ const ALL_LAYERS = ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn', 'L_typhoon', '
 // overlayText=true면 글자를 빼고 래스터한 뒤 캔버스에 SUITE로 직접(크롬 폰트 문제 우회). 남은 레이어 기준으로만 글자를 그린다.
 // opt.tilt: 3D 기울기(S.map3d)를 켰으면 영상 프레임(drawExportFrame)처럼 지도 계열 레이어는 기울여 굽고 글자 계열은 평평하게 덮는다
 //   (이미지 추출만 켠다 — AE는 기울기를 AE 카메라로 따로 다룬다). opt.opaque: 그때 지도 밖을 바다색으로 채운다(배경이 있는 항목).
+// opt.box: {x,y,w,h}(SVG 1920×1080 좌표) — 프레임보다 넓은 영역을 굽는다(AE 카메라 블리드 — 출력 배율 그대로, js/ae-export.js aeBleedBox).
+// opt.noVfClip: 노말 VF 패널 클립을 떼고 굽는다(카메라로 움직이는 지도 — AE에서 패널 마스크가 대신 자른다).
 async function svgBlob(mutate, overlayText, opt) {
   opt = opt || {};
-  const [W, H] = RES[S.res].size;
+  const [W0, H0] = RES[S.res].size;
+  const box = opt.box || null;
+  const W = box ? Math.max(1, Math.round(box.w * W0 / 1920)) : W0, H = box ? Math.max(1, Math.round(box.h * H0 / 1080)) : H0;
   brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', W); clone.setAttribute('height', H);
   clone.setAttribute('preserveAspectRatio', 'none');   // 터치(2158×1214) 위·아래 0.06px 빈칸 방지 — svgToImage와 같은 까닭
+  if (box) clone.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
   stripExportUi(clone);
   stripAnimState(clone);      // 타임라인 미리보기 잔재(블라인드 베이스 지도·슬랫 클립·VF 진입)가 남았어도 굽지 않게(안전망)
   inlineMapboxTiles(clone);   // 태풍 실시간 타일 — 외부 URL은 래스터에서 안 뜬다
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
+  if (opt.noVfClip) clone.querySelector('#L_vfScale')?.removeAttribute('clip-path');
   mutate(clone);
   syncSeoulExport(clone);   // 서울 칠 오버레이·한강을 남은 존 칠에 맞춘다
   const c = document.createElement('canvas');

@@ -64,7 +64,7 @@ test('/ping — ok/ff/ver + embedded, 파이썬식 JSON', async () => {
   assert.equal(r.headers.get('access-control-allow-origin'), '*');
   assert.equal(r.headers.get('content-type'), 'application/json; charset=utf-8');
   const t = await r.text();
-  assert.equal(t, '{"ok": true, "ff": ' + (FFMPEG ? 'true' : 'false') + ', "ver": 20261007, "embedded": true}');
+  assert.equal(t, '{"ok": true, "ff": ' + (FFMPEG ? 'true' : 'false') + ', "ver": 20261008, "embedded": true}');
   assert.equal(r.headers.get('vary'), null);   // Origin 없으면 기존처럼 '*'(Vary 없음)
   const r2 = await fetch(url('/ping?x=1'));
   assert.equal(r2.status, 200);

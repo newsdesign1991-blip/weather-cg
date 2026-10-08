@@ -35,8 +35,9 @@ test('인라인 스크립트가 전부 문법 오류 없이 컴파일된다', ()
   for (const code of blocks) assert.doesNotThrow(() => new vm.Script(code));
 });
 
-test('HELPER_VER_MIN은 새 헬퍼(20261007) 기준', () => {
-  assert.match(html, /const HELPER_VER_MIN = 20261007;/);
+test('HELPER_VER_MIN은 새 헬퍼(20261008) 기준 — AE 확장(AE_EXT_VER)도 같은 판', () => {
+  assert.match(html, /const HELPER_VER_MIN = 20261008;/);
+  assert.match(html, /const AE_EXT_VER = 20261008;/);
 });
 
 // ── C14: aeOutK / aePt / aeSz ──
@@ -90,8 +91,11 @@ test('일반 지도 AE 제목·라벨·범례·라벨 PNG가 aePt/aeSz(출력 �
 
 test('출력 배율 kx/ky/kk는 sendToAE 한 곳에서만 정의(단일 태풍 리그 중복 곱 없음)', () => {
   const send = sliceBetween('async function sendToAE()', '// 폴더를 물어보고');
-  assert.equal((send.match(/const kx = W \/ 1920, ky = H \/ 1080, kk = \(kx \+ ky\) \/ 2;/g) || []).length, 1);
+  assert.equal((send.match(/const kx = W \/ 1920, ky = H \/ 1080;/g) || []).length, 1);
   assert.equal((send.match(/const SX = \(v\) =>/g) || []).length, 1);
+  // 리그 좌표·크기는 노말 VF면 패널 축소 공간으로(aePt와 같은 변환 — F7), 그 밖은 출력 배율만
+  assert.equal((send.match(/kk = \(kx \+ ky\) \/ 2 \* vk;/g) || []).length, 1);
+  assert.match(send, /const SX = \(v\) => \+\(\(vax \+ \(v - vax\) \* vk\) \* kx\)\.toFixed\(1\)/);
 });
 
 // ── C13/C60/C70/C71/C59: 단일 태풍 리그 새 필드 ──
@@ -186,21 +190,21 @@ test('AE 배경엔 라벨 지시선·앵커가 없고, 지시선은 라벨별 �
   assert.match(leader, /querySelectorAll\('#L_labels > \*'\)\.forEach\(\(n\) => \{ if \(aeLeaderOwner\(n\) !== id\) n\.remove\(\); \}\)/);
   const bg = fnSource('async function aeLabelBgBlob(');
   assert.match(bg, /#L_labels > \[data-fleader-id\], #L_labels > \[data-fanchor-id\]'\)\.forEach\(\(n\) => n\.remove\(\)\)/);
-  assert.match(fnSource('function aeLabelCompData('), /leader: leaderIds\.has\(id\)/);
+  assert.match(fnSource('function aeLabelCompData('), /const leader = leaderIds\.has\(id\)/);
   const send = sliceBetween('async function sendToAE()', '// 폴더를 물어보고');
   const lab = send.slice(send.indexOf("if (L.kind === 'label')"), send.indexOf('// 컴프 길이'));
-  const ldr = lab.indexOf("if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), fade)");
-  const comp = lab.indexOf("name: '라벨_' + li, fade: fade ? { start: fade.start, len: fade.len, rise: aeSz(26) } : null");
+  const ldr = lab.indexOf("if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), fade, lsp ? { legacy: 1 } : null)");
+  const comp = lab.indexOf("name: '라벨_' + li, fade: fade ? Object.assign({}, fade, { rise: aeSz(26) }) : null");
   assert.ok(ldr >= 0 && comp > ldr, '지시선 레이어는 그 라벨 프리컴프 바로 아래, 같은 start/len(라벨 막대 타이밍)');
   // 헬퍼가 이미 받는 레이어 형식(file+fade)만 쓴다
-  assert.match(send, /const addImg = \(name, blob, fade\) => \{[^\n]*specLayers\.push\(\{ file: /);
+  assert.match(send, /const addImg = \(name, blob, fade, extra\) => \{[^\n]*specLayers\.push\(Object\.assign\(\{ file: /);
 });
 
 // ── C100: 컴프 길이 — sendToAE의 계산 블록을 그대로 돌린다 ──
 function compDur(specLayers, opt = {}) {
   const block = sliceBetween('    // 컴프 길이', '    const sid = ');
-  const fn = new Function('durBase', 'specLayers', 'S', 'ANIM_START', 'ANIM_VF_ENTER_LEN', `${block}\nreturn dur;`);
-  return fn(opt.dur ?? 6, specLayers, { res: opt.res || '1920x1080' }, 1.0, 1.2);
+  const fn = new Function('durBase', 'specLayers', 'S', 'ANIM_START', 'ANIM_VF_ENTER_LEN', 'gCam', `${block}\nreturn dur;`);
+  return fn(opt.dur ?? 6, specLayers, { res: opt.res || '1920x1080' }, 1.0, 1.2, opt.cam || null);
 }
 test('AE 컴프 길이 = 타임라인 길이(화면 = AE), 넘친 내용(리빌·라벨 키·비교 리빌·카메라 키)만 잘리지 않게', () => {
   assert.equal(compDur([], { dur: 6 }), 6);                               // 타임라인 6초 = 컴프 6초(A.dur에 여유 두 번 안 더함, MXF와 같은 길이)
@@ -218,6 +222,9 @@ test('AE 컴프 길이 = 타임라인 길이(화면 = AE), 넘친 내용(리빌�
   assert.equal(compDur([], { dur: 2, res: '1920x1080-vf' }), 3);          // VF 진입(1+1.2=2.2)이 넘치면 그 끝+여유
   assert.equal(compDur([], { dur: 6, res: '1920x1080-vf' }), 6);
   assert.equal(compDur([{ typhoonRig: { reveal: { start: 1, path: 2, labelLen: 1 }, labels: [], camera: { keys: [{ t: 0.4 }, { t: 7.2 }] } } }], { dur: 6 }), 8);   // 길이 밖 카메라 키도 안 잘림
+  assert.equal(compDur([{ compareRig: { reveal: { start: 1, path: 1, labelLen: 0.2 }, typhoons: [{ prog: { start: 2, end: 7.4 } }, {}] } }], { dur: 6 }), 8);   // 예보마다 진행 곡선 끝
+  assert.equal(compDur([{ compareRig: { reveal: { start: 1, path: 1, labelLen: 0.2 }, typhoons: [], camera: { keys: [{ t: 9 }] } } }], { dur: 6 }), 10);   // 비교 지도 카메라 키
+  assert.equal(compDur([], { dur: 6, cam: { keys: [{ t: 0.5 }, { t: 6.9 }] } }), 7.5);   // 일반 지도 카메라 키(spec.camera)
 });
 
 // ── C14: 반경 외곽선 굵기도 출력 배율 / C59: 비교 아이콘은 화면처럼 noIcon 무시 ──
@@ -306,12 +313,14 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
   close(o.touch.title.x, 128 * kx); close(o.touch.title.y, 300 * ky); close(o.touch.title.size, 66 * kk);
   close(o.touch.lab1.x, 900 * kx); close(o.touch.lab1.y, 400 * ky);
   close(o.touch.lab1.w, o['1920x1080'].lab1.w * kk);
-  assert.deepEqual(o.touch.lab1.png, [Math.round(o.touch.lab1.rectW * kk), Math.round(o.touch.lab1.rectH * kk)]);
+  // 라벨 배경 PNG = 반올림한 박스(aeLabelCompData) × 출력 배율을 다시 반올림(aeLabelBgBlob) — 실측 폭에 소수가 있으면 순서가 결과를 바꾼다(글꼴 로드 시점에 따라 흔들리던 기대식)
+  assert.deepEqual(o.touch.lab1.png, [Math.round(Math.round(o.touch.lab1.rectW) * kk), Math.round(Math.round(o.touch.lab1.rectH) * kk)]);
   close(o.touch.legend.x, o['1920x1080'].legend.x * kx, 1e-6);
   close(o.touch.legend.items[0].text.size, 34 * kk);
   // 지시선: 라벨 바로 아래 같은 페이드, 배경엔 앵커 없음(앵커색 #00C853)
   assert.equal(o.touch.leader.idx + 1, o.touch.leader.lab2Idx);
-  assert.deepEqual(o.touch.leader.fade, { start: o.touch.leader.labFade.start, len: o.touch.leader.labFade.len });
+  assert.deepEqual({ start: o.touch.leader.fade.start, len: o.touch.leader.fade.len }, { start: o.touch.leader.labFade.start, len: o.touch.leader.labFade.len });
+  assert.deepEqual(o.touch.leader.fade.ease, [34, 85], '페이드 이징 = 앱 easeOut(34/85)');
   assert.notDeepEqual(o.touch.baseAnchor.slice(0, 3), [0, 200, 83]);
   assert.equal(o.touch.ldrAnchor[3], 255);
   assert.equal(o.touch.ldrBox[3], 0);
@@ -340,14 +349,15 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
     const fillT = A.filter((t) => t.kind === 'fill');
     assert.equal(fillT.length, 2);
     const fps = o.touch.comp.fps, fr = (t) => +(Math.round(t * fps) / fps).toFixed(4);   // 자동 구성은 프레임 경계(0.8초 → 24프레임)
-    for (const t of fillT) { assert.deepEqual(fz['색칠_' + t.key.slice(1)], { start: t.start, len: t.len }); close(t.len, fr(0.8), 1e-4); }
+    const sl = (f) => ({ start: f.start, len: f.len });
+    for (const t of fillT) { assert.deepEqual(sl(fz['색칠_' + t.key.slice(1)]), { start: t.start, len: t.len }); assert.deepEqual(fz['색칠_' + t.key.slice(1)].ease, [34, 85]); close(t.len, fr(0.8), 1e-4); }
     assert.equal(fillT[0].start, 0, '터치 = 0초부터');
     for (const [id, nm] of [['l1', '라벨_1'], ['l2', '라벨_2']]) {
       const t = A.find((x) => x.kind === 'label' && x.key === id);
       assert.deepEqual({ start: fz[nm].start, len: fz[nm].len }, { start: t.start, len: t.len }); close(fz[nm].rise, 26 * kk);
     }
     const t2 = A.find((x) => x.kind === 'label' && x.key === 'l2');
-    assert.deepEqual(fz['지시선_2'], { start: t2.start, len: t2.len });
+    assert.deepEqual(sl(fz['지시선_2']), { start: t2.start, len: t2.len });
     // 태풍(트랙 없음) = 자동 구성 경로 막대, 라벨은 경로가 그 지점을 지날 때
     for (const k of ['tyFullTouch', 'tyFull1920']) {
       const tt = o[k].auto.find((x) => x.kind === 'typhoon'), rv = o[k].rig.reveal;

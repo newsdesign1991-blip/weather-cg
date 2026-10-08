@@ -72,7 +72,9 @@ function cubicBezier(x1, y1, x2, y2) {
 const EASE_BEZIER = [0.34, 0, 0.15, 1];
 const easeOut = cubicBezier(...EASE_BEZIER);
 // 노말 VF 진입 전용 — 부드러운 가속·감속(ease-in-out)으로 천천히 미끄러져 들어온다.
-const easeVf = cubicBezier(0.4, 0, 0.2, 1);
+// (AE 보내기가 같은 곡선을 AE 키 영향값으로 옮기려고 상수로 꺼내 둔다 — js/ae-export.js aeEaseOf)
+const EASE_VF = [0.4, 0, 0.2, 1];
+const easeVf = cubicBezier(...EASE_VF);
 // 카메라 키프레임 텐션 — 앱 공통 커브(빠른 가속 → 이른 피크 → 긴 정착, 사용자 지정). 예전 대칭 벨에서 변경.
 const easeCam = cubicBezier(...EASE_BEZIER);
 // 뽕 튀어나오는 느낌 — 1을 살짝 넘었다 돌아온다

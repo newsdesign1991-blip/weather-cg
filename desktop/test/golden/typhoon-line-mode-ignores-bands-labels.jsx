@@ -13,14 +13,7 @@ function ezR(prop){try{var n=1;try{n=prop.value.length||1;}catch(e){n=1;}var A=[
 function dshadow(l){try{var e=l.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");e.property("Shadow Color").setValue(hx("#000814"));e.property("Opacity").setValue(114.750000);e.property("Direction").setValue(180.000000);e.property("Distance").setValue(8.000000);e.property("Softness").setValue(20.000000);}catch(err){}}
 (function(){
 var CAM=null;
-CAM=TG.layers.addNull();CAM.name="CAM";CAM.enabled=false;CAM.property("Anchor Point").setValue([960.000000,540.000000]);
-CAM.property("Position").setValueAtTime(0.000000,[960.000000,540.000000]);
-CAM.property("Position").setValueAtTime(1.500000,[900.500000,600.250000]);
-CAM.property("Position").setValueAtTime(3.000000,[880.000000,610.000000]);
-CAM.property("Scale").setValueAtTime(0.000000,[100.000000,100.000000]);
-CAM.property("Scale").setValueAtTime(1.500000,[128.000000,128.000000]);
-CAM.property("Scale").setValueAtTime(3.000000,[160.000000,160.000000]);
-try{ezR(CAM.property("Position"));ezR(CAM.property("Scale"));}catch(e){}
+CAM=TG.layers.addNull();CAM.name="CAM";CAM.enabled=false;CAM.property("Anchor Point").setValue([960.000000,540.000000]);CAM.property("Position").setValue([960.000000,540.000000]);
 var bgL=TG.layers.add(imp("f_00000.png"));bgL.name="\uc9c0\ub3c4";if(CAM){bgL.parent=CAM;}
 var icC=imp("f_00001.png"),icG=imp("f_00002.png");
 var icTC=imp("f_00003.png"),icTG=imp("f_00004.png");
@@ -32,5 +25,12 @@ var TP3=TG.layers.addNull();TP3.name="TP3";TP3.property("Position").setValue([10
 var TP4=TG.layers.addNull();TP4.name="TP4";TP4.property("Position").setValue([1001.200000,650.400000]);TP4.enabled=false;if(CAM){TP4.parent=CAM;}
 try{var sl=TG.layers.addShape();sl.name="\uacbd\ub85c";sl.property("Position").setValue([0,0]);sl.property("Anchor Point").setValue([0,0]);if(CAM){sl.parent=CAM;}var root=sl.property("ADBE Root Vectors Group");var gp=root.addProperty("ADBE Vector Group");var ct=gp.property("ADBE Vectors Group");var pa=ct.addProperty("ADBE Vector Shape - Group");pa.property("ADBE Vector Shape").expression="var Q=[thisComp.layer(\"TP0\").position,thisComp.layer(\"TP1\").position,thisComp.layer(\"TP2\").position,thisComp.layer(\"TP3\").position,thisComp.layer(\"TP4\").position];for(var i=0;i<Q.length;i++){Q[i]=[Q[i][0],Q[i][1]];}createPath(Q,[],[],false);";var tm=ct.addProperty("ADBE Vector Filter - Trim");var en=tm.property("ADBE Vector Trim End");en.setValueAtTime(1.000000,0);en.setValueAtTime(3.000000,100);var st=ct.addProperty("ADBE Vector Graphic - Stroke");st.property("ADBE Vector Stroke Color").setValue(hx("#e5231e"));st.property("ADBE Vector Stroke Width").setValue(9.500000);try{st.property("ADBE Vector Stroke Line Cap").setValue(2);st.property("ADBE Vector Stroke Line Join").setValue(2);}catch(e){}}catch(e){}
 try{var ic=TG.layers.add(icC);ic.name="\uc544\uc774\ucf584";ic.parent=TP4;ic.property("Anchor Point").setValue([135.000000,135.000000]);ic.property("Position").setValue([0,0]);ic.property("Scale").setValue([18.888889,18.888889]);var op=ic.property("Opacity");op.setValueAtTime(3.000000,0);op.setValueAtTime(3.220000,100);ezR(op);}catch(e){}
+CAM.property("Position").setValueAtTime(0.000000,[960.000000,540.000000]);
+CAM.property("Position").setValueAtTime(1.500000,[900.500000,600.250000]);
+CAM.property("Position").setValueAtTime(3.000000,[880.000000,610.000000]);
+CAM.property("Scale").setValueAtTime(0.000000,[100.000000,100.000000]);
+CAM.property("Scale").setValueAtTime(1.500000,[128.000000,128.000000]);
+CAM.property("Scale").setValueAtTime(3.000000,[160.000000,160.000000]);
+try{ezR(CAM.property("Position"));ezR(CAM.property("Scale"));}catch(e){}
 })();
 comp.openInViewer();app.endUndoGroup();

@@ -411,7 +411,7 @@ function animCtx() {
     typhoonProg: null, typhoonCmpProg: null, typhoonHeadFade: 1, isTy: false,
   };
   vm.createContext(ctx);
-  const names = ['anim', 'clamp01', 'cubicBezier', 'easeVf', 'trackProg', 'camKeys', 'ANIM_START', 'ANIM_VF_ENTER_LEN', 'ANIM_FILL_LEN', '_animMapKeyLast', 'animMapKey', 'renderAnimFrame'];
+  const names = ['anim', 'clamp01', 'cubicBezier', 'EASE_VF', 'easeVf', 'trackProg', 'camKeys', 'ANIM_START', 'ANIM_VF_ENTER_LEN', 'ANIM_FILL_LEN', '_animMapKeyLast', 'animMapKey', 'renderAnimFrame'];
   vm.runInContext(names.map(pick).join('\n') + `
     let _animFast = null, _exportingFrames = false, _mapContentRev = 0, _mapAnimRev = 0, tilts = 0;
     const isTyphoon = () => isTy;

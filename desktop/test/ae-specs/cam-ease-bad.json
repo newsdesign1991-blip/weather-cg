@@ -1,0 +1,141 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261008_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "typhoonRig": {
+    "bg": "f_00000.png",
+    "points": [
+     {
+      "x": 1300,
+      "y": 900,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 0,
+      "ws": 18,
+      "ex": false,
+      "noIcon": false
+     },
+     {
+      "x": 1250,
+      "y": 850,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 1,
+      "ws": 22,
+      "ex": false,
+      "noIcon": true
+     },
+     {
+      "x": 1200,
+      "y": 790,
+      "r15": 0,
+      "r25": 0,
+      "r70": 0,
+      "past": true,
+      "idx": 2,
+      "ws": 25,
+      "ex": false,
+      "noIcon": false
+     }
+    ],
+    "nowIdx": 3,
+    "iconColFile": "f_00001.png",
+    "iconGrayFile": "f_00002.png",
+    "iconTdColFile": "f_00003.png",
+    "iconTdGrayFile": "f_00004.png",
+    "iconExColFile": "f_00005.png",
+    "iconExGrayFile": "f_00006.png",
+    "iconH": 270,
+    "iconRenderH": 225,
+    "iconScreenH": 74.375,
+    "bands": {
+     "r70": {
+      "fill": "#2E5BFF",
+      "fillOp": 0.18,
+      "stroke": "#9FB7FF",
+      "strokeW": 2,
+      "dash": 1
+     },
+     "r15": {
+      "fill": "#FFE45C",
+      "fillOp": 0.28,
+      "stroke": "#FFE45C",
+      "strokeW": 2,
+      "dash": 0
+     },
+     "r25": {
+      "fill": "#FF5A5A",
+      "fillOp": 0.3,
+      "stroke": "#FFFFFF",
+      "strokeW": 0,
+      "dash": 0
+     }
+    },
+    "reveal": {
+     "start": 1,
+     "path": 2,
+     "labelLen": 1
+    },
+    "labels": [],
+    "trackMode": "full",
+    "lineColor": "#E5231E",
+    "lineWidth": 9.5,
+    "pastLineWidth": 5.23,
+    "pastIconK": 0.3,
+    "camera": {
+     "anchor": [
+      1160,
+      545
+     ],
+     "sBaked": 1.02,
+     "keys": [
+      {
+       "t": 0,
+       "x": 1160,
+       "y": 545,
+       "s": 1.02,
+       "rz": "5"
+      },
+      {
+       "t": 2,
+       "x": 1000,
+       "y": 500,
+       "s": 1.5,
+       "rz": 0.01
+      }
+     ],
+     "ease": [
+      34,
+      "85"
+     ],
+     "pivot": [
+      960,
+      540,
+      0
+     ],
+     "voidCol": "#0e2a4e"
+    }
+   },
+   "name": "태풍"
+  }
+ ]
+}

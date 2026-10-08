@@ -1,0 +1,205 @@
+{
+ "sid": "ae1791234567890",
+ "comp": {
+  "name": "WeatherCG_20261008_0930",
+  "w": 1920,
+  "h": 1080,
+  "fps": 29.97,
+  "dur": 6
+ },
+ "vfEnter": null,
+ "shadow": {
+  "x": 0,
+  "y": 8,
+  "blur": 10,
+  "op": 45,
+  "col": "#000814"
+ },
+ "layers": [
+  {
+   "file": "f_00000.png",
+   "name": "배경·지도"
+  },
+  {
+   "file": "f_00001.png",
+   "name": "지시선_1",
+   "fade": {
+    "start": 2,
+    "len": 1,
+    "ease": [
+     34,
+     85
+    ]
+   },
+   "legacy": 1
+  },
+  {
+   "labelComp": {
+    "w": 132,
+    "h": 60,
+    "x": 700,
+    "y": 300,
+    "bg": "f_00002.png",
+    "texts": [
+     {
+      "content": "12",
+      "size": 40,
+      "weight": 700,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 66,
+      "cy": 43.6
+     }
+    ],
+    "leader": {
+     "ax": 640,
+     "ay": 470,
+     "w": 131.4,
+     "h": 60.2,
+     "col": "#FFFFFF",
+     "sw": 2.4,
+     "op": 0.92,
+     "gap": 16,
+     "dot": {
+      "r": 6,
+      "fill": "#FA9A8C",
+      "stroke": "#FFFFFF",
+      "sw": 1.6
+     }
+    }
+   },
+   "name": "라벨_2",
+   "fade": {
+    "start": 2,
+    "len": 1,
+    "rise": 26,
+    "ease": [
+     34,
+     85
+    ]
+   }
+  },
+  {
+   "file": "f_00003.png",
+   "name": "지시선_2",
+   "fade": {
+    "start": 0,
+    "len": 1,
+    "ease": [
+     34,
+     85
+    ]
+   },
+   "legacy": 1
+  },
+  {
+   "labelComp": {
+    "w": 132,
+    "h": 60,
+    "x": 820.5,
+    "y": 420.25,
+    "bg": "f_00003.png",
+    "texts": [
+     {
+      "content": "13",
+      "size": 40,
+      "weight": 700,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 66,
+      "cy": 43.6
+     }
+    ],
+    "leader": {
+     "ax": 900.4,
+     "ay": 600.6,
+     "w": 147.7,
+     "h": 67.7,
+     "col": "#FFE45C",
+     "sw": 2.6976,
+     "op": 0.92,
+     "gap": 17.98,
+     "dot": {
+      "r": 6.744,
+      "fill": "#8A0A02",
+      "stroke": "#FFFFFF",
+      "sw": 1.798
+     }
+    }
+   },
+   "name": "라벨_3",
+   "fade": {
+    "start": 0,
+    "len": 1,
+    "rise": 29.224,
+    "ease": [
+     34,
+     85
+    ]
+   }
+  },
+  {
+   "labelComp": {
+    "w": 132,
+    "h": 60,
+    "x": 300,
+    "y": 500,
+    "bg": "f_00004.png",
+    "texts": [
+     {
+      "content": "14",
+      "size": 40,
+      "weight": 700,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 66,
+      "cy": 43.6
+     }
+    ],
+    "leader": {
+     "ax": 200,
+     "ay": 650,
+     "w": 120,
+     "h": 50
+    }
+   },
+   "name": "라벨_4",
+   "fade": null
+  },
+  {
+   "labelComp": {
+    "w": 132,
+    "h": 60,
+    "x": 1500,
+    "y": 500,
+    "bg": "f_00005.png",
+    "texts": [
+     {
+      "content": "15",
+      "size": 40,
+      "weight": 700,
+      "col": "#FFFFFF",
+      "track": 0,
+      "cx": 66,
+      "cy": 43.6
+     }
+    ],
+    "leader": {
+     "ax": 1600,
+     "ay": 300,
+     "w": 120,
+     "h": 50,
+     "dot": {
+      "r": 6
+     }
+    }
+   },
+   "name": "라벨_5",
+   "fade": {
+    "start": 1.5,
+    "len": 0.5,
+    "rise": 26
+   }
+  }
+ ]
+}

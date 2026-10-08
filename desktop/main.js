@@ -21,7 +21,7 @@ const APP_HOST = 'weathercg';
 const APP_ORIGIN = `app://${APP_HOST}`;
 const EMBED_PORT = 3721;   // 내장 헬퍼
 const EXT_PORT = 3720;     // 웹판 Python 헬퍼(대체용)
-const HELPER_VER = 20261007;
+const HELPER_VER = 20261008;
 const LAD = process.env.LOCALAPPDATA || app.getPath('temp');
 const exists = (p) => { try { return !!p && fs.existsSync(p); } catch (e) { return false; } };
 // 도구 위치 — desktop\helper 에 넣어 두면 그걸 우선(나중에 설치판에 번들), 없으면 기존 위치
