@@ -145,16 +145,17 @@ test('(a) 발효 N건 문구 — 초록 톤, 종류 수·칠한 구역 수, 꺼 
 test('(c)~(f) 오류 문구 — 빨강(err) 톤, 원인·할 일·지도 그대로, 원인별 버튼', () => {
   const { wrnResultView } = ctx();
   const cases = {
-    helperOff: ['기능 확장팩이 꺼져 있어요', ['helper', 'retry']],
-    helperOld: ['기능 확장팩이 옛 버전이에요', ['helperOld', 'retry']],
-    net: ['기상청에 연결되지 않아요', ['retry']],
+    // paste = 접힌 '자동이 안 될 때 · 수동 붙여넣기'를 펼쳐 보여 줌 — 헬퍼·연결처럼 브라우저 새 창으로는 될 수 있는 실패에만
+    helperOff: ['기능 확장팩이 꺼져 있어요', ['helper', 'paste', 'retry']],
+    helperOld: ['기능 확장팩이 옛 버전이에요', ['helperOld', 'paste', 'retry']],
+    net: ['기상청에 연결되지 않아요', ['retry', 'paste']],
     server: ['기상청 서버가 잠시 응답하지 않아요', ['retry']],
     key: ['인증키가 맞지 않아요', ['api', 'retry']],
     quota: ['오늘 쓸 수 있는 조회 횟수를 넘었어요', ['api', 'retry']],
     empty: ['기상청이 빈 응답을 보냈어요', ['retry', 'open']],
     format: ['특보 표가 아닌 응답이 왔어요', ['retry', 'open']],
     broken: ['한글이 깨진 채로 들어왔어요', ['open']],
-    other: ['알 수 없는 문제가 생겼어요', ['retry']],
+    other: ['알 수 없는 문제가 생겼어요', ['retry', 'paste']],
   };
   const titles = new Set();
   for (const [kind, [cause, acts]] of Object.entries(cases)) {
@@ -175,6 +176,16 @@ test('(c)~(f) 오류 문구 — 빨강(err) 톤, 원인·할 일·지도 그대�
   const p = wrnResultView({ kind: 'format', src: 'paste' });
   assert.equal(p.title, '칠하지 못했어요 — 붙여넣은 글에서 특보 표를 찾지 못했어요');
   assert.ok(!p.actions.some((a) => a.id === 'retry'), '붙여넣기엔 다시 시도 없음');
+  // 붙여넣기 결과엔 '직접 붙여넣기' 없음(이미 펼쳐 쓰는 중) · 버튼 이름
+  assert.ok(!wrnResultView({ kind: 'other', src: 'paste' }).actions.some((a) => a.id === 'paste'), '붙여넣기엔 직접 붙여넣기 없음');
+  assert.equal(wrnResultView({ kind: 'helperOff', src: 'fetch' }).actions.find((a) => a.id === 'paste').label, '직접 붙여넣기');
+  // 문구가 가리키는 '아래 …' 버튼은 접힌 묶음 속 버튼이 아니라 카드의 버튼 이름과 같아야 한다
+  for (const kind of ['empty', 'broken']) {
+    const v = wrnResultView({ kind, src: 'fetch' });
+    assert.match(v.lines[0], /‘기상청 화면 새 창으로 열기’/, kind);
+    assert.ok(v.actions.some((a) => a.label === '기상청 화면 새 창으로 열기'), kind);
+  }
+  assert.doesNotMatch(html.slice(html.indexOf('const WRN_FAIL = {'), html.indexOf('// 특보 목록 자리의')), /‘기상청 특보현황 새 창으로 열기’로/);
 });
 
 test('흐름 — 같은 기상청 응답 경로에서 (b)는 ok, (c)~(f)는 err로 확실히 갈린다', () => {

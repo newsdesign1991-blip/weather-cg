@@ -25,8 +25,9 @@ test('박스 왼쪽 색선(border-left 강조선)이 없다', () => {
   // 투명 테두리로 만드는 삼각형(화살표)만 허용 — 색이 있는 2px 이상 왼쪽 선은 없어야 한다
   const bad = css.split('\n').filter((l) => /border-left(-width)?\s*:\s*([2-9]|\d{2,})(\.\d+)?px/.test(l) && !/transparent/.test(l));
   assert.deepEqual(bad, []);
-  for (const sel of ['.bulBox', '.fctBox']) {
-    const rule = css.match(new RegExp(`\\${sel}\\s*\\{[^}]*\\}`));
+  // .subFoldBox(접이식 묶음 안 상자 — 특보 '자동이 안 될 때')는 .fctBox와 한 규칙(.fctBox, .subFoldBox { … })이라 쉼표 묶음도 받는다
+  for (const sel of ['.bulBox', '.fctBox', '.subFoldBox']) {
+    const rule = css.match(new RegExp(`\\${sel}(\\s*,\\s*[\\w.#:-]+)*\\s*\\{[^}]*\\}`));
     assert.ok(rule, `${sel} 규칙이 없음`);
     assert.doesNotMatch(rule[0], /border-left/);
     assert.match(rule[0], /border-radius/);   // 박스 자체(둥근 모서리)는 그대로
