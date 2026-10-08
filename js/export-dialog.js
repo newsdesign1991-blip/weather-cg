@@ -177,20 +177,32 @@ async function withStaticFrame(fn) {
   try { return await fn(); }
   finally { if (t != null && tlOpen) animSeek(t); }
 }
-// 폴더 고르기 — 지난번 폴더에서 시작. 지난번 핸들이 무효(지운 폴더 등)면 시작 위치 없이 한 번 더(같은 id라 브라우저가 기억한 곳).
+// 폴더 고르기 — 지난번 폴더에서 시작. 지난번 핸들이 무효(지운 폴더 등 — TypeError·NotFoundError)일 때만 시작 위치 없이 한 번 더
+// (같은 id라 브라우저가 기억한 곳). 취소·권한 거절·보안 오류는 그대로 던진다 — 폴더 창이 두 번 뜨지 않게.
 async function exPickRoot(last) {
   const o = { id: 'wcgImgOut', mode: 'readwrite' };
   if (last) {
     try { return await window.showDirectoryPicker(Object.assign({}, o, { startIn: last })); }
-    catch (e) { if (e && e.name === 'AbortError') throw e; }
+    catch (e) { if (!e || (e.name !== 'TypeError' && e.name !== 'NotFoundError')) throw e; }
   }
   return await window.showDirectoryPicker(o);
+}
+// 파일 시스템 오류 → 짧은 한국어 까닭(영어 원문이 바닥 요약에 그대로 뜨지 않게)
+function exErrText(e) {
+  const m = {
+    NotAllowedError: '이 폴더에 쓸 권한이 없어요', SecurityError: '보안 설정이 폴더 쓰기를 막았어요',
+    TypeMismatchError: '같은 이름의 폴더가 있어요', NoModificationAllowedError: '다른 프로그램이 파일을 쓰고 있어요',
+    InvalidModificationError: '다른 프로그램이 파일을 쓰고 있어요', QuotaExceededError: '저장 공간이 부족해요',
+    NotFoundError: '폴더를 찾을 수 없어요(옮기거나 지웠나요?)', InvalidStateError: '폴더 상태가 바뀌었어요 — 다시 해 주세요',
+  };
+  return (e && m[e.name]) || (e && e.message) || String(e);
 }
 // 저장 대상 — 폴더(한 장씩 바로 쓰기) 또는 ZIP(끝에 한 번 내려받기, 안 이름 '폴더/파일.png' → 풀면 같은 폴더)
 function exDirTarget(dir, rootName, folder) {
   return {
-    label: `${rootName} › ${folder}`,
-    exists: async (name) => { try { await dir.getFileHandle(name); return true; } catch (e) { return !!(e && e.name === 'TypeMismatchError'); } },   // 같은 이름 폴더도 '있음'
+    label: `${rootName || '고른 폴더'} › ${folder}`,
+    // 'file' = 같은 이름 파일, 'dir' = 같은 이름 폴더(덮어쓸 수 없다 — 그 장은 번호를 붙인다), false = 없음
+    exists: async (name) => { try { await dir.getFileHandle(name); return 'file'; } catch (e) { return (e && e.name === 'TypeMismatchError') ? 'dir' : false; } },
     write: async (name, blob) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(blob); await w.close(); },
   };
 }
@@ -220,10 +232,10 @@ function exAskOverwrite(names, folder) {
     try { m.foot.querySelector('[data-over]').focus({ preventScroll: true }); } catch (e) {}
   });
 }
-// 번호 붙이기 — '색칠만 (2).png'(라벨 이름 규칙과 같은 ' (n)')
-async function exRenumber(plan, target) {
-  const taken = new Set(plan.map((p) => p.file.toLowerCase()));
-  for (const p of plan) {
+// 번호 붙이기 — '색칠만 (2).png'(라벨 이름 규칙과 같은 ' (n)'). list = 번호를 붙일 장(기본 전부), all = 이번 렌더의 모든 장(이름 겹침 확인용)
+async function exRenumber(list, target, all) {
+  const taken = new Set((all || list).map((p) => p.file.toLowerCase()));
+  for (const p of list) {
     if (!(await target.exists(p.file))) continue;
     taken.delete(p.file.toLowerCase());
     for (let i = 2; i < 1000; i++) {
@@ -268,21 +280,23 @@ async function renderExport(opt) {
     catch (e) {
       // 취소와 '막힌 폴더'(바탕화면·다운로드 자체 — 크롬이 막는다)는 둘 다 AbortError라 구별할 수 없다 → 안내 + ZIP 받기
       if (e && e.name === 'AbortError') { exToast('저장을 취소했어요 · 바탕화면·다운로드는 그 안의 폴더를 골라 주세요', { zip: true }); return; }
-      root = null;   // 그 밖의 오류(보안 정책 등)는 ZIP으로
+      // 권한 거절·보안 정책 등 — 말없이 ZIP을 내려받지 않고 까닭 + [ZIP으로 받기]
+      exToast(`폴더를 열지 못했어요(${exErrText(e)}) — 다른 폴더를 고르거나 ZIP으로 받아 주세요`, { zip: true }); return;
     }
     if (root) {
       _exLastDir = root; idbSet('imgDir', root);   // 다음엔 여기서 시작(영상 출력 폴더 'outDir'와 따로)
       try { target = exDirTarget(await root.getDirectoryHandle(folder, { create: true }), root.name, folder); }
-      catch (e) { exToast('이 폴더에는 저장할 수 없어요 — 다른 폴더를 고르거나 ZIP으로 받아 주세요', { zip: true }); return; }
+      catch (e) { exToast(`이 폴더에는 저장할 수 없어요(${exErrText(e)}) — 다른 폴더를 고르거나 ZIP으로 받아 주세요`, { zip: true }); return; }
     }
   }
   if (!target) target = exZipTarget(folder);
-  const dup = [];
-  for (const p of plan) if (await target.exists(p.file)) dup.push(p.file);
+  const dup = [], dirClash = [];
+  for (const p of plan) { const k = await target.exists(p.file); if (k) { dup.push(p.file); if (k === 'dir') dirClash.push(p); } }
   if (dup.length) {
     const how = await exAskOverwrite(dup, folder);
     if (!how) { exToast('저장을 취소했어요'); return; }
     if (how === 'number') await exRenumber(plan, target);
+    else if (dirClash.length) await exRenumber(dirClash, target, plan);   // 같은 이름 '폴더'는 덮어쓸 수 없다 — 그 장만 번호
   }
   _exStop = false; _exDone = null;
   exSetBusy(true);
@@ -311,7 +325,7 @@ async function renderExport(opt) {
     fxProgress('#exportBtn', null);
   }
   const where = target.label;
-  if (err) _exDone = { ok: false, head: '렌더 실패', tail: ` — ${err.message || err}` + (n ? ` · ${n}장은 저장됨(${where})` : '') };
+  if (err) _exDone = { ok: false, head: '렌더 실패', tail: ` — ${exErrText(err)}` + (n ? ` · ${n}장은 저장됨(${where})` : '') };
   else if (_exStop && n < plan.length) _exDone = { ok: n > 0, head: n ? `중지 · ${n}장 저장했어요` : '중지했어요', tail: n ? ` · ${where}` : '' };
   else _exDone = { ok: true, head: '저장했어요', tail: ` · ${where} · ${n}장` };
   syncExport();

@@ -126,6 +126,12 @@ test('R8 저장 — 폴더 고르기 → 오늘날짜_날씨CG메이커 폴더 �
   assert.equal(s.num.newWrites, 5);
   assert.deepEqual(s.num.files, ['색칠만 (2).png', '색칠만.png', '수치 라벨 - 120 (2) (2).png', '수치 라벨 - 120 (2).png', '수치 라벨 - 120 (3).png', '수치 라벨 - 120.png', '수치 라벨 - 강원 80~100 (2).png', '수치 라벨 - 강원 80~100.png', '전체 화면 (2).png', '전체 화면.png'].sort());
   assert.equal(s.cancel.newWrites, 0);
+  // 같은 이름 '폴더'가 있으면 그 장만 번호(덮어쓰기를 골라도 실패하지 않는다)
+  assert.deepEqual(s.dirClash.written, ['색칠만 (3).png', '수치 라벨 - 120 (2).png', '수치 라벨 - 120.png', '수치 라벨 - 강원 80~100.png', '전체 화면.png']);
+  assert.match(s.dirClash.summary, /저장했어요/);
+  // 권한 거절 — 폴더 창은 한 번만, 쓴 것·내려받은 것 없음, 까닭 + ZIP 버튼
+  assert.deepEqual([s.denied.pickerCalls, s.denied.newWrites, s.denied.downloads, s.denied.zipBtn], [1, 0, 0, true]);
+  assert.match(s.denied.toast, /폴더를 열지 못했어요\(이 폴더에 쓸 권한이 없어요\)/);
   assert.equal(s.abort.newWrites, 0);
   assert.equal(s.abort.zipBtn, true);
   assert.match(s.abort.toast, /바탕화면·다운로드는 그 안의 폴더를 골라 주세요/);

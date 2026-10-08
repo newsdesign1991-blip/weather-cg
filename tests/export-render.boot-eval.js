@@ -374,6 +374,7 @@ if (want('save')) {
     return { kind: 'directory', name, files, dirs, calls,
       async getDirectoryHandle(n, o) { calls.push([n, !!(o && o.create)]); if (!dirs.has(n)) { if (!(o && o.create)) throw new DOMException('없음', 'NotFoundError'); dirs.set(n, fakeDir(n)); } return dirs.get(n); },
       async getFileHandle(n, o) {
+        if (dirs.has(n)) throw new DOMException('같은 이름 폴더', 'TypeMismatchError');   // 실제 API와 같게
         if (!files.has(n) && !(o && o.create)) throw new DOMException('없음', 'NotFoundError');
         return { name: n, createWritable: async () => { const parts = []; return { write: async (b) => { parts.push(b); }, close: async () => { files.set(n, new Blob(parts)); writes.push(n); } }; } };
       } };
@@ -381,7 +382,12 @@ if (want('save')) {
   const root = fakeDir('Upload'), pick = [];
   const origPicker = window.showDirectoryPicker, origDl = window.download;
   let pickerMode = 'ok';
-  window.showDirectoryPicker = async (o) => { pick.push(o); if (pickerMode === 'abort') throw new DOMException('사용자 취소', 'AbortError'); return root; };
+  window.showDirectoryPicker = async (o) => {
+    pick.push(o);
+    if (pickerMode === 'abort') throw new DOMException('사용자 취소', 'AbortError');
+    if (pickerMode === 'denied') throw new DOMException('권한 거절', 'NotAllowedError');
+    return root;
+  };
   const dl = []; window.download = (blob, filename) => { dl.push({ blob, filename }); };
   // 렌더 중 겹침 확인창이 뜨면 그 버튼을 누른다
   const renderAnd = async (answer) => {
@@ -408,6 +414,17 @@ if (want('save')) {
     w0 = writes.length;
     await renderAnd('cancel');
     S8.cancel = { newWrites: writes.length - w0, summary: q('#exSummary').textContent };
+    // 같은 이름 '폴더'(색칠만.png 라는 폴더)가 있으면 덮어쓰기를 골라도 그 장만 번호 — 실패하지 않는다
+    if (dir) { dir.files.delete('색칠만.png'); dir.dirs.set('색칠만.png', fakeDir('색칠만.png')); }
+    w0 = writes.length;
+    await renderAnd('over');
+    S8.dirClash = { written: writes.slice(w0).sort(), summary: q('#exSummary').textContent };
+    if (dir) dir.dirs.delete('색칠만.png');
+    // 권한 거절(NotAllowedError) — 폴더 창을 다시 띄우지 않고, 말없이 ZIP 을 받지도 않는다(안내 + ZIP 버튼)
+    pickerMode = 'denied'; w0 = writes.length;
+    const nPick0 = pick.length, nDl0 = dl.length;
+    await renderAnd(null);
+    S8.denied = { pickerCalls: pick.length - nPick0, newWrites: writes.length - w0, downloads: dl.length - nDl0, toast: q('#exToast').textContent, zipBtn: !!q('#exToast .exToastBtn') };
     // 폴더 창 취소(바탕화면·다운로드 자체를 골랐을 때도 같은 AbortError) → 안내 + ZIP 받기 버튼
     pickerMode = 'abort'; w0 = writes.length;
     await renderAnd(null);

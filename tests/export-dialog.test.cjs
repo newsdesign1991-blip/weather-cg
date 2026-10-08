@@ -144,6 +144,11 @@ test('렌더 — 클릭 직후 첫 await가 폴더 창, 영상 출력 폴더(pre
   assert.match(r, /await awaitMapboxTilesReady\(\)/);
   assert.match(r, /if \(_exportingFrames\) \{ exToast\('영상 추출이 끝난 뒤에 할 수 있어요'\); return; \}/);
   assert.match(r, /e\.name === 'AbortError'\) \{ exToast\([^)]*\{ zip: true \}\)/, '취소·막힌 폴더 → 안내 + ZIP 받기');
+  // 권한 거절·보안 오류는 말없이 ZIP 을 내려받지 않는다(까닭 + ZIP 버튼), 폴더 창을 다시 띄우는 것은 시작 위치가 무효일 때만
+  assert.match(r, /exToast\(`폴더를 열지 못했어요\(\$\{exErrText\(e\)\}\)[^`]*`, \{ zip: true \}\); return;/);
+  assert.doesNotMatch(r, /^\s*root = null;/m, '오류 뒤 ZIP 으로 흘러가지 않는다');
+  assert.match(pr, /if \(!e \|\| \(e\.name !== 'TypeError' && e\.name !== 'NotFoundError'\)\) throw e;/);
+  assert.match(r, /else if \(dirClash\.length\) await exRenumber\(dirClash, target, plan\);/, '같은 이름 폴더는 그 장만 번호');
   assert.match(r, /if \(!target\) target = exZipTarget\(folder\);/, '폴더 고르기가 없으면 ZIP');
   assert.match(r, /const how = await exAskOverwrite\(dup, folder\);/);
   assert.match(r, /fxBusy\(fx, true, \{ disable: false \}\)/);
@@ -263,7 +268,7 @@ test('데스크톱 — 폴더 고르기에서 막히는 사용자 폴더(바탕�
 });
 
 test('새 이름은 한 번씩만 정의된다', () => {
-  for (const n of ['openExport', 'closeExport', 'exportIsOpen', 'renderExport', 'withStaticFrame', 'exportFolderName', 'setupExportDialog', 'syncExport', 'exportPlan', 'exportWhyNot', 'exportBake', 'exportLabelBlob', 'fillOnlyLayer', 'exSeamless', 'exSolidUnderlay', 'exSeaUnderLand', 'safeFileName', 'stripAnimState', 'inlineMapboxTiles', 'svgCloneImage', 'exAskOverwrite', 'exRenumber', 'exZipTarget', 'exDirTarget', 'exPickRoot']) {
+  for (const n of ['openExport', 'closeExport', 'exportIsOpen', 'renderExport', 'withStaticFrame', 'exportFolderName', 'setupExportDialog', 'syncExport', 'exportPlan', 'exportWhyNot', 'exportBake', 'exportLabelBlob', 'fillOnlyLayer', 'exSeamless', 'exSolidUnderlay', 'exSeaUnderLand', 'safeFileName', 'stripAnimState', 'inlineMapboxTiles', 'svgCloneImage', 'exAskOverwrite', 'exRenumber', 'exZipTarget', 'exDirTarget', 'exPickRoot', 'exErrText']) {
     assert.equal(html.split(`function ${n}(`).length - 1, 1, n);
   }
   for (const n of ['EXPORT_ICON', 'EXPORT_STACK', 'EXPORT_TARGETS', 'EX_PICK_KEY']) assert.equal(html.split(`const ${n} =`).length - 1, 1, n);
