@@ -18,7 +18,8 @@ function pushUndo(tag) {
   updateUndoBtns();
 }
 // 지도 내용 리비전 — 틸트 미리보기 캔버스가 칠·태풍·되돌리기 같은 '내용' 변경도 다시 굽게 서명에 넣는다
-let _mapContentRev = 0, _tiltContentTimer = 0;
+// _mapAnimRev: 재생·스크럽(가속) 중 진행도가 바꾼 지도 그림(anim.js animMapKey) — 태풍은 경로 레이어만 바뀌므로 무거운 바탕은 _mapContentRev로 따로 본다
+let _mapContentRev = 0, _tiltContentTimer = 0, _mapAnimRev = 0;
 // 지도 레이어를 다시 그렸다 — 리비전을 올리고, 기울인 미리보기 중이면 잠깐 뒤 한 번 다시 굽는다(연속 변경은 1회로 묶음)
 function bumpMapContent() {
   _mapContentRev++;

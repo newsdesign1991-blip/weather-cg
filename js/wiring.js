@@ -611,7 +611,7 @@ function wire() {
       applyCgDefaults(keepLight);
       markCgMode(); buildBgBtns(); syncPanelFromState(); renderAll(); showPresetInfo();
     }
-    _tiltRasterSig = null; applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거
+    tiltInvalidate(true); applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거(옛 그림·태풍 바탕도 버림)
     localStorage.removeItem('wcg_started');           // 다시 빈 화면 + 선택 안내부터
     localStorage.setItem('wcg_pending_start', '1');   // 새로고침해도 'CG 종류·지도 종류 선택' 화면이 계속 뜨게(자동저장된 빈 작업을 로드하지 않도록)
     showStartScreen();

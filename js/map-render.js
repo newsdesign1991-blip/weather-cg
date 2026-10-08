@@ -104,7 +104,7 @@ function fetchTileData(url) {
   if (_tileData[url] !== undefined) return;   // 진행중/완료
   _tileData[url] = null;
   fetch(url, { mode: 'cors' }).then((r) => r.blob()).then((b) => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); }))
-    .then((durl) => { _tileData[url] = durl; if (camActive3d && camActive3d()) { _tiltRasterSig = null; if (typeof applyTilt === 'function') applyTilt(); } })
+    .then((durl) => { _tileData[url] = durl; tiltInvalidate(); if (camActive3d()) applyTilt(); })   // 틸트 그림(태풍 바탕 포함)에 새 타일을 넣게 다시 굽는다 — 평면이면 미리 구운 그림만 버린다
     .catch(() => { delete _tileData[url]; });
 }
 let _mbxT = 0;
