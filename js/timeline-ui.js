@@ -82,19 +82,18 @@ function tlNote() {
   const bake = $('#tlBake');   // VF에선 이 MP4 버튼을 숨긴다 — 대신 "알파MOV로 추출"(헬퍼) 버튼을 쓴다
   if (bake) {
     bake.style.display = vf ? 'none' : '';
-    bake.textContent = 'MP4로 추출';
+    (bake.querySelector('.tlRndLbl') || bake).textContent = 'MP4로 렌더';   // 글자 span만 — 아이콘 svg 유지
     bake.disabled = false;
     bake.title = '타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다';
   }
-  const png = $('#tlExportPng');   // VF에선 이 버튼만 남으므로 양쪽 다 둥글게(반쪽 알약 방지)
-  if (png) png.style.borderRadius = vf ? '11px' : '';
+  // MP4가 숨으면 렌더 묶음(#tlRender)은 남은 버튼끼리 이어 붙고 양끝만 둥글다(css/timeline.css) — 버튼마다 모서리를 고치지 않는다
   const el = $('#tlNote');
   if (!el) return;
   if (tlState.notice) { el.style.display = ''; return; }   // 해상도 알림 줄(tlNoticeRes)이 떠 있으면 그대로
   const vt = videoType();
   const touch = S.res === '2158x1214';
   if (touch) {
-    el.innerHTML = `<b>터치 스크린</b> · ${vt ? vt.label : '영상'} ${A.fps}fps 로 <b>영상 추출</b>을 누르면 바로 나옵니다.`;
+    el.innerHTML = `<b>터치 스크린</b> · <b>MP4로 렌더</b>를 누르면 ${vt ? vt.label : '영상'} ${A.fps}fps로 바로 나옵니다.`;
     el.style.display = '';
   } else {
     el.innerHTML = '';
@@ -261,7 +260,7 @@ function tlUpdateFootWarn() {
   for (const L of tlState.plan) { const sp = tlSpanNow(L); if (sp && sp[1] > dur + 1e-4 && L.kind !== 'vfEnter') n++; for (const c of (L.children || [])) { const cs = tlSpanNow(c); if (cs && cs[1] > dur + 1e-4) n++; } }
   for (const k of camKeys()) if (+k.t > dur + 1e-4) n++;
   const none = !anim().tracks.length && !camKeys().length && tlState.plan.some((L) => L.animatable && !L.gone);
-  w.textContent = n ? `길이 밖 ${n}개 — 길이를 늘리거나 당겨 오세요(영상 추출엔 안 나오고, AE는 컴프를 그 끝까지 늘려 보냄)` : none ? '타이밍 없음 — 자동 구성을 누르거나 점선 막대를 끌어 등장 시각을 만드세요' : '';
+  w.textContent = n ? `길이 밖 ${n}개 — 길이를 늘리거나 당겨 오세요(영상 렌더엔 안 나오고, AE는 컴프를 그 끝까지 늘려 보냄)` : none ? '타이밍 없음 — 자동 구성을 누르거나 점선 막대를 끌어 등장 시각을 만드세요' : '';
 }
 function tlSelSync() {
   for (const [id, e] of tlState.els) {

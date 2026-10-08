@@ -88,15 +88,15 @@
 <link rel="stylesheet" href="css/base.css?v=505143ba">
 <link rel="stylesheet" href="css/sidebar.css?v=7796a853">
 <link rel="stylesheet" href="css/stage.css?v=974b23b9">
-<link rel="stylesheet" href="css/titlebar.css?v=0d3f15d1">
+<link rel="stylesheet" href="css/titlebar.css?v=29f661d5">
 <link rel="stylesheet" href="css/start-tour.css?v=36750797">
 <link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
-<link rel="stylesheet" href="css/timeline.css?v=8f6d027d">
+<link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
 <link rel="stylesheet" href="css/dialogs.css?v=7b46d2b5">
 <link rel="stylesheet" href="css/panel-misc.css?v=4640b3e8">
-<link rel="stylesheet" href="css/toss-modal.css?v=1d02ed6c">
+<link rel="stylesheet" href="css/toss-modal.css?v=f585119b">
 <link rel="stylesheet" href="css/busy-fx.css?v=d7a646d1">
 
 <!-- 맨 위 제목줄 — 데스크톱 앱에선 이 줄이 곧 창 제목표시줄(빈 곳 끌기=창 이동, 오른쪽 끝=윈도 창 버튼).
@@ -116,8 +116,8 @@
     <!-- 추출 3버튼(오른쪽 — 확대 비율 왼쪽) — 같은 폭(grid 균등 칸) + 채운 아이콘(사진·재생·보내기, currentColor라 .on/.pri 때 흰색으로 따라감).
          글자는 .tbLbl 안에만 — JS가 글자를 잠깐 바꿀 땐(AE 여는 중…) 이 span 만 바꾼다(버튼 textContent 를 덮으면 아이콘 svg 가 지워짐) -->
     <div class="tbGroup" id="exportGroup">
-      <button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog" title="이미지로 추출 — 고른 것을 PNG로 렌더해 폴더에 저장"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm3.5 6.6a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM5.2 18.2h13.6l-4.4-6-3.4 4.4-2.4-3.1z"/></svg><span class="tbLbl">이미지로 추출</span></button>
-      <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 추출 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm-2.2 6v8l6.4-4z"/></svg><span class="tbLbl">영상으로 추출</span></button>
+      <button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog" title="이미지로 렌더 — 고른 것을 PNG로 렌더해 폴더에 저장"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm3.5 6.6a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM5.2 18.2h13.6l-4.4-6-3.4 4.4-2.4-3.1z"/></svg><span class="tbLbl">이미지로 렌더</span></button>
+      <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 렌더 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm-2.2 6v8l6.4-4z"/></svg><span class="tbLbl">영상으로 렌더</span></button>
       <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a1 1 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .72.73 1.2 1.39.91z"/></svg><span class="tbLbl">AE로 보내기</span></button>
     </div>
     <div class="tbSep"></div>
@@ -210,7 +210,7 @@
   <div class="cgSetupCard exCard" role="dialog" aria-modal="true" aria-labelledby="exTitle" tabindex="-1">
     <div class="cgsHead">
       <div class="cgsHeadTxt">
-        <div class="cgsTitle" id="exTitle">이미지로 추출</div>
+        <div class="cgsTitle" id="exTitle">이미지로 렌더</div>
         <div class="cgsSub">고른 것을 렌더하면 저장할 폴더를 물어보고, 그 안에 오늘 날짜 폴더를 만들어 카드 이름 그대로 저장해요</div>
       </div>
       <button class="cgsX" id="exX" aria-label="닫기" title="닫기 (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
@@ -540,7 +540,7 @@
           <label class="chk" style="flex:1"><input type="checkbox" id="showNW">북한</label>
           <label class="chk" style="flex:1"><input type="checkbox" id="showJP">일본</label>
         </div>
-        <p class="hint">가이드는 화면에만 보여요(추출 안 됨).</p>
+        <p class="hint">가이드는 화면에만 보여요(렌더에는 안 나와요).</p>
         <div class="btns"><button id="bgFile">배경 이미지 교체…</button></div>
       </div>
     </div>
@@ -917,19 +917,24 @@
          <label class="tlNum">각도 <input type="number" id="tlBlindAngle" min="-90" max="90" step="1"><span>°</span></label>
        </span>
        <span class="tlGrow"></span>
-       <div class="exportGroup">
-         <button class="tintBtn" id="tlBake" title="타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다">MP4로 추출</button>
-         <button class="tintBtn" id="tlExportPng" title="프레임을 PNG 여러 장으로 — 편집 툴(프리미어/AE)에서 방송용 코덱으로 렌더">PNG 시퀀스로 추출</button>
+       <!-- 렌더 출력 덩어리(저장 폴더 + 렌더 묶음) — 좁은 창에서 줄이 바뀌어도 둘이 떨어지지 않게 함께 움직인다(css/timeline.css .tlOut) -->
+       <div class="tlOut">
+       <!-- 영상 저장 폴더(영상 렌더 전용 — 이미지로 렌더는 팝업에서 따로 폴더를 고른다). 렌더 묶음 앞에 따로 둔다. id·핸들러(wiring.js)는 옛 '출력 폴더 지정' 그대로 -->
+       <button id="exSetDir" class="tlDirBtn tlBtn" title="영상(MP4·PNG 시퀀스·MXF·MOV)을 정해둔 폴더로 바로 저장(예: R:\Upload). 안 정하면 저장할 때 위치를 고릅니다."><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7a2 2 0 012-2h3.6l2 2.2h7.4a2 2 0 012 2v8.3a2 2 0 01-2 2h-13a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg><span class="tlDirLbl">저장 폴더</span></button>
+       <!-- 영상 렌더 묶음 — MP4·PNG 시퀀스·MXF·알파 MOV를 붙은 세그먼트 하나로(제목줄 렌더 버튼과 같은 파란 틴트·파란 글자·채운 아이콘).
+            MXF·MOV는 해상도에 따라 보이고 숨고(updateWnsButtons), MP4는 노말 VF에서 숨는다(tlNote). 숨은 버튼은 칸이 안 생겨 보이는 것끼리 이어 붙는다(css/timeline.css .tlRender).
+            글자는 .tlRndLbl 안에만 — JS가 글자를 바꿀 땐 이 span만 바꾼다(버튼 textContent를 덮으면 아이콘 svg가 지워짐) -->
+       <div class="tlRender" id="tlRender" role="group" aria-label="영상 렌더">
+         <button id="tlBake" title="타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M4.5 4h15A2.5 2.5 0 0122 6.5v11a2.5 2.5 0 01-2.5 2.5h-15A2.5 2.5 0 012 17.5v-11A2.5 2.5 0 014.5 4zm5.3 4.6v6.8l5.7-3.4z"/></svg><span class="tlRndLbl">MP4로 렌더</span></button>
+         <button id="tlExportPng" title="프레임을 PNG 여러 장으로 — 편집 툴(프리미어/AE)에서 방송용 코덱으로 렌더"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 5V4.3A2.3 2.3 0 018.9 2h10.8A2.3 2.3 0 0122 4.3v10.8a2.3 2.3 0 01-2.3 2.3H19v-1.9h.7a.4.4 0 00.4-.4V4.3a.4.4 0 00-.4-.4H8.9a.4.4 0 00-.4.4V5z"/><path fill="currentColor" fill-rule="evenodd" d="M4.2 7h10.6A2.2 2.2 0 0117 9.2v10.6a2.2 2.2 0 01-2.2 2.2H4.2A2.2 2.2 0 012 19.8V9.2A2.2 2.2 0 014.2 7zm2.6 5.3a1.4 1.4 0 100-2.8 1.4 1.4 0 000 2.8zM4 20.1h11l-3.5-4.8-2.7 3.5-2-2.5z"/></svg><span class="tlRndLbl">PNG 시퀀스로 렌더</span></button>
+         <button id="wnsMxf" style="display:none" title="방송용 MXF (XDCAM HD422) — 기능 확장팩(WNS 렌더 헬퍼)으로 만듭니다 · 저장 위치 선택"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.6 2.2l1.1-.9 3.9 4.6-1.2 1zM16.4 2.2l-1.1-.9-3.9 4.6 1.2 1z"/><path fill="currentColor" fill-rule="evenodd" d="M4 7h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2zm.2 2.2v9.6h15.6V9.2z"/></svg><span class="tlRndLbl">MXF로 렌더</span></button>
+         <button id="wnsMov" style="display:none" title="투명(알파) MOV (QuickTime Animation) — 기능 확장팩(WNS 렌더 헬퍼)으로 만듭니다 · 저장 위치 선택"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm0 2v7h7V5zm7 7v7h7v-7z"/></svg><span class="tlRndLbl">알파MOV로 렌더</span></button>
        </div>
-       <!-- 영상 저장 폴더(영상 추출 전용 — 이미지로 추출은 팝업에서 따로 폴더를 고른다). id·핸들러(wiring.js)는 옛 '출력 폴더 지정' 그대로 -->
-       <button id="exSetDir" class="tlDirBtn" title="영상(MP4·PNG 시퀀스·MXF·MOV)을 정해둔 폴더로 바로 저장(예: R:\Upload). 안 정하면 저장할 때 위치를 고릅니다."><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7a2 2 0 012-2h3.6l2 2.2h7.4a2 2 0 012 2v8.3a2 2 0 01-2 2h-13a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg><span class="tlDirLbl">저장 폴더</span></button>
-       <div class="exportGroup" id="wnsGroup" style="display:none" title="WNS 렌더 헬퍼로 방송용 MXF / 투명(알파) MOV 를 만듭니다. 버튼을 누르면 저장 위치를 고릅니다. (노말 VF 전용, 로컬에서만)">
-         <button class="tintBtn" id="wnsMxf" style="border-radius:11px" title="방송용 MXF (XDCAM HD422) — 저장 위치 선택">MXF로 추출</button>
-         <button class="tintBtn" id="wnsMov" style="border-radius:11px" title="투명(알파) MOV (QuickTime Animation) — 저장 위치 선택">알파MOV로 추출</button>
        </div>
        <span class="tlTime" id="tlInfo"></span>
-       <button id="tlReset" class="tlResetBtn" title="타임라인의 모든 키·트랙·효과·길이 설정을 지워 처음 상태로 되돌립니다 (되돌리기 Ctrl+Z)">초기화</button>
-       <button class="tlClose" id="tlClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.4 5l5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+       <button id="tlReset" class="tlBtn tlResetBtn" title="타임라인의 모든 키·트랙·효과·길이 설정을 지워 처음 상태로 되돌립니다 (되돌리기 Ctrl+Z)">초기화</button>
+       <!-- 닫기 = 앱 공통 유리 원 + 얇은 X(팝업 .cgsX·.tossX와 같은 모양 — css/toss-modal.css) -->
+       <button class="tlClose" id="tlClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
        </div>
      </div>
      <p class="tlNote" id="tlNote"></p>
@@ -1281,16 +1286,16 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/busy-fx.js?v=68bb53cf"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
 <script src="js/export-image.js?v=9c69190f"></script>
-<script src="js/export-video.js?v=2c93fead"></script>
+<script src="js/export-video.js?v=92e1603e"></script>
 <script src="js/export-blobs.js?v=b0f799ef"></script>
 <script src="js/ae-export.js?v=4b1a0894"></script>
-<script src="js/export-dialog.js?v=3289e025"></script>
+<script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=a36c3975"></script>
 <script src="js/wiring.js?v=29a3049e"></script>
 <script src="js/anim.js?v=63d61726"></script>
 <script src="js/timeline-plan.js?v=065640cc"></script>
-<script src="js/timeline-ui.js?v=3d36ae0f"></script>
+<script src="js/timeline-ui.js?v=05af56f8"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
 <script src="js/floating-panels.js?v=2fad8f53"></script>
-<script src="js/tour.js?v=77daf9d1"></script>
+<script src="js/tour.js?v=7b2ffbab"></script>
 <script src="js/boot.js?v=6e4199a5"></script>

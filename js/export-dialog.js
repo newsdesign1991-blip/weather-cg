@@ -269,7 +269,7 @@ function exSetBusy(on) {
 async function renderExport(opt) {
   opt = opt || {};
   if (_exBusy) { exStopRequest(); return; }
-  if (_exportingFrames) { exToast('영상 추출이 끝난 뒤에 할 수 있어요'); return; }
+  if (_exportingFrames) { exToast('영상 렌더가 끝난 뒤에 할 수 있어요'); return; }
   const plan = exportPlan(exPickedKeys());
   if (!plan.length) { exToast('뽑을 것을 골라 주세요'); return; }
   const folder = exportFolderName();

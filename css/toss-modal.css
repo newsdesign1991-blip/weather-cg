@@ -41,15 +41,17 @@
   .tossStep { display: flex; gap: 10px; margin-bottom: 10px; }
   .tossStep .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #FA2E1E; color: #fff; font-weight: 800; text-align: center; line-height: 22px; font-size: 12px; }
   .tossPath { margin-top: 12px; padding: 10px 12px; background: var(--surface-hi); border-radius: 10px; font-size: 12.5px; color: var(--pop-muted); word-break: break-all; }
-  /* 닫기·머리 아이콘 버튼 = 유리 원(근무표 .modal-close) — CG 구성·토스·배치 슬롯·이미지 팝업·API 설정 공통. 글자색 X 아이콘(SVG) */
-  .cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button {
+  /* 닫기·머리 아이콘 버튼 = 유리 원(근무표 .modal-close) — CG 구성·토스·배치 슬롯·이미지 팝업·API 설정·타임라인 닫기 공통. 글자색 X 아이콘(SVG) */
+  .cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button, .tlClose {
     flex: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--pop-x-bg); border: 1px solid var(--pop-x-line); color: var(--on-surface);
     box-shadow: 0 2px 8px rgba(15,23,42,.12); backdrop-filter: blur(10px);
   }
-  .cgsX:hover, .tossX:hover, .tossHeadIcon:hover, .slotHead .x:hover, .imgPopHead button:hover, .apiHead button:hover { background: var(--pop-x-hover); }
-  .cgsX svg, .tossX svg, .slotHead .x svg, .imgPopHead button svg, .apiHead button svg { width: 15px; height: 15px; display: block; }
+  .cgsX:hover, .tossX:hover, .tossHeadIcon:hover, .slotHead .x:hover, .imgPopHead button:hover, .apiHead button:hover, .tlClose:hover { background: var(--pop-x-hover); }
+  .cgsX svg, .tossX svg, .slotHead .x svg, .imgPopHead button svg, .apiHead button svg, .tlClose svg { width: 15px; height: 15px; display: block; }
+  .tlClose { width: 28px; height: 28px; }   /* 타임라인 도구 줄 — 다른 버튼 높이(28)에 맞춘 작은 유리 원(이미지 팝업 닫기와 같은 크기) */
+  .tlClose svg { width: 14px; height: 14px; }
   .tossHeadIcon svg { width: 16px; height: 16px; display: block; }
   .slotHead .x { width: 30px; height: 30px; }
   .imgPopHead button { width: 28px; height: 28px; }

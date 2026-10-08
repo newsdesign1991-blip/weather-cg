@@ -46,7 +46,7 @@ function tourStepList() {
       target: () => { const b = document.querySelector('.basemapBtn'); return (b && b.offsetParent) ? b : (document.querySelector('.fit') || $('#stage')); }, setup: () => tourMenuClose(), delay: 300 },
     { title: '프로젝트 (플로피 디스크 아이콘)', body: '<b>CG 구성</b> 옆 <b>플로피 디스크 아이콘</b>이에요. 작업을 저장 · 불러오고 최근 파일을 엽니다. 저장 파일은 그림(PNG)이라 파일 탐색기에서 미리보기가 그대로 보여요.',
       target: () => $('#menuDrop'), setup: () => tourMenu('proj'), delay: 320 },
-    { title: '이미지로 추출 · 영상으로 추출 · AE로 보내기', body: '파란 버튼 세 개예요. <b>이미지로 추출</b>은 창에서 완성 화면·레이어(색칠만·경계선만 등)를 골라 렌더하면, 고른 폴더 안 <b>오늘 날짜 폴더</b>에 카드 이름 그대로 저장해요. <b>영상으로 추출</b>은 타임라인을 영상(MP4)으로 뽑고, <b>AE로 보내기</b>는 레이어째 애프터이펙트로 넘깁니다.',
+    { title: '이미지로 렌더 · 영상으로 렌더 · AE로 보내기', body: '파란 버튼 세 개예요. <b>이미지로 렌더</b>는 창에서 완성 화면·레이어(색칠만·경계선만 등)를 골라 렌더하면, 고른 폴더 안 <b>오늘 날짜 폴더</b>에 카드 이름 그대로 저장해요. <b>영상으로 렌더</b>는 타임라인을 열어 영상(MP4·PNG 시퀀스·MXF)으로 렌더하고, <b>AE로 보내기</b>는 레이어째 애프터이펙트로 넘깁니다.',
       target: () => $('#exportGroup'), setup: () => tourMenuClose(), delay: 280 },
     { title: '칠하기 · 브러쉬 · 이동 모드', body: '작업은 이 세 모드를 상황에 맞게 바꿔 가며 합니다. ① 칠하기 = 지역을 클릭해 색칠, ② 브러쉬 = 고른 영역 안에만 부드럽게 덧칠, ③ 이동 = 지도 · 글자 · 산의 위치를 끌어서 옮기기. 색칠하려면 칠하기, 자리 잡으려면 이동으로 바꾸세요.',
       target: () => { const b = document.getElementById('mPaint'); return b ? b.closest('.mode') : null; }, setup: () => tourMenuClose(), delay: 280 },

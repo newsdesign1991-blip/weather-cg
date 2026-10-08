@@ -42,7 +42,7 @@ function planCtx(st) {
 
 test('제목줄 이미지로 추출 = 팝업(드롭다운 아님) — CG 구성 모양, 세 판·빠른 선택·바닥 요약·렌더', () => {
   assert.equal(html.split('id="exportOv"').length - 1, 1, '팝업은 한 번만 만들어 둔다');
-  assert.match(html, /<button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog"[^>]*><svg[^>]*>[\s\S]*?<\/svg><span class="tbLbl">이미지로 추출<\/span><\/button>/);
+  assert.match(html, /<button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog"[^>]*><svg[^>]*>[\s\S]*?<\/svg><span class="tbLbl">이미지로 렌더<\/span><\/button>/);
   assert.match(pop, /<div class="cgSetupCard exCard" role="dialog" aria-modal="true" aria-labelledby="exTitle" tabindex="-1">/);
   assert.match(pop, /<button class="cgsX" id="exX" aria-label="닫기"[^>]*><svg/);
   // 세 판 — 성격이 같은 것끼리(① 한 장으로 · ② 바탕·지도 레이어 · ③ 글자·표시 레이어)
@@ -142,7 +142,7 @@ test('렌더 — 클릭 직후 첫 await가 폴더 창, 영상 출력 폴더(pre
   assert.doesNotMatch(r, /prepareOutput|getOutDir|'outDir'|showSaveFilePicker/);
   assert.match(r, /await withStaticFrame\(/);
   assert.match(r, /await awaitMapboxTilesReady\(\)/);
-  assert.match(r, /if \(_exportingFrames\) \{ exToast\('영상 추출이 끝난 뒤에 할 수 있어요'\); return; \}/);
+  assert.match(r, /if \(_exportingFrames\) \{ exToast\('영상 렌더가 끝난 뒤에 할 수 있어요'\); return; \}/);
   assert.match(r, /e\.name === 'AbortError'\) \{ exToast\([^)]*\{ zip: true \}\)/, '취소·막힌 폴더 → 안내 + ZIP 받기');
   // 권한 거절·보안 오류는 말없이 ZIP 을 내려받지 않는다(까닭 + ZIP 버튼), 폴더 창을 다시 띄우는 것은 시작 위치가 무효일 때만
   assert.match(r, /exToast\(`폴더를 열지 못했어요\(\$\{exErrText\(e\)\}\)[^`]*`, \{ zip: true \}\); return;/);
@@ -247,9 +247,9 @@ test('스타일 — 보라 판 토큰(두 테마)·팝업 폭·흐린 카드·�
   assert.doesNotMatch(css, /border-left/, '박스 왼쪽 색 줄 금지');
 });
 
-test('영상 저장 폴더 버튼은 타임라인 영상 추출 옆으로(id·핸들러 그대로), 이미지 추출은 쓰지 않는다', () => {
+test('영상 저장 폴더 버튼은 타임라인 영상 렌더 묶음 바로 앞에 따로(id·핸들러 그대로), 이미지 렌더는 쓰지 않는다', () => {
   const tl = block(html, /<div id="timeline"[^>]*>/, 'div');   // AE식 타임라인이 tabindex를 붙임
-  assert.match(tl, /<\/div>\n\s*<!--[^>]*-->\n\s*<button id="exSetDir" class="tlDirBtn"[^>]*><svg[\s\S]*?<span class="tlDirLbl">저장 폴더<\/span><\/button>/);
+  assert.match(tl, /<!--[^>]*-->\n\s*<button id="exSetDir" class="tlDirBtn tlBtn"[^>]*><svg[\s\S]*?<span class="tlDirLbl">저장 폴더<\/span><\/button>\n\s*<!--[^>]*-->\n\s*<div class="tlRender" id="tlRender"/);
   assert.match(fnSrc('updateOutDirBtn'), /b\.querySelector\('\.tlDirLbl'\)/);
   assert.match(html, /\$\('#exSetDir'\)\.onclick = async \(\) => \{/);
   assert.doesNotMatch(fnSrc('renderExport').replace(/\/\/[^\n]*/g, ''), /outDir/);

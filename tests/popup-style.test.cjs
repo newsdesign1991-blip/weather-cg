@@ -65,7 +65,7 @@ test('머리·제목·버튼 크기 — 근무표 값으로 작게(되돌아가 
   assert.match(rule('.cgSetupCard'), /width: min\(1000px, 100%\)/);
   // 너무 작아 누르기 힘들지 않게 — 닫기·바닥 버튼은 28px 이상
   assert.ok(px(rule('.confirmBtns button'), 'height') >= 28);
-  assert.ok(px(rule('.cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button'), 'width') >= 28);
+  assert.ok(px(rule('.cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button, .tlClose'), 'width') >= 28);
 });
 
 test('카드 = 반사 테두리 + 공통 그림자, 닫기 = 유리 원(SVG X)', () => {
@@ -75,7 +75,7 @@ test('카드 = 반사 테두리 + 공통 그림자, 닫기 = 유리 원(SVG X)',
     assert.match(r, /var\(--refl\) border-box/, `${sel} 반사 테두리`);
     assert.match(r, /box-shadow: var\(--pop-(drop-)?shadow\)/, `${sel} 공통 그림자`);
   }
-  const x = rule('.cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button');
+  const x = rule('.cgsX, .tossX, .tossHeadIcon, .slotHead .x, .imgPopHead button, .apiHead button, .tlClose');
   assert.match(x, /border-radius: 50%/);
   assert.match(x, /background: var\(--pop-x-bg\); border: 1px solid var\(--pop-x-line\)/);
   assert.match(x, /backdrop-filter: blur\(10px\)/);
@@ -83,6 +83,7 @@ test('카드 = 반사 테두리 + 공통 그림자, 닫기 = 유리 원(SVG X)',
   assert.match(html, /<button class="cgsX" id="cgsX"[^>]*><svg/);
   assert.match(html, /<button id="bulHelpClose"[^>]*><svg/);
   assert.match(html, /<button id="apiClose"[^>]*><svg/);
+  assert.match(html, /<button class="tlClose" id="tlClose"[^>]*><svg[^>]*><path d="M6\.5 6\.5l11 11M17\.5 6\.5l-11 11"/, '타임라인 닫기도 같은 유리 원·얇은 X(공통 규칙에 .tlClose)');
   assert.match(fn('tossModal'), /<button class="tossX"[^>]*>\$\{POP_X_SVG\}<\/button>/);
   assert.match(fn('openPresetSlots'), /id="slotX"[^>]*>\$\{POP_X_SVG\}<\/button>/);
 });

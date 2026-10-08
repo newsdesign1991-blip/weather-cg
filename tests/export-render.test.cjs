@@ -142,7 +142,7 @@ test('R8 저장 — 폴더 고르기 → 오늘날짜_날씨CG메이커 폴더 �
     assert.ok(z.entries.every((e) => e.utf8 && e.date !== 0 && e.size > 1000));
   }
   assert.equal(s.videoBusy.pickerCalls, 0);
-  assert.match(s.videoBusy.toast, /영상 추출이 끝난 뒤에/);
+  assert.match(s.videoBusy.toast, /영상 렌더가 끝난 뒤에/);
 });
 
 test('R9 팝업 — 열기·흐린 카드·고르기·빠른 선택·묶음 알약·기억·Esc·바깥 클릭·굽는 중 Esc = 중지', { skip: SKIP }, () => {

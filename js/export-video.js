@@ -49,7 +49,7 @@ function buildMp4(W, H, timescale, frameDur, samples, avcc) {
 }
 
 async function bakeMp4() {
-  if (S.res === '1920x1080-vf') { status('노말 VF의 MOV(알파) 추출은 아직 준비 중입니다 — "PNG 시퀀스로 추출"을 쓰세요', true); return; }
+  if (S.res === '1920x1080-vf') { status('노말 VF의 MOV(알파) 렌더는 아직 준비 중입니다 — "PNG 시퀀스로 렌더"를 쓰세요', true); return; }
   const A = anim();
   if (!hasAnim()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   if (typeof VideoEncoder === 'undefined') { status('이 브라우저는 WebCodecs 인코딩을 지원 안 합니다 — 크롬 최신판을 쓰세요', true); return; }
@@ -236,13 +236,13 @@ async function checkHelperFreshOnBoot() {
 }
 // 깃헙(https) 배포본에서도 로컬 헬퍼(127.0.0.1)는 호출 가능하다(브라우저가 localhost는 예외 허용).
 // 그래서 해상도만 맞으면 항상 버튼을 보인다. 헬퍼가 꺼져 있으면 누를 때 안내 팝업이 뜬다.
+// 두 버튼은 타임라인 영상 렌더 묶음(#tlRender — MP4·PNG 시퀀스와 한 세그먼트) 안에 있다. 묶음은 숨기지 않는다 —
+// 숨은 버튼은 칸이 안 생겨 보이는 버튼끼리 저절로 이어 붙는다(css/timeline.css .tlRender).
 function updateWnsButtons() {
-  const g = $('#wnsGroup'); if (!g) return;
   const showMxf = S.res === '1920x1080';       // 노말 CG → MXF (방송 송출용)
   const showMov = S.res === '1920x1080-vf';    // 노말 VF → 알파 MOV (오버레이용)
   if ($('#wnsMxf')) $('#wnsMxf').style.display = showMxf ? '' : 'none';
   if ($('#wnsMov')) $('#wnsMov').style.display = showMov ? '' : 'none';
-  g.style.display = (showMxf || showMov) ? '' : 'none';
 }
 // 헬퍼가 꺼져 있을 때 크게 보여주는 안내 (토스 카드)
 // mode='old': 켜져 있지만 구버전. ctx='kma': 기상청 불러오기가 그 때문에 막힌 상황(결과 카드에서 엶) — '지금도 쓸 수 있어요'라고 하지 않는다.
@@ -336,7 +336,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   // 헬퍼는 항상 29.97(30000/1001)로 인코딩한다 → 프레임 수·샘플 시각도 그 기준(타임라인 fps로 뽑으면 길이·속도가 어긋남)
   const RF = 30000 / 1001;
   const fpsDiff = Math.abs((+A2.fps || RF) - RF) > 0.01;
-  if (fpsDiff) status(`MXF·MOV는 방송 규격 29.97fps로 만듭니다 (타임라인 ${A2.fps}fps는 MP4·PNG 추출에만 적용)`, true);
+  if (fpsDiff) status(`MXF·MOV는 방송 규격 29.97fps로 만듭니다 (타임라인 ${A2.fps}fps는 MP4·PNG 렌더에만 적용)`, true);
   const n = Math.max(1, Math.round(A2.dur * RF));   // MP4(bakeMp4)와 같게 n프레임(i=0..n-1)
   const sid = 'wns' + Date.now();
   const mv = alpha ? $('#wnsMov') : $('#wnsMxf');
