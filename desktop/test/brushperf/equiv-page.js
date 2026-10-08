@@ -34,12 +34,37 @@
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
     c.querySelectorAll('#seaT .sea').forEach((p) => { p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'none'); p.removeAttribute('mask'); });
-    c.querySelectorAll('image.brushLayer').forEach((im) => { if ((im.getAttribute('data-col') || '').toUpperCase() !== col) im.remove(); else { im.style.display = ''; im.removeAttribute('opacity'); } });
+    c.querySelectorAll('image.brushLayer').forEach((im) => {
+      if (im.classList.contains('brushBox')) { if (!(im.getAttribute('data-cols') || '').split(',').includes(col)) im.remove(); return; }   // 바꾼 앱의 공간 자리(투명) — 앱 aeBrushBlob 과 같게
+      if ((im.getAttribute('data-col') || '').toUpperCase() !== col) im.remove(); else { im.style.display = ''; im.removeAttribute('opacity'); }
+    });
+  };
+  // 그 공간 브러쉬 캔버스 전체(앱 brushStateOf 와 같은 계산) — 로컬 bbox 와 픽셀 크기
+  const spaceBox = (space) => {
+    const o = space === 'main' ? $('#zoneLineMain') : document.querySelector(`[data-zoneline="${space}"]`);
+    const b = o.getBBox(), pad = 30, w = b.width + pad * 2, h = b.height + pad * 2, K = Math.min(3, Math.max(1, 1400 / Math.max(w, h)));
+    return { x: b.x - pad, y: b.y - pad, w, h, W: Math.round(w * K), H: Math.round(h * K) };
+  };
+  // 런 이미지를 공간 전체 크기 PNG 로 편다 — 바꾼 앱은 런이 칠한 범위만 잘라 들고(이미지 x·y·크기도 그만큼), 옛 앱은 전체.
+  // 둘 다 같은 방법(전체 캔버스에 정수 픽셀 자리로 그려 PNG)으로 펴서 비교한다.
+  const fullOf = async (im) => {
+    const u = im.getAttribute('href');
+    if (!u) return '';
+    const sb = spaceBox(im.getAttribute('data-space')), i = await load(u);
+    const ox = Math.round((+im.getAttribute('x') - sb.x) * sb.W / sb.w), oy = Math.round((+im.getAttribute('y') - sb.y) * sb.H / sb.h);
+    const c = document.createElement('canvas'); c.width = sb.W; c.height = sb.H;
+    c.getContext('2d').drawImage(i, ox, oy);
+    return c.toDataURL();
   };
   E.capture = async (opt = {}) => {
-    const imgs = [...document.querySelectorAll('image.brushLayer[data-col]')].map((im) => ({
-      space: im.getAttribute('data-space'), col: im.getAttribute('data-col'), run: im.getAttribute('data-run'),
-      geo: ['x', 'y', 'width', 'height'].map((k) => +(+im.getAttribute(k)).toFixed(3)).join(','), disp: im.style.display || '', op: im.getAttribute('opacity'), href: im.getAttribute('href') || '' }));
+    const imgs = [];
+    for (const im of document.querySelectorAll('image.brushLayer[data-col]')) {
+      const sb = spaceBox(im.getAttribute('data-space'));
+      imgs.push({ space: im.getAttribute('data-space'), col: im.getAttribute('data-col'), run: im.getAttribute('data-run'),
+        geo: [sb.x, sb.y, sb.w, sb.h].map((v) => +v.toFixed(3)).join(','),   // 공간 전체(편 PNG 기준)
+        crop: ['x', 'y', 'width', 'height'].map((k) => +(+im.getAttribute(k)).toFixed(3)).join(','),   // 실제 이미지 자리(참고)
+        disp: im.style.display || '', op: im.getAttribute('opacity'), href: await fullOf(im) });
+    }
     const live = [...document.querySelectorAll('.brushLayer.brushLive')].map((e) => ({ tag: e.tagName, disp: e.style.display || '' }));
     const out = { imgs, live, strokes: (H().brushByStyle || {})[H().style]?.length || 0 };
     if (opt.frame !== false) out.frame = await E.raster();

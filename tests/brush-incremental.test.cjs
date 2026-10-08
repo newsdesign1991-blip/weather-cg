@@ -2,8 +2,10 @@
 // index.html 의 브러쉬 구역(// ===== 브러쉬 덧칠 ===== ~ projLL 앞)을 그대로 떼어 와, 가짜 DOM·실수 픽셀 캔버스 위에서 돌린다.
 //  · 바꾸기 전 renderBrush(런마다 레이어 → 앞 런 2번 파내기, 지우개는 런마다 점으로 파내기)를 이 파일에 기준으로 옮겨 두고
 //    결과 런 캔버스가 픽셀(실수)까지 같은지 본다 — 같은 점·같은 순서·같은 파내기라 차이 0.
-//  · 한 획씩 더하기(증분) = 처음부터 굽기, 되돌리기(조각 복원) = 짧은 목록을 처음부터 굽기 — 픽셀까지 같아야 한다.
+//    런 캔버스는 칠한 범위만큼 잘라 들므로(r.o) 공간 전체 크기로 펴서 비교한다.
+//  · 한 획씩 더하기(증분) = 처음부터 굽기, 되돌리기(조각 복원) = 짧은 목록을 처음부터 굽기 — 픽셀·런 캔버스 범위까지 같아야 한다.
 //  · 획이 그대로면 renderAll 이 불러도 그리기 0번.
+//  · GPU 가 다시 시작돼 캔버스가 비면(contextlost → contextrestored) 저장 획에서 처음부터 다시 굽는다.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -28,6 +30,8 @@ class FakeEl {
   append(...ns) { for (const n of ns) this.insertBefore(n, null); }
   querySelector() { return null; } querySelectorAll() { return []; }
   getBBox() { return this.bbox; }
+  addEventListener(t, f) { ((this.ls ||= {})[t] ||= []).push(f); }
+  fire(t) { for (const f of (this.ls && this.ls[t]) || []) f({ type: t, target: this }); }
 }
 
 // ---- 가짜 캔버스(실수, premultiplied RGBA) ----
@@ -43,6 +47,7 @@ class FakeCanvas extends FakeEl {
 const parseRgba = (s) => { const m = /rgba\(([^,]+),([^,]+),([^,]+),([^)]+)\)/.exec(s); return m.slice(1).map(Number); };
 class FakeCtx {
   constructor(cv) { this.cv = cv; this.t = [1, 0, 0, 1, 0, 0]; this.clips = []; this.globalCompositeOperation = 'source-over'; this.fillStyle = null; this.stack = []; this.circle = null; }
+  isContextLost() { return !!this.cv.lost; }
   save() { this.stack.push({ t: this.t.slice(), clips: this.clips.slice(), g: this.globalCompositeOperation, f: this.fillStyle }); }
   restore() { const s = this.stack.pop(); if (s) { this.t = s.t; this.clips = s.clips; this.globalCompositeOperation = s.g; this.fillStyle = s.f; } }
   setTransform(a, b, c, d, e, f) { this.t = [a, b, c, d, e, f]; }
@@ -99,7 +104,8 @@ function makeApp(zones) {
   const zoneLineMain = new FakeEl('path'); zoneLineMain.bbox = { x: 0, y: 0, width: 40, height: 24 };
   const ids = { '#L_brush': L_brush, '#zoneLineMain': zoneLineMain, '#gMain': new FakeEl('g') };
   const zoneEls = new Map();
-  for (const [id, d] of Object.entries(zones)) zoneEls.set(id, [{ el: { getAttribute: () => d }, inset: null }]);
+  const bboxOf = (d) => { const rs = new FakePath(d).rects; const x0 = Math.min(...rs.map((r) => r[0])), y0 = Math.min(...rs.map((r) => r[1])); return { x: x0, y: y0, width: Math.max(...rs.map((r) => r[0] + r[2])) - x0, height: Math.max(...rs.map((r) => r[1] + r[3])) - y0 }; };
+  for (const [id, d] of Object.entries(zones)) zoneEls.set(id, [{ el: { getAttribute: () => d, getBBox: () => bboxOf(d) }, inset: null }]);
   const S = { style: 'sgg', insets: {}, brushByStyle: { sgg: [] } };
   const env = {
     S, zoneEls, svg: { querySelector: () => null, querySelectorAll: () => [] }, $: (s) => ids[s] || null,
@@ -110,7 +116,7 @@ function makeApp(zones) {
     pushUndo: () => {}, saveWork: () => {}, status: () => {},
   };
   const names = Object.keys(env);
-  const api = new Function(...names, SECTION + '\nreturn { renderBrush, brushRT, brushApply, brushSig, brushRect, brushStateOf, brushReconcile, brushZonesChanged, BRUSH_UNDO_N };')(...names.map((k) => env[k]));
+  const api = new Function(...names, SECTION + '\nreturn { renderBrush, brushRT, brushApply, brushSig, brushRect, brushStateOf, brushReconcile, brushZonesChanged, brushGeo, brushGpu, BRUSH_UNDO_N, BRUSH_G };')(...names.map((k) => env[k]));
   return { ...api, S, L_brush };
 }
 
@@ -140,12 +146,20 @@ function referenceRuns(app, strokes) {
   return runs;
 }
 const maxDiff = (a, b) => { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - b[i])); return m; };
+// 잘라 든 런 캔버스(r.o 자리)를 공간 전체 크기로 편다 — 범위 밖은 투명
+const fullPx = (app, r) => {
+  const st = app.brushRT.main, W = st.W, out = new Float64Array(W * st.H * 4), [ox, oy, w, h] = r.o;
+  assert.equal(r.cv.width, w); assert.equal(r.cv.height, h);
+  assert.ok(ox >= 0 && oy >= 0 && ox + w <= W && oy + h <= st.H, '런 캔버스 범위는 공간 안');
+  for (let j = 0; j < h; j++) out.set(r.cv.px.subarray(j * w * 4, (j + 1) * w * 4), ((oy + j) * W + ox) * 4);
+  return out;
+};
 const sameRuns = (app, ref, tol, msg) => {
   const runs = app.brushRT.main.runs;
   assert.equal(runs.length, ref.length, msg + ': 런 개수');
-  runs.forEach((r, k) => { assert.equal(r.col.toUpperCase(), ref[k].col.toUpperCase(), msg + ': 런 색'); assert.ok(maxDiff(r.cv.px, ref[k].cv.px) <= tol, `${msg}: 런 ${k} 픽셀 차 ${maxDiff(r.cv.px, ref[k].cv.px)}`); });
+  runs.forEach((r, k) => { assert.equal(r.col.toUpperCase(), ref[k].col.toUpperCase(), msg + ': 런 색'); const d = maxDiff(fullPx(app, r), ref[k].cv.px); assert.ok(d <= tol, `${msg}: 런 ${k} 픽셀 차 ${d}`); });
 };
-const snapRuns = (app) => app.brushRT.main.runs.map((r) => ({ col: r.col, px: Float64Array.from(r.cv.px) }));
+const snapRuns = (app) => app.brushRT.main.runs.map((r) => ({ col: r.col, o: r.o.join(','), px: fullPx(app, r) }));
 
 // 존 4개(경기 2·강원 2) — 사각형 클립. 로컬 0~40 × 0~24, bbox 패딩 30 → 캔버스는 작게(K=min(3,1400/..)=3이면 너무 크니 bbox 를 키운다)
 const ZONES = { '경기/a': 'R 0 0 20 12', '경기/b': 'R 0 12 20 12', '강원/c': 'R 20 0 20 12', '강원/d': 'R 20 12 20 12' };
@@ -162,15 +176,25 @@ const LIST = [mkStroke('#E5231E', K1), mkStroke('#e5231e', K2), mkStroke('#2E6FB
 test('소스: 증분·조각 되돌리기·라이브 foreignObject·워커 인코딩 구조', () => {
   assert.ok(SEC_A > 0 && SEC_B > SEC_A, '브러쉬 구역');
   assert.match(fn('renderBrush'), /brushReconcile\(st, strokes\)/);
-  assert.match(fn('renderBrush'), /if \(brushStroke\) return;/);   // 드래그 중엔 다시 굽지 않는다
+  assert.match(fn('renderBrush'), /if \(brushStroke \|\| brushGpu\.lost\) return;/);   // 드래그 중·GPU 복구 중엔 다시 굽지 않는다
+  assert.doesNotMatch(fn('renderBrush'), /brushFinalize\(\)/);   // 앞 PNG 인코딩을 기다리지 않는다(다음 갱신에 합친다)
+  assert.doesNotMatch(fn('startBrush'), /brushFinalize\(\)/);
   assert.match(fn('brushApply'), /bk\.m\.get\(j\)/);   // 앞 런은 '이 런 전' 백업으로 되돌린 뒤
   assert.match(fn('brushApply'), /x\.drawImage\(src, [^;]+;\s*x\.drawImage\(src,/);   // 지금 런 전체로 2번 파내기
-  assert.match(fn('brushApply'), /dabs\(r\.cv, true\)/);   // 지우개는 런마다 점으로
+  assert.match(fn('brushApply'), /dabs\(r, true\)/);   // 지우개는 런마다 점으로
   assert.match(fn('brushSyncImgs'), /'data-run'/);
   assert.match(fn('brushSyncImgs'), /data-col/);
   assert.match(fn('brushLiveOf'), /foreignObject/);
   assert.doesNotMatch(SECTION, /toDataURL\(\)\);\s*img\.style\.display = ''/);   // 드래그 중 프레임마다 PNG 없음
-  assert.match(fn('startBrush'), /brushStroke = null;\s*renderBrush\(\);/);   // 손 떼면 그 획만 증분
+  assert.match(fn('startBrush'), /brushStroke = null;[^\n]*\n\s*renderBrush\(space\);/);   // 손 떼면 그 획만 증분
+  assert.match(fn('startBrush'), /addEventListener\('pointercancel', up\)/);   // 손 뗌을 놓쳐도 획이 끝난다
+  assert.match(fn('startBrush'), /addEventListener\('blur', up\)/);
+  assert.match(fn('startBrush'), /rev !== brushViewRev/);   // 칠하는 중 지도·보기가 바뀌면 역행렬 다시
+  for (const f of ['renderMapTransform', 'renderInsets', 'applyView']) assert.match(fn(f), /brushViewRev\+\+/, f);
+  assert.match(html, /#cg\.brushmode \{ touch-action: none; \}/);
+  assert.match(fn('brushNewCanvas'), /brushWatch\(/);   // GPU 리셋 감지
+  assert.match(fn('brushLiveOf'), /brushWatch\(/);
+  assert.match(fn('brushPublish'), /brushEncCancel\(old\.jobs\)/);   // 진행 중 갱신은 취소하고 합친다
   assert.match(fn('startBrush'), /pushUndo\(\); brushStrokes\(\)\.push\(s\)/);   // 되돌리기 기록은 손 뗄 때
   assert.match(fn('brushEncode'), /createImageBitmap/);
   assert.match(fn('stripExportUi'), /\.brushLive/);   // 추출 복제본에 라이브 캔버스 없음
@@ -186,7 +210,7 @@ test('처음부터 굽기 = 바꾸기 전 계산(같은 색 쌓기·다른 색 �
   app.renderBrush();
   sameRuns(app, referenceRuns(app, LIST), 0, '전체');
   // 런 이미지: 칠한 순서대로, data-col 대문자·data-run 순번
-  const imgs = app.L_brush.children.filter((n) => n.tagName === 'image');
+  const imgs = app.L_brush.children.filter((n) => n.tagName === 'image' && n.getAttribute('data-col') != null);   // 런 이미지(공간 자리 brushBox 빼고)
   assert.deepEqual(imgs.map((n) => n.getAttribute('data-run')), imgs.map((_, k) => String(k)));
   assert.deepEqual(imgs.map((n) => n.getAttribute('data-col')), app.brushRT.main.runs.map((r) => r.col.toUpperCase()));
   assert.ok(imgs.every((n) => /^data:/.test(n.getAttribute('href'))));
@@ -198,7 +222,7 @@ test('한 획씩 더하기(증분) = 처음부터 굽기, 획이 그대로면 �
   const full = makeApp(ZONES); full.S.brushByStyle.sgg = LIST.slice(); full.renderBrush();
   const a = snapRuns(inc), b = snapRuns(full);
   assert.equal(a.length, b.length);
-  a.forEach((r, k) => assert.equal(maxDiff(r.px, b[k].px), 0, '런 ' + k));
+  a.forEach((r, k) => { assert.equal(r.o, b[k].o, '런 범위 ' + k); assert.equal(maxDiff(r.px, b[k].px), 0, '런 ' + k); });
   sameRuns(inc, referenceRuns(inc, LIST), 0, '증분 vs 기준');
   OPS = 0; inc.renderBrush(); inc.renderBrush();
   assert.equal(OPS, 0, 'renderAll 이 불러도 다시 그리지 않음');
@@ -217,14 +241,14 @@ test('되돌리기 = 조각 복원(처음부터 굽기와 픽셀 같음), 다시
     const ref = makeApp(ZONES); ref.S.brushByStyle.sgg = LIST.slice(0, keep); ref.renderBrush();
     const a = snapRuns(app), b = snapRuns(ref);
     assert.equal(a.length, b.length, `되돌리기 ${keep}: 런 개수`);
-    a.forEach((r, k) => assert.equal(maxDiff(r.px, b[k].px), 0, `되돌리기 ${keep}: 런 ${k}`));
+    a.forEach((r, k) => { assert.equal(r.o, b[k].o, `되돌리기 ${keep}: 런 범위 ${k}`); assert.equal(maxDiff(r.px, b[k].px), 0, `되돌리기 ${keep}: 런 ${k}`); });
     assert.equal(app.brushRT.main.applied.length, keep);
   }
   // 다시 실행 — 남은 목록에 이어 붙이면 처음 결과와 같다
   app.S.brushByStyle.sgg = LIST.slice(); app.renderBrush();
   const again = snapRuns(app);
   assert.equal(again.length, after.length);
-  again.forEach((r, k) => assert.equal(maxDiff(r.px, after[k].px), 0, '다시 실행 런 ' + k));
+  again.forEach((r, k) => { assert.equal(r.o, after[k].o, '다시 실행 런 범위 ' + k); assert.equal(maxDiff(r.px, after[k].px), 0, '다시 실행 런 ' + k); });
 });
 
 test('앞쪽 획이 바뀌면(색 계열 바꾸기·불러오기) 처음부터 다시 — 기준과 같다', () => {
@@ -280,7 +304,13 @@ test('부팅 점검: 칠하기·지우개 → 되돌리기는 칠하기 전과, 
   assert.equal(R.imgsShown, true);
   assert.equal(R.undo3.ok, true, '되돌리기: ' + JSON.stringify(R.undo3));
   assert.equal(R.redo3.ok, true, '다시 실행: ' + JSON.stringify(R.redo3));
-  assert.deepEqual(R.work, { n: 5, keys: 'col,dabs,erase,keys,op,r,soft,space', erase: 1 }, '저장 형식 그대로');
+  assert.equal(R.rapidToDataURL, 0, '연달아 칠해도 누를 때 동기 PNG 인코딩 없음(앞 갱신은 합친다)');
+  assert.equal(R.rapidImgsShown, true, '연달아 칠한 뒤 런 이미지가 다시 보인다');
+  assert.equal(R.rapidLiveEmpty, true, '연달아 칠한 뒤 라이브 캔버스는 비어 있다');
+  assert.equal(R.rapidStrokes, 10);
+  assert.equal(R.lostUpStrokes, 3, 'pointercancel·놓친 손 뗌 뒤에도 획이 끝나고 다음 칠이 된다');
+  assert.equal(R.lostUpImgsShown, true);
+  assert.deepEqual(R.work, { n: 13, keys: 'col,dabs,erase,keys,op,r,soft,space', erase: 2 }, '저장 형식 그대로');
 });
 
 test('런 경계를 넘어 되돌린 뒤 같은 색으로 이어 칠해도(앞 런 백업 복원) 바꾸기 전 계산과 같다', () => {
@@ -315,4 +345,72 @@ test('같은 색 획이 겹쳐 앞 런을 여러 번 덮어도(백업으로 되�
   inc.S.brushByStyle.sgg = list.slice(0, 4); inc.renderBrush();   // 파랑 런 가운데까지 되돌리기
   inc.S.brushByStyle.sgg.push(line('#2E6FB0', K1, 12)); inc.renderBrush();
   sameRuns(inc, referenceRuns(inc, [...list.slice(0, 4), line('#2E6FB0', K1, 12)]), 0, '되돌린 뒤 같은 런 이어 칠하기');
+});
+
+test('런 캔버스는 칠한 범위만(격자 맞춤) — 클립 영역 bbox 로 잘리고, 이미지는 공간 전체와 같은 픽셀 격자에 놓인다', () => {
+  const app = makeApp(ZONES);
+  // 경기(로컬 x 0~20)만 고르고 오른쪽(강원 쪽)까지 크게 칠한 획 — 닿는 범위는 경기 bbox 안으로 잘린다
+  const wide = { space: 'main', keys: K1, col: '#E5231E', r: 6, op: 55, soft: 70, erase: false, dabs: [[4, 6], [14, 8], [26, 10], [36, 12]] };
+  app.S.brushByStyle.sgg = [wide, mkStroke('#2E6FB0', K2)]; app.renderBrush();
+  const st = app.brushRT.main, rect = app.brushRect(st, wide);
+  assert.ok(rect[0] + rect[2] <= Math.ceil((20 - st.bbox.x) * st.K) + 2, '경기 bbox 밖(강원 쪽)은 범위에서 빠짐: ' + rect);
+  for (const r of st.runs) {
+    const [ox, oy, w, h] = r.o, G = app.BRUSH_G;
+    assert.equal(ox % G, 0); assert.equal(oy % G, 0);
+    assert.ok(w <= st.W && h <= st.H && w * h < st.W * st.H, '공간 전체보다 작게: ' + r.o);
+    assert.ok(r.box[0] >= ox && r.box[1] >= oy && r.box[0] + r.box[2] <= ox + w && r.box[1] + r.box[3] <= oy + h, '칠한 범위를 담는다');
+  }
+  sameRuns(app, referenceRuns(app, app.S.brushByStyle.sgg), 0, '잘라 든 런');
+  const imgs = app.L_brush.children.filter((n) => n.tagName === 'image' && n.getAttribute('data-col') != null);   // 런 이미지(공간 자리 brushBox 빼고)
+  imgs.forEach((im, k) => {
+    const g = app.brushGeo(st, st.runs[k].o);
+    assert.deepEqual(['x', 'y', 'width', 'height'].map((a) => +im.getAttribute(a)), g);
+    // 공간 전체 이미지(x=bbox.x, 폭=bbox.w ↔ W px)와 같은 픽셀 크기
+    assert.ok(Math.abs(g[2] / st.runs[k].o[2] - st.bbox.w / st.W) < 1e-12);
+  });
+  // 공간 전체 자리(투명) 하나 — 지도 레이어 bbox(그림자 필터 영역)·그리기 범위가 바꾸기 전(런마다 공간 전체 이미지)과 같게
+  const box = app.L_brush.children.filter((n) => n.tagName === 'image' && /brushBox/.test(n.getAttribute('class')));
+  assert.equal(box.length, 1);
+  assert.deepEqual(['x', 'y', 'width', 'height'].map((a) => +box[0].getAttribute(a)), [st.bbox.x, st.bbox.y, st.bbox.w, st.bbox.h]);
+  assert.match(box[0].getAttribute('href'), /^data:.*1x1/, '투명 1×1 PNG 를 공간 bbox 로 늘림(그리기 범위도 바꾸기 전과 같게)');
+  assert.equal(box[0].getAttribute('data-cols'), '#E5231E,#2E6FB0');
+  assert.equal(box[0].nextSibling, imgs[0], '런 이미지들 앞');
+});
+
+test('GPU 가 다시 시작돼 캔버스가 비면(contextlost → contextrestored) 저장 획에서 처음부터 다시 굽는다', async () => {
+  const app = makeApp(ZONES);
+  app.S.brushByStyle.sgg = LIST.slice(); app.renderBrush();
+  const st = app.brushRT.main, cvs = st.runs.map((r) => r.cv);
+  // GPU 리셋 흉내: 캔버스 내용이 비고 '잃음' 상태
+  for (const c of cvs) { c.px.fill(0); c.lost = true; }
+  cvs[0].fire('contextlost');
+  assert.equal(app.brushGpu.lost, true);
+  OPS = 0; app.S.brushByStyle.sgg = [...LIST, mkStroke('#E5231E', K2)]; app.renderBrush();
+  assert.equal(OPS, 0, '복구 전엔 빈 캔버스에 그리지 않는다');
+  for (const c of cvs) c.lost = false;
+  cvs[1].fire('contextrestored');
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(app.brushGpu.lost, false);
+  sameRuns(app, referenceRuns(app, app.S.brushByStyle.sgg), 0, 'GPU 복구 뒤 다시 굽기');
+  // 되돌리기 조각도 새로 — 되돌리면 처음부터 굽기와 같다
+  app.S.brushByStyle.sgg = LIST.slice(0, 8); app.renderBrush();
+  sameRuns(app, referenceRuns(app, LIST.slice(0, 8)), 0, 'GPU 복구 뒤 되돌리기');
+});
+
+test('앞 런 백업·되돌리기 조각은 쓰는 것만 남긴다(버린 캔버스는 크기 0)', () => {
+  const app = makeApp(ZONES);
+  const long = [];
+  for (let i = 0; i < 60; i++) long.push(mkStroke(['#E5231E', '#2E6FB0', '#3DAA5C', '#F2C230'][Math.floor(i / 3) % 4], K2, i % 13 === 12, 4));
+  for (const s of long) { app.S.brushByStyle.sgg.push(s); app.renderBrush(); }
+  const st = app.brushRT.main;
+  const live = new Set([st.bk, ...st.hist.filter(Boolean).map((P) => P.bk)].filter(Boolean));
+  assert.ok(st.bks.size <= live.size, `백업 묶음 ${st.bks.size} ≤ 쓰는 것 ${live.size}`);
+  for (const bk of st.bks) for (const b of bk.m.values()) assert.ok(b.c.width > 0, '남긴 백업은 살아 있다');
+  // 한 번에 많이 더해(되돌리기 구멍) 앞쪽 조각이 못 쓰게 되면 반환
+  app.S.brushByStyle.sgg = long.slice(0, 5); app.renderBrush();
+  for (let i = 0; i < 50; i++) app.S.brushByStyle.sgg.push(mkStroke('#E5231E', K1, false, 3));
+  app.renderBrush();
+  let k = st.hist.length - 1; while (k >= 0 && st.hist[k]) k--;
+  assert.ok(st.hist.slice(0, k + 1).every((P) => P === null), '빈 칸 너머 조각 없음');
+  sameRuns(app, referenceRuns(app, app.S.brushByStyle.sgg), 0, '많이 더한 뒤');
 });
