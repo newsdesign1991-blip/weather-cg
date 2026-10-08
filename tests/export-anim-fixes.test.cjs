@@ -87,9 +87,23 @@ test('라인 모드는 안 보이는 라벨 키를 새로 만들지 않고, 기�
 });
 
 test('라인 모드 타임라인은 라벨 행·스냅·라벨 길이를 쓰지 않는다', () => {
-  assert.match(fnSrc('timelineSnapTimes'), /if \(!typhoonLineMode\(\)\) for \(const id in \(tr\.lab/);
-  assert.match(fnSrc('buildTimeline'), /if \(!typhoonLineMode\(\)\) for \(const b of typhoonLabels\(\)\)/);
-  assert.match(fnSrc('autoTracks'), /LABELs = typhoonLineMode\(\) \? 0 : 1\.2/);
+  // 계획(tlLayerPlan)을 실제로 돌린다 — 라인 모드면 '태풍 경로' 아래 라벨 하위 행이 없고(스냅 대상도 하위 행에서 나온다), 경로 막대만
+  const { planCtx } = require('./tl-plan-ctx.cjs');
+  const pts = Array.from({ length: 6 }, (_, i) => ({ lon: 130 + i, lat: 20 + i, label: i + '일' }));
+  const mk = (trackMode) => {
+    const S = { style: 'typhoon', res: '1920x1080', labels: [], texts: [], legend: { on: 1 },
+      typhoon: { trackMode, issues: [{ points: pts }], labels: [{ id: 'b1', idx: 2, txt: '2일' }, { id: 'b2', idx: 4, txt: '4일' }], places: [] },
+      anim: { dur: 6, fps: 29.97, tracks: [{ id: 'k1', kind: 'typhoon', key: 'typhoon', start: 1, len: 3.2, ps: 1, pe: 3, lab: { b1: { s: 4.4, e: 5.3 } } }] } };
+    const ctx = planCtx(S); return { ctx, S, typ: ctx.tlLayerPlan().find((L) => L.kind === 'typhoon') };
+  };
+  const line = mk('line'), full = mk('full');
+  assert.deepEqual([...line.typ.children].map((c) => c.kind), ['typPath']);
+  assert.deepEqual([...full.typ.children].map((c) => c.kind), ['typPath', 'typLabel', 'typLabel']);
+  assert.ok(!line.ctx.timelineSnapTimes().includes(4.4), '라인 모드 스냅엔 라벨 키가 없다');
+  assert.ok(full.ctx.timelineSnapTimes().includes(4.4));
+  assert.equal(line.S.anim.tracks[0].len, 2, '라인 모드 길이 = 경로 키만');   // syncTyphoonSpan
+  assert.match(fnSrc('syncTyphoonSpan'), /if \(!typhoonLineMode\(\)\)/);
+  assert.match(fnSrc('autoTrackPlan'), /LABELs = typhoonLineMode\(\) \? 0 : 1\.2/);
 });
 
 test('참고 이미지(L_refImg)는 모든 추출 경로에서 빠진다', () => {

@@ -2,7 +2,7 @@
 
 이 앱(날씨 CG 메이커)은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** 먼저 [`MODULES.md`](MODULES.md)를 읽을 것.
 
-- 로직은 `js/*.js`(36개), 스타일은 `css/*.css`(12개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
+- 로직은 `js/*.js`(38개), 스타일은 `css/*.css`(12개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
   `index.html`에서 함수 본문을 찾지 말고 `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`로 찾는다.
 - `<script>`/`<link>` 태그 순서 변경, `defer`/`async`/`type="module"` 추가 금지. 순서 = 로드 순서 = 덮어쓰기 우선순위.
   기존 파일의 순서는 바꾸지 않는다(테스트가 고정 목록과 비교한다). 새 파일은 사이에 끼워 넣기만 하고, 그때 MODULES.md 표에 행을 하나 넣는다.

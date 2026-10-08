@@ -442,4 +442,5 @@ function renderAll() {
   bumpMapContent();
   renderBg(); renderShadow(); renderMapTransform(); renderInsets();
   renderBrush(); renderTexts(); renderLegend(); renderLabels(); renderMtns(); renderTyphoon(); renderSel(); renderVfScale();
+  if (typeof tlContentChanged === 'function') tlContentChanged(true);   // 타임라인 행(레이어 계획) 확인 + 미리보기 중이면 그 시각 프레임 다시
 }

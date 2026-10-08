@@ -1,5 +1,5 @@
 // 묶음 E(앱 쪽) — MXF/MOV 29.97 기준 n프레임, AE 출력 해상도 배율(터치), 태풍 리깅 새 스펙(라인모드·선굵기·noIcon·과거아이콘 30%),
-// 지시선 라벨 별도 레이어, 비교 작은 원 크기, AE 컴프 길이, fontsOk 안내, HELPER_VER_MIN.
+// 지시선 라벨 별도 레이어, 비교 작은 원 크기, AE 컴프 길이(= 타임라인 길이), AE 타이밍 = 타임라인(트랙 없으면 자동 구성 타이밍), fontsOk 안내, HELPER_VER_MIN.
 // 실제 앱 스펙 검사(부팅 점검기 + fetch 가로채기)는 WCG_BOOT_CHECK=1 일 때만 돈다(일렉트론 필요·느림).
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -188,10 +188,10 @@ test('AE 배경엔 라벨 지시선·앵커가 없고, 지시선은 라벨별 �
   assert.match(bg, /#L_labels > \[data-fleader-id\], #L_labels > \[data-fanchor-id\]'\)\.forEach\(\(n\) => n\.remove\(\)\)/);
   assert.match(fnSource('function aeLabelCompData('), /leader: leaderIds\.has\(id\)/);
   const send = sliceBetween('async function sendToAE()', '// 폴더를 물어보고');
-  const lab = send.slice(send.indexOf('const labData = aeLabelCompData()'), send.indexOf("addImg('VF_제목바'"));
-  const ldr = lab.indexOf("if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), { start: ls0, len: AE_LEN })");
-  const comp = lab.indexOf("name: '라벨_' + li, fade: { start: ls0, len: AE_LEN");
-  assert.ok(ldr >= 0 && comp > ldr, '지시선 레이어는 그 라벨 프리컴프 바로 아래, 같은 start/len');
+  const lab = send.slice(send.indexOf("if (L.kind === 'label')"), send.indexOf('// 컴프 길이'));
+  const ldr = lab.indexOf("if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), fade)");
+  const comp = lab.indexOf("name: '라벨_' + li, fade: fade ? { start: fade.start, len: fade.len, rise: aeSz(26) } : null");
+  assert.ok(ldr >= 0 && comp > ldr, '지시선 레이어는 그 라벨 프리컴프 바로 아래, 같은 start/len(라벨 막대 타이밍)');
   // 헬퍼가 이미 받는 레이어 형식(file+fade)만 쓴다
   assert.match(send, /const addImg = \(name, blob, fade\) => \{[^\n]*specLayers\.push\(\{ file: /);
 });
@@ -199,14 +199,14 @@ test('AE 배경엔 라벨 지시선·앵커가 없고, 지시선은 라벨별 �
 // ── C100: 컴프 길이 — sendToAE의 계산 블록을 그대로 돌린다 ──
 function compDur(specLayers, opt = {}) {
   const block = sliceBetween('    // 컴프 길이', '    const sid = ');
-  const fn = new Function('start0', 'A', 'specLayers', 'S', 'ANIM_START', 'AE_LEN', `${block}\nreturn dur;`);
-  return fn(opt.start0 ?? 1, { dur: opt.dur ?? 6 }, specLayers, { res: opt.res || '1920x1080' }, 1.0, 1.0);
+  const fn = new Function('durBase', 'specLayers', 'S', 'ANIM_START', 'ANIM_VF_ENTER_LEN', `${block}\nreturn dur;`);
+  return fn(opt.dur ?? 6, specLayers, { res: opt.res || '1920x1080' }, 1.0, 1.2);
 }
-test('AE 컴프 길이는 타임라인 길이·태풍 리빌·라벨 키·비교 리빌까지 포함', () => {
+test('AE 컴프 길이 = 타임라인 길이(화면 = AE), 넘친 내용(리빌·라벨 키·비교 리빌·카메라 키)만 잘리지 않게', () => {
   assert.equal(compDur([], { dur: 6 }), 6);                               // 타임라인 6초 = 컴프 6초(A.dur에 여유 두 번 안 더함, MXF와 같은 길이)
   assert.equal(compDur([], { dur: 7.5 }), 7.5);                           // 타임라인 7.5초 그대로
   assert.equal(compDur([{ fade: { start: 1, len: 1 } }], { dur: 6 }), 6);  // 내용이 타임라인 안이면 타임라인 길이
-  assert.equal(compDur([], { dur: 2 }), 6);                               // 최소 6초 유지
+  assert.equal(compDur([], { dur: 2 }), 2);                               // 타임라인 2초 = 컴프 2초(예전 '최소 6초'는 없앰 — MP4·MXF와 같은 길이)
   assert.equal(compDur([{ fade: { start: 8, len: 1 } }], { dur: 2 }), 10);
   const rig = (labels) => ({ typhoonRig: { reveal: { start: 1, path: 8, labelLen: 1 }, labels } });
   assert.equal(compDur([rig([])], { dur: 2 }), 10);                        // 1+8=9 → 10
@@ -215,7 +215,9 @@ test('AE 컴프 길이는 타임라인 길이·태풍 리빌·라벨 키·비교
   assert.equal(compDur([rig([{ revStart: null, revLen: null }])], { dur: 2 }), 11); // 1+8+1=10 → 11
   assert.equal(compDur([{ compareRig: { reveal: { start: 4, path: 4, labelLen: 1 } } }], { dur: 2 }), 10);
   assert.equal(compDur([rig([{ revStart: 9.5, revLen: 1.5 }])], { dur: 6 }), 12);   // 타임라인보다 긴 리빌은 내용 끝+여유
-  assert.equal(compDur([], { dur: 2, res: '1920x1080-vf' }), 6);          // VF 진입(1+1)도 최소 6초 안
+  assert.equal(compDur([], { dur: 2, res: '1920x1080-vf' }), 3);          // VF 진입(1+1.2=2.2)이 넘치면 그 끝+여유
+  assert.equal(compDur([], { dur: 6, res: '1920x1080-vf' }), 6);
+  assert.equal(compDur([{ typhoonRig: { reveal: { start: 1, path: 2, labelLen: 1 }, labels: [], camera: { keys: [{ t: 0.4 }, { t: 7.2 }] } } }], { dur: 6 }), 8);   // 길이 밖 카메라 키도 안 잘림
 });
 
 // ── C14: 반경 외곽선 굵기도 출력 배율 / C59: 비교 아이콘은 화면처럼 noIcon 무시 ──
@@ -330,8 +332,37 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
   for (const k of ['tyLineTouch', 'tyFullTouch', 'tyFull1920', 'cmpTouch', 'cmp1920']) assert.equal(o[k].comp.dur, 6, k);
   for (const res of ['1920x1080', '1920x1080-vf']) assert.equal(o[res].comp.dur, 6, res);
   assert.equal(o.touch.comp.dur, 6);
+  // 타이밍 = 타임라인 값. 이 작업들은 트랙이 없어 '자동 구성' 타이밍(=타임라인을 열고 자동 구성을 누르면 생길 막대)으로 들어간다
+  // — 칠 0.8초(예전 AE 전용 1초 고정이 아님), 라벨 1초 + 26px 올라오기, 지시선 = 그 라벨 막대. (트랙을 손본 경우의 1:1 비교는 ae-timeline-spec.test.cjs)
+  {
+    const A = o.touch.auto, fz = Object.fromEntries(o.touch.fades);
+    assert.ok(A && A.length, '트랙 없음 → 자동 구성 계획');
+    const fillT = A.filter((t) => t.kind === 'fill');
+    assert.equal(fillT.length, 2);
+    const fps = o.touch.comp.fps, fr = (t) => +(Math.round(t * fps) / fps).toFixed(4);   // 자동 구성은 프레임 경계(0.8초 → 24프레임)
+    for (const t of fillT) { assert.deepEqual(fz['색칠_' + t.key.slice(1)], { start: t.start, len: t.len }); close(t.len, fr(0.8), 1e-4); }
+    assert.equal(fillT[0].start, 0, '터치 = 0초부터');
+    for (const [id, nm] of [['l1', '라벨_1'], ['l2', '라벨_2']]) {
+      const t = A.find((x) => x.kind === 'label' && x.key === id);
+      assert.deepEqual({ start: fz[nm].start, len: fz[nm].len }, { start: t.start, len: t.len }); close(fz[nm].rise, 26 * kk);
+    }
+    const t2 = A.find((x) => x.kind === 'label' && x.key === 'l2');
+    assert.deepEqual(fz['지시선_2'], { start: t2.start, len: t2.len });
+    // 태풍(트랙 없음) = 자동 구성 경로 막대, 라벨은 경로가 그 지점을 지날 때
+    for (const k of ['tyFullTouch', 'tyFull1920']) {
+      const tt = o[k].auto.find((x) => x.kind === 'typhoon'), rv = o[k].rig.reveal;
+      close(rv.start, tt.ps); close(rv.path, tt.pe - tt.ps); assert.equal(rv.labelLen, 1);
+      close(rv.start, k === 'tyFullTouch' ? 0 : fr(1), 1e-4, '터치 0초, 노말 1초 홀드(프레임 경계 0;00;01;00)');
+    }
+    // 손본 태풍 트랙(경로 1→9초, 라벨 9.5→11초) = 그대로
+    assert.deepEqual(o.tyLong.reveal, { start: 1, path: 8, labelLen: 1 });
+    assert.deepEqual(o.tyLong.labels, [[9.5, 1.5]]);
+  }
   // 비교
   const ct = o.cmpTouch.rig.typhoons[0], cn = o.cmp1920.rig.typhoons[0];
+  const cmpT = o.cmp1920.auto.find((x) => x.kind === 'typcmp');
+  { const rv = o.cmp1920.rig.reveal;   // 비교 = 비교 예보 막대(끝 = 시작+길이 — 부동소수 덧셈 오차만 허용)
+    close(rv.start, cmpT.start); close(rv.path, cmpT.len, 1e-9); assert.equal(rv.labelLen, +Math.min(1, Math.max(0.2, cmpT.len * 0.2)).toFixed(4)); }
   close(ct.iconScreenH, 15 * kk); close(ct.lineW, 3 * kk); close(ct.iconRenderH, 90 * 0.62 * 2.5 / 1.05);
   close(ct.labels[0].bx, cn.labels[0].bx * kx, 0.11); close(ct.nameLabel.size, cn.nameLabel.size * kk);
   // MXF 30프레임

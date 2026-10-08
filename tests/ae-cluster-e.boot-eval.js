@@ -21,11 +21,13 @@ const openWork = async (work) => {
   window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
   await sleep(1200);
 };
+// 작업마다 타임라인 트랙이 없다 → AE는 '자동 구성' 타이밍으로 보낸다. 그 계획(같은 시각 값)을 같이 뽑아 스펙과 1:1로 맞춰 본다.
 const sendAE = async () => {
   const n0 = caps.ae.length, f0 = caps.frames.length;
+  const auto = (!anim().tracks.length && !camKeys().length) ? autoTrackPlan().tracks.map((t) => ({ kind: t.kind, key: t.key, start: t.start, len: t.len, ps: t.ps, pe: t.pe })) : null;
   await document.getElementById('aeSend').onclick();
   const spec = caps.ae[n0];
-  return { spec, frames: caps.frames.slice(f0), status: (document.getElementById('status') || {}).textContent || '' };
+  return { spec, frames: caps.frames.slice(f0), status: (document.getElementById('status') || {}).textContent || '', auto };
 };
 // 업로드된 PNG 픽셀 하나(RGBA)
 const pixel = async (blob, x, y) => {
@@ -71,6 +73,7 @@ await openWork(normalWork('2158x1214'));
     leader: ldr >= 0 ? { idx: ldr, lab2Idx: lab2i, fade: s.layers[ldr].fade, labFade: lab2 && lab2.fade, file: s.layers[ldr].file } : null,
     baseAnchor: baseAnchor.px, ldrAnchor: ldrAnchor && ldrAnchor.px, ldrBox: ldrBox && ldrBox.px,
     legend: (s.layers.find((l) => l.legendComp) || {}).legendComp,
+    auto: r.auto, fades: s.layers.filter((l) => l.fade).map((l) => [l.name, l.fade]),
   };
 }
 // 2) 노말 1920 / VF — 배율 1(기존과 같음)
@@ -100,7 +103,7 @@ const tyWork = (res, trackMode) => ({
 for (const [key, res, mode] of [['tyLineTouch', '2158x1214', 'line'], ['tyFullTouch', '2158x1214', 'full'], ['tyFull1920', '1920x1080', 'full']]) {
   await openWork(tyWork(res, mode));
   const r = await sendAE(); const rig = (r.spec.layers.find((l) => l.typhoonRig) || {}).typhoonRig;
-  out[key] = { comp: r.spec.comp, rig: rig && Object.assign({}, rig, { bg: undefined }) };
+  out[key] = { comp: r.spec.comp, rig: rig && Object.assign({}, rig, { bg: undefined }), auto: r.auto };
 }
 // 3-1) 태풍 리빌이 6초를 넘는 타임라인(경로 1→9초, 라벨 9.5→11초) — 컴프 길이가 잘리지 않아야
 {
@@ -120,7 +123,7 @@ const cmpWork = (res) => ({
 for (const [key, res] of [['cmpTouch', '2158x1214'], ['cmp1920', '1920x1080']]) {
   await openWork(cmpWork(res));
   const r = await sendAE(); const rig = (r.spec.layers.find((l) => l.compareRig) || {}).compareRig;
-  out[key] = { comp: r.spec.comp, rig: rig && Object.assign({}, rig, { bg: undefined }) };
+  out[key] = { comp: r.spec.comp, rig: rig && Object.assign({}, rig, { bg: undefined }), auto: r.auto };
 }
 
 // 5) MXF 렌더 — 타임라인 25fps·1초 → 29.97 기준 30프레임(0..29). 워커 풀(가짜 워커)·메인 폴백·1프레임.

@@ -60,8 +60,8 @@ function savePreset() {
 }
 // 지금 화면 배치를 mine(내 저장 배치 객체)에 합친다 — 저장소에는 안 쓴다(미리보기·취소 가능한 흐름용). 반환: 화면 키.
 function mergeCurrentPreset(mine) {
-  const p = {};
-  for (const k of PRESET_KEYS) p[k] = JSON.parse(JSON.stringify(S[k]));
+  const p = {}, S0 = stateForSave();   // 미리보기 카메라 뷰가 배치로 굳지 않게
+  for (const k of PRESET_KEYS) p[k] = JSON.parse(JSON.stringify(S0[k]));
   if (S.res !== '1920x1080-vf') delete p.vfScale; // VF 전용 값이 일반 화면 프리셋에 섞이지 않게
   const key = presetKey();
   mine[key] = p;
@@ -170,7 +170,7 @@ function saveWork() {
   if (ov && ov.classList.contains('on')) return;
   let s;
   try {
-    s = JSON.stringify(S);
+    s = JSON.stringify(stateForSave());   // 카메라 미리보기 중엔 S.map이 카메라 뷰 — 작업 뷰로 저장(B5)
     if (s === lastWork || s === _failedWork) return; // 안 바뀌었으면(또는 방금 같은 내용이 실패했으면) 쓰지 않는다
     localStorage.setItem(WORK_KEY, s);
     lastWork = s;   // 성공한 뒤에만 기록 — 실패하면 내용이 바뀔 때 다시 시도

@@ -560,6 +560,9 @@ function typhoonLandNoKorea() {
   return (_typhoonLandNoKr = d);
 }
 let _inTyphoonRender = false;
+// 재생·스크럽 중 카메라 가속(CSS 변환)일 땐 큰 지도 path(육지·남한·시도선·격자)의 선 굵기를 매 프레임 바꾸지 않는다 —
+// 굵기를 바꾸면 그 거대 레이어를 프레임마다 다시 래스터한다(태풍+카메라 48ms). 멈추면 정확한 프레임이 다시 맞춘다. (anim.js animFastCam이 켠다)
+let _tyLiteDraw = false;
 function renderTyphoon() {
   bumpMapContent();
   _inTyphoonRender = true;
@@ -582,7 +585,7 @@ function _renderTyphoon() {
       const clip = $('#typhoonLandClipP'); if (clip) clip.setAttribute('d', dNoKr + (MAP.outline || ''));   // 지형은 정밀 남한에도 얹히게
     }
     land.style.display = on ? '' : 'none';
-    if (on) { land.setAttribute('fill', (T && T.landFill) || '#12325A'); land.setAttribute('fill-rule', 'evenodd'); land.setAttribute('stroke', (T && T.landStroke) || '#3C6390'); land.setAttribute('stroke-width', 1.0 / (S.map.s || 1)); land.setAttribute('stroke-linejoin', 'round'); }
+    if (on) { land.setAttribute('fill', (T && T.landFill) || '#12325A'); land.setAttribute('fill-rule', 'evenodd'); land.setAttribute('stroke', (T && T.landStroke) || '#3C6390'); if (!_tyLiteDraw) land.setAttribute('stroke-width', 1.0 / (S.map.s || 1)); land.setAttribute('stroke-linejoin', 'round'); }
   }
   // 남한 육지(면) — 정밀 외곽선을 다른 나라와 같은 육지색으로. 강조를 꺼도 육지는 남아 있게 항상 표시.
   const krBase = $('#typhoonKrBase');
@@ -594,7 +597,7 @@ function _renderTyphoon() {
       krBase.setAttribute('fill', (T && T.landFill) || '#12325A');
       krBase.setAttribute('fill-rule', 'evenodd');
       krBase.setAttribute('stroke', (T && T.landStroke) || '#3C6390');
-      krBase.setAttribute('stroke-width', 1.0 / (S.map.s || 1));
+      if (!_tyLiteDraw) krBase.setAttribute('stroke-width', 1.0 / (S.map.s || 1));
       krBase.setAttribute('stroke-linejoin', 'round');
     }
   }
@@ -653,7 +656,7 @@ function _renderTyphoon() {
       kr.setAttribute('fill-opacity', T.krOpacity == null ? 0.45 : T.krOpacity);
       kr.setAttribute('fill-rule', 'evenodd');
       kr.setAttribute('stroke', T.krStroke || '#BFE3FF');
-      kr.setAttribute('stroke-width', (T.krStrokeW == null ? 1.6 : T.krStrokeW) * lineZf / (S.map.s || 1));   // 줌아웃 시 가늘게(뭉침 방지)
+      if (!_tyLiteDraw) kr.setAttribute('stroke-width', (T.krStrokeW == null ? 1.6 : T.krStrokeW) * lineZf / (S.map.s || 1));   // 줌아웃 시 가늘게(뭉침 방지)
       kr.setAttribute('stroke-opacity', T.krStrokeOp == null ? 1 : T.krStrokeOp);   // 남한 강조 '선' 투명도(면 투명도 krOpacity와 별개)
       kr.setAttribute('stroke-linejoin', 'round');
       kr.style.mixBlendMode = 'screen';
@@ -669,7 +672,7 @@ function _renderTyphoon() {
     if (showS) {
       sido.setAttribute('fill', 'none');
       sido.setAttribute('stroke', T.sidoCol || T.krStroke || '#BFE3FF');
-      sido.setAttribute('stroke-width', (T.sidoW == null ? 0.8 : T.sidoW) * lineZf / (S.map.s || 1));   // 줌아웃 시 가늘게(뭉침 방지)
+      if (!_tyLiteDraw) sido.setAttribute('stroke-width', (T.sidoW == null ? 0.8 : T.sidoW) * lineZf / (S.map.s || 1));   // 줌아웃 시 가늘게(뭉침 방지)
       sido.setAttribute('stroke-opacity', T.sidoOp == null ? 0.55 : T.sidoOp);
       sido.setAttribute('stroke-linejoin', 'round');
       sido.setAttribute('stroke-linecap', 'round');
@@ -692,7 +695,7 @@ function _renderTyphoon() {
       }
       grid.setAttribute('fill', 'none');
       grid.setAttribute('stroke', T.gridCol || '#7FA8CC');
-      grid.setAttribute('stroke-width', (T.gridW == null ? 0.6 : T.gridW) / (S.map.s || 1));
+      if (!_tyLiteDraw) grid.setAttribute('stroke-width', (T.gridW == null ? 0.6 : T.gridW) / (S.map.s || 1));
       grid.setAttribute('stroke-opacity', T.gridOp == null ? 0.18 : T.gridOp);
       // 위성/타일 모드엔 파란 육지가 없어 격자가 육지에도 보인다 → '바다만'으로 클립(큰 사각형 − 육지 evenodd).
       //  클립 path(수백 KB)는 바뀔 때만 다시 넣는다 — 애니 매 프레임 재설정하면 거대 path 재파싱으로 버벅임.

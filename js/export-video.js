@@ -114,6 +114,7 @@ async function bakeMp4() {
     if (btn) btn.disabled = false;
     animOff();
     if (saved) fxArrive(['#tlToggle', btn, $('#tlInfo')]);   // 도착 — 버튼에 한 번 빛 + 저장 안내 줄이 떠오름
+    if (typeof tlRefreshPreview === 'function') tlRefreshPreview();   // 타임라인이 열려 있으면 재생헤드 시각 프레임으로 돌아간다
   }
 }
 
@@ -162,6 +163,7 @@ async function exportPngSeq() {
     btn.disabled = false;
     animOff();
     if (saved) fxArrive(['#tlToggle', btn, $('#tlInfo')]);
+    if (typeof tlRefreshPreview === 'function') tlRefreshPreview();   // 타임라인이 열려 있으면 재생헤드 시각 프레임으로 돌아간다
   }
 }
 
@@ -419,5 +421,6 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     if (mv) mv.disabled = false;
     animOff();
     if (saved) fxArrive(['#tlToggle', mv, $('#tlInfo')]);
+    if (typeof tlRefreshPreview === 'function') tlRefreshPreview();   // 타임라인이 열려 있으면 재생헤드 시각 프레임으로 돌아간다
   }
 }

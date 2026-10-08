@@ -45,11 +45,12 @@ async function aeLinesBlob() {
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => { z.setAttribute('fill', 'none'); z.setAttribute('stroke', 'none'); });
   });
 }
-// 산 표시만(투명) — 색칠 위에 올림. base=true면 바탕색(정적, 항상 보임), false면 최종색(페이드인).
-async function aeMtnBlob(base) {
+// 산 표시만(투명) — 색칠 위에 올림. base=true면 바탕색(정적, 항상 보임), false면 최종색(페이드인). id를 주면 그 산 하나만.
+async function aeMtnBlob(base, id) {
   return svgBlob((c) => {
     keepLayers(c, ['L_mtn']);
     c.querySelector('#L_mtn')?.removeAttribute('filter');
+    if (id != null) c.querySelectorAll('#L_mtn > g').forEach((g) => { if (g.dataset.id !== String(id)) g.remove(); });   // 산 하나만(산마다 레이어 — 타임라인 막대 타이밍)
     if (base) c.querySelectorAll('#L_mtn path').forEach((p) => p.setAttribute('fill', S.base));
   });
 }
@@ -298,6 +299,9 @@ async function sendToAE() {
   const hasBrush = (typeof brushStrokes === 'function') && brushStrokes().some((s) => !s.erase);   // 브러쉬로만 칠한 경우도 AE 허용(존 클릭 색이 없어도)
   if (!isTyphoon() && !Object.keys(F).length && !warningDefs.length && !hasBrush) { status(wrnNoneLeftMapEmpty() ? wrnNoneEmptyText('보내세요') : '칠한 색이 없습니다 — 먼저 색칠하세요', true); return; }
   const btn = $('#aeSend'); if (btn) btn.disabled = true;
+  // 미리보기(재생헤드 프레임) 중이면 평소 화면으로 — 레이어는 최종 모습·작업 뷰로 굽는다. 끝나면 다시 그 시각 프레임으로.
+  const wasPreview = animT != null;
+  if (wasPreview || animPlaying) { animStop(); animOff(); }
   // 작업 중 효과(js/busy-fx.js) — 제목줄 'AE로 보내기'에 색 띠 흐름 + 전송 진행 막대(exportProgress → fxProgress).
   // 성공하면 'AE 여는 중…'(재전송 잠금 9초) 동안도 흐름을 두고, 잠금이 풀릴 때 끄고 도착 빛. 실패·취소는 finally에서 바로 끈다.
   fxBusy(btn, true, { disable: false });
@@ -307,18 +311,15 @@ async function sendToAE() {
     // 스펙 좌표는 SVG 뷰박스(1920×1080) 기준이지만 배경/컴포지션은 출력해상도(W×H) → 좌표·크기를 출력해상도로(노말·VF=1, 터치≈1.124)
     const kx = W / 1920, ky = H / 1080, kk = (kx + ky) / 2;
     const SX = (v) => +(v * kx).toFixed(1), SY = (v) => +(v * ky).toFixed(1);
-    const fps = A.fps || 29.97, step = 5 / fps, start0 = animStart();
-    const seen = {};
-    if (warningDefs.length) {
-      for (const def of warningDefs) seen[def.col.toUpperCase()] = true;
-    } else {
-      for (const c of Object.values(F)) seen[c.toUpperCase()] = true;
-    }
-    const cols = Object.keys(seen).sort((a, b) => lumOf(b) - lumOf(a));   // 밝은→어두운 (타임라인과 동일)
-    const startOf = {}; cols.forEach((c, i) => startOf[c] = start0 + i * step);
-    const startForFill = (col) => (col && startOf[col.toUpperCase()] != null ? startOf[col.toUpperCase()] : start0);
-    const AE_LEN = 1.0;   // AE 애니는 전부 1초로 (색별 시작만 다르고 길이는 동일)
-    // bottom→top 순서로 레이어 구성. 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
+    const fps = A.fps || 29.97, f1 = 1 / fps;
+    // 화면 = AE: 타임라인 레이어 계획(tlLayerPlan)의 순서·타이밍을 그대로 쓴다. 트랙 있음 → 그 시작·길이로 페이드, 트랙 없음 → 처음부터 보임(화면과 같음).
+    // 타임라인을 아예 안 만들었으면(트랙·카메라 키 0) '자동 구성'이 만들 타이밍으로 보낸다(옛 기본 애니와 같은 규칙).
+    const auto = (!A.tracks.length && !camKeys().length) ? autoTrackPlan() : null;
+    const tracks = auto && auto.tracks.length ? auto.tracks : A.tracks;
+    const durBase = auto && auto.tracks.length ? Math.max(+A.dur || 6, +auto.dur || 6) : (+A.dur || 6);
+    const plan = tlLayerPlan({ tracks });
+    const fadeOf = (L) => { const sp = L.track ? [+L.track.start || 0, (+L.track.start || 0) + (+L.track.len || 0)] : L.implicit; return sp ? { start: +(+sp[0]).toFixed(4), len: +Math.max(0.01, sp[1] - sp[0]).toFixed(4) } : null; };
+    // bottom→top 순서로 레이어 구성(계획의 역순). 이미지 레이어는 uploads에 담아 순서대로 업로드, 텍스트 레이어는 파일 없이 스펙만.
     const uploads = [], specLayers = [];
     const addImg = (name, blob, fade) => { const fi = uploads.length; uploads.push(blob); specLayers.push({ file: 'f_' + String(fi).padStart(5, '0') + '.png', name, fade: fade || null }); };
     const addFile = (blob) => { const fi = uploads.length; uploads.push(blob); return 'f_' + String(fi).padStart(5, '0') + '.png'; };   // 레이어 없이 파일만 업로드(리깅에서 표현식으로 참조)
@@ -326,7 +327,16 @@ async function sendToAE() {
       const p = aePt(t.x, t.y);   // VF 축소 + 출력 해상도 배율
       specLayers.push({ text: { content: aeArrow(t.txt || ''), x: p.x, y: p.y, size: aeSz(t.size), col: t.col, align: t.align || 'start', track: aeSz(t.track || 0), weight: t.w || 400 }, name });
     };
+    const addTop = async (L) => {   // 맨 위 정적(제목·범례) — 일반·태풍 공용
+      if (L.sub.startsWith('title:')) { const t = S.texts.find((x) => x.id === L.key); if (t) addText('제목_' + (t.txt || '').slice(0, 8), t); }   // 제목=편집형 텍스트, 맨 위·정적
+      else if (L.sub === 'legend') {
+        const legendComp = aeLegendCompData();
+        if (!legendComp) { if (isTyphoon()) return; throw new Error('범례 레이어 측정 실패 — 화면을 새로고침한 뒤 다시 보내 주세요'); }
+        specLayers.push({ legendComp, name: '범례' });
+      }
+    };
     if (isTyphoon()) {
+      const _tt = tracks.find((x) => x.kind === 'typhoon');
       if (isTyphoonCompare()) {
         // 비교 지도: 리깅 — 예보선별 (색 선 + 작은 틴트 아이콘 + 이름표 + 수치라벨). 널 옮기면 선·아이콘 따라옴.
         const T = S.typhoon;
@@ -368,7 +378,12 @@ async function sendToAE() {
           }
           typhoons.push({ color: c.color, lineW: (c.lineW || 2.2) * kk, iconFile, iconH: ic.h, iconRenderH: ic.iconH, iconScreenH: 15 * (c.iconScale == null ? 1 : c.iconScale) * kk, points: sp.map((p) => ({ x: SX(p.x), y: SY(p.y) })), iconAt, nameLabel, labels });
         }
-        specLayers.push({ compareRig: { bg, reveal: { start: start0, path: 2.0, labelLen: 1.0 }, typhoons }, name: '태풍 비교 리깅' });
+        // 비교 리그 타이밍 = 타임라인 비교 예보 막대(가장 이른 시작 ~ 가장 늦은 끝). 트랙 없는 예보는 메인 경로 막대(implicit), 그것도 없으면 처음부터 보임 — 화면과 같음.
+        const cs = plan.filter((L) => L.kind === 'typcmp' && !L.dim && !L.gone).map((L) => (L.track ? [+L.track.start, +L.track.start + +L.track.len] : L.implicit)).filter(Boolean);
+        // 수치라벨: 화면은 선이 그 지점에 닿는 순간 완성(진행도 창 10~16%) — AE(헬퍼)는 닿은 뒤 labelLen 동안 나오므로 경로의 20%(0.2~1초)로 짧게 해 화면에 가깝게.
+        const cA = cs.length ? Math.min(...cs.map((s) => s[0])) : 0, cP = cs.length ? Math.max(f1, Math.max(...cs.map((s) => s[1])) - cA) : f1;
+        const reveal = cs.length ? { start: cA, path: cP, labelLen: +Math.min(1, Math.max(0.2, cP * 0.2)).toFixed(4) } : { start: 0, path: f1, labelLen: f1 };
+        specLayers.push({ compareRig: { bg, reveal, typhoons }, name: '태풍 비교 리깅' });
       } else {
         // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
         const T = S.typhoon, pts = curTyphoonPoints(), nowIdx = typhoonNowIdx(pts);
@@ -396,70 +411,64 @@ async function sendToAE() {
           const tip = lineMode && j === sp.length - 1;
           return { x: SX(p.x), y: SY(p.y), r15: Math.round((p.r15 || 0) * kk), r25: Math.round((p.r25 || 0) * kk), r70: Math.round((p.r70 || 0) * kk), past: tip ? false : p.idx < nowIdx, idx: p.idx, ws: (pts[p.idx] && pts[p.idx].ws) || 99, ex: !!(pts[p.idx] && pts[p.idx].ex), noIcon: tip ? false : !!p.noIcon };
         });
-        // 타임라인의 태풍 트랙에서 경로·라벨 애니 타이밍을 가져온다(없으면 기본값). #1: AE 리빌을 타임라인과 일치시킴.
-        const _tt = A.tracks.find((x) => x.kind === 'typhoon');
-        const revPathStart = _tt && _tt.ps != null ? +_tt.ps : start0;
-        const revPathLen = _tt && _tt.pe != null ? Math.max(0.1, +_tt.pe - +_tt.ps) : 2.0;
+        // 타임라인의 태풍 트랙에서 경로·라벨 애니 타이밍을 가져온다. 트랙이 없으면 화면처럼 처음부터 다 보이게(1프레임).
+        if (_tt) ensureTyphoonKeys(_tt);
+        const revPathStart = _tt && _tt.ps != null ? +_tt.ps : 0;
+        const revPathLen = _tt && _tt.pe != null ? Math.max(f1, +_tt.pe - +_tt.ps) : f1;   // 경로 막대 길이 그대로(최소 1프레임)
         const _lab = (_tt && _tt.lab) || {};
         const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
         const labels = [];
         // 라인 모드는 경로 라벨 숨김(화면과 동일) → labels=[]
-        if (!lineMode) for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : null, revLen: e ? Math.max(0.1, +e.e - +e.s) : null }); }
+        if (!lineMode) for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : (_tt ? null : 0), revLen: e ? Math.max(0.05, +e.e - +e.s) : (_tt ? null : f1) }); }   // 라벨 막대 시작·길이 그대로(화면 renderAnimFrame과 같은 최소 0.05초)
         // 화면상 현재 아이콘 높이(px, 출력해상도 스케일) — AE 스케일 계산용. 라인 모드 선두도 화면에서 typhoonIconEl(…,17,…)이라 같은 값.
         const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5 * kk;
         const lineCol = T.lineColor || iconCol;
-        specLayers.push({ typhoonRig: { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconExColFile, iconExGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: revPathStart, path: revPathLen, labelLen: 1.0 }, labels,
+        const rig = { bg, points, nowIdx, iconColFile, iconGrayFile, iconTdColFile, iconTdGrayFile, iconExColFile, iconExGrayFile, iconH: icC.h, iconRenderH: icC.iconH, iconScreenH, bands, reveal: { start: revPathStart, path: revPathLen, labelLen: _tt ? 1.0 : f1 }, labels,
           // 화면 drawTyphoonTrack과 같은 선: 라인=단색선(lineColor·lineWidth) / 일반=지난 회색 실선(pastLineWidth)+현재~예상 흰 점선(lineWidth). 지난 아이콘=현재의 30%.
-          trackMode: lineMode ? 'line' : 'full', lineColor: lineCol, lineWidth: +(trackW * kk).toFixed(2), pastLineWidth: +(Math.max(1.5, trackW * 0.55) * kk).toFixed(2), pastIconK: 0.3 }, name: '태풍 리깅' });
+          trackMode: lineMode ? 'line' : 'full', lineColor: lineCol, lineWidth: +(trackW * kk).toFixed(2), pastLineWidth: +(Math.max(1.5, trackW * 0.55) * kk).toFixed(2), pastIconK: 0.3 };
+        // 카메라(위치·확대 키) — 헬퍼 CAM 널이 지도·지점·반경을 부모로 움직인다. 배경은 작업 뷰로 구웠으니 anchor=작업 뷰, sBaked=작업 배율.
+        const cks = camKeys().slice().sort((a, b) => a.t - b.t);
+        if (cks.length) rig.camera = { anchor: [SX(S.map.x), SY(S.map.y)], sBaked: +S.map.s || 1, keys: cks.map((k) => ({ t: +k.t, x: SX(+k.x), y: SY(+k.y), s: +k.s })) };
+        specLayers.push({ typhoonRig: rig, name: '태풍 리깅' });
       }
-      for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);
-      if (S.legend && S.legend.on) { const lc = aeLegendCompData(); if (lc) specLayers.push({ legendComp: lc, name: '범례' }); }
+      for (const L of plan.slice().reverse()) if (L.kind === 'static' && (L.sub === 'legend' || L.sub.startsWith('title:'))) await addTop(L);
     } else {
-    addImg('배경·지도', await aeBaseBlob());
-    if (warningDefs.length) {
-      for (const def of warningDefs) {
-        addImg('특보_' + def.name, await aeWarningFillBlob(def), { start: startForFill(def.col), len: AE_LEN });
+      // 일반 지도 — 계획의 아래(뒤)→위(앞): 배경 · 칠 · 브러쉬 · 경계선 · 산(바탕) · 산 · 라벨(+지시선) · VF 제목바 · 제목 · 범례
+      const labData = aeLabelCompData();
+      const labById = new Map(labData.map((d) => [d.id, d]));
+      let li = 0;
+      for (const L of plan.slice().reverse()) {
+        if (L.gone || L.kind === 'oldText' || L.kind === 'camera' || L.kind === 'vfEnter') continue;   // VF 진입은 spec.vfEnter, 카메라는 일반 지도 미지원(행에 'AE 차이')
+        const fade = fadeOf(L);
+        if (L.kind === 'static') {
+          if (L.sub === 'bg') addImg('배경·지도', await aeBaseBlob());
+          else if (L.sub === 'lines') addImg('경계선', await aeLinesBlob());   // 시도·시군 선 — 색칠 위, 정적(항상 보임)
+          else if (L.sub === 'mtnBase') addImg('산(바탕)', await aeMtnBlob(true));   // 바탕색 산 — 항상 보임(정적). 색칠처럼 모양은 처음부터.
+          else if (L.sub === 'vfbar') addImg('VF_제목바', await aeVfBarBlob());
+          else await addTop(L);
+          continue;
+        }
+        if (L.kind === 'fill') { if (L.wrnDef) addImg('특보_' + L.wrnDef.name, await aeWarningFillBlob(L.wrnDef), fade); else addImg('색칠_' + L.key.replace('#', ''), await aeFillBlob(L.key), fade); continue; }
+        if (L.kind === 'brush') { addImg('브러쉬_' + L.key.replace('#', ''), await aeBrushBlob(L.key), fade); continue; }   // 브러쉬 덧칠 — 색별 레이어(색칠 위, 경계선 아래)
+        if (L.kind === 'mtn') { addImg('산_' + String(L.name || '').slice(0, 8), await aeMtnBlob(false, L.key), fade); continue; }   // 산마다 레이어 — 그 산 막대 타이밍으로 페이드
+        if (L.kind === 'label') {
+          // 라벨 = 프리컴프(배경 이미지 + 편집 텍스트). AE에서 라벨 하나가 한 컴프.
+          const ld = labById.get(L.key); if (!ld) continue;
+          li++;
+          // 지시선 라벨: 선·앵커원을 라벨별 전체화면 투명 레이어로(라벨 바로 아래, 같은 페이드) — 배경에 정적으로 굽히던 문제
+          if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), fade);
+          const fi = uploads.length; uploads.push(await aeLabelBgBlob(ld));
+          const p = aePt(ld.cx, ld.cy);   // 위치·크기 모두 출력 해상도(VF 축소 × 터치 배율)
+          specLayers.push({
+            labelComp: { w: aeSz(ld.w), h: aeSz(ld.h), x: p.x, y: p.y, bg: 'f_' + String(fi).padStart(5, '0') + '.png',
+              texts: ld.texts.map((t) => ({ ...t, size: aeSz(t.size), track: aeSz(t.track), cx: aeSz(t.cx), cy: aeSz(t.cy) })) },
+            name: '라벨_' + li, fade: fade ? { start: fade.start, len: fade.len, rise: aeSz(26) } : null,   // rise=아래서 올라오기(타임라인 동일), 트랙 없으면 처음부터
+          });
+        }
       }
-    } else {
-      for (const col of cols) addImg('색칠_' + col.replace('#', ''), await aeFillBlob(col), { start: startOf[col], len: AE_LEN });
     }
-    // 브러쉬 덧칠 — 색별 레이어(색칠 위, 경계선 아래). 매칭 색보다 살짝 먼저 들어옴(타임라인과 동일).
-    const brushCols = [];
-    for (const s of brushStrokes()) if (!s.erase && !brushCols.some((x) => x.toUpperCase() === s.col.toUpperCase())) brushCols.push(s.col);
-    for (const col of brushCols) addImg('브러쉬_' + col.replace('#', ''), await aeBrushBlob(col), { start: Math.max(start0, startForFill(col) - AE_LEN), len: AE_LEN });
-    addImg('경계선', await aeLinesBlob());   // 시도·시군 선 — 색칠 위, 정적(항상 보임)
-    const mtns = (S.mtns || []).filter((m) => !m.off);
-    if (mtns.length) {
-      addImg('산(바탕)', await aeMtnBlob(true));   // 바탕색 산 — 항상 보임(정적). 색칠처럼 모양은 처음부터.
-      const ms = Math.min.apply(null, mtns.map((m) => startForFill(m.col)));
-      addImg('산(색)', await aeMtnBlob(false), { start: ms, len: AE_LEN });   // 최종색 산 — 위에서 페이드인
-    }
-    // 라벨 = 프리컴프(배경 이미지 + 편집 텍스트). AE에서 라벨 하나가 한 컴프.
-    const labData = aeLabelCompData();
-    let li = 0;
-    for (const ld of labData) {
-      li++;
-      const ls0 = startForFill(ld.fill);
-      // 지시선 라벨: 선·앵커원을 라벨별 전체화면 투명 레이어로(라벨 바로 아래, 같은 페이드) — 배경에 정적으로 굽히던 문제
-      if (ld.leader) addImg('지시선_' + li, await aeLeaderBlob(ld.id), { start: ls0, len: AE_LEN });
-      const fi = uploads.length; uploads.push(await aeLabelBgBlob(ld));
-      const p = aePt(ld.cx, ld.cy);   // 위치·크기 모두 출력 해상도(VF 축소 × 터치 배율)
-      specLayers.push({
-        labelComp: { w: aeSz(ld.w), h: aeSz(ld.h), x: p.x, y: p.y, bg: 'f_' + String(fi).padStart(5, '0') + '.png',
-          texts: ld.texts.map((t) => ({ ...t, size: aeSz(t.size), track: aeSz(t.track), cx: aeSz(t.cx), cy: aeSz(t.cy) })) },
-        name: '라벨_' + li, fade: { start: ls0, len: AE_LEN, rise: aeSz(26) },   // rise=아래서 올라오기(타임라인 동일)
-      });
-    }
-    if (S.res === '1920x1080-vf' && S.vfBar && S.vfBar.on) addImg('VF_제목바', await aeVfBarBlob());
-    for (const t of S.texts.filter((x) => !x.off)) addText('제목_' + (t.txt || '').slice(0, 8), t);   // 제목=편집형 텍스트, 맨 위·정적
-    if (S.legend && S.legend.on) {
-      const legendComp = aeLegendCompData();
-      if (!legendComp) throw new Error('범례 레이어 측정 실패 — 화면을 새로고침한 뒤 다시 보내 주세요');
-      specLayers.push({ legendComp, name: '범례' });
-    }
-    }
-    // 컴프 길이 — 타임라인 길이 그대로(A.dur엔 이미 여유 포함, MXF와 같게) + 페이드·태풍 리빌(경로+라벨)·비교 리빌 끝에만 +0.6 여유
-    let end = start0;
+    // 컴프 길이 — 타임라인 길이 그대로(화면 = AE, MXF와 같은 길이). 길이 밖으로 넘친 내용만 잘리지 않게 그 끝 + 0.6초까지 늘린다.
+    let end = 0;
     for (const l of specLayers) {
       if (l.fade) end = Math.max(end, l.fade.start + l.fade.len);
       const tr = l.typhoonRig, cr = l.compareRig;
@@ -467,11 +476,12 @@ async function sendToAE() {
         const rv = tr.reveal;
         end = Math.max(end, rv.start + rv.path);
         for (const lb of tr.labels) end = Math.max(end, lb.revStart != null ? lb.revStart + (lb.revLen != null ? lb.revLen : rv.labelLen) : rv.start + rv.path + rv.labelLen);
+        if (tr.camera) for (const k of tr.camera.keys) end = Math.max(end, k.t);
       }
       if (cr) end = Math.max(end, cr.reveal.start + cr.reveal.path + cr.reveal.labelLen);
     }
-    if (S.res === '1920x1080-vf') end = Math.max(end, ANIM_START + AE_LEN);
-    const dur = Math.max(6, +A.dur || 0, Math.ceil((end + 0.6) * 2) / 2);
+    if (S.res === '1920x1080-vf') end = Math.max(end, ANIM_START + ANIM_VF_ENTER_LEN);
+    const dur = end > durBase + 1e-4 ? Math.max(durBase, Math.ceil((end + 0.6) * 2) / 2) : durBase;
     const sid = 'ae' + Date.now();
     for (let i = 0; i < uploads.length; i++) {
       const r = await fetch(WNS_HELPER + '/api/frame?sid=' + sid + '&index=' + i + '&ext=png', { method: 'POST', body: uploads[i] });
@@ -481,7 +491,7 @@ async function sendToAE() {
     const sh = S.shadow || {};
     const spec = {
       sid, comp: { name: 'WeatherCG_' + dateTag(), w: W, h: H, fps, dur },
-      vfEnter: (S.res === '1920x1080-vf') ? { start: ANIM_START, len: AE_LEN, dx: vfEnterDist() * vfScaleValue() / 100 } : null,
+      vfEnter: (S.res === '1920x1080-vf') ? { start: ANIM_START, len: ANIM_VF_ENTER_LEN, dx: vfEnterDist() * vfScaleValue() / 100 } : null,   // 화면 VF 진입과 같은 길이(1.2초)
       shadow: { x: sh.x || 0, y: sh.y == null ? 8 : sh.y, blur: sh.blur == null ? 10 : sh.blur, op: sh.op == null ? 45 : sh.op, col: sh.col || '#000814' },
       layers: specLayers,
     };
@@ -494,7 +504,7 @@ async function sendToAE() {
       ({ r: rr, j: jr } = await postAe(Object.assign({}, spec, { aePath: chosen })));
     }
     if (!rr.ok || !jr.ok) throw new Error(jr.error || ('AE 실행 실패 ' + rr.status));
-    status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다'); flashDone('AE로 보냄');
+    status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다' + (auto && auto.tracks.length ? ' (타임라인 트랙이 없어 자동 구성 타이밍으로 보냈습니다)' : '')); flashDone('AE로 보냄');
     if (jr.fontsOk === false) status('AE로 보냄 — SUITE 폰트를 설치하지 못해 AE에서 기본 폰트로 들어갈 수 있습니다', true);   // 새 헬퍼만 보냄(없으면 옛 헬퍼 → 안내 없음)
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 열림'; }
     // AE가 켜지는 동안 재전송하면 '프로젝트 닫을까?' 창이 뜬다 → 잠깐 잠가 중복 전송 막기
@@ -510,6 +520,7 @@ async function sendToAE() {
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE 보내기 실패'; }
   } finally {
     if (btn && !cooldown) btn.disabled = false;
+    if (wasPreview && typeof tlRefreshPreview === 'function') tlRefreshPreview();
     if (!cooldown || !btn) fxBusy(btn, false);
   }
 }

@@ -404,6 +404,8 @@ window.addEventListener('keydown', (e) => {
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
   if ($('#tourWrap')?.classList.contains('on')) return;   // 투어 중 ←/→는 단계 넘기기 전용(지도·선택 이동 금지)
   if (cgSetupIsOpen()) return;   // CG 구성 창이 떠 있는 동안엔 뒤의 지도 단축키(되돌리기·삭제·이동 등)를 막는다
+  // 타임라인이 열려 있으면: Space=재생/멈춤·Numpad0=처음부터 재생(늘), 타임라인 포커스(파란 테두리)면 AE 단축키(←/→·PageUp/Down·J/K·[ ]…)가 먼저
+  if ($('#timeline')?.classList.contains('on') && tlKeydown(e)) return;
   // 브러쉬 크기: [ 줄이기, ] 키우기
   if (mode === 'brush' && (e.key === '[' || e.key === ']')) {
     e.preventDefault();
@@ -412,11 +414,6 @@ window.addEventListener('keydown', (e) => {
     if (brushLastPt) updateBrushCursor(brushLastPt.x, brushLastPt.y, e.shiftKey);
     status('브러쉬 크기 ' + S.brush.size, true);
     return;
-  }
-  // 타임라인이 열려 있으면: 스페이스=재생/멈춤, 숫자패드 0=처음으로
-  if ($('#timeline')?.classList.contains('on')) {
-    if (e.code === 'Space') { e.preventDefault(); animPlay(); return; }
-    if (e.code === 'Numpad0') { e.preventDefault(); animStop(); animSeek(0); return; }
   }
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }

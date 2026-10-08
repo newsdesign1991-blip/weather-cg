@@ -25,6 +25,7 @@ function buildResBtns() {
     b._apply = () => {
       if (S.res === k) return;
       if (animT != null) { animStop(); animOff(); }   // 애니 프리뷰 중이었으면 종료 — VF 진입 슬라이드/페이드 잔재 제거
+      const oldStart = animStart();   // 해상도별 기본 시작 시각(바꾼 뒤 타임라인 알림 줄용)
       pushUndo();
       S.res = k;
       const applied = applyPreset();
@@ -40,6 +41,7 @@ function buildResBtns() {
       if (k === '1920x1080-vf' && S.legend && S.legend.on) ensureLegendInVfPanel();   // VF 범례가 패널 밖이면 안으로
       if (typeof tlNote === 'function') tlNote();   // 해상도마다 렌더 안내가 다르다
       updateFrameGuideLabel();                       // 프레임 가이드 라벨·비율도 새 해상도로
+      if (typeof tlAfterResChange === 'function') tlAfterResChange(oldStart);   // 타임라인이 열려 있으면 막대·재생헤드 프레임 다시(B7) + 시작 시각 알림(B15)
       status(v.label);
     };
     b.onclick = () => {

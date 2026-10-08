@@ -55,47 +55,43 @@ function wire() {
     $('#timeline').classList.toggle('on', on);
     $('#tlToggle').classList.toggle('pri', on);
     document.querySelector('.app').classList.toggle('tlFocus', on);   // 사이드바 숨기고 타임라인·지도에 집중
+    tlSetOpen(on);      // 무대를 타임라인 높이만큼 줄이고(지도 가림 없음) 패널 포커스
     const gd = $('#camGuide'); if (gd) gd.style.display = on ? '' : 'none';
-    const ke = $('#camKeyEditor'); if (ke) ke.style.display = on ? '' : 'none';
     syncMapAltHint();   // 추출 모드 on/off에 맞춰 좌하단 Alt 조작법 표시 갱신
     syncCamGuidePos();  // 카메라 안내를 타임라인 위(하단)에 맞춘다
 
     updateFrameGuideLabel();
     if (typeof applyToolbarPos === 'function') applyToolbarPos();
-    if (on) { dropStaleTracks(); buildTimeline(); }
+    if (on) { dropStaleTracks(); buildTimeline(); tlRefreshPreview(); }   // 열면 재생헤드 시각의 프레임을 그린다(B7)
     else { animStop(); animOff(); S.map3d = CAM3D_DEFAULT(); applyTilt(); }   // 닫으면 편집은 평면으로
   };
   $('#tlToggle').onclick = () => tlShow(!$('#timeline').classList.contains('on'));
   $('#tlClose').onclick = () => tlShow(false);
   $('#tlPlay').onclick = animPlay;
-  $('#tlStop').onclick = () => { animStop(); animSeek(0); };
+  $('#tlStop').onclick = () => { animStop(); tlSetT(anim().work ? +anim().work.a : 0); };
   $('#tlAuto').onclick = autoTracks;
-  // 카메라 키 — 현재 시각(플레이헤드)에 지금 지도 위치·확대를 저장(같은 시각이면 갱신)
+  // 카메라 키 — 현재 시각(재생헤드, 프레임 단위)에 지금 지도 위치·확대·회전을 저장(같은 시각이면 갱신)
   $('#tlCamKey').onclick = () => {
-    const t = +(tlHeadT || 0);   // 재생헤드 위치(지도 이동으로 animT가 null 돼도 유지)
+    // 재생·스크럽 중(가속 미리보기)엔 S.map이 작업 뷰이고 화면만 CSS로 카메라 뷰 — 멈추고 그 프레임을 정확히 그린 뒤 찍는다(보이는 뷰 = 키)
+    if (animPlaying) animStop();
+    if (_animFast) animSeek(tlQuant(+(tlHeadT || 0)));
+    const t = tlQuant(+(tlHeadT || 0));   // 재생헤드 위치(지도 이동으로 animT가 null 돼도 유지)
     pushUndo();
     const ks = camKeys();
     const R = camRot();
-    const snap = { t: +t.toFixed(2), x: Math.round(S.map.x), y: Math.round(S.map.y), s: +(+S.map.s).toFixed(4), rx: +R.rx.toFixed(1), ry: +R.ry.toFixed(1), rz: +R.rz.toFixed(1) };
-    const near = ks.find((k) => Math.abs(k.t - t) < 0.05);
+    const snap = { t, x: Math.round(S.map.x), y: Math.round(S.map.y), s: +(+S.map.s).toFixed(4), rx: +R.rx.toFixed(1), ry: +R.ry.toFixed(1), rz: +R.rz.toFixed(1) };
+    const near = tlKeyAtT(t);
     if (near) Object.assign(near, snap); else ks.push({ id: 'c' + (seq++), ...snap });
     const end = Math.max(anim().dur, ...ks.map((x) => x.t));
     if (end > anim().dur) anim().dur = Math.ceil((end + 0.4) * 2) / 2;
-    buildTimeline();
-    status(`카메라 키 ${snap.t}s 저장 · 위치(${snap.x},${snap.y}) 확대 ×${snap.s.toFixed(2)}` + (ks.length < 2 ? ' — 다른 시각에 하나 더 찍으면 사이가 애니메이션됩니다' : ''));
-  };
-  $('#tlCamDel').onclick = () => {
-    const t = +(tlHeadT || 0), ks = camKeys();
-    if (!ks.length) { status('카메라 키가 없습니다', true); return; }
-    let bi = -1, bd = 1e9; ks.forEach((k, i) => { const d = Math.abs(k.t - t); if (d < bd) { bd = d; bi = i; } });
-    if (bi >= 0 && bd < 0.3) { pushUndo(); ks.splice(bi, 1); buildTimeline(); animSeek(t); status('카메라 키 삭제'); }
-    else status('현재 시각 근처에 카메라 키가 없습니다 (키를 클릭해 이동 후 삭제)', true);
+    buildTimeline(); tlRefreshPreview();
+    status(`카메라 키 ${tlFmtShort(t)} 저장 · 위치(${snap.x},${snap.y}) 확대 ×${snap.s.toFixed(2)}` + (ks.length < 2 ? ' — 다른 시각에 하나 더 찍으면 사이가 애니메이션됩니다' : ''));
   };
   $('#tlReset').onclick = () => {
     pushUndo();
     animStop();
     S.anim = { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] };   // 모든 키·트랙·설정 초기화(카메라 키=anim.cam도 함께 사라짐)
-    camKeyEditorSel = null; const p = document.querySelector('#camKeyPop'); if (p) p.remove();
+    tlClosePopover(); tlState.sel.clear(); tlState.keySel.clear();
     tlHeadT = 0; animOff();   // 재생헤드·애니 상태 리셋 → 평소 화면
     buildTimeline(); tlNote();
     status('타임라인 초기화됨 — 키·트랙·설정 모두 지움 (되돌리기 Ctrl+Z)');
@@ -105,52 +101,15 @@ function wire() {
   if ($('#wnsMxf')) $('#wnsMxf').onclick = () => wnsRender('mxf');
   if ($('#wnsMov')) $('#wnsMov').onclick = () => wnsRender('mov');
   updateWnsButtons();   // 노말 VF + 로컬일 때만 버튼 노출
-  $('#tlDur').onchange = (e) => { pushUndo(); anim().dur = Math.max(0.5, +e.target.value || 6); buildTimeline(); };
-  $('#tlFps').onchange = (e) => { pushUndo(); anim().fps = parseFloat(e.target.value) || 29.97; tlNote(); };
+  $('#tlDur').onchange = (e) => { pushUndo(); anim().dur = Math.max(0.5, +e.target.value || 6); if (tlHeadT > anim().dur) tlHeadT = anim().dur; buildTimeline(); tlRefreshPreview(); };
+  $('#tlFps').onchange = (e) => { pushUndo(); anim().fps = parseFloat(e.target.value) || 29.97; tlNote(); buildTimeline(); };
   const syncBlindOpts = () => { $('#blindOpts').style.display = (anim().reveal === 'blinds') ? 'inline-flex' : 'none'; };
-  $('#tlReveal').onchange = (e) => { pushUndo(); anim().reveal = e.target.value; syncBlindOpts(); animSeek(animT == null ? 0 : animT); };
-  const onBlind = () => { pushUndo(); anim().blindSize = Math.max(8, +$('#tlBlindSize').value || 8); anim().blindAngle = +$('#tlBlindAngle').value || 0; animSeek(animT == null ? 0 : animT); };
+  $('#tlReveal').onchange = (e) => { pushUndo(); anim().reveal = e.target.value; syncBlindOpts(); buildTimeline(); animSeek(tlHeadT); };
+  const onBlind = () => { pushUndo('tlblind'); anim().blindSize = Math.max(8, +$('#tlBlindSize').value || 8); anim().blindAngle = +$('#tlBlindAngle').value || 0; animSeek(tlHeadT); };
   $('#tlBlindSize').oninput = onBlind;
   $('#tlBlindAngle').oninput = onBlind;
-  // 눈금자를 누르면 그 시각으로
-  const scrub = (e) => {
-    const r = $('#tlRuler').getBoundingClientRect();
-    animStop();
-    const pps = tlPxPerSec();
-    let t = (e.clientX - r.left) / pps;   // 눈금자는 그리드와 함께 가로 스크롤 → rect.left에 scrollLeft가 이미 반영됨
-    t = Math.max(0, Math.min(anim().dur, t));
-    if (e.shiftKey) {   // Shift = 모든 키(카메라·경로·라벨·클립)와 0초·끝에 스냅
-      const snapTs = timelineSnapTimes();
-      const thr = 10 / pps; let best = null, bd = thr;
-      for (const st of snapTs) { const d = Math.abs(st - t); if (d < bd) { bd = d; best = st; } }
-      if (best != null) t = best;
-    }
-    animSeek(t);
-  };
-  $('#tlRuler').addEventListener('pointerdown', (e) => {
-    scrub(e);
-    const mv = (ev) => scrub(ev);
-    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointermove', mv);
-    window.addEventListener('pointerup', up);
-  });
-  // 높이 조절
-  $('#tlGrip').addEventListener('pointerdown', (e) => {
-    const y0 = e.clientY, h0 = tlH;
-    const mv = (ev) => {
-      tlH = Math.max(120, Math.min(window.innerHeight - titleBarH() - 120, h0 - (ev.clientY - y0)));   // 제목줄 높이만큼 덜 — 플로팅 바·제목줄 쪽으로 너무 안 올라오게
-      $('#timeline').style.height = tlH + 'px';
-      syncCamGuidePos();   // 타임라인 높이 바뀌면 카메라 안내도 따라 올라가게
-    };
-    const up = () => {
-      window.removeEventListener('pointermove', mv);
-      window.removeEventListener('pointerup', up);
-      buildTimeline();
-    };
-    window.addEventListener('pointermove', mv);
-    window.addEventListener('pointerup', up);
-    e.preventDefault();
-  });
+  // 눈금자·CTI·막대·키·휠·키보드·높이·이름 열 폭 — 타임라인 조작 배선(js/timeline-input.js)
+  tlWire();
 
   $('#mPaint').onclick = () => setMode('paint');
   $('#mBrush').onclick = () => setMode('brush');

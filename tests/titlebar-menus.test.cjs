@@ -135,9 +135,9 @@ test('제목줄 검토 수정 — 메뉴 열림 중 끌기 해제·창 버튼 �
   const place = /function tourPlace\(step\) \{[\s\S]*?\n\}/.exec(html)[0];
   assert.match(place, /\.tourBar/);
   // 카메라 키 팝오버·카메라 안내·타임라인 최대 높이는 제목줄 높이를 뺀다
-  const pop = /function openCamKeyPopover\(id\) \{[\s\S]*?\n\}/.exec(html)[0];
+  const pop = /function tlPlacePopover\(\) \{[\s\S]*?\n\}/.exec(html)[0];   // 카메라 키 팝오버 배치(openCamKeyPopover가 부른다)
   assert.match(pop, /titleBarH\(\) \+ 8/);
   const guide = /function syncCamGuidePos\(\) \{[\s\S]*?\n\}/.exec(html)[0];
   assert.match(guide, /titleBarH\(\)/);
-  assert.match(html, /window\.innerHeight - titleBarH\(\) - 120/);
+  assert.match(html, /window\.innerHeight - titleBarH\(\) - 160/);   // 타임라인 최대 높이(무대가 그만큼 줄어든다)
 });

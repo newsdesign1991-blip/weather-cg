@@ -287,6 +287,7 @@ function renderFills() {
   renderSidoLines();
   renderSea();
   if (typeof syncSeoulPaintTop === 'function') syncSeoulPaintTop();   // 서울: 칠한 색을 한강 위로
+  if (typeof tlContentChanged === 'function') tlContentChanged();   // 타임라인이 열려 있으면 칠 레이어 행 확인(새 색 = 새 행)
 }
 // 지도 배율만 바뀌었을 때 — 칠(fill)은 건드리지 않고 경계선 굵기 보정(÷배율)만 다시. 좌표 입력·Alt 줌 확정에서 부른다.
 function renderStrokeScale() {
