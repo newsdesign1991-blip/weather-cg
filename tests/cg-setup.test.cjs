@@ -98,7 +98,7 @@ test('고르기만 하고, 둘 다 골라 선택 완료를 눌러야 적용 — 
   assert.match(setup, /if \(e\.target === ov && downOnOv\) closeCgSetup\(\);/, '바깥 클릭 = 취소');
   assert.match(setup, /e\.key !== 'Escape'/);
   // 창이 떠 있는 동안 뒤의 지도 단축키는 막는다
-  assert.match(html, /if \(cgSetupIsOpen\(\)\) return;   \/\/ CG 구성 창이 떠 있는 동안엔/);
+  assert.match(html, /if \(cgSetupIsOpen\(\) \|\| exportIsOpen\(\)\) return;   \/\/ CG 구성 창·이미지로 추출 팝업이 떠 있는 동안엔/);
   // 서울 지도(목록엔 숨김)는 시도군 카드로 표시
   assert.match(fn('markStyleBtns'), /isSeoul\(pendingStyle\)\) \? 'sgg' : pendingStyle/);
 });
@@ -247,7 +247,7 @@ test('부팅 점검: CG 구성 고르기·완료·취소, 프로젝트 아이콘
   assert.equal(R.toast.on, true); assert.match(R.toast.text, /따로 저장한 배치가 없습니다/);
   assert.deepEqual([R.proj.drop, R.proj.shown, R.proj.hasSave], [true, ['proj'], true]);
   assert.equal(R.projClosed, true);
-  assert.deepEqual([R.outMenu.drop, R.outMenu.shown], [true, ['out']]);
+  assert.deepEqual(R.outPop, { open: true, drop: false, btnOn: true, cards: 14, exOpen: true, closed: true }, '이미지로 추출 팝업 열기·Esc 닫기');
   assert.deepEqual([R.tlOn.timeline, R.tlOn.pri, R.tlOff.timeline, R.tlOff.pri], [true, true, false, false]);
   assert.equal(R.ae.shown, true);
   assert.ok(R.titlebar.scroll <= R.titlebar.client && R.titlebar.navRight < R.titlebar.rightLeft, JSON.stringify(R.titlebar));

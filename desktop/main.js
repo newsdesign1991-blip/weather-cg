@@ -4,7 +4,7 @@
 //   (http 고정 포트 방식은 포트 충돌·서비스워커 캐시·폴더 노출 문제가 있어 버림)
 // - 기능 확장팩(기상청 불러오기·MXF/MOV·AE 보내기)은 앱 안에 내장(wns/server.js, 127.0.0.1:3721).
 //   웹판용 Python 헬퍼(3720)와 포트가 달라 같이 켜져 있어도 충돌하지 않는다. 내장 시작에 실패하면 Python 헬퍼로 대체.
-const { app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog, session } = require('electron');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -39,6 +39,20 @@ const MIME = {
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon',
   '.otf': 'font/otf', '.ttf': 'font/ttf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8',
 };
+
+// '이미지로 추출'의 폴더 고르기(showDirectoryPicker)에서 크로미움이 막는 '민감한 폴더'(홈·바탕화면·다운로드 '자체', AppData, 시스템 폴더,
+// 드라이브 루트 등)를 골랐을 때 — 사용자 폴더(홈 아래, AppData 빼고)와 시스템 드라이브가 아닌 드라이브(R:\ 네트워크 등)는 허락하고,
+// 나머지(Windows·Program Files·ProgramData·AppData·C:\ 루트)는 폴더 창을 다시 띄운다('tryAgain'). 웹판(크롬)은 막힌 채 — 앱이 ZIP 받기를 안내한다.
+function fsPickAllowed(p) {
+  if (!p) return false;
+  const norm = (x) => path.resolve(String(x)).replace(/[\\/]+$/, '').toLowerCase();
+  const P = norm(p);
+  const under = (base) => { if (!base) return false; const b = norm(base); return P === b || P.startsWith(b + path.sep); };
+  const env = process.env;
+  if ([env.SystemRoot || 'C:\\Windows', env.ProgramFiles, env['ProgramFiles(x86)'], env.ProgramData, env.APPDATA, env.LOCALAPPDATA].some(under)) return false;
+  if (under(require('os').homedir())) return true;
+  return path.parse(P + path.sep).root.toLowerCase() !== ((env.SystemDrive || 'C:') + path.sep).toLowerCase();
+}
 
 // app:// 를 일반 웹 출처처럼(보안 출처·fetch·CORS·스트림) 쓰게 등록 — ready 전에 해야 한다
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true, codeCache: true } }]);
@@ -295,6 +309,7 @@ if (!TEST_MODE && !app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     buildMenu();
     protocol.handle('app', serveApp);
+    session.defaultSession.on('file-system-access-restricted', (_e, d, cb) => cb(fsPickAllowed(d && d.path) ? 'allow' : 'tryAgain'));   // 폴더 고르기 — 위 fsPickAllowed
     if (TEST_MODE) { createWindow(); return; }   // 점검 모드: 헬퍼 없이 화면만
     if (!(await startEmbeddedHelper())) {   // 내장 실패 → 웹판과 같은 Python 헬퍼를 켜서 쓴다
       helperUrl = `http://127.0.0.1:${EXT_PORT}`; helperKind = 'external';

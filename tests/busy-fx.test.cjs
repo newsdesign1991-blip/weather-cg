@@ -280,7 +280,7 @@ function bodyOf(name) {
 }
 test('연결 — 불러오기·추출·저장 함수가 켠 작업 중 효과를 finally에서 끈다', () => {
   const cases = {
-    fetchWrn: 'fx', doExport: 'fx', bakeMp4: 'fx', exportPngSeq: 'fx', wnsRender: 'fx', saveProject: 'fx', openRecent: 'fx', bakeDefaults: 'fx',
+    fetchWrn: 'fx', renderExport: 'fx', bakeMp4: 'fx', exportPngSeq: 'fx', wnsRender: 'fx', saveProject: 'fx', openRecent: 'fx', bakeDefaults: 'fx',
     fetchTyphoon: 'fx', fetchTyphoonPast: 'fx', fetchJma: 'fx', attachEdgeTD: 'fx', fetchBulletin: 'fx',
   };
   for (const [fn, v] of Object.entries(cases)) {

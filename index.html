@@ -88,10 +88,11 @@
 <link rel="stylesheet" href="css/base.css?v=505143ba">
 <link rel="stylesheet" href="css/sidebar.css?v=7796a853">
 <link rel="stylesheet" href="css/stage.css?v=907e0480">
-<link rel="stylesheet" href="css/titlebar.css?v=2267ee3c">
+<link rel="stylesheet" href="css/titlebar.css?v=0d3f15d1">
 <link rel="stylesheet" href="css/start-tour.css?v=36750797">
 <link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
-<link rel="stylesheet" href="css/menus-windows.css?v=decbdfb6">
+<link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
+<link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=8f6d027d">
 <link rel="stylesheet" href="css/dialogs.css?v=7b46d2b5">
 <link rel="stylesheet" href="css/panel-misc.css?v=4640b3e8">
@@ -113,7 +114,7 @@
     <!-- 추출 3버튼 — 같은 폭(grid 균등 칸) + 채운 아이콘(사진·재생·보내기, currentColor라 .on/.pri 때 흰색으로 따라감).
          글자는 .tbLbl 안에만 — JS가 글자를 잠깐 바꿀 땐(AE 여는 중…) 이 span 만 바꾼다(버튼 textContent 를 덮으면 아이콘 svg 가 지워짐) -->
     <div class="tbGroup" id="exportGroup">
-      <button class="menuBtn tbMenu tbAction" data-menu="out" title="이미지로 추출"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm3.5 6.6a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM5.2 18.2h13.6l-4.4-6-3.4 4.4-2.4-3.1z"/></svg><span class="tbLbl">이미지로 추출</span></button>
+      <button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog" title="이미지로 추출 — 고른 것을 PNG로 렌더해 폴더에 저장"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm3.5 6.6a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM5.2 18.2h13.6l-4.4-6-3.4 4.4-2.4-3.1z"/></svg><span class="tbLbl">이미지로 추출</span></button>
       <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 추출 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm-2.2 6v8l6.4-4z"/></svg><span class="tbLbl">영상으로 추출</span></button>
       <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a1 1 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .72.73 1.2 1.39.91z"/></svg><span class="tbLbl">AE로 보내기</span></button>
     </div>
@@ -198,6 +199,68 @@
       <div class="cgsSummary" id="cgsSummary" aria-live="polite">CG 종류와 지도 종류를 모두 골라 주세요</div>
       <button class="cgsCancel" id="cgsCancel">취소</button>
       <button class="cgsDone" id="cgsDone" disabled>선택 완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- 이미지로 추출 — CG 구성 창과 같은 모양(클래스 재사용, 차이는 ex* 클래스만). 성격이 같은 것끼리 세 판: ① 한 장으로(파랑) · ② 바탕·지도 레이어(청록) ·
+     ③ 글자·표시 레이어(보라). 카드는 js/export-dialog.js 가 EXPORT_TARGETS 로 채운다. 카드 이름 = 저장되는 파일 이름.
+     창은 한 번만 만들어 두고 class 'on'으로 열고 닫는다(다시 만들면 핸들러가 끊긴다). -->
+<div class="cgSetupOv exOv" id="exportOv" aria-hidden="true">
+  <div class="cgSetupCard exCard" role="dialog" aria-modal="true" aria-labelledby="exTitle" tabindex="-1">
+    <div class="cgsHead">
+      <div class="cgsHeadTxt">
+        <div class="cgsTitle" id="exTitle">이미지로 추출</div>
+        <div class="cgsSub">고른 것을 렌더하면 저장할 폴더를 물어보고, 그 안에 오늘 날짜 폴더를 만들어 카드 이름 그대로 저장해요</div>
+      </div>
+      <button class="cgsX" id="exX" aria-label="닫기" title="닫기 (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="exQuick" role="group" aria-label="빠른 선택">
+      <span class="exQuickLbl">빠른 선택</span>
+      <button type="button" data-quick="final" title="방송에 그대로 쓰는 완성 그림 한 장">완성 화면만</button>
+      <button type="button" data-quick="layers" title="바탕·지도 레이어 + 글자·표시 레이어 — 편집 툴에서 순서대로 쌓으면 전체 화면과 같아요">편집용 레이어 전부</button>
+      <button type="button" data-quick="none">모두 해제</button>
+    </div>
+    <div class="cgsBody exBody">
+      <section class="cgsPane exPaneOne" data-group="one" aria-labelledby="exOneTitle">
+        <div class="cgsPaneHead">
+          <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M2 4h20v13H2zm7 15h6v2H9z"/></svg></span>
+          <div class="cgsPaneTxt">
+            <div class="cgsPaneTitle" id="exOneTitle"><span class="cgsStepNo">1</span>한 장으로</div>
+            <div class="cgsPaneSub">그대로 방송에 쓰는 완성 그림</div>
+          </div>
+          <button type="button" class="cgsPick exPanePick">모두 고르기</button>
+        </div>
+        <div class="cgsChoices" id="exChoicesOne" role="group" aria-label="한 장으로"></div>
+      </section>
+      <section class="cgsPane exPaneBase" data-group="base" aria-labelledby="exBaseTitle">
+        <div class="cgsPaneHead">
+          <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5 0 2.2-9 5-9-5zM3 16.8l9 5 9-5 0 2.2-9 5-9-5z"/></svg></span>
+          <div class="cgsPaneTxt">
+            <div class="cgsPaneTitle" id="exBaseTitle"><span class="cgsStepNo">2</span>바탕·지도 레이어<span class="exStackTip" tabindex="0" title="편집 툴에서 아래부터 쌓는 순서: 배경만 → 바탕 지도 → 색칠만 → 경계선만 → 산 표시 → 태풍 경로 → VF 제목 바 → 수치 라벨 → 제목 → 범례 (시·도 선만은 경계선만에 들어 있어요)" aria-label="쌓는 순서 안내"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="8" r="1.2" fill="currentColor"/><path d="M12 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></div>
+            <div class="cgsPaneSub">투명 PNG · 편집 툴에서 아래부터 쌓기</div>
+          </div>
+          <button type="button" class="cgsPick exPanePick">모두 고르기</button>
+        </div>
+        <div class="cgsChoices" id="exChoicesBase" role="group" aria-label="바탕·지도 레이어"></div>
+      </section>
+      <section class="cgsPane exPaneMark" data-group="mark" aria-labelledby="exMarkTitle">
+        <div class="cgsPaneHead">
+          <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M3 4h18v16H3zm4 3v2.2h3.9V17h2.2V9.2H17V7z"/></svg></span>
+          <div class="cgsPaneTxt">
+            <div class="cgsPaneTitle" id="exMarkTitle"><span class="cgsStepNo">3</span>글자·표시 레이어</div>
+            <div class="cgsPaneSub">투명 PNG · 지도 위에 얹기</div>
+          </div>
+          <button type="button" class="cgsPick exPanePick">모두 고르기</button>
+        </div>
+        <div class="cgsChoices" id="exChoicesMark" role="group" aria-label="글자·표시 레이어"></div>
+      </section>
+    </div>
+    <div class="cgsFoot">
+      <div class="cgsToast exToast" id="exToast" role="status" aria-live="polite"></div>
+      <div class="cgsSummary" id="exSummary" aria-live="polite">뽑을 것을 골라 주세요</div>
+      <button class="cgsCancel" id="exCancel">닫기</button>
+      <button class="cgsDone" id="exRender" disabled title="고른 것을 렌더해 폴더에 저장 (Ctrl+Enter)"><svg class="exGo" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7a2 2 0 012-2h3.6l2 2.2h7.4a2 2 0 012 2v8.3a2 2 0 01-2 2h-13a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10.2v5.6M9.5 13.4l2.5 2.5 2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="exRing" viewBox="0 0 20 20" aria-hidden="true"><circle class="exRingBg" cx="10" cy="10" r="7.5"/><circle class="exRingFill" cx="10" cy="10" r="7.5" pathLength="100" stroke-dasharray="0 100"/></svg><span class="exRenderLbl">렌더</span></button>
     </div>
   </div>
 </div>
@@ -738,17 +801,6 @@
       </div>
     </div>
 
-    <div class="sec pinned" data-sec="out">
-      <h3>추출</h3>
-      <div class="body">
-        <p class="hint" style="margin-top:0">뽑을 것을 <b>골라</b> 두고 <b>선택 항목 뽑기</b>를 누르면 저장 폴더를 물어보고 그 안에 이미지를 만듭니다.</p>
-        <div class="exPick" id="exPick"></div>
-        <div class="btns" style="margin-top:8px"><button id="exAll" title="아래 항목 전체를 한 번에 선택/해제">전체 선택</button><button id="exSetDir" title="렌더·추출을 정해둔 폴더로 바로 저장(예: R:\Upload). 안 정하면 저장창이 뜹니다.">출력 폴더 지정</button></div>
-        <div class="btns" style="margin-top:6px"><button class="pri" id="doExport" style="flex:1">선택 항목 뽑기</button></div>
-        <p class="hint" id="exInfo">배경/지도/색칠/라벨을 따로 뽑으면 편집 툴에서 레이어로 합성할 수 있습니다.</p>
-      </div>
-    </div>
-
     <div class="sec pinned" data-sec="proj">
       <h3>프로젝트</h3>
       <div class="body">
@@ -869,6 +921,8 @@
          <button class="tintBtn" id="tlBake" title="타임라인을 길이가 정확한 MP4 영상으로 만듭니다 — 저장 위치를 먼저 물어봅니다">MP4로 추출</button>
          <button class="tintBtn" id="tlExportPng" title="프레임을 PNG 여러 장으로 — 편집 툴(프리미어/AE)에서 방송용 코덱으로 렌더">PNG 시퀀스로 추출</button>
        </div>
+       <!-- 영상 저장 폴더(영상 추출 전용 — 이미지로 추출은 팝업에서 따로 폴더를 고른다). id·핸들러(wiring.js)는 옛 '출력 폴더 지정' 그대로 -->
+       <button id="exSetDir" class="tlDirBtn" title="영상(MP4·PNG 시퀀스·MXF·MOV)을 정해둔 폴더로 바로 저장(예: R:\Upload). 안 정하면 저장할 때 위치를 고릅니다."><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7a2 2 0 012-2h3.6l2 2.2h7.4a2 2 0 012 2v8.3a2 2 0 01-2 2h-13a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg><span class="tlDirLbl">저장 폴더</span></button>
        <div class="exportGroup" id="wnsGroup" style="display:none" title="WNS 렌더 헬퍼로 방송용 MXF / 투명(알파) MOV 를 만듭니다. 버튼을 누르면 저장 위치를 고릅니다. (노말 VF 전용, 로컬에서만)">
          <button class="tintBtn" id="wnsMxf" style="border-radius:11px" title="방송용 MXF (XDCAM HD422) — 저장 위치 선택">MXF로 추출</button>
          <button class="tintBtn" id="wnsMov" style="border-radius:11px" title="투명(알파) MOV (QuickTime Animation) — 저장 위치 선택">알파MOV로 추출</button>
@@ -1213,7 +1267,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/typhoon-api.js?v=6890636a"></script>
 <script src="js/panels.js?v=5a0de650"></script>
 <script src="js/view-camera.js?v=29295ced"></script>
-<script src="js/pointer-drag.js?v=7f8260da"></script>
+<script src="js/pointer-drag.js?v=d4743ead"></script>
 <script src="js/warnings.js?v=fba4f760"></script>
 <script src="js/warnings-apply.js?v=6034c101"></script>
 <script src="js/bulletin.js?v=d72e065a"></script>
@@ -1221,20 +1275,21 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/forecast-panel.js?v=40d42aed"></script>
 <script src="js/warnings-load.js?v=9c1a8a9b"></script>
 <script src="js/presets.js?v=27fad655"></script>
-<script src="js/cg-setup.js?v=bd1de6aa"></script>
+<script src="js/cg-setup.js?v=f6d7eafd"></script>
 <script src="js/modals-notices.js?v=8bb80e22"></script>
-<script src="js/busy-fx.js?v=5f31e02a"></script>
+<script src="js/busy-fx.js?v=68bb53cf"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
-<script src="js/export-image.js?v=f5a166b5"></script>
+<script src="js/export-image.js?v=7b00a8e9"></script>
 <script src="js/export-video.js?v=2c93fead"></script>
-<script src="js/export-blobs.js?v=8a163fbc"></script>
-<script src="js/ae-export.js?v=2a73ca3d"></script>
-<script src="js/project-io.js?v=07d818f7"></script>
-<script src="js/wiring.js?v=3b519a26"></script>
+<script src="js/export-blobs.js?v=b0f799ef"></script>
+<script src="js/ae-export.js?v=4b1a0894"></script>
+<script src="js/export-dialog.js?v=3289e025"></script>
+<script src="js/project-io.js?v=804c79f1"></script>
+<script src="js/wiring.js?v=6ab36e09"></script>
 <script src="js/anim.js?v=e2f94ed9"></script>
 <script src="js/timeline-plan.js?v=065640cc"></script>
 <script src="js/timeline-ui.js?v=88e9c8e9"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
-<script src="js/floating-panels.js?v=0ac75a13"></script>
-<script src="js/tour.js?v=71eb1a05"></script>
+<script src="js/floating-panels.js?v=2fad8f53"></script>
+<script src="js/tour.js?v=77daf9d1"></script>
 <script src="js/boot.js?v=6e4199a5"></script>

@@ -1,0 +1,77 @@
+/* [모듈] css/export-dialog.css — 이미지로 추출 팝업(CG 구성 모양 재사용 + 묶음 3판 색·빠른 선택·장수 배지·흐린 카드·렌더 진행·창 안 알림 버튼·좁은 창) */
+  /* ===== 이미지로 추출 팝업 — CG 구성 창(css/cg-setup.css)의 클래스를 그대로 쓰고 차이만 ex* 로 준다 =====
+     세 판: ① 한 장으로(파랑 --cgs-res) · ② 바탕·지도 레이어(청록 --cgs-map) · ③ 글자·표시 레이어(보라 --cgs-mark, 새 토큰).
+     넓은 창 = 맨 위 한 줄에 ①(카드 3개 가로), 그 아래 ②·③ 좌우 두 판. 900px 이하 = 위아래로 쌓고 본문만 스크롤, 560px 이하 = 카드 1열. */
+  :root, :root[data-theme="dark"] {
+    --cgs-mark: #9b7bff; --cgs-mark-on: #cbb8ff;
+    --cgs-mark-bg: color-mix(in srgb, #8b5cf6 10%, var(--surface-c)); --cgs-mark-line: color-mix(in srgb, #8b5cf6 30%, var(--outline-var));
+    --ex-ok: #3ddc84; --ex-warn: #ff8a65;
+  }
+  :root[data-theme="light"] {
+    --cgs-mark: #7c3aed; --cgs-mark-on: #5b21b6;
+    --cgs-mark-bg: #f5f1ff; --cgs-mark-line: #e4dafd;
+    --ex-ok: #12a150; --ex-warn: #d9480f;
+  }
+  .exCard { width: min(1080px, 100%); }
+  .exBody { padding-top: 12px; }
+  .exPaneOne { --acc: var(--cgs-res); --acc-on: var(--cgs-res-on); background: var(--cgs-res-bg); border: 1px solid var(--cgs-res-line); grid-column: 1 / -1; }
+  .exPaneBase { --acc: var(--cgs-map); --acc-on: var(--cgs-map-on); background: var(--cgs-map-bg); border: 1px solid var(--cgs-map-line); }
+  .exPaneMark { --acc: var(--cgs-mark); --acc-on: var(--cgs-mark-on); background: var(--cgs-mark-bg); border: 1px solid var(--cgs-mark-line); }
+  .exPaneOne .cgsChoices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 빠른 선택 — 머리 아래 얇은 줄의 작은 칩 */
+  .exQuick { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 12px 18px 0 22px; }
+  .exQuickLbl { margin-right: 2px; font-size: 11.5px; font-weight: 700; color: var(--pop-muted); }
+  .exQuick button { height: 28px; padding: 0 12px; border: none; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--on-surface); background: var(--tag-bg); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .exQuick button:hover { background: var(--btn-hover); }
+  /* 판 머리 '2개 고름' 알약 — 누르면 그 묶음을 모두 고르거나 푼다(.cgsPick 모양 그대로, 버튼 기본 모양만 지움) */
+  button.exPanePick { border: none; cursor: pointer; height: auto; line-height: 1.3; }
+  button.exPanePick:hover { filter: brightness(1.08); }
+  button.exPanePick:disabled { cursor: default; opacity: .6; filter: none; }
+  /* 쌓는 순서 안내(i) — 판 제목 옆 */
+  .exStackTip { display: inline-flex; width: 16px; height: 16px; margin-left: 2px; color: var(--cgs-muted); cursor: help; border-radius: 50%; }
+  .exStackTip svg { width: 16px; height: 16px; }
+  .exStackTip:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+  /* 장수 배지(수치 라벨 3장) — 카드 오른쪽 아래 */
+  .exCount { position: absolute; right: 9px; bottom: 8px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; line-height: 1.5; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 16%, transparent); }
+  .exCount[hidden] { display: none; }
+  /* 이 지도에 없는 항목 — 흐리게, 눌러도 안 골라진다(포커스는 받는다 — 까닭은 한 줄 설명·title) */
+  .cgsCard[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+  .cgsCard[aria-disabled="true"]:hover { transform: none; background: linear-gradient(var(--cgs-card), var(--cgs-card)) padding-box, var(--refl) border-box; }
+  .exBusy .exItemCard, .exBusy .exQuick button { pointer-events: none; }
+  /* 바닥 요약 — 완료(초록 체크)·실패(주황 느낌표) */
+  .exSumIcon { display: inline-flex; vertical-align: -4px; margin-right: 6px; color: var(--ex-ok); }
+  .exSumIcon svg { width: 17px; height: 17px; }
+  .cgsSummary.exSumWarn .exSumIcon { color: var(--ex-warn); }
+  /* 렌더 버튼 — 평소 폴더 아이콘, 굽는 중엔 원형 진행 + '중지' */
+  #exRender { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+  #exRender svg { width: 18px; height: 18px; flex: none; }
+  #exRender .exRing { display: none; }
+  #exRender.busy .exRing { display: block; }
+  #exRender.busy .exGo { display: none; }
+  .exRing circle { fill: none; stroke-width: 2.6; }
+  .exRingBg { stroke: rgba(255, 255, 255, .32); }
+  .exRingFill { stroke: #fff; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 10px 10px; transition: stroke-dasharray .25s ease; }
+  /* 창 안 알림에 버튼(ZIP으로 받기)이 있을 때만 누를 수 있게 */
+  .exToast.hasAct { display: flex; align-items: center; gap: 12px; pointer-events: auto; text-align: left; }
+  .exToast.hasAct:not(.on) { pointer-events: none; }
+  .exToastBtn { flex: none; height: 28px; padding: 0 12px; border: none; border-radius: 9px; font-size: 12.5px; font-weight: 800; color: var(--on-surface); background: var(--surface-c); cursor: pointer; }
+  .exToastBtn:hover { filter: brightness(1.06); }
+  /* 같은 이름 확인 토스 모달 본문 */
+  .exDupMsg { margin: 0 0 6px; font-weight: 700; word-break: keep-all; }
+  .exDupNote { margin: 0; font-size: 12.5px; color: var(--pop-muted); word-break: keep-all; }
+  /* 타임라인 '저장 폴더'(영상 저장 폴더 — 옛 추출 메뉴의 '출력 폴더 지정'을 영상 추출 버튼 옆으로 옮김). 지정되어 있으면 파란 글자 */
+  .tlDirBtn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .tlDirBtn svg { width: 15px; height: 15px; flex: none; }
+  .tlDirBtn.on { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, var(--btn-line)); }
+  /* 좁은 창 — ①도 한 칸(위아래 쌓기는 cg-setup.css 의 .cgsBody 규칙) */
+  @media (max-width: 900px) {
+    .exQuick { padding: 10px 12px 0 16px; }
+    .exBody { padding-top: 10px; }
+  }
+  @media (max-width: 560px) {
+    .exPaneOne .cgsChoices { grid-template-columns: minmax(0, 1fr); }
+    .exQuickLbl { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .exRingFill { transition: none; }
+  }

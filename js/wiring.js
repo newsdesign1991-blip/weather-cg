@@ -578,21 +578,13 @@ function wire() {
     };
   });
 
-  buildExportPick();
   buildMtnPresets();
-  $('#doExport').onclick = doExport;
-  // 전체 선택/해제 토글 — 다 선택돼 있으면 전부 해제, 아니면 전부 선택
-  $('#exAll').onclick = () => {
-    const allOn = EXPORT_TARGETS.every((t) => exportPick.has(t.key));
-    exportPick = new Set(allOn ? [] : EXPORT_TARGETS.map((t) => t.key));
-    buildExportPick();
-    $('#exAll').textContent = EXPORT_TARGETS.every((t) => exportPick.has(t.key)) ? '전체 해제' : '전체 선택';
-  };
-  // 출력 폴더 지정/해제 — 지정하면 렌더·추출이 그 폴더로 바로 저장, 없으면 저장창.
+  setupExportDialog();   // 이미지로 추출 팝업(js/export-dialog.js) — 제목줄 #exportBtn
+  // 영상 저장 폴더 지정/해제(타임라인 '저장 폴더') — 지정하면 영상 렌더가 그 폴더로 바로 저장, 없으면 저장창.
   updateOutDirBtn();
   if ($('#exSetDir')) $('#exSetDir').onclick = async () => {
-    if (await idbGet('outDir')) { await clearOutDir(); status('출력 폴더 해제 — 이제 저장할 때 위치를 고릅니다'); }
-    else { const p = await pickOutDir(); if (!p) return; status('출력 폴더 지정: ' + p.name + ' — 이제 여기로 바로 저장됩니다'); }
+    if (await idbGet('outDir')) { await clearOutDir(); status('영상 저장 폴더 해제 — 이제 저장할 때 위치를 고릅니다'); }
+    else { const p = await pickOutDir(); if (!p) return; status('영상 저장 폴더: ' + p.name + ' — 이제 여기로 바로 저장됩니다'); }
     updateOutDirBtn();
   };
   // AE로 보내기 — 모두에게 노출(로컬 헬퍼로 동작, 헬퍼 꺼져 있으면 안내창).
@@ -717,10 +709,11 @@ for (const [sec, [grp, tag]] of Object.entries(SEC_GRP)) {
 // 항목 순서. 마크업을 직접 옮기는 것보다 여기서 한 줄로 정리하는 게 실수가 적다.
 // 도서 박스는 뺐다 — 이동 모드에서 끌고 핸들로 크기 조절하면 되니 중복이다.
 // '지도 위치·경계선·그림자'(map)는 사이드바 가장 아래로.
-// 설정(out=추출, proj=프로젝트, cfg=설정(렌치): 배치·설정 옮기기)은 맨 위 제목줄 드롭다운으로, CG 종류·지도 종류는 CG 구성 창으로 빠져서 여기 없다.
+// 설정(proj=프로젝트, cfg=설정(렌치): 배치·설정 옮기기)은 맨 위 제목줄 드롭다운으로, CG 종류·지도 종류는 CG 구성 창으로,
+// 이미지로 추출은 팝업(#exportOv)으로 빠져서 여기 없다.
 const SEC_ORDER = ['res', 'text', 'legend', 'wrn', 'fct', 'pal', 'sea', 'label', 'mtn', 'map'];
 // 항상 펴져 있는 설정 항목. 나머지는 '이 지도 편집' 묶음 — 기본 접힘, 눌러야 펴진다.
-const ALWAYS_OPEN = new Set(['out', 'proj', 'cfg']);
+const ALWAYS_OPEN = new Set(['proj', 'cfg']);
 (() => {
   const panel = document.querySelector('#panel');
   document.querySelector('.sec[data-sec="inset"]')?.remove();

@@ -403,7 +403,7 @@ window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
   if ($('#tourWrap')?.classList.contains('on')) return;   // 투어 중 ←/→는 단계 넘기기 전용(지도·선택 이동 금지)
-  if (cgSetupIsOpen()) return;   // CG 구성 창이 떠 있는 동안엔 뒤의 지도 단축키(되돌리기·삭제·이동 등)를 막는다
+  if (cgSetupIsOpen() || exportIsOpen()) return;   // CG 구성 창·이미지로 추출 팝업이 떠 있는 동안엔 뒤의 지도 단축키(되돌리기·삭제·이동 등)를 막는다
   // 타임라인이 열려 있으면: Space=재생/멈춤·Numpad0=처음부터 재생(늘), 타임라인 포커스(파란 테두리)면 AE 단축키(←/→·PageUp/Down·J/K·[ ]…)가 먼저
   if ($('#timeline')?.classList.contains('on') && tlKeydown(e)) return;
   // 브러쉬 크기: [ 줄이기, ] 키우기

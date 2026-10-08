@@ -186,6 +186,15 @@ function syncSeoulExport(clone) {
   }
   if (![...zf.values()].some((f) => f !== 'none')) clone.querySelector('#seoulRiver')?.remove();
 }
+// 실시간 Mapbox 타일: 외부 URL은 래스터(<img> 안 SVG)에서 안 뜨므로 캐시된 data URI로 바꿔 끼운다. 없으면 제거(빈 참조 방지).
+// 영상 프레임(svgToImage)과 이미지·AE 추출(svgBlob)이 같이 쓴다 — 렌더 전에 awaitMapboxTilesReady()로 캐시를 채워 둔다.
+function inlineMapboxTiles(clone) {
+  clone.querySelectorAll('#typhoonTiles image[data-url]').forEach((im) => {
+    const durl = _tileData[im.getAttribute('data-url')];
+    if (durl) { im.setAttribute('href', durl); try { im.removeAttribute('crossorigin'); } catch (e) {} }
+    else im.remove();
+  });
+}
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
 // stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
 async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
@@ -194,16 +203,14 @@ async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
   if (stripText) clone.querySelectorAll('text').forEach((n) => n.remove());
   clone.setAttribute('width', W);
   clone.setAttribute('height', H);
+  // 뷰박스(16:9)를 출력 크기에 꽉 채운다 — 터치(2158×1214)는 가로·세로 배율이 1.12396 대 1.12407로 달라,
+  // 기본값(xMidYMid meet)이면 위·아래에 0.06px 빈칸이 생겨 맨 위·아래 줄이 반투명(알파 239)이 된다.
+  clone.setAttribute('preserveAspectRatio', 'none');
   if (viewBox) clone.setAttribute('viewBox', viewBox);
   stripExportUi(clone);
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
   if (keep && !keep.includes('L_map')) clone.querySelector('#L_mapBase')?.remove();   // 블라인드 베이스 지도는 L_map과 같이 빠진다(3D 오버레이·정적 캐시)
-  // 실시간 Mapbox 타일: 외부 URL은 래스터에서 안 뜨므로 캐시된 data URI로 바꿔 끼운다. 없으면 제거(빈 참조 방지).
-  clone.querySelectorAll('#typhoonTiles image[data-url]').forEach((im) => {
-    const durl = _tileData[im.getAttribute('data-url')];
-    if (durl) { im.setAttribute('href', durl); try { im.removeAttribute('crossorigin'); } catch (e) {} }
-    else im.remove();
-  });
+  inlineMapboxTiles(clone);
   clone.querySelector('#fontStyle').textContent = fontsUsedOnly ? await suiteFontCssFor(clone) : await suiteFontCss();   // fontsUsedOnly = 미리보기 래스터(쓰는 굵기만)
   const xml = new XMLSerializer().serializeToString(clone);
   // data: URL로 렌더 — blob: URL은 브라우저에 따라 <img> 안 SVG의 base64 @font-face(SUITE)가 첫 렌더에 안 먹어 폴백 폰트로 새는 일이 있다. data:는 자체완결이라 폰트까지 확실히 적용된다.

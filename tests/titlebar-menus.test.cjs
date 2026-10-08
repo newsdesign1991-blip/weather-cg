@@ -29,8 +29,11 @@ const topbar = block(html, /<div class="topbar" id="topbar">/, 'div');
 
 test('제목줄은 .app 앞에 있고 메뉴·추출·보기 버튼을 모두 담는다', () => {
   assert.ok(html.indexOf('id="titlebar"') < html.indexOf('<div class="app">'));
-  for (const m of ['proj', 'out']) assert.match(titlebar, new RegExp(`class="menuBtn[^"]*" data-menu="${m}"`));
-  for (const id of ['cgSetupBtn', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'menubar', 'exportGroup', 'tbInfoGroup']) {
+  assert.match(titlebar, /class="menuBtn[^"]*" data-menu="proj"/);
+  // 이미지로 추출 = 드롭다운이 아니라 팝업(#exportOv) — menuBtn 이 아니다(setupMenus 가 드롭다운으로 묶지 않게)
+  assert.match(titlebar, /<button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog"/);
+  assert.equal(html.split('data-menu="out"').length - 1, 0, '옛 추출 드롭다운 버튼이 남아 있음');
+  for (const id of ['cgSetupBtn', 'exportBtn', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'menubar', 'exportGroup', 'tbInfoGroup']) {
     assert.match(titlebar, new RegExp(`id="${id}"`), `${id} 가 제목줄에 없음`);
   }
   // 글자 메뉴 — 아이콘 SVG 없이 글자만. 예외: 프로젝트(플로피 디스크 아이콘 버튼), 추출 3버튼(.tbAction = 채운 아이콘 + 글자)
@@ -62,7 +65,7 @@ test('프로젝트 = 플로피 디스크 아이콘 버튼, 추출 3개 = 파란 
   assert.match(proj, /aria-label="프로젝트 — 저장·불러오기"/);
   assert.match(proj, /<svg viewBox="0 0 24 24"/);
   assert.doesNotMatch(proj, />\s*프로젝트\s*</, '글자 대신 아이콘');
-  for (const sel of ['data-menu="out"', 'id="tlToggle"', 'id="aeSend"']) {
+  for (const sel of ['id="exportBtn"', 'id="tlToggle"', 'id="aeSend"']) {
     const b = new RegExp(`<button[^>]*${sel}[^>]*>`).exec(titlebar)[0];
     assert.match(b, /class="[^"]*\btbAction\b/, b);
   }
@@ -77,7 +80,7 @@ test('추출 3버튼 — 같은 폭(grid 균등 칸), 채운 아이콘(currentCo
   // 사용자 요청: 세 버튼 너비를 똑같이 + 채운(fill) 아이콘 하나씩. AE 버튼이 숨으면(display:none) 칸이 안 생겨 나머지 둘도 같은 폭
   assert.match(html, /#titlebar #exportGroup \{[^}]*display: grid;[^}]*grid-auto-flow: column;[^}]*grid-auto-columns: 1fr;/);
   assert.match(html, /#titlebar \.tbAction \{[^}]*justify-content: center;/);
-  for (const sel of ['data-menu="out"', 'id="tlToggle"', 'id="aeSend"']) {
+  for (const sel of ['id="exportBtn"', 'id="tlToggle"', 'id="aeSend"']) {
     const b = new RegExp(`<button[^>]*${sel}[^>]*>[\\s\\S]*?<\\/button>`).exec(titlebar)[0];
     const svg = /<svg[^>]*>[\s\S]*?<\/svg>/.exec(b)[0];
     assert.match(svg, /fill="currentColor"/, '채운 아이콘(글자색을 따라감)');
@@ -102,10 +105,10 @@ test('플로팅 바엔 칠하기·브러쉬·이동·되돌리기·다시만 남
 });
 
 test('옮긴 요소는 하나씩만 있다(복제 금지)', () => {
-  for (const id of ['cgSetupBtn', 'cgSetupOv', 'resBtns', 'styleBtns', 'cgsDone', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'exportGroup', 'tbInfoGroup', 'menubar', 'undo', 'redo']) {
+  for (const id of ['cgSetupBtn', 'cgSetupOv', 'exportBtn', 'exportOv', 'exRender', 'resBtns', 'styleBtns', 'cgsDone', 'tlToggle', 'aeSend', 'zoomV', 'theme', 'tourBtn', 'noticeBtn', 'helperBtn', 'exportGroup', 'tbInfoGroup', 'menubar', 'undo', 'redo']) {
     assert.equal(html.split(`id="${id}"`).length - 1, 1, `id="${id}" 개수`);
   }
-  for (const m of ['proj', 'out']) assert.equal(html.split(`data-menu="${m}"`).length - 1, 1, `data-menu="${m}" 개수`);
+  for (const m of ['proj']) assert.equal(html.split(`data-menu="${m}"`).length - 1, 1, `data-menu="${m}" 개수`);
 });
 
 test('데스크톱 창 제목표시줄 — 높이·창 버튼 색 연동', () => {

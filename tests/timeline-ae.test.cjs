@@ -274,7 +274,7 @@ test('타임라인 UI — 양끝 다이아·연결 바 없음, 아이콘은 SVG(
   assert.doesNotMatch(tl, /✕/);
 });
 test('키보드는 새 리스너 없이 pointer-drag의 keydown이 맡긴다(브러쉬 [ ] 앞) — 포커스일 때만 ←/→가 타임라인 것(B18)', () => {
-  const kd = html.slice(html.indexOf("if (cgSetupIsOpen()) return;   // CG 구성 창"), html.indexOf('// 브러쉬 크기: [ 줄이기'));
+  const kd = html.slice(html.indexOf("if (cgSetupIsOpen()"), html.indexOf('// 브러쉬 크기: [ 줄이기'));   // 이미지로 추출 팝업 검사(exportIsOpen)가 같은 줄에 붙음
   assert.match(kd, /if \(\$\('#timeline'\)\?\.classList\.contains\('on'\) && tlKeydown\(e\)\) return;/);
   const k = fnSrc('tlKeydown');
   assert.match(k, /if \(!tlOwnsKeys\(\)\) return false;/);

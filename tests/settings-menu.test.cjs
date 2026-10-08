@@ -61,7 +61,7 @@ test('프로젝트 메뉴는 저장·불러오기 중심 — 옮긴 항목이 �
 
 test('setupMenus — cfg 섹션을 드롭다운으로, 배치 지정하기는 footer에서 빠지고 같은 동작(openPresetSlots)', () => {
   const s = fn('setupMenus');
-  assert.match(s, /\['out', 'proj', 'cfg'\]/);   // CG 종류·지도 종류는 CG 구성 창으로 빠짐
+  assert.match(s, /\['proj', 'cfg'\]/);   // CG 종류·지도 종류는 CG 구성 창, 이미지로 추출은 팝업(#exportOv)으로 빠짐
   assert.match(s, /\$\('#slotBtn'\)[\s\S]*?openPresetSlots\(\)/);
   assert.doesNotMatch(s, /slotBtn\.id = 'slotBtn'|createElement\('button'\); slotBtn/);
   // 오른쪽 끝(렌치)은 버튼 오른쪽에 맞춰 연다 + 열 때 확장팩 상태 줄 갱신

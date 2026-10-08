@@ -5,7 +5,7 @@
   .menuDrop > .sec > .body > .bodyInner { opacity: 1 !important; }
   /* 드롭다운 안은 사이드바보다 살짝 크게(배율이 없으니 글자 13px) — 여백은 근무표 드롭다운처럼 단정하게 */
   .menuDrop > .sec > .body > .bodyInner > .bodyPad { padding: 13px 14px; }
-  .menuDrop .btns button, .menuDrop .exItem { font-size: 13px; }
+  .menuDrop .btns button { font-size: 13px; }
   /* 팝업·드롭다운 안 안내문 — 밝은 테마 --on-surface-var(#94a3b8)는 카드 바탕 대비 2.5:1이라 흐리다 → --pop-muted(4.8:1).
      (낱말 단위 줄바꿈은 .hint 공통 규칙에서) */
   #apiPop .hint, .menuDrop .hint { color: var(--pop-muted); }

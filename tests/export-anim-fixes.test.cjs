@@ -124,18 +124,22 @@ test('트랙 없이 카메라 키만 있어도 재생·추출이 같은 판정�
   assert.match(fnSrc('animPlay'), /if \(!hasAnim\(\)\)/);
 });
 
-test('분리 추출 장수 계산은 exportBlobs 규칙과 같다(산 표시 포함)', () => {
+test('분리 추출 장수 계산은 굽기와 같은 장 목록(exportPlan)을 쓴다(산 표시 포함, 태풍 지도엔 산·라벨 0장)', () => {
   const targets = html.match(/const EXPORT_TARGETS = \[[\s\S]*?\n\];/)[0];
   assert.match(targets, /key: 'mtn'/);
-  const ctx = { S: { labels: [{ id: 1 }, { id: 2, off: 1 }, { id: 3 }], mtns: [{ id: 'm' }] }, typ: false };
+  const ctx = { S: { labels: [{ id: 1, txt: '120' }, { id: 2, off: 1 }, { id: 3, txt: '80' }], mtns: [{ id: 'm' }], showBg: 1, sggOn: 1, sidoOn: 1, res: '1920x1080' }, typ: false };
   ctx.isTyphoon = () => ctx.typ;
+  ctx.fills = () => ({ a: '#FF0000' }); ctx.curStyle = () => ({}); ctx.$ = () => null; ctx.document = { querySelector: () => null };
   vm.createContext(ctx);
-  vm.runInContext(targets.replace('const EXPORT_TARGETS', 'var EXPORT_TARGETS') + '\n' + fnSrc('exportCount'), ctx);
+  const re = html.match(/const WIN_RESERVED_NAME = [^\n]*/)[0].replace('const ', 'var ');
+  vm.runInContext([targets.replace('const EXPORT_TARGETS', 'var EXPORT_TARGETS'), re, ...['safeFileName', 'exportLayerInk', 'exportHasFill', 'exportWhyNot', 'exportPlan', 'exportCount'].map(fnSrc)].join('\n'), ctx);
   assert.equal(ctx.exportCount('labels'), 2);
   assert.equal(ctx.exportCount('full'), 1);
   assert.equal(ctx.exportCount('typhoon'), 0);
   assert.equal(ctx.exportCount('mtn'), 1);
   ctx.typ = true;
   assert.equal(ctx.exportCount('mtn'), 0);
+  assert.equal(ctx.exportCount('labels'), 0, '태풍 지도엔 노말 라벨 장이 없다(빈 PNG 방지)');
+  assert.equal(ctx.exportCount('fills'), 0);
   assert.equal(ctx.exportCount('typhoon'), 1);
 });
