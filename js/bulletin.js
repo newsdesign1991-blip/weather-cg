@@ -611,6 +611,9 @@ function applyBulletin(txt) {
   const miss = [...new Set(unknown)];
   setBulInfo(parts.join(' · '), miss);
   status(`통보문 색칠 — ${parts.join(' · ')}` + (miss.length ? ` · 못 찾음: ${miss.join(', ')}` : ''), miss.length > 0);
+  // 도착 효과(js/busy-fx.js) — 섹션 머리·버튼 한 번 빛 + 결과 안내·색 목록 줄이 위에서부터 떠오른다.
+  // 바로 끝나는 일이라 작업 중 효과는 없다. 실패(강수량 줄 못 찾음·한 곳도 못 칠함)는 위에서 return 해 여기 안 온다.
+  fxArrive([fxSec('fct'), '#bulApply', $('#bulInfo'), ...fxRows($('#bulList'))]);
 }
 
 // 통보문 결과 안내(#bulInfo). 못 찾아 못 칠한 지역이 있으면 빨간 경고 배너로 '확 띄게' 보여준다.

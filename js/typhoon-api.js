@@ -87,6 +87,21 @@ function selectTyphoonFromApi(idx, opts) {
   if (isTyphoonCompare()) buildCompareSection();
 }
 
+// ── 작업 중·도착 효과(js/busy-fx.js) — 기상청·JMA·과거 태풍 불러오기 ──
+// 작업 중: 일반 지도 = '태풍' 섹션 흐름 + 누른 버튼 띠(#typInfo는 스타일 줄들 아래라 자리표시를 두면 데이터가 들어오는 줄과 떨어진다 — 안 둔다).
+//          비교 지도 = '태풍 비교' 섹션 흐름 + 비교 쪽 버튼(cmpSel) 띠 + #tycList(안내 한 줄) 자리에 빛 훑는 막대 3줄(그 아래에 태풍별 탭이 생긴다).
+// 대상은 변수에 담아 켤 때·끌 때 같은 배열을 넘긴다(fxBusy 머리 주석). 비교 지도에서도 btn(일반 쪽 버튼)은 부르는 쪽이 따로 잠근다.
+function typBusyFx(btn, cmpSel) { return isTyphoonCompare() ? [fxSec('typhoonCompare'), $(cmpSel), $('#tycList')] : [fxSec('typhoon'), btn]; }
+// 도착 — 일반: 섹션 머리 빛 + 태풍·이름·발표 시각 줄이 위에서부터 떠오름 / 비교: 섹션 머리 빛 + 가져올 태풍 줄이 떠오르고 방금 추가·갱신된 태풍 탭(.sec[data-cmpsec]) 머리에 빛
+function typArriveFx() {
+  const row = (id) => { const n = $(id); return n ? n.closest('.row') : null; };
+  if (isTyphoonCompare()) {
+    const T = S.typhoon || {}, cur = (T.whichList || [])[T.whichSel || 0];
+    const c = cur && (T.compare || []).find((x) => x.name === cur.name);
+    fxArrive([fxSec('typhoonCompare'), row('#tycWhichSel'), c ? document.querySelector(`.sec[data-cmpsec="${c.id}"]`) : null]);
+  } else fxArrive([fxSec('typhoon'), row('#typWhichSel'), row('#typName'), row('#typIssueSel')]);
+}
+
 // JMA 경계역/예보원 → 반경(km). {radius}(強風域·予報円) 또는 {arc:[[center,radius_m,[a0,a1]]…]}(暴風域) 둘 다 최대반경으로.
 function jmaAreaRadKm(area) {
   if (!area) return 0;
@@ -99,6 +114,9 @@ function jmaAreaRadKm(area) {
 async function fetchJma() {
   const B = 'https://www.jma.go.jp/bosai/typhoon/data/';
   const btn = $('#typFetchJma'); if (btn) btn.disabled = true;
+  // 작업 중 효과 — 태풍 없음·해석 실패·끊김이어도 finally에서 끄고, 그렸을 때만 도착 효과
+  const fx = typBusyFx(btn, '#tycFetchJma'); let ok = false;
+  fxBusy(fx, true, { lines: 3, maxMs: 120000 });
   status('일본 기상청(JMA) 불러오는 중…', true);
   try {
     const list = await (await fetch(B + 'targetTc.json', { cache: 'no-store' })).json();
@@ -140,9 +158,10 @@ async function fetchJma() {
     if (S.map.s > 0.5) setTyphoonDefaultView();
     autoTodayTyphoonLabel(); renderAll();
     status(`일본 기상청(JMA) 불러옴 · ${whichList.length}개 · ${whichList[0].name}`, true);
+    ok = true;
   } catch (e) {
     status('JMA 불러오기 실패: ' + (e.message || e), true);
-  } finally { if (btn) btn.disabled = false; }
+  } finally { if (btn) btn.disabled = false; fxBusy(fx, false); if (ok) typArriveFx(); }
 }
 // JTWC 통보문(.tcw / WTPN) 파싱 → whichList 항목. 압축 예보줄(T000 253N 1419E 115 R064… R050… R034…)과
 // 하단 베스트트랙(1226080406 253N1419E 115)을 모두 읽어 과거+예보 한 트랙으로. 풍속 kt→m/s, 반경 NM→km(사분면 최대).
@@ -374,6 +393,11 @@ async function attachEdgeTD(auto, doneMsg) {
     || it.points.length !== startSnap.length || it.points.some((p, i) => p !== startSnap[i]);   // 지운 뒤 하나 넣기(길이 같음)도 잡는다
   // 확인 중 문구가 그대로면 불러옴 문구로 — 더 새 확인이 돌고 있으면 그쪽 문구(같은 글자일 수 있다)를 건드리지 않는다
   const restore = () => { const n = $('#status'); if (auto && doneMsg && seq === _typEdgeSeq && n && n.textContent === checking) status(doneMsg); };
+  // 작업 중 효과(js/busy-fx.js) — 버튼: 섹션 흐름 + 버튼 띠 / 불러오기 뒤 자동 확인: 섹션 머리에만 옅은 띠(뒤에서 도는 일이라
+  // 섹션 전체를 흐르게 하거나 자리를 가리지 않는다). 못 찾음·밀려남·헬퍼 꺼짐·실패도 finally에서 끄고, 붙였을 때만 도착 효과.
+  const secName = isTyphoonCompare() ? 'typhoonCompare' : 'typhoon';
+  const fx = auto ? [fxHead(secName)] : [fxSec(secName), btn]; let joined = false;
+  fxBusy(fx, true, { maxMs: 120000 });
   try {
     if (!auto) {   // 버튼: 헬퍼부터 확인(꺼져 있으면 안내). 불러오기(auto)는 방금 확인했다.
       let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
@@ -394,10 +418,15 @@ async function attachEdgeTD(auto, doneMsg) {
     const gTyp = genesis.filter((p) => !p.td).length, dTyp = dissip.filter((p) => !p.td).length;
     renderTyphoon(); if (typeof buildTyphoonPanel === 'function') buildTyphoonPanel();
     status(`과거·미래 트랙 붙임 — 발생 ${genesis.length}점(태풍 ${gTyp}) · 소멸 ${dissip.length}점(태풍 ${dTyp}) (버튼 다시 누르면 원복)`);
+    joined = true;
   } catch (e) {
     if (!auto) status('열대저압부 불러오기 실패: ' + (e.message || e), true);
     else restore();
-  } finally { if (btn && seq === _typEdgeSeq) btn.disabled = false; }
+  } finally {
+    if (btn && seq === _typEdgeSeq) btn.disabled = false;
+    fxBusy(fx, false);
+    if (joined) fxArrive(auto ? fxSec(secName) : [fxSec(secName), btn]);   // 자동은 섹션 머리에 한 번 빛만
+  }
 }
 const prependGenesisTD = () => attachEdgeTD(false);   // 버튼 핸들러(토글)
 // CSV 응답에 실제 데이터 행(주석 # 아닌 숫자 시작)이 있는지
@@ -570,6 +599,10 @@ function _typScanRecent(urlOf, lane, ahead0, lazy) {
 async function fetchTyphoon() {
   if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); status('apihub 인증키가 필요합니다 (API 설정)', true); return; }
   const btn = $('#typFetch'); if (btn) btn.disabled = true;
+  // 작업 중 효과 — 헬퍼 꺼짐·태풍 없음·실패도 finally에서 끄고, 그렸을 때만 도착 효과.
+  // 뒤에서 도는 발생·소멸 TD 확인(attachEdgeTD auto)은 이 효과가 꺼진 뒤에도 섹션 머리 띠로 따로 보인다.
+  const fx = typBusyFx(btn, '#tycFetch'); let okTyp = false;
+  fxBusy(fx, true, { lines: 3, maxMs: 120000 });
   status('태풍 정보 불러오는 중…', true);
   try {
     // 1) 헬퍼 살아있는지 먼저 확인 — 꺼져 있으면 설치/실행 안내 팝업
@@ -584,14 +617,14 @@ async function fetchTyphoon() {
     if (tdRaw) console.log('[TD raw]', tdRaw.slice(0, 2000));
     if (!found && !tdRaw) { status('현재 활동 중인 태풍·열대저압부 정보가 없습니다 (기상청)', true); return; }
     console.log('[typhoon raw]', raw.slice(0, 3000));
-    const okTyp = applyTyphoonText(raw, tdRaw);   // 태풍·TD를 각자 형식으로 파싱해 병합(TD→태풍 트랙)
+    okTyp = applyTyphoonText(raw, tdRaw);   // 태풍·TD를 각자 형식으로 파싱해 병합(TD→태풍 트랙)
     // 3) 기본값: 발생·소멸 열대저압부(실좌표)를 앞뒤로 자동 부착(실패해도 태풍만 표시).
     //    태풍은 이미 그렸으니 기다리지 않는다 — 뒤에서 찾아 붙으면 트랙·상태 문구만 갱신(버튼도 바로 다시 누를 수 있게).
     //    (붙이기 실패는 태풍 불러오기 실패가 아니다 — 문구는 attachEdgeTD가 '불러옴'으로 되돌린다)
     if (okTyp) attachEdgeTD(true, ($('#status') || {}).textContent || '').catch((e) => console.warn('[발생·소멸 TD 자동 붙이기]', e));
   } catch (e) {
     status('태풍 API 실패: ' + (e.message || e), true);
-  } finally { if (btn) btn.disabled = false; }
+  } finally { if (btn) btn.disabled = false; fxBusy(fx, false); if (okTyp) typArriveFx(); }
 }
 // apihub td_now.php — 열대저압부(TD) 현재+예측. typ_now와 같은 authKey·형식(CSV). disp=1로 CSV 요청.
 function typhoonTdUrlTm(tm) { return `https://apihub.kma.go.kr/api/typ01/url/td_now.php?tm=${tm}&mode=1&disp=0&help=0&authKey=${encodeURIComponent(apiKey())}`; }
@@ -620,6 +653,9 @@ async function fetchTyphoonPast() {
   const base = new Date((ds.length <= 10 ? ds + 'T12:00:00' : ds));
   if (isNaN(+base)) { status('날짜 형식을 확인하세요 (예: 2024-07-24)', true); return; }
   const btn = $('#typPastFetch'); if (btn) btn.disabled = true;
+  // 작업 중 효과 — 그날 태풍 없음·헬퍼 꺼짐·실패도 finally에서 끄고, 그렸을 때만 도착 효과
+  const fx = typBusyFx(btn, '#tycFetch'); let ok = false;
+  fxBusy(fx, true, { lines: 3, maxMs: 120000 });
   status('과거 태풍 불러오는 중…', true);
   try {
     let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
@@ -628,11 +664,11 @@ async function fetchTyphoonPast() {
     const found = await _typPastFind(base);
     if (!found) { status('그 날짜엔 활동 중인 태풍이 없습니다 (±2일 확인) — 다른 날짜로 시도하세요', true); return; }
     const { raw, usedTm, tdRaw } = found;
-    const ok = applyTyphoonText(raw, tdRaw);
+    ok = applyTyphoonText(raw, tdRaw);
     if (ok) { if (S.map.s > 0.5) setTyphoonDefaultView(); status(`과거 태풍 불러옴 · ${usedTm.slice(0, 4)}-${usedTm.slice(4, 6)}-${usedTm.slice(6, 8)} 발표 기준 — 이름은 '이름' 칸에 입력`, true); }
   } catch (e) {
     status('과거 태풍 실패: ' + (e.message || e), true);
-  } finally { if (btn) btn.disabled = false; }
+  } finally { if (btn) btn.disabled = false; fxBusy(fx, false); if (ok) typArriveFx(); }
 }
 // apihub typ_now.php — 특보와 같은 apihub authKey 사용(apiKey). back=몇 시간 전(발표 없는 최신시각 회피), mode=1(분석+예측), disp=1(CSV).
 const _kmaTm = (d) => { const p = (v) => String(v).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}00`; };

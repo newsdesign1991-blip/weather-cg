@@ -26,7 +26,7 @@ function setupDropOpen() {
         if (/\bPGTW\b|\bWTPN|^\s*T\d{3}\s+\d+[NS]\s+\d+[EW]\s/m.test(txt)) {
           if (!isTyphoon()) { setStyle('typhoon'); markStyleBtns(); }
           const tp = $('#typPaste'); if (tp) tp.value = txt.slice(0, 100000);
-          pushUndo(); applyTyphoonText(txt);
+          pushUndo(); if (applyTyphoonText(txt)) typArriveFx();   // 그렸으면 도착 효과(js/busy-fx.js)
           return;
         }
       } catch (e2) { /* 텍스트로 못 읽으면 아래 작업파일 경로로 */ }

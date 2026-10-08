@@ -440,6 +440,8 @@ function edgeWorld(o = {}) {
   const doc = { body, activeElement: body };
   const core = storms[1].pts.map((p) => ({ tmef: tmStr(p.t), lat: p.lat, lon: p.lon, ws: p.ws, fcst: false, label: '' }));
   const S = { typhoon: { issues: [{ points: core.slice() }], sel: 0, labels: [] } };
+  // 작업 중·도착 효과(js/busy-fx.js) 흉내 — 무엇을 켜고 끄고 빛냈는지 기록(켤 때·끌 때 같은 배열이어야 한 작업)
+  const fx = [];
   const W = sandbox((u) => ({ text: model(kindOf(u), tmOfUrl(u)), ms: o.ms || 5 }), {
     hedgeMs: o.hedgeMs, bgMs: o.bgMs,
     names: ['_typTyping', '_typEdgeSeq', 'attachEdgeTD', '_remapEdgePoints'],
@@ -449,10 +451,19 @@ function edgeWorld(o = {}) {
       curTyphoonIssue: () => (S.typhoon && S.typhoon.issues[S.typhoon.sel]) || null,
       pushUndo: () => {}, renderTyphoon: () => {}, buildTyphoonPanel: () => {}, isTyphoonCompare: () => false, buildCompareSection: () => {},
       wnsHelperOffNotice: () => {},
+      fxSec: (n) => 'sec:' + n, fxHead: (n) => 'head:' + n,
+      fxBusy: (t, on) => fx.push({ op: on ? 'on' : 'off', t }), fxArrive: (t) => fx.push({ op: 'arrive', t }),
     },
   });
   W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4, 45);
-  return { ...W, S, el, statuses, doc, core };
+  return { ...W, S, el, statuses, doc, core, fx };
+}
+// 켠 작업(배열)마다 같은 배열로 한 번 끈다 — 실패·밀려남이어도. 반환 = 켠 대상 목록
+function fxPaired(log) {
+  const ons = log.filter((x) => x.op === 'on');
+  for (const a of ons) assert.equal(log.filter((x) => x.op === 'off' && x.t === a.t).length, 1, '켠 효과를 같은 배열로 한 번 꺼야 함: ' + JSON.stringify(a.t));
+  assert.equal(log.filter((x) => x.op === 'off').length, ons.length);
+  return ons.map((x) => [...x.t]);
 }
 const DONE = '불러옴: 제28호 태풍';
 const CHECKING = DONE + ' · 발생·소멸 열대저압부 확인 중…';
@@ -467,6 +478,10 @@ test('뒤에서 붙이기(attachEdgeTD auto): 발생 TD 3점을 붙이고 문구
   assert.deepEqual(W.statuses, [CHECKING, W.statuses[1]]);
   assert.match(W.statuses[1], /^과거·미래 트랙 붙임 — 발생 3점/);
   assert.equal(W.el['#typAddTD'].disabled, false);
+  // 뒤에서 도는 확인은 섹션 머리에만(섹션 흐름·버튼 잠금 없이) — 붙였으니 섹션 머리에 도착 빛 한 번
+  assert.deepEqual(fxPaired(W.fx), [['head:typhoon']]);
+  assert.deepEqual(W.fx.filter((x) => x.op === 'arrive').map((x) => x.t), ['sec:typhoon']);
+  assert.equal(W.fx.at(-1).op, 'arrive', '끈 뒤에 도착 효과');
 });
 
 test('뒤에서 붙이기: 사용자가 글자 칸에 입력 중이면 그 칸을 떠날 때까지 미뤘다가 붙인다(입력·한글 조합을 덮지 않게)', async () => {
@@ -497,6 +512,8 @@ test('뒤에서 붙이기: 확인하는 사이 지점 하나를 지우고 하나
   assert.ok(pts.includes(added), '사용자가 넣은 점이 남는다');
   assert.equal(pts.filter((q) => q._edgeTD).length, 0, '옛 지점 목록으로 덮어 붙이지 않는다');
   assert.equal(W.el['#status'].textContent, DONE);
+  fxPaired(W.fx);   // 못 붙여도 머리 띠는 꺼진다 — 도착 효과는 없다
+  assert.ok(!W.fx.some((x) => x.op === 'arrive'));
 });
 
 test('뒤에서 붙이기: 더 새 확인이 돌고 있으면 앞 확인은 문구를 되돌리지 않는다(같은 글자의 확인 중 문구를 끝난 것처럼 바꾸지 않게)', async () => {
@@ -508,6 +525,8 @@ test('뒤에서 붙이기: 더 새 확인이 돌고 있으면 앞 확인은 문�
   assert.ok(!W.statuses.includes(DONE), '앞 확인이 불러옴 문구로 되돌리지 않음: ' + JSON.stringify(W.statuses));
   assert.equal(W.S.typhoon.issues[0].points.filter((q) => q._edgeTD).length, 3, '새 확인만 붙인다(두 번 붙지 않음)');
   assert.equal(W.el['#typAddTD'].disabled, false);
+  assert.equal(fxPaired(W.fx).length, 2, '밀려난 앞 확인도 자기 효과를 끈다');
+  assert.equal(W.fx.filter((x) => x.op === 'arrive').length, 1, '붙인 쪽만 도착 효과');
 });
 
 test('버튼(attachEdgeTD 수동)은 사용자가 기다리므로 급한 조회처럼 빨리 다시 보낸다', async () => {
@@ -527,4 +546,26 @@ test('버튼(attachEdgeTD 수동)은 사용자가 기다리므로 급한 조회�
   await W.ctx.attachEdgeTD(false);
   assert.equal(W.S.typhoon.issues[0].points.filter((q) => q._edgeTD).length, 3);
   assert.ok(Date.now() - t0 < 550, '버튼은 0.9초(여기선 30ms) 기준으로 다시 보낸다: ' + (Date.now() - t0) + 'ms');
+  // 버튼은 사용자가 기다리는 일 — 섹션 흐름 + 버튼 띠, 붙이면 섹션·버튼에 도착 빛
+  const btn = W.el['#typAddTD'];
+  assert.deepEqual(fxPaired(W.fx), [['sec:typhoon', btn]]);
+  assert.deepEqual([...W.fx.find((x) => x.op === 'arrive').t], ['sec:typhoon', btn]);
+});
+
+test('버튼(attachEdgeTD 수동): 헬퍼가 꺼져 있거나 못 찾으면 효과를 끄고 도착 효과는 없다', async () => {
+  const W = edgeWorld();
+  const real = W.ctx.fetch;
+  W.ctx.fetch = (url, opts) => (new URL(url).pathname === '/ping' ? Promise.reject(new TypeError('Failed to fetch')) : real(url, opts));
+  vm.runInContext('globalThis.fetch = fetch;', W.ctx);
+  await W.ctx.attachEdgeTD(false);
+  assert.match(W.statuses.at(-1), /응답하지 않아/);
+  fxPaired(W.fx);
+  assert.ok(!W.fx.some((x) => x.op === 'arrive'));
+  // 그 시기 데이터 없음(트랙을 아주 먼 곳으로) — 못 찾음
+  const W2 = edgeWorld();
+  W2.S.typhoon.issues[0].points.forEach((p) => { p.lon += 60; });
+  await W2.ctx.attachEdgeTD(false);
+  assert.match(W2.statuses.at(-1), /못 찾았습니다/);
+  fxPaired(W2.fx);
+  assert.ok(!W2.fx.some((x) => x.op === 'arrive'));
 });

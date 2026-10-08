@@ -1,4 +1,4 @@
-/* [모듈] css/busy-fx.css — 작업 중·도착 효과(js/busy-fx.js): 흐르는 그라디언트·버튼 진행·제목줄 버튼 흐름·진행 막대·빛 훑는 자리표시 막대·도착 빛, 렌더 가리개 흐름, 움직임 줄이기 */
+/* [모듈] css/busy-fx.css — 작업 중·도착 효과(js/busy-fx.js): 흐르는 그라디언트·버튼 진행·제목줄 버튼 흐름·진행 막대·빛 훑는 자리표시 막대·도착 빛·섹션 머리 띠, 렌더 가리개 흐름, 움직임 줄이기 */
   /* ===== 작업 중·도착 효과 =====
      뉴스 플레이어 검수 버튼(ShowThinking·AddPlaceholderLines·RevealLines)과 같은 값:
      흐름 = 대각선 그라디언트(투명 → 파랑 33% → 보라 30% → 청록 25% → 투명)가 가로 ±80%(2.8초)·세로 ±60%(3.7초) 사인 왕복, .5초 페이드.
@@ -97,6 +97,17 @@
   }
   button.fx-arrive.pri::before, button.fx-arrive.on::before { background: var(--fx-band-on-blue); }
 
+  /* ----- 섹션 머리만(h3 — fxHead): 뒤에서 도는 확인(발생·소멸 TD 등). 머리에 옅은 띠가 천천히 왼→오(2.4초) —
+     흐름 판·비활성·자리표시 없이 은은하게(사용자를 막지 않는다). ::after 는 접기 꺾쇠라 ::before 를 쓰고,
+     같은 자리를 쓰는 도착 빛(.sec.fx-arrive > h3::before)이 도는 동안은 쉰다(빛이 끝나면 이어서 훑는다) ----- */
+  .sec > h3.fx-head { position: relative; isolation: isolate; overflow: clip; }
+  .sec:not(.fx-arrive) > h3.fx-head.fx-on::before, .sec:not(.fx-arrive) > h3.fx-head.fx-out::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 70%; z-index: -1; pointer-events: none;
+    background: var(--fx-band); opacity: .55; transform: translateX(-100%);
+    animation: fxBandSweep 2.4s linear infinite, fxIn .5s ease-out both;
+  }
+  .sec:not(.fx-arrive) > h3.fx-head.fx-out::before { animation: fxBandSweep 2.4s linear infinite, fxOut .5s ease-in forwards; }
+
   /* ----- 렌더 가리개(#exportMask — css/toss-modal.css)에도 같은 흐름: 진행 카드·막대는 그 위에 그대로.
      가리개는 크니 transform 으로만 옮긴다(렌더 중 메인 스레드를 안 쓴다). 가리개가 숨으면(display:none) 함께 멈춘다. ----- */
   #exportMask { overflow: clip; }
@@ -115,5 +126,6 @@
     .fx-ph { animation: none; }
     .fx-ph > i::after { animation: none; display: none; }
     .sec.fx-arrive > h3::before, button.fx-arrive::before { animation: fxArriveFade .6s ease-out 1 forwards; transform: none; width: 100%; }
+    .sec:not(.fx-arrive) > h3.fx-head.fx-on::before { animation: fxIn .2s ease-out both; transform: none; width: 100%; opacity: .3; }
     #exportMask::before { animation: none; opacity: .7; }
   }
