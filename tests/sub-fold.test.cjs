@@ -1,4 +1,4 @@
-// 섹션 안 접이식 묶음(잘 안 쓰는 메뉴) — 특보 '자동이 안 될 때 · 수동 붙여넣기'와 '기상청 예보 API로 색칠'이 같은 부품(js/panels.js foldWire·foldReveal, css .subFold*)을 쓴다.
+// 섹션 안 접이식 묶음(잘 안 쓰는 메뉴) — 특보·태풍 '자동이 안 될 때 · 수동 붙여넣기'와 '기상청 예보 API로 색칠'이 같은 부품(js/panels.js foldWire·foldReveal, css .subFold*)을 쓴다.
 // 기본 접힘 · 제목 줄로 펼침/접힘(상태 기억, 저장소가 막혀도 동작) · 접힌 동안 Tab 포커스 안 들어감 · 불러오기 실패 카드에서 이번만 펼치고 보이게 스크롤.
 // 함수는 tools/app-source.cjs로 합친 앱에서 잘라 가짜 DOM(vm)에서 돌린다. 실제 화면은 desktop/test/boot-check.cjs로 따로 봤다.
 const test = require('node:test');
@@ -37,7 +37,7 @@ const FOLD_FNS = ['foldHeadOf', 'foldIsOpen', 'foldSet', 'foldWire', 'foldReveal
 
 test('마크업 — 특보 수동 붙여넣기는 기본 접힘(예보 API 묶음과 같은 부품), 특보 색 지우기는 접힘 밖', () => {
   // 제목 줄 = 버튼(키보드로 열 수 있게) · 기본 접힘 · aria-controls로 묶음과 짝
-  for (const [head, fold] of [['wrnManualHead', 'wrnManual'], ['fctFoldHead', 'fctFold']]) {
+  for (const [head, fold] of [['wrnManualHead', 'wrnManual'], ['fctFoldHead', 'fctFold'], ['typManualHead', 'typManual']]) {
     const h = tagOf(head);
     assert.match(h, /^<button type="button" class="subhead subFoldHead"/, head);
     assert.match(h, /aria-expanded="false"/, head);
@@ -49,6 +49,11 @@ test('마크업 — 특보 수동 붙여넣기는 기본 접힘(예보 API 묶�
   for (const id of ['wrnOpen', 'wrnPaste', 'wrnApply']) assert.match(manual, new RegExp(`id="${id}"`), `${id}는 접힌 묶음 안`);
   // 특보 색 지우기 = 불러오기·붙여넣기 어느 쪽이든 쓰는 버튼 → 접힘 밖, 불러오기 옆
   assert.doesNotMatch(manual, /id="wrnClear"/);
+  // 태풍 수동 길(태풍정보 새 창·붙여넣기·표시)도 접힌 묶음 안 — 옛 점선 상자(fieldGroup)는 없어졌다
+  const typ = divOuter('typManual');
+  for (const id of ['typOpen', 'typPaste', 'typPasteApply']) assert.match(typ, new RegExp(`id="${id}"`), `${id}는 접힌 묶음 안`);
+  assert.match(typ, /<div class="subFoldBox">/);
+  assert.doesNotMatch(html, /<div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기<\/div>/);
   assert.match(html, /<button class="pri" id="wrnFetch"[^>]*>기상청에서 불러오기<\/button><button id="wrnClear"[^>]*>특보 색 지우기<\/button>/);
   // 결과 카드는 묶음 위(실패 카드 바로 아래에서 펼쳐진다), 특보 목록은 묶음 아래
   const sec = html.slice(html.indexOf('<div class="sec special" data-sec="wrn">'));
@@ -184,6 +189,9 @@ test('배선 — 두 묶음 모두 공용 foldWire(키 따로), 실패 카드의
   const wire = fnSrc('wire');
   assert.match(wire, /foldWire\(\$\('#wrnManual'\), 'wcg_wrn_manual_open'\);/);
   assert.match(wire, /foldWire\(\$\('#fctFold'\), 'wcg_fct_api_open'\);/);
+  assert.match(wire, /foldWire\(\$\('#typManual'\), 'wcg_typ_manual_open'\);/);
+  // 미해군(JTWC) 실패 안내의 직접 붙여넣기·사이트 열기 = 태풍 묶음을 이번만 펼침(비교 지도는 비교 쪽 붙여넣기 칸)
+  assert.match(fnSrc('jtwcManual'), /foldReveal\(\$\('#typManual'\), \$\('#typPaste'\)\);/);
   assert.doesNotMatch(wire, /const setOpen = /, '예보 API 묶음의 옛 전용 배선은 공용으로 바뀌었다');
   const show = fnSrc('showWrnResult');
   assert.match(show, /paste: \(\) => foldReveal\(\$\('#wrnManual'\), \$\('#wrnPaste'\)\),/);

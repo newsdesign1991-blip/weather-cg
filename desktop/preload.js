@@ -19,4 +19,7 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
     ipcRenderer.removeAllListeners('wcg:wnuri');
     if (typeof cb === 'function') ipcRenderer.on('wcg:wnuri', (_e, d) => { try { cb(d); } catch (err) {} });
   },
+  // 미해군(JTWC) 자료 받기 — 'rss/jtwc.rss' 또는 'products/wp2726.tcw'(RSS의 전체 주소도 됨). 그 밖 주소는 메인이 거절한다(desktop/jtwc.js).
+  // 돌려주는 것: { ok: true, status, url, text } 또는 { ok: false, err: 'denied'|'timeout'|'too-big'|'http'|'net', status?, detail? }
+  jtwcFetch: (p) => ipcRenderer.invoke('wcg:jtwc-fetch', String(p || '')),
 });
