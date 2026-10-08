@@ -38,6 +38,7 @@ const { versionOf } = require('./stamp-version.cjs');
 // 기준표(분할 시점 기록). 순서 = 원본 순서 = 로드 순서.
 //  start: 그 파일이 시작되는 줄의 앞부분(본문 안에서 정확히 1번, 줄 맨 앞 — CSS는 앞 공백 허용)
 //  walk:  false면 표지 줄에서 바로 시작(기본은 표지 바로 위의 빈 줄·'//' 주석 줄을 이 파일로 함께 가져감)
+//  (--like가 만드는 기준표는 walk 대신 back: n — 표지 위로 정확히 n줄을 그 파일에 둔다)
 //  desc:  파일 머리 주석의 한 줄 설명('*/'·줄바꿈 금지)
 // ---------------------------------------------------------------------------
 const MAP = {
@@ -108,18 +109,20 @@ if (opt('like', '')) {
   const likeHtml = path.resolve(opt('like', ''));
   const dir = path.dirname(likeHtml);
   const h = fs.readFileSync(likeHtml, 'utf8').replace(/\r\n/g, '\n');
-  const firstLine = (rel, headLines, isCss) => {
-    const body = fs.readFileSync(path.join(dir, rel), 'utf8').replace(/\r\n/g, '\n').split('\n').slice(headLines);
-    const desc = /— (.*) \*\/$/.exec(fs.readFileSync(path.join(dir, rel), 'utf8').split(/\r?\n/)[0]);
-    if (isCss) return { start: body[0].replace(/^[ \t]+/, ''), desc: desc ? desc[1] : '' };
-    const i = body.findIndex((l) => !(/^\s*$/.test(l) || /^\/\//.test(l)));
-    return { start: body[i], desc: desc ? desc[1] : '', lead: i };
+  // 표지 = 파일의 첫 의미 줄(js는 빈 줄·'//' 주석 다음 첫 코드 줄). 한 줄로 유일하지 않으면 아래 줄을 덧붙여 유일하게 만든다(원본을 읽은 뒤 확정).
+  const firstLines = (rel, headLines, isCss) => {
+    const text = fs.readFileSync(path.join(dir, rel), 'utf8').replace(/\r\n/g, '\n');
+    const body = (isCss ? appSource.unrebaseCss(text) : text).split('\n').slice(headLines);
+    const desc = /— (.*) \*\/$/.exec(text.split('\n')[0]);
+    const i = isCss ? 0 : body.findIndex((l) => !(/^\s*$/.test(l) || /^\/\//.test(l)));
+    const ls = body.slice(i); if (isCss) ls[0] = ls[0].replace(/^[ \t]+/, '');
+    return { lines: ls, desc: desc ? desc[1] : '', lead: i };
   };
   MAP.js = [...h.matchAll(/<script src="js\/([\w.-]+\.js)(?:\?[^"]*)?"><\/script>/g)].map((m) => {
-    const f = firstLine('js/' + m[1], 2, false);
-    return { file: m[1], start: f.start, desc: f.desc, walk: f.lead > 0 };
+    const f = firstLines('js/' + m[1], 2, false);
+    return { file: m[1], lines: f.lines, desc: f.desc, back: f.lead };
   });
-  MAP.css = [...h.matchAll(/<link rel="stylesheet" href="css\/([\w.-]+\.css)(?:\?[^"]*)?">/g)].map((m) => ({ file: m[1], ...firstLine('css/' + m[1], 1, true) }));
+  MAP.css = [...h.matchAll(/<link rel="stylesheet" href="css\/([\w.-]+\.css)(?:\?[^"]*)?">/g)].map((m) => { const f = firstLines('css/' + m[1], 1, true); return { file: m[1], lines: f.lines, desc: f.desc }; });
   if (!MAP.js.length || !MAP.css.length) fail('--like: 분할본에서 js/·css/ 태그를 못 찾음');
   console.log(`--like: 기준표를 ${likeHtml}에서 만듦(js ${MAP.js.length}, css ${MAP.css.length})`);
 }
@@ -130,6 +133,11 @@ if (raw.charCodeAt(0) === 0xfeff) fail('BOM이 있음');
 const EOL = raw.includes('\r\n') ? '\r\n' : '\n';
 if (EOL === '\r\n' && /[^\r]\n/.test(raw)) fail('CRLF/LF가 섞여 있음');
 const src = raw.replace(/\r\n/g, '\n');
+for (const m of MAP.js.concat(MAP.css)) {
+  if (!m.lines) continue;   // --like 표지 확정
+  let k = 0; m.start = m.lines[0];
+  while (count(src, m.start) > 1 && k + 1 < m.lines.length) m.start += '\n' + m.lines[++k];
+}
 if (/<script src="js\//.test(src) || /<link rel="stylesheet" href="css\//.test(src)) fail('이미 분할된 index.html');
 if (!CHECK && !args.includes('--force') && (fs.existsSync(path.join(OUT, 'js')) || fs.existsSync(path.join(OUT, 'css')))) fail(`${OUT}에 js/ 또는 css/가 이미 있음(--force로 덮어쓰기)`);
 for (const m of MAP.js.concat(MAP.css)) {
@@ -163,6 +171,10 @@ function cutPoints(text, list, { walkUp, allowIndent, firstAtZero }) {
     if (k === 0 && firstAtZero) {
       if (!/^(\s*(\/\/[^\n]*)?\n)*[ \t]*$/.test(text.slice(0, lineAt))) fail(`${m.file}: 첫 표지 앞에 코드가 있음`);
       p = 0;
+    } else if (typeof m.back === 'number') {   // --like: 그 파일이 표지 위로 정확히 몇 줄(빈 줄·주석)을 갖고 있었는지
+      const li = ls.indexOf(p) - m.back;
+      if (li < 0) fail(`${m.file}: 표지 위 ${m.back}줄이 없음`);
+      p = ls[li];
     } else if (walkUp && m.walk !== false) {
       let li = ls.indexOf(p);
       while (li > 0) {
