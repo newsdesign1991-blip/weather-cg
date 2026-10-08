@@ -9,13 +9,17 @@
 //      섹션(.sec)·그 밖 상자 → 흐르는 그라디언트(.fx-glow) / 제목줄 버튼 → 색 띠가 흐름(.fx-tb) / 그 밖 버튼 → 작은 흐름 + 비활성(.fx-btn)
 //      opts.lines 를 준 상자(결과 목록 자리) → 바로 뒤에 빛 훑는 회색 막대 자리표시(.fx-ph), 옛 내용은 끝날 때까지 숨김
 //    같은 요소를 여러 작업이 켜면 센다 — 마지막 작업이 끝나야 꺼진다(겹친 불러오기). 켜지 않은 요소를 끄면 아무 일도 안 한다.
+//    대상은 변수에 담아 켤 때·끌 때 '같은 배열'을 넘긴다(const fx = […]; fxBusy(fx, true) … finally fxBusy(fx, false)) — 그 배열이 곧
+//    작업 표시라, 안전 해제(maxMs·fxClear)로 이미 꺼진 작업이 늦게 끄더라도 그 뒤에 켠 새 작업의 횟수를 깎지 않는다.
+//    (요소·선택자 글자 하나를 넘기면 그냥 센다 — 겹칠 일이 없는 버튼 하나짜리 작업용)
 //    opts: lines(자리표시 막대 수) · disable:false(버튼을 비활성으로 안 바꿈 — 부르는 쪽이 disabled 를 따로 다룰 때) ·
 //          hide:false(자리표시 동안 옛 목록도 그대로 보임) · maxMs(안전 해제 — 그 시간이 지나면 강제로 끔. 응답 없는 네트워크 대비)
 //  - fxRun(대상, fn, opts): 켜고 fn()을 기다린 뒤 성공·실패(throw)와 상관없이 반드시 끈다(try/finally). 반환 = fn 의 결과(실패면 그대로 throw).
 //    opts.arrive: 성공(결과가 false·null 이 아님) 때 줄 도착 효과 대상 — 함수면 결과를 받아 대상을 돌려준다. 나머지 opts 는 fxBusy 로.
 //  - fxArrive(대상): 섹션 = 머리에 한 번 빛 / 버튼 = 한 번 훑기 / 그 밖 요소 = 위에서부터 80ms 간격으로 떠오름
 //    (투명→불투명 .34초 + 아래 14px→제자리 .42초, 3차 감속). 떠오름은 요소의 transform 을 건드리지 않게 translate 속성으로 한다.
-//  - fxProgress(대상, 0~1): 켜진 제목줄 버튼 아래 얇은 진행 막대(대상이 없으면 지금 켜진 제목줄 버튼 전부). null 이면 막대를 치운다.
+//  - fxProgress(대상, 0~1): 제목줄 버튼 아래 얇은 진행 막대 — 대상 중 '일하는 중'(켜진) 요소에만 붙는다(대상이 없으면 켜진 제목줄 버튼 전부).
+//    값이 null 이면 막대를 치운다. 렌더 진행률(exportProgress)은 렌더·AE 버튼만 대상으로 준다 — 함께 도는 저장(플로피)에 막대가 섞이지 않게.
 //  - fxSec(이름): 그 섹션 요소(사이드바·떼어낸 창·제목줄 드롭다운 어디에 있든). fxRows(상자): 상자의 자식 요소들(도착 효과용).
 //  - fxClear(대상): 센 횟수와 상관없이 바로 끈다(작업을 통째로 버릴 때).
 // 움직임 줄이기 설정이면 흐름·훑기·떠오름 대신 은은한 색·짧은 페이드만 쓴다(CSS @media + fxReduced).
@@ -23,7 +27,8 @@
 // 연결된 곳: 특보 불러오기(fetchWrn), 예보 읽기(applyFct — 도착만), 이미지 추출(doExport), PNG 시퀀스·MP4·MXF/MOV(exportPngSeq·bakeMp4·wnsRender),
 //   AE로 보내기(sendToAE), 프로젝트 저장·열기·최근 파일, 설정 가져오기, 기본값 굽기, 렌더 진행률(exportProgress → fxProgress).
 //   태풍(js/typhoon-api.js)·통보문(js/bulletin.js)은 아직 안 붙였다 — 붙일 때도 켠 함수의 finally에서 끄는 짝을 지킨다(tests/busy-fx.test.cjs '연결').
-const _fxSt = new WeakMap();   // 요소 → { n: 켠 횟수, kind, dis: 우리가 비활성으로 바꿨나, ph: 자리표시 요소, outT·maxT·arrT: 타이머 }
+const _fxSt = new WeakMap();   // 요소 → { n: 켠 횟수, gen: 안전 해제 세대, kind, dis: 우리가 비활성으로 바꿨나, ph: 자리표시 요소, outT·maxT·arrT: 타이머 }
+const _fxJobs = new WeakMap(); // 작업(켤 때·끌 때 같은 대상 배열) → Map(요소 → { gen: 켤 때 세대, k: 그 작업이 켠 횟수 })
 const FX_PH_W = [92, 68, 84, 50, 76, 60];   // 자리표시 막대 폭(%) — 검수 화면과 같은 들쭉날쭉
 const FX_OUT_MS = 500;        // 흐름이 사라지는 시간(뉴스 플레이어 500ms) — css/busy-fx.css 의 fxOut .5s 와 같게
 const FX_ARRIVE_MS = 1100;    // 도착 빛(섹션 머리·버튼)이 끝나는 시간 — css 의 fxArriveSweep .9s 보다 조금 길게
@@ -50,13 +55,27 @@ function fxKind(el, opts) {
 }
 function fxBusy(target, on = true, opts) {
   opts = opts || {};
+  // 작업 표시 — 배열·NodeList 대상이면 그 객체로 '이 작업이 켠 요소와 그때의 세대'를 기억한다.
+  // 안전 해제(fxClear)는 요소의 세대를 올리므로, 그 전에 켠 작업이 늦게 끄면 기록의 세대가 달라 건너뛴다.
+  const job = target && typeof target === 'object' && target.nodeType !== 1 ? target : null;
+  let mine = job ? _fxJobs.get(job) : null;
+  if (on && job && !mine) _fxJobs.set(job, (mine = new Map()));
   for (const el of fxEls(target)) {
     let st = _fxSt.get(el);
     if (on) {
-      if (!st) _fxSt.set(el, (st = { n: 0 }));
+      if (!st) _fxSt.set(el, (st = { n: 0, gen: 0 }));
+      if (mine) { const g = st.gen || 0, h = mine.get(el); if (h && h.gen === g) h.k++; else mine.set(el, { gen: g, k: 1 }); }
       if (st.n++ === 0) fxStart(el, st, opts);
       if (opts.maxMs > 0) { clearTimeout(st.maxT); st.maxT = setTimeout(() => fxClear(el), opts.maxMs); }
-    } else if (st && st.n > 0 && --st.n === 0) fxStop(el, st);
+      continue;
+    }
+    if (!st || st.n <= 0) continue;
+    if (mine) {   // 이 작업이 켠 기록이 있으면 그 기록대로만 — 안전 해제로 이미 꺼졌으면(세대 다름) 건너뜀
+      const h = mine.get(el);
+      if (!h || h.gen !== (st.gen || 0) || h.k <= 0) continue;
+      if (--h.k === 0) mine.delete(el);
+    }
+    if (--st.n === 0) fxStop(el, st);
   }
 }
 function fxStart(el, st, opts) {
@@ -98,8 +117,9 @@ function fxStop(el, st) {
   el.classList.add('fx-out');   // 흐름은 그대로 두고 .5초 동안 옅어진다(뉴스 플레이어처럼) — 그 뒤 가상 요소째 치운다
   st.outT = setTimeout(() => { st.outT = 0; if (!st.n) el.classList.remove('fx-out', 'fx-' + kind); }, FX_OUT_MS);
 }
+// 세대를 올려 둔다 — 지금까지 켠 작업들이 나중에 끄러 와도(같은 배열) 그 뒤에 켠 작업의 횟수를 깎지 않게
 function fxClear(target) {
-  for (const el of fxEls(target)) { const st = _fxSt.get(el); if (st && st.n > 0) { st.n = 0; fxStop(el, st); } }
+  for (const el of fxEls(target)) { const st = _fxSt.get(el); if (st && st.n > 0) { st.n = 0; st.gen = (st.gen || 0) + 1; fxStop(el, st); } }
 }
 async function fxRun(target, fn, opts) {
   opts = opts || {};
@@ -117,7 +137,7 @@ async function fxRun(target, fn, opts) {
 // 섹션 머리·버튼에 한 번 빛(.fx-arrive) — 이미 빛나는 중이면 처음부터 다시
 function fxFlash(el) {
   let st = _fxSt.get(el);
-  if (!st) _fxSt.set(el, (st = { n: 0 }));
+  if (!st) _fxSt.set(el, (st = { n: 0, gen: 0 }));
   clearTimeout(st.arrT);
   if (el.classList.contains('fx-arrive')) { el.classList.remove('fx-arrive'); void el.offsetWidth; }   // 애니메이션 재시작
   el.classList.add('fx-arrive');
@@ -138,8 +158,10 @@ function fxArrive(target) {
 }
 function fxProgress(target, frac) {
   const els = target ? fxEls(target) : [...document.querySelectorAll('.fx-tb.fx-on')];
+  const clear = frac == null || !Number.isFinite(+frac);
   for (const el of els) {
-    if (frac == null || !Number.isFinite(+frac)) { el.classList.remove('fx-has-p'); el.style.removeProperty('--fx-p'); continue; }
+    if (clear) { el.classList.remove('fx-has-p'); el.style.removeProperty('--fx-p'); continue; }
+    if (!el.classList.contains('fx-on')) continue;   // 일하는 중인 요소에만 — 끝난 뒤 늦게 온 진행률이 막대를 남기지 않게
     el.style.setProperty('--fx-p', String(Math.max(0, Math.min(1, +frac))));
     el.classList.add('fx-has-p');
   }

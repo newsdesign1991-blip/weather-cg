@@ -167,6 +167,28 @@ test('maxMs 안전 해제 — 응답이 없어도 꺼지고, 뒤늦은 끄기는
   ctx.fxBusy(sec, true); assert.ok(on(sec));
 });
 
+test('안전 해제 뒤 늦게 온 끄기는 그 뒤에 켠 새 작업을 끄지 않는다(켤 때·끌 때 같은 배열 = 한 작업)', () => {
+  const { ctx, mk, flush } = world();
+  const sec = mk('div', { cls: ['sec'] }), b = mk('button');
+  const A = [sec, b];
+  ctx.fxBusy(A, true, { maxMs: 90000 });
+  flush();                                  // A: 응답이 없어 안전 해제로 꺼짐
+  assert.ok(!on(sec) && b.disabled === false);
+  const B = [sec, b];
+  ctx.fxBusy(B, true);                      // 다시 눌러 새 작업 B
+  ctx.fxBusy(A, false);                     // 한참 뒤 A가 끝나 끄러 옴
+  assert.ok(on(sec) && b.disabled === true, '늦게 온 A의 끄기가 B를 껐다');
+  ctx.fxBusy(B, false);
+  assert.ok(!on(sec) && b.disabled === false, 'B가 끝났는데 안 꺼짐');
+  // 같은 배열로 두 번 켜면 두 번 꺼야 꺼진다(같은 작업 배열을 다시 쓰는 경우)
+  const C = [sec];
+  ctx.fxBusy(C, true); ctx.fxBusy(C, true); ctx.fxBusy(C, false);
+  assert.ok(on(sec));
+  ctx.fxBusy(C, false); assert.ok(!on(sec));
+  // 켜지 않은 배열로 끄면(배열을 새로 만들어 넘김) 예전처럼 횟수만 센다
+  ctx.fxBusy([sec], true); ctx.fxBusy([sec], false); assert.ok(!on(sec));
+});
+
 test('fxClear — 센 횟수와 상관없이 바로 끈다', () => {
   const { ctx, mk } = world();
   const sec = mk('div', { cls: ['sec'] });
@@ -219,6 +241,11 @@ test('진행 막대 — 켜진 제목줄 버튼만, 0~1로 자르고 null이면 
   ctx.fxProgress(tb, null); assert.ok(!has(tb, 'fx-has-p'));
   ctx.fxProgress(null, 0.5); ctx.fxBusy(tb, false);
   assert.ok(!has(tb, 'fx-has-p') && tb.style.props['--fx-p'] === undefined);
+  // 대상을 줘도 켜진 요소에만 — 렌더 진행률이 함께 도는 저장 버튼·끝난 버튼에 막대를 남기지 않게
+  ctx.fxProgress([tb, other], 0.4);
+  assert.ok(!has(tb, 'fx-has-p') && !has(other, 'fx-has-p'), '꺼진 버튼에 막대');
+  ctx.fxBusy(other, true); ctx.fxProgress([tb, other], 0.4);
+  assert.ok(has(other, 'fx-has-p') && !has(tb, 'fx-has-p'));
 });
 
 // ---- 연결: 켠 효과를 반드시 끄는지(함수 본문 안 켜기·끄기 짝 + finally) ----
@@ -241,8 +268,8 @@ test('연결 — 불러오기·추출·저장 함수가 켠 작업 중 효과를
   // AE 보내기: 실패·취소면 finally에서, 성공이면 재전송 잠금(9초)이 풀릴 때 끈다
   const ae = bodyOf('sendToAE');
   assert.ok(/fxBusy\(btn, true/.test(ae) && /finally[\s\S]*fxBusy\(btn, false\)/.test(ae) && /setTimeout\([^\n]*fxBusy\(btn, false\)/.test(ae));
-  // 렌더 진행률이 제목줄 버튼 막대로도 간다
-  assert.ok(/fxProgress\(null, /.test(bodyOf('exportProgress')));
+  // 렌더 진행률이 제목줄 렌더·AE 버튼 막대로도 간다(대상을 정해서 — 저장 플로피엔 안 붙게)
+  assert.ok(/fxProgress\(\['#tlToggle', '#aeSend'\], /.test(bodyOf('exportProgress')));
   // 예보 읽기는 바로 끝나므로 도착 효과만
   assert.ok(/fxArrive\(/.test(bodyOf('applyFct')));
 });
