@@ -490,7 +490,7 @@ function renderAnimFrame(t) {
   else _mapContentRev++;
   _animMapKeyLast = key;
   if (camActive3d() || fit.classList.contains('mapTilt')) applyTilt();
-  else if (!lite && !_exportingFrames && camKeys().length) tiltPrewarmSoon();   // 평면에서 멈췄고 기울일 키가 있으면 진입 그림을 미리
+  else if (!lite && !_exportingFrames && camKeys().length) tiltPrewarmSoon(700);   // 평면에서 멈췄고 기울일 키가 있으면 진입 그림을 미리 — 잠깐 멈췄다 다시 끄는 사이엔 안 굽게 0.7초 뒤(그때 또 만지는 중이면 건너뜀)
 }
 function renderAnimFrameBody(t) {
   if (!(_animFast && _animFast.cam)) applyCam(t, true);   // 카메라 키프레임이 있으면 S.map을 보간 적용(지도+태풍만 이동, 제목·범례 고정)

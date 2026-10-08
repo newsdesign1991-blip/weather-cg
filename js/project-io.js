@@ -295,7 +295,7 @@ function loadProjectData(data, handle) {
     try { resetWorkRuntime(); buildZones(); markStyleBtns(); markResBtns(); buildBgBtns(); markCgMode(); restoreWrnRuntime(); syncPanelFromState(); renderAll(); buildTimeline(); } catch (_) {}
     throw e;
   }
-  _tiltRasterSig = null; applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거·새 작업 기준으로
+  tiltInvalidate(true); applyTilt();   // 옛 작업의 기울인 지도 미리보기 잔재 제거·새 작업 기준으로(옛 그림·태풍 바탕도 버림)
   updateFrameGuideLabel();              // 새 작업 해상도에 맞춰 프레임 비율
   showPresetInfo();
   projFileHandle = handle || null;   // 핸들 있으면 이후 Ctrl+S가 같은 파일로

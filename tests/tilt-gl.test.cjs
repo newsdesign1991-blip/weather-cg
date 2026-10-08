@@ -132,10 +132,20 @@ test('추출: GL을 못 쓰면 warpTilt3D가 2D 메시로(이음매 부풀림·s
   const imgs = cx.ops.filter((o) => o[0] === 'img');
   assert.equal(imgs.length, 24 * 24 * 2, '메시 삼각형 수');
   assert.ok(imgs.every((o) => o[1] === 'high'), "축소 샘플링 'high'");
-  // 클립 삼각형은 무게중심에서 0.75px 바깥으로(이웃과 겹쳐 이음매 없음)
+  // 클립 삼각형은 세 변을 바깥으로 0.75px씩(이웃과 겹쳐 이음매 없음) — 직각 꼭짓점 (0,0)은 두 변이 0.75씩 밀려 (-0.75,-0.75)
   const c2 = mk(); ctx.__tri(c2, {}, [0, 0], [10, 0], [0, 10], [0, 0], [30, 0], [0, 30]);
   const m = c2.ops.find((o) => o[0] === 'm');
-  assert.ok(m[1] < 0 && m[2] < 0 && Math.abs(Math.hypot(m[1], m[2]) - 0.75) < 1e-9, JSON.stringify(m));
+  assert.ok(Math.abs(m[1] + 0.75) < 1e-9 && Math.abs(m[2] + 0.75) < 1e-9, JSON.stringify(m));
+  // 원근으로 납작해진 가는 삼각형(먼 쪽 칸 — 꼭짓점 7°)도 세 변이 모두 0.75px 밀린다(무게중심 식은 빗변이 0.1px쯤밖에 안 밀려 틈이 남았다)
+  const c3 = mk(); ctx.__tri(c3, {}, [0, 0], [10, 0], [0, 10], [0, 0], [80, 0], [0, 10]);
+  const T3 = c3.ops.filter((o) => o[0] === 'm' || o[0] === 'l').map((o) => [o[1], o[2]]);
+  const inTri = (p) => { const s = (a, b) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]); const d = [s(T3[0], T3[1]), s(T3[1], T3[2]), s(T3[2], T3[0])]; return d.every((x) => x >= -1e-9) || d.every((x) => x <= 1e-9); };
+  const hn = [10 / Math.hypot(80, 10), 80 / Math.hypot(80, 10)];   // 빗변 (80,0)–(0,10)의 바깥 법선
+  for (const f of [0.1, 0.5, 0.9]) {
+    const mx = 80 * (1 - f), my = 10 * f;
+    assert.ok(inTri([mx + hn[0] * 0.74, my + hn[1] * 0.74]), '빗변 ' + f + ' 지점 0.74 바깥도 덮는다 ' + JSON.stringify(T3));
+    assert.ok(inTri([80 * f, -0.74]) && inTri([-0.74, 10 * f]), '밑변·옆변도');
+  }
   // GL이 되면 메시 없이 한 번에 그리고 텍스처는 바로 비운다
   const gl = fakeGL();
   const ctx2 = glCtx({ document: { createElement: () => fakeCanvas(gl) } });
@@ -154,15 +164,19 @@ test('추출: GL을 못 쓰면 warpTilt3D가 2D 메시로(이음매 부풀림·s
 function viewCtx(opt) {
   opt = opt || {};
   const cls = () => { const s = new Set(); return { toggle: (c, on) => { if (on) s.add(c); else s.delete(c); }, contains: (c) => s.has(c), add: (c) => s.add(c), remove: (c) => s.delete(c) }; };
+  const R = { rasters: [], gl: null, draws: 0, uploads: 0, glOk: opt.gl !== false, bufLost: false, ls: {}, timers: [] };
   const els = {
     '#cg': { style: {}, clientWidth: 1000 }, '#camClip': { style: {}, appendChild() {} },
-    '#camCanvas': { style: {}, width: 1, height: 1, getContext: () => ({ clearRect() {}, drawImage() {}, setTransform() {} }) },
+    // 그림 버퍼 2D — GPU 리셋 흉내(R.bufLost·contextlost/contextrestored 이벤트)
+    '#camCanvas': { style: {}, width: 1, height: 1, getContext: () => ({ clearRect() {}, drawImage() {}, setTransform() {}, isContextLost: () => R.bufLost }), addEventListener: (ev, f) => { R.ls[ev] = f; } },
     '#camGL': { style: {}, width: 1, height: 1 }, '#timeline': { classList: cls() },
   };
   els['#timeline'].classList.add('on');
-  const R = { rasters: [], gl: null, draws: 0, uploads: 0, glOk: opt.gl !== false };
   const ctx = {
-    console, Math, performance: { now: () => R.now }, setTimeout: () => 0, clearTimeout() {}, window: { devicePixelRatio: 1 },
+    console, Math, performance: { now: () => R.now }, window: { devicePixelRatio: 1 },
+    // opt.timers: 예약을 기록(예열 예약 순서 검사) — 아니면 아무것도 안 함
+    setTimeout: opt.timers ? (fn, ms) => { R.timers.push({ fn, ms, live: true }); return R.timers.length; } : () => 0,
+    clearTimeout: opt.timers ? (id) => { if (id && R.timers[id - 1]) R.timers[id - 1].live = false; } : () => {},
     document: { querySelector: (q) => els[q] || null, createElement: () => ({ width: 1, height: 1, getContext: () => ({ drawImage() {} }) }) }, $: (q) => els[q] || null,
     isTyphoon: () => !!R.ty,
     S: { map: { x: 100, y: 50, s: 1 }, map3d: { on: 0, rx: 0, ry: 0, rz: 0, persp: 2.2 } }, view: { z: 1 },
@@ -172,16 +186,17 @@ function viewCtx(opt) {
     tglCreate: () => (R.glOk ? (R.gl = { has: false, lost: false }) : null), tglOk: (r) => !!(r && !r.lost),
     tglUpload: (r, src, w, h, keep) => { R.uploads++; if (keep && r.has) r.has2 = true; r.has = true; return true; }, tglDraw: (r, W, H, v) => { R.draws++; R.lastV = v; return true; },
     tglDropPrev: (r) => { r.has2 = false; R.dropped = (R.dropped || 0) + 1; }, requestAnimationFrame: () => 0,
+    tglFree: (r) => { r.has = false; R.freed = (R.freed || 0) + 1; },
   };
   ctx.R = R; R.now = 1000;
   vm.createContext(ctx);
   const names = ['_tiltRasterSig', '_camRasterBusy', '_tiltSess', 'TILT_LITE_Q', 'TILT_BASE_LAYERS', '_tiltBase', 'tiltDrifted', '_tiltFade', 'TILT_FADE_MS', 'tiltFadeTick', 'camActive3d', 'tiltContentSig', 'tiltCamSig', 'tiltComp', 'tiltGLView', 'tiltGLLive', 'tiltGLUpload', 'tiltGLPaint',
-    'updateCamCanvasTransform', 'tiltReady', 'tiltWant', 'applyTilt', 'rasterTiltCanvas', 'tiltPrewarmSoon', 'tiltPrewarm', 'camEditActive'];
+    'updateCamCanvasTransform', 'tiltReady', 'tiltWant', 'applyTilt', 'rasterTiltCanvas', 'tiltPrewarmSoon', 'tiltPrewarm', 'camEditActive', 'tiltInvalidate', 'tiltBufLost'];
   const src = names.map(pick).join('\n') + `
     const fit = { classList: (${cls.toString()})(), clientWidth: 1000, clientHeight: 562 };
     let _mapContentRev = 0, _mapAnimRev = 0, _animFast = null;
     globalThis.T = {
-      applyTilt, tiltWant, rasterTiltCanvas, tiltPrewarm, fit,
+      applyTilt, tiltWant, rasterTiltCanvas, tiltPrewarm, tiltPrewarmSoon, tiltInvalidate, fit,
       set lite(v) { _animFast = v ? {} : null; }, bump() { _mapContentRev++; }, animBump() { _mapAnimRev++; }, get base() { return _tiltBase; },
       get tex() { return _tiltTex; }, get busy() { return _camRasterBusy; }, get sess() { return _tiltSess; },
       forceNull() { _tiltRasterSig = null; }, setGL(v) { _tglView = v; }, drag(v) { _camDragging = v; },
@@ -237,6 +252,17 @@ test('예열: 평면에서 미리 구운 그림(같은 내용)이면 진입 첫 
   assert.equal(c.R.rasters.length, 1);
   await finishRaster(c);
   assert.equal(T.fit.classList.contains('mapTilt'), true);
+});
+
+test('예열 예약: 타임라인을 열 때 잡은 예열(sticky)은 곧이은 정지 프레임 예약(0.7초)에 안 밀리고, 정지 프레임끼리는 뒤 예약이 앞 것을 민다(스크럽 사이엔 안 굽게)', () => {
+  const c = viewCtx({ timers: true }), T = c.T;
+  const live = () => c.R.timers.filter((x) => x.live).map((x) => x.ms);
+  T.tiltPrewarmSoon(250, true); T.tiltPrewarmSoon(700);
+  assert.deepEqual(live(), [250], '열 때 예열이 그대로');
+  { const t = c.R.timers.find((x) => x.live); t.live = false; t.fn(); }   // 예열 실행(타이머 한 번) → sticky 풀림
+  T.tiltPrewarmSoon(700); T.tiltPrewarmSoon(700);
+  assert.deepEqual(live(), [700], '정지 프레임끼리는 뒤 것 하나만(앞 것은 밀림)');
+  assert.equal(c.R.timers.filter((x) => x.ms === 700).length, 2);
 });
 
 test('다시 굽기: 재생 중 회전만 바뀌면 안 굽고(그리기만), 내용이 바뀌면 300ms에 한 번, 카메라는 많이 움직였을 때만', async () => {
@@ -326,6 +352,55 @@ test('폴백: GL을 못 쓰면 #camCanvas를 CSS 3D로(예전 경로), 컨텍스
   g.R.gl.lost = false; g.R.gl.has = false; U.applyTilt();
   assert.equal(g.els['#camGL'].style.display, '', '되찾으면 다시 GL');
   assert.equal(g.R.gl.has, true, '그림 버퍼에서 다시 올린다');
+});
+
+test('GPU 리셋: 그림 버퍼(2D)를 잃으면 빈 그림 대신 평면 지도, 잃은 동안 안 굽고 되찾으면 다시 굽는다 / 타일 도착은 태풍 바탕도 다시 / 타임라인을 닫으면 GL 텍스처 반납', async () => {
+  const c = viewCtx(), T = c.T;
+  c.S.map3d = { on: 1, rx: 20, ry: 0, rz: 5, persp: 2.2 }; T.applyTilt(); await finishRaster(c);
+  assert.equal(T.fit.classList.contains('mapTilt'), true);
+  assert.ok(c.R.ls.contextlost && c.R.ls.contextrestored, '그림 버퍼의 잃음·되찾음을 듣는다');
+  // GPU 프로세스가 죽음 → 2D 그림 버퍼 내용이 사라진다(실측) → 빈 바다 대신 평면 지도, 굽지 않음
+  c.R.bufLost = true; c.R.ls.contextlost();
+  assert.equal(T.fit.classList.contains('mapTilt'), false, '빈 그림을 기울여 보이지 않는다(평면 지도)');
+  assert.equal(c.R.rasters.length, 0, '잃은 동안은 안 굽는다');
+  T.applyTilt(); assert.equal(c.R.rasters.length, 0);
+  // 되찾음 → 다시 굽고, 오면 기울인 지도
+  c.R.bufLost = false; c.R.ls.contextrestored();
+  assert.equal(c.R.rasters.length, 1, '되찾으면 다시 굽는다');
+  await finishRaster(c);
+  assert.equal(T.fit.classList.contains('mapTilt'), true);
+  // 굽는 사이에 잃으면 그 그림은 그림으로 치지 않는다
+  T.bump(); T.applyTilt(); assert.equal(c.R.rasters.length, 1);
+  const before = T.tex; c.R.bufLost = true; await finishRaster(c);
+  assert.equal(T.tex, before, '잃은 버퍼에 구운 그림은 버림');
+  c.R.bufLost = false;
+  // 굽는 사이 작업을 바꾸면(불러오기·새로 시작 = tiltInvalidate(true)) 옛 작업 그림은 버리고 새로 굽는다 — 그동안은 평면 지도
+  T.bump(); T.applyTilt(); assert.equal(c.R.rasters.length, 1);
+  T.tiltInvalidate(true); T.applyTilt();
+  assert.equal(T.fit.classList.contains('mapTilt'), false, '옛 작업 그림을 기울여 보이지 않는다');
+  c.R.rasters.splice(0).forEach((r) => r.res({})); await flush(); await flush();
+  assert.equal(T.tex, null, '옛 작업 그림은 버림');
+  assert.equal(c.R.rasters.length, 1, '새 작업으로 다시 굽는다');
+  await finishRaster(c);
+  assert.equal(T.fit.classList.contains('mapTilt'), true);
+  // 태풍: 늦게 온 위성 타일(tiltInvalidate) → 바탕까지 다시
+  const t = viewCtx(), U = t.T; t.R.ty = true;
+  t.S.map3d = { on: 1, rx: 20, ry: 0, rz: 0, persp: 2.2 }; U.applyTilt(); await finishRaster(t);
+  U.tiltInvalidate(); U.applyTilt();
+  assert.equal(JSON.stringify(await finishRaster(t)), JSON.stringify([['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn'], ['L_typhoon']]), '타일이 든 바탕을 다시 굽는다');
+  // 평면에서 버린 그림은 다음 진입에 쓰지 않는다(게이트)
+  t.S.map3d = { on: 0, rx: 0, ry: 0, rz: 0 }; U.applyTilt(); U.tiltInvalidate();
+  t.S.map3d = { on: 1, rx: 5, ry: 0, rz: 0, persp: 2.2 }; U.applyTilt();
+  assert.equal(U.fit.classList.contains('mapTilt'), false);
+  await finishRaster(t);
+  // 타임라인을 닫고 평면이면 GL 텍스처(약 100MB) 반납 → 다시 기울이면 그림 버퍼에서 다시 올린다
+  const up0 = t.R.uploads;
+  t.els['#timeline'].classList.remove('on'); t.S.map3d = { on: 0, rx: 0, ry: 0, rz: 0 }; U.applyTilt();
+  assert.equal(t.R.freed, 1); assert.equal(t.R.gl.has, false); assert.equal(U.base, null);
+  U.applyTilt(); assert.equal(t.R.freed, 1, '한 번만');
+  t.els['#timeline'].classList.add('on'); t.S.map3d = { on: 1, rx: 5, ry: 0, rz: 0, persp: 2.2 }; U.applyTilt();
+  assert.equal(U.fit.classList.contains('mapTilt'), true);
+  assert.equal(t.R.uploads, up0 + 1, '그림 버퍼에서 다시 올림');
 });
 
 // ---------- renderAnimFrame: 재생 중 지도 내용이 바뀐 프레임만 리비전 ----------

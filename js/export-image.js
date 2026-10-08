@@ -222,13 +222,21 @@ async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
 }
 
 // 텍스처 삼각형 — src 삼각형을 dst 삼각형으로 어파인 매핑해 이미지 조각을 그린다(메시 워프용 — WebGL을 못 쓸 때만).
-// 클립 삼각형만 무게중심에서 바깥으로 0.75px 부풀려 이웃 삼각형과 겹치게 한다(매핑은 원래 점 그대로) — 안 그러면 이음매가 어두운 실선으로 남는다.
+// 클립 삼각형만 세 변을 바깥으로 0.75px씩 밀어(꼭짓점은 두 변의 바깥 이등분선 방향 — 변마다 정확히 0.75px) 이웃 삼각형과 겹치게 한다(매핑은 원래 점 그대로).
+// 안 그러면 이음매가 어두운 실선으로 남는다. 무게중심에서 꼭짓점을 미는 식은 원근으로 납작해진 먼 쪽 가는 삼각형에서 변이 거의 안 밀려 틈이 남았다(측정).
+// 아주 뾰족한 꼭짓점은 12px로 자른다(먼 쪽 칸의 7°쯤 꼭짓점까지는 그대로 — 넘친 자리는 같은 원근의 이웃 조각과 거의 같은 그림이라 티 안 남).
 // 축소 샘플링은 'high'(밉맵) — 'low'는 1px 흰 선이 점선으로 끊긴다(미리보기 GL과 같은 까닭).
 function drawTexTri(cx, img, s0, s1, s2, d0, d1, d2) {
   cx.save();
-  const gx = (d0[0] + d1[0] + d2[0]) / 3, gy = (d0[1] + d1[1] + d2[1]) / 3, E = 0.75;
-  const inf = (p) => { const dx = p[0] - gx, dy = p[1] - gy, L = Math.hypot(dx, dy) || 1; return [p[0] + dx / L * E, p[1] + dy / L * E]; };
-  const a0 = inf(d0), a1 = inf(d1), a2 = inf(d2);
+  const E = 0.75;
+  const inf = (p, q, r) => {
+    let ax = q[0] - p[0], ay = q[1] - p[1], bx = r[0] - p[0], by = r[1] - p[1];
+    const la = Math.hypot(ax, ay) || 1, lb = Math.hypot(bx, by) || 1; ax /= la; ay /= la; bx /= lb; by /= lb;
+    let mx = -(ax + bx), my = -(ay + by); const lm = Math.hypot(mx, my); if (!(lm > 1e-9)) return p;
+    const s = Math.sqrt(Math.max(1e-9, (1 - (ax * bx + ay * by)) / 2)), k = Math.min(E / s, 16 * E) / lm;   // s = sin(꼭짓점 각/2)
+    return [p[0] + mx * k, p[1] + my * k];
+  };
+  const a0 = inf(d0, d1, d2), a1 = inf(d1, d2, d0), a2 = inf(d2, d0, d1);
   cx.beginPath(); cx.moveTo(a0[0], a0[1]); cx.lineTo(a1[0], a1[1]); cx.lineTo(a2[0], a2[1]); cx.closePath(); cx.clip();
   const x0 = s0[0], y0 = s0[1], x1 = s1[0], y1 = s1[1], x2 = s2[0], y2 = s2[1];
   const u0 = d0[0], v0 = d0[1], u1 = d1[0], v1 = d1[1], u2 = d2[0], v2 = d2[1];

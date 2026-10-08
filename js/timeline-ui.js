@@ -480,7 +480,7 @@ function tlSetOpen(on) {
   tlState.isOpen = !!on;
   document.documentElement.classList.toggle('tlOpen', !!on);
   const tl = $('#timeline');
-  if (on) { tlApplyHeight(); tlState.focus = true; tl.classList.add('focus'); requestAnimationFrame(() => { tlMeasure(); tlInvalidate(TLD.GEOM | TLD.RULER | TLD.HEAD); }); tiltPrewarmSoon(250); }   // 글꼴·틸트 그림 예열(첫 기울임 빈 지도·지연 방지)
+  if (on) { tlApplyHeight(); tlState.focus = true; tl.classList.add('focus'); requestAnimationFrame(() => { tlMeasure(); tlInvalidate(TLD.GEOM | TLD.RULER | TLD.HEAD); }); tiltPrewarmSoon(250, true); }   // 글꼴·틸트 그림 예열(첫 기울임 빈 지도·지연 방지) — 곧이은 정지 프레임 예약에 안 밀리게(sticky)
   else { tlState.focus = false; tl.classList.remove('focus'); tlClosePopover(); tlState.playing = false; tlSettleCancel(); }
 }
 // 높이 — 무대도 그만큼 줄어든다(css html.tlOpen .stage). 너무 크면 창에 맞게.

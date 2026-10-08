@@ -47,7 +47,7 @@ let _wheelZoomTimer = 0, _wheelZoomBase = null;     // 휠 줌 GPU: 휠 도는 �
 let _wheelUndoArmed = true, _wheelUndoTimer = 0;    // 휠 줌 undo: 한 번 도는 동안(연속 휠) undo는 1회만 쌓는다
 // 틸트 진입 게이트·그림 기록 — _tiltSess: 평면→틸트 진입마다 +1, _tiltTex: 그림 버퍼에 구운 그림 { sess, csig, sig, cam, q, at }.
 // 이번 진입 뒤 그림이 준비되기 전(또는 같은 내용의 그림이 없을 때)엔 .mapTilt를 걸지 않고 평면 지도를 그대로 보인다(빈 바다 프레임 방지).
-let _tiltSess = 0, _tiltWasOn = false, _tiltTex = null, _tglView = null, _tiltPreTimer = 0;   // _tglView: 미리보기 GL 렌더러(null 아직·false 못 씀)
+let _tiltSess = 0, _tiltWasOn = false, _tiltTex = null, _tglView = null, _tiltPreTimer = 0, _tiltPreSticky = false, _tiltGen = 0;   // _tglView: 미리보기 GL 렌더러(null 아직·false 못 씀) · _tiltGen: 그림 버림 횟수(tiltInvalidate(true) — 그 전에 굽기 시작한 그림은 버린다)
 // 재생·스크럽 중 다시 구울 때 해상도 배율. 굽는 시간은 SVG 직렬화·해석이 대부분이라 배율을 낮춰도 거의 안 준다(0.34 ≈ 1, 측정) — 선명하게 1
 const TILT_LITE_Q = 1;
 // 태풍 지도: 무거운 바탕(위성 그림 data URI 약 9MB — 한 번 굽기 170ms)은 따로 구워 두고(_tiltBase), 재생 중 바뀌는 경로 레이어(L_typhoon)만 다시 구워
@@ -67,6 +67,18 @@ function tiltComp(k, to) {
   if (!k || (Math.abs(k.x - m.x) <= 1e-4 && Math.abs(k.y - m.y) <= 1e-4 && Math.abs(k.s - m.s) <= 1e-6)) return null;
   const r = m.s / (k.s || 1);
   return { r, tx: m.x - r * k.x + (r - 1) * 960, ty: m.y - r * k.y + (r - 1) * 540 };
+}
+// 그림을 꼭 다시 굽게 — 늦게 온 위성 타일·작업 바꿈·GPU 리셋. 태풍 바탕도 다시 굽고(바탕 레이어가 바뀌었을 수 있다 — 리비전이 안 올라 예전엔 그대로 썼다),
+// 지금 그림은 다음 진입에 다시 쓰지 않는다(이번 진입에선 새 그림이 올 때까지 보인다). hard = 지금 그림도 버린다(새 그림까지 평면 지도 — 옛 작업·빈 그림을 안 보이게)
+function tiltInvalidate(hard) {
+  _tiltRasterSig = null; if (_tiltBase) _tiltBase.rev = -1;   // 바탕은 다시 굽되 캔버스(75MB)는 다시 쓴다(타일이 여러 장 와도 새 캔버스를 안 쌓게)
+  if (hard) { _tiltTex = null; _tiltGen++; } else if (_tiltTex) _tiltTex.csig = null;
+}
+// 그림 버퍼(2D 캔버스)를 잃었다·되찾았다 — GPU 프로세스가 죽으면(드라이버 리셋 등) 2D 캔버스도 비워진다(측정: contextlost → contextrestored, 내용 0).
+// 잃으면 빈 그림을 보이지 않게 평면 지도로 두고(게이트), 되찾으면 다시 굽는다. GL 컨텍스트는 그 뒤(약 0.5초) 따로 되살아나 새 그림을 올린다.
+function tiltBufLost() {
+  tiltInvalidate(true);
+  if (!_exportingFrames && camActive3d()) applyTilt();
 }
 // 미리보기 GL 렌더러(처음 기울일 때 만든다). 못 쓰거나 잃었으면 null → CSS 경로
 function tiltGLView() {
@@ -150,7 +162,10 @@ function applyTilt() {
   const pv = document.querySelector('#camClip') || fit;   // 원근은 캔버스의 부모(클립 래퍼)에 건다(CSS 경로)
   if (!on) {
     pv.style.perspective = ''; if (cv) { cv.style.display = 'none'; cv.style.transform = ''; cv.style.maskImage = cv.style.webkitMaskImage = ''; } if (gc) gc.style.display = 'none';
-    if (!camEditActive()) _tiltBase = null;   // 타임라인을 닫았으면 태풍 바탕 그림 반납
+    if (!camEditActive()) {   // 타임라인을 닫았으면 태풍 바탕 그림·GL 텍스처(약 100MB) 반납 — 다시 기울이면 그림 버퍼에서 다시 올린다(tiltGLPaint)
+      _tiltBase = null;
+      if (_tglView && _tglView.has) { _tiltFade = null; tglDropPrev(_tglView); tglFree(_tglView); }
+    }
     return;
   }
   if (!cv) return;
@@ -188,11 +203,13 @@ function applyTilt() {
 // GL이면 다 구운 뒤 한 번만 텍스처로 올린다(+밉맵). 이번 진입의 첫 그림이면 그때 기울인 지도로 바꾼다(게이트).
 function rasterTiltCanvas(cv, w) {
   if (!cv) return;
+  if (!cv._lossHook) { cv._lossHook = 1; cv.addEventListener('contextlost', () => tiltBufLost()); cv.addEventListener('contextrestored', () => tiltBufLost()); }
+  { const x = cv.getContext('2d'); if (x.isContextLost && x.isContextLost()) return; }   // 그림 버퍼를 잃은 동안은 굽지 않는다(되찾으면 tiltBufLost가 다시)
   const lite = typeof _animFast !== 'undefined' && !!_animFast;
   w = w || tiltWant(lite);
   _camRasterBusy = true;
   _tiltRasterSig = w.sig;
-  const sess = _tiltSess, q = w.q;
+  const sess = _tiltSess, q = w.q, gen = _tiltGen;
   const cam = { x: S.map.x, y: S.map.y, s: S.map.s };   // 이 그림의 카메라(복제는 아래 svgToImage 첫 동기 구간에서 — 지금 S.map 기준)
   _tiltRasterAt = performance.now();
   const exW = Math.round(1920 * (1 + 2 * CAM_BLEED) * q), exH = Math.round(1080 * (1 + 2 * CAM_BLEED) * q);
@@ -204,8 +221,14 @@ function rasterTiltCanvas(cv, w) {
   const jobs = !split ? [svgToImage(exW, exH, CAM_MAP_LAYERS, vb, false, true)]   // 쓰는 굵기 글꼴만(미리보기 — 그림은 같다)
     : [base ? null : svgToImage(exW, exH, TILT_BASE_LAYERS, vb, false, true), svgToImage(exW, exH, ['L_typhoon'], vb, false, true)];
   Promise.all(jobs).then(([img, top]) => {
+    const ctx = cv.getContext('2d'), lost = !!(ctx.isContextLost && ctx.isContextLost());
+    if (lost || gen !== _tiltGen) {   // 굽는 사이 GPU 리셋(빈 버퍼)·작업 바꿈(옛 작업 그림) — 이 그림은 버린다. 되찾음·새 작업 쪽에서 다시 굽는다
+      _camRasterBusy = false; _tiltRasterSig = null;
+      if (!lost && !_exportingFrames && camActive3d()) applyTilt();
+      return;
+    }
     if (cv.width !== exW) cv.width = exW; if (cv.height !== exH) cv.height = exH;
-    const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, exW, exH);
+    ctx.clearRect(0, 0, exW, exH);
     if (!split) ctx.drawImage(img, 0, 0, exW, exH);
     else {
       let b = base;
@@ -240,13 +263,19 @@ function rasterTiltCanvas(cv, w) {
 }
 // 기울이기 전 예열 — 타임라인을 열 때, 그리고 평면 프레임에서 멈췄는데 기울일 카메라 키가 있을 때(renderAnimFrame).
 // 글꼴(첫 래스터 1~2초의 대부분)을 준비하고, 지금 내용의 틸트 그림을 미리 구워 둔다 → 진입 때 내용이 같으면 기다림 없이 바로 기울인다.
-function tiltPrewarmSoon(ms) { clearTimeout(_tiltPreTimer); _tiltPreTimer = setTimeout(tiltPrewarm, ms == null ? 150 : ms); }
+// sticky(타임라인을 열 때 잡은 예열)는 곧이은 정지 프레임의 예약(0.7초)에 밀리지 않는다 — 밀리면 열자마자 재생할 때 첫 진입이 평면으로 기다린다.
+// 정지 프레임끼리는 뒤 예약이 앞 것을 밀어낸다(스크럽하다 잠깐씩 멈추는 사이엔 굽지 않게)
+function tiltPrewarmSoon(ms, sticky) {
+  if (_tiltPreTimer && _tiltPreSticky && !sticky) return;
+  clearTimeout(_tiltPreTimer); _tiltPreSticky = !!sticky; _tiltPreTimer = setTimeout(tiltPrewarm, ms == null ? 150 : ms);
+}
 function tiltPrewarm() {
-  _tiltPreTimer = 0;
+  _tiltPreTimer = 0; _tiltPreSticky = false;
   if (_exportingFrames || !camEditActive()) return;
   suiteFontCss().then(() => {
     if (_exportingFrames || _camRasterBusy || !camEditActive() || camActive3d()) return;   // 기울어 있으면 applyTilt가 맡는다
     if ((typeof _animFast !== 'undefined' && _animFast) || !camKeysRotate()) return;     // 재생·스크럽 중이거나 기울일 키가 없으면 글꼴만
+    if (typeof tlState !== 'undefined' && (tlState.playing || tlState.dragging || tlState.lowQ)) return;   // 아직 만지는 중(끌기·스크럽 사이) — 굽기(태풍 약 0.2초)가 다음 끌기를 막지 않게
     const cv = document.querySelector('#camCanvas'); if (!cv) return;
     tiltGLView();   // 컨텍스트·셰이더도 미리
     const w = tiltWant(false); if (w.need) rasterTiltCanvas(cv, w);
