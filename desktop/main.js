@@ -150,6 +150,7 @@ function createWindow() {
   });
   win.once('ready-to-show', () => { if (TEST_MODE) return; win.maximize(); win.show(); });   // 점검 모드는 화면에 안 띄움
   win.on('page-title-updated', (e) => e.preventDefault());   // 작업표시줄·Alt+Tab 창 이름은 늘 '날씨 CG' (웹 <title>로 안 바뀌게)
+  win.on('closed', () => { if (wnuri && !wnuri.isDestroyed()) wnuri.destroy(); });   // 날씨누리 창이 남아 앱이 안 꺼지는 일 없게
   // 외부 링크(기상청·JTWC 등)는 기본 브라우저로
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) { shell.openExternal(url); return { action: 'deny' }; }
@@ -169,6 +170,78 @@ function createWindow() {
   });
   win.loadURL(`${APP_ORIGIN}/index.html`);
 }
+
+// ---------- 날씨누리 창(통보문 읽어 오기) ----------
+// 웹앱의 '단기예보 열기'(js/bulletin-load.js bulOpenPage)가 부르면 앱 안 창으로 날씨누리 단기예보를 띄우고, 화면이 다 뜰 때마다
+// 통보문 본문(div.cmp-view-content)의 글자를 읽어 웹앱에 보낸다('wcg:wnuri') — 웹앱이 '예상 강수량' 날짜 묶음으로 나눠 고르게 한다.
+// 헬퍼로 페이지를 못 받을 때(헬퍼 문제·날씨누리가 본문을 스크립트로 그리게 바뀜 등)의 대체 길.
+// 창은 weather.go.kr·kma.go.kr(https) 안에서만 움직이고(그 밖 링크는 기본 브라우저), node·preload 없이 샌드박스·따로 세션(권한 요청·내려받기 막음).
+// 창의 글은 바깥 페이지가 준 것이라 웹앱은 글자로만 쓴다.
+const WNURI_HOME = 'https://www.weather.go.kr/w/forecast/overall/short-term.do';
+const WNURI_HOST = /^(?:[a-z0-9-]+\.)*(?:weather|kma)\.go\.kr$/i;
+const wnuriOk = (u) => { try { const x = new URL(u); return x.protocol === 'https:' && WNURI_HOST.test(x.hostname); } catch (e) { return false; } };
+const WNURI_READ = `(() => { const c = document.querySelector('.cmp-view-content'); const a = document.querySelector('.cmp-view-announce span');
+  return { text: c ? String(c.innerText || '') : '', announce: a ? String(a.textContent || '').trim() : '', url: location.href }; })()`;
+let wnuri = null;        // 날씨누리 창(하나만)
+let wnuriFirst = false;  // 창을 연(또는 다시 앞으로 부른) 뒤 첫 읽기 — 웹앱이 '못 찾음'을 이때만 알린다
+const toApp = (d) => { if (win && !win.isDestroyed()) win.webContents.send('wcg:wnuri', d); };
+async function readWnuri() {
+  if (!wnuri || wnuri.isDestroyed()) return;
+  let d;
+  try { d = await wnuri.webContents.executeJavaScript(WNURI_READ, true); } catch (e) { d = { err: String((e && e.message) || e) }; }
+  if (!d || typeof d !== 'object') d = { text: '' };
+  const first = wnuriFirst; wnuriFirst = false;
+  toApp({ text: String(d.text || '').slice(0, 200000), announce: String(d.announce || '').slice(0, 200), url: String(d.url || ''), err: d.err || '', first });
+}
+function openWnuri(url) {
+  if (!wnuriOk(url)) url = WNURI_HOME;
+  wnuriFirst = true;
+  // 이미 떠 있으면 앞으로 불러 새로고침한 뒤 읽는다(다 뜨면 did-finish-load) — 창을 열어 둔 채 발표(05·11·17시)가 바뀌면
+  // 그냥 다시 읽기로는 지난 통보문을 읽는다. 창 안에서 고른 지역 화면은 새로고침해도 그대로다.
+  if (wnuri && !wnuri.isDestroyed()) { if (wnuri.isMinimized()) wnuri.restore(); wnuri.show(); wnuri.focus(); wnuri.webContents.reload(); return; }
+  wnuri = new BrowserWindow({
+    width: 1180, height: 900, minWidth: 600, minHeight: 400, show: !TEST_MODE, autoHideMenuBar: true,
+    title: '날씨누리 — 단기예보 (통보문 읽기)', icon: path.join(APP_DIR, 'icon.ico'), backgroundColor: '#ffffff',
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, partition: 'wnuri', spellcheck: false },
+  });
+  // 앱 메뉴(보기)를 떼어 낸다 — 붙어 있으면 이 창에서 누른 Ctrl+R·F12가 메인 창(웹앱)을 새로고침·개발자 도구로 연다
+  wnuri.setMenu(null);
+  const wc = wnuri.webContents;
+  wc.on('before-input-event', (e, input) => {   // 새로고침(F5·Ctrl+R)은 이 창만 — 다 뜨면 다시 읽는다
+    if (input.type !== 'keyDown') return;
+    const k = String(input.key || '').toLowerCase();
+    if (input.key === 'F5' || ((input.control || input.meta) && (k === 'r' || input.code === 'KeyR'))) { e.preventDefault(); if (!input.isAutoRepeat) wc.reload(); }
+  });
+  const ses = wc.session;
+  if (!ses.__wcgWnuri) {   // 세션('wnuri', 메모리에만)은 창을 다시 열어도 같다 — 한 번만 건다
+    ses.__wcgWnuri = true;
+    ses.setPermissionRequestHandler((_w, _p, cb) => cb(false));   // 위치·알림 등 권한 요청은 모두 거절
+    ses.on('will-download', (e) => e.preventDefault());            // PDF 등 내려받기는 막는다(창은 읽기 전용)
+  }
+  wc.setWindowOpenHandler(({ url: u }) => {
+    if (wnuriOk(u)) wc.loadURL(u);                               // 날씨누리 안 새 창 링크는 이 창에서
+    else if (/^https?:/i.test(u)) shell.openExternal(u);
+    return { action: 'deny' };
+  });
+  // 주소·주 프레임은 이벤트 객체(details)에서 먼저 읽는다(뒤 인자는 Electron에서 옛 방식으로 표시됨)
+  wc.on('will-navigate', (e, u0) => { const u = (e && e.url) || u0; if (!wnuriOk(u)) { e.preventDefault(); if (/^https?:/i.test(u)) shell.openExternal(u); } });
+  wc.on('will-redirect', (e, u0, _inPlace, isMain0) => {   // 서버 리다이렉트로 밖에 나가는 것도
+    const u = (e && e.url) || u0, isMain = e && typeof e.isMainFrame === 'boolean' ? e.isMainFrame : isMain0;
+    if (isMain && !wnuriOk(u)) e.preventDefault();
+  });
+  wc.on('did-finish-load', () => { readWnuri(); });
+  wc.on('did-navigate-in-page', () => { setTimeout(readWnuri, 300); });
+  wc.on('did-fail-load', (_e, code, desc, u, isMain) => { if (isMain && code !== -3) toApp({ err: `${desc || '불러오기 실패'} (${code})`, first: wnuriFirst, url: String(u || '') }); });   // -3 = 다른 주소로 넘어가며 취소됨
+  wnuri.on('page-title-updated', (e) => e.preventDefault());
+  wnuri.on('closed', () => { wnuri = null; toApp({ closed: true }); });
+  wnuri.loadURL(url);
+}
+// 웹앱(메인 창)만 부를 수 있다. 주소는 날씨누리·기상청(https)만 — 아니면 단기예보 첫 화면
+ipcMain.handle('wcg:wnuri-open', (e, url) => {
+  if (!win || win.isDestroyed() || !e.sender || e.sender.id !== win.webContents.id) return false;
+  openWnuri(String(url || ''));
+  return true;
+});
 
 // 보기 동작 — 메뉴(단축키 표시)와 위의 키 입력 처리가 같은 함수를 쓴다.
 const VIEW = {

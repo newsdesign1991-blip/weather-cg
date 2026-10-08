@@ -387,6 +387,15 @@ function wire() {
   };
   $('#fctApply').onclick = () => applyFct($('#fctPaste').value);
   $('#bulApply').onclick = () => applyBulletin($('#bulPaste').value);
+  // 통보문 불러오기·날짜 고르기·통째 붙여넣기·데스크톱 날씨누리 창 읽기 (js/bulletin-load.js)
+  $('#bulLoad').onclick = () => fetchBulletin();
+  $('#bulPick').onchange = (e) => bulPickFill(e.target.value);
+  $('#bulPaste').onpaste = bulOnPaste;
+  if (bulHasWnd()) {   // 데스크톱(새 판): '단기예보 열기'를 앱 안 창으로 — 뜰 때마다 통보문을 읽어 온다
+    const a = $('#bulOpen');
+    if (a) { a.title = '앱 안 창으로 열고, 통보문을 바로 읽어 와요'; a.onclick = (e) => { e.preventDefault(); bulOpenPage(); }; }
+    if (typeof window.wcgDesktop.onWnuri === 'function') window.wcgDesktop.onWnuri(bulFromWnuri);
+  }
   const bulSoft = $('#bulSoft');
   if (bulSoft) { bulSoft.checked = !!S.softFill; bulSoft.onchange = (e) => { pushUndo(); S.softFill = e.target.checked ? 1 : 0; renderFills(); }; }
   // 통보문 복사 안내 팝업

@@ -61,6 +61,7 @@ const MAP = {
     { file: 'warnings.js', start: '// ===================== 기상특보 자동 색칠', desc: '기상특보: 파싱(parseWrn)·단계 색·발효 순서, 불러오기 결과 판정·문구(wrnReadText·wrnHttpFail·wrnResultView)' },
     { file: 'warnings-apply.js', start: '// ===================== API 주소', walk: false, desc: '기상청 API 주소·키(apiKey·apiUrl — 예보·태풍도 씀), 특보 런타임 목록·순서, 특보 적용(applyWrn)·칠(paintWrn)·발효 현황·목록(buildWrnList)' },
     { file: 'bulletin.js', start: '// ===================== 기상예보 자동 색칠', desc: '기상예보 파싱·색(기온/강수), 통보문 강수량 붙여넣기(용어 사전·지역 표현 파서·applyBulletin)' },
+    { file: 'bulletin-load.js', start: '// ===================== 통보문 불러오기 — 묶음 나누기', desc: "통보문 불러오기(헬퍼로 날씨누리 단기예보)·데스크톱 날씨누리 창 읽기, 원문에서 '예상 강수량' 날짜 묶음 나누기·고르기·결과 카드" },
     { file: 'forecast-panel.js', start: 'function applyFct(txt) {', desc: '예보 적용·고르기·목록, 작업 런타임 초기화(resetWorkRuntime), 예보 종류 버튼' },
     { file: 'warnings-load.js', start: 'let wrnResLast = null;', desc: '특보 불러오기(fetchWrn)·결과 카드(showWrnResult), 특보 열(buildWrnCols)' },
     { file: 'presets.js', start: '// ===================== 해상도별 배치 프리셋', desc: '해상도별 배치 프리셋 + 작업 자동 저장(saveWork/loadWork), 배포 기본값 갱신, applyPreset' },
