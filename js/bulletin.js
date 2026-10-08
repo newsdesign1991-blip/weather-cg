@@ -14,8 +14,8 @@
 //   도시 예보 -> 시도 지도  : 그 시도 안 시군들의 최빈값으로 합친다
 //   광역 예보 -> 시도군 지도 : 그 광역 안 시군에 그대로 펼친다 (강원 영서/영동이 제대로 갈린다)
 const FCT_KINDS = {
-  dl: { label: '단기 · 육상', api: 'fctLand',    grain: 'city', style: 'sgg',  hint: '시군별 하늘·비/눈 · 05/11/17시' },
-  wl: { label: '중기 · 육상', api: 'fctMedLand', grain: 'wide', style: 'sgg',  hint: '광역별 3~10일 뒤 · 06/18시' },
+  dl: { label: '단기 · 육상', api: 'fctLand',    grain: 'city', style: 'sgg',  hint: '시군별 하늘·비/눈 · 05/11/17시 발표' },
+  wl: { label: '중기 · 육상', api: 'fctMedLand', grain: 'wide', style: 'sgg',  hint: '광역별 3~10일 뒤 · 06/18시 발표' },
   wc: { label: '중기 · 기온', api: 'fctMedTa',   grain: 'city', style: 'sgg',  hint: '시군별 최저·최고 기온' },
 };
 let fctKind = 'dl';

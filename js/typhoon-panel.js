@@ -44,7 +44,7 @@ function compareCardBodyHTML(c, i) {
     + `<label class="swtch"><span>범례</span><input type="checkbox" data-i="${i}" data-cmplegend="1" ${c.showLegend !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>표시 날짜범위</span><input type="checkbox" data-i="${i}" data-cmprange="1" ${c.rangeOn ? 'checked' : ''}></label>`
     + `<div class="row" data-rangebox="${i}" style="gap:5px;margin:2px 0${c.rangeOn ? '' : ';display:none'}"><input type="date" data-i="${i}" data-cmpfrom="1" min="${dMin}" max="${dMax}" value="${c.rangeFrom || dMin}" style="flex:1"><span style="opacity:.55">~</span><input type="date" data-i="${i}" data-cmpto="1" min="${dMin}" max="${dMax}" value="${c.rangeTo || dMax}" style="flex:1"></div>`
-    + `<div class="subhead" style="margin:7px 0 3px">수치 라벨 <span>· 체크한 시각</span></div>`
+    + `<div class="subhead" style="margin:7px 0 3px">수치 라벨 <span>· 체크하면 생성</span></div>`
     + `<div class="row" style="gap:6px;margin:3px 0"><label style="flex:0 0 auto;font-size:11px">글자 크기·색</label><input type="number" data-i="${i}" data-numsize="1" min="16" max="90" value="${c.numSize || 40}" style="flex:0 0 54px"><input type="color" data-i="${i}" data-numcol="1" value="${c.numCol || '#FFFFFF'}" style="flex:0 0 32px"></div>`
     + `<div class="list" style="max-height:200px;overflow:auto">` + ptRows + `</div>`
     + `<div class="subhead" style="margin:7px 0 3px">이름표 글꼴</div>`
