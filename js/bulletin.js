@@ -256,6 +256,24 @@ function bulTokens(regionStr, ctxProv) {
   return tokens;
 }
 
+// 줄 안의 날짜 꼬리표 지우기 — 칠하는 데는 필요 없고, 남겨 두면 지역 이름으로 잘못 읽힌다(통보문 원문 2025-11~2026-09 실측).
+//   '서해5도(25일)'·'경북동해안(10일까지)'·'(3일) 전남북부서해안'·'(경기북동내륙 23일 새벽까지)'·'(5월 1일)' → 괄호째 지움
+//     (안 지우면 '서해5도(25일)'이 경기 '서'쪽으로, '(3일)전남…'은 못 찾음으로 읽혔다)
+//   '(경남서부남해안 제외, 26일)' → '(경남서부남해안 제외)' — 제외·많은 곳 괄호는 날짜 조각만 뺀다(쉼표에서 잘려 제외가 깨졌다)
+//   '(해발고도 1,000m 이상)' → 지움(천 단위 쉼표가 지역 구분으로 잘린다)
+// 줄 맨 앞 '(권역, 날짜)'는 parseBulletin이 먼저 벗긴다. 두 번 해도 같다.
+const BUL_DAY_RE = /\d{1,2}\s*월?\s*\d{0,2}\s*일/;
+function bulCleanLine(s) {
+  const keep = (p) => /제외|많은\s*곳/.test(p);
+  return String(s).replace(/\(([^()]*)\)/g, (all, inner) => {
+    if (keep(inner)) {
+      const parts = inner.split(',').filter((p) => keep(p) || !BUL_DAY_RE.test(p));
+      return parts.length ? `(${parts.map((p) => p.trim()).join(', ')})` : '';
+    }
+    return BUL_DAY_RE.test(inner) || /해발\s*고도/.test(inner) ? '' : all;
+  }).replace(/\s+([:/,.])/g, '$1').replace(/([.,])\s*:/g, ':').replace(/\s{2,}/g, ' ').trim();
+}
+
 function parseBulletin(txt) {
   const groups = [];
   for (let line of String(txt).split(/\r?\n/)) {
@@ -263,6 +281,7 @@ function parseBulletin(txt) {
     line = line.trim().replace(/：/g, ':').replace(/^[–—−]/, '-');
     if (!/^[-‐·•∙]/.test(line)) continue;         // 강수량 줄은 - 로 시작
     line = line.replace(/^[-‐·•∙]\s*/, '').replace(/^\([^)]*\)\s*/, '');  // 앞의 (권역, 날짜) 제거
+    line = bulCleanLine(line);                      // 줄 안의 날짜 꼬리표('서해5도(25일)' 등) 제거
     let carry = '';                                 // '대구/경북: …'처럼 지역을 / 로 나눈 앞 조각(콜론 없음)은 다음 조각 지역에 붙인다
     for (let part of line.split('/')) {            // 한 줄에 값이 여러 개면 / 로 나뉜다
       // 숫자가 든 조각('/ 많은 곳 100mm 이상 /' 등)은 지역이 아니니 붙이지 않는다(붙이면 다음 지역이 '못 찾음'이 된다).

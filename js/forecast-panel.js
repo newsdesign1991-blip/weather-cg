@@ -179,6 +179,7 @@ function resetWorkRuntime() {
   buildFctList();
   { const fi = $('#fctInfo'); if (fi) fi.textContent = FCT_KINDS[fctKind].hint; }
   bulSpecs = []; renderBulList(); setBulInfo('', []);
+  bulResetPick(true);   // 통보문 '날짜' 고르기·결과 카드도 비우고 진행 중인 불러오기는 버린다(붙여넣기 칸 글은 그대로)
   syncStyleUse();
 }
 

@@ -372,12 +372,15 @@
     <div class="sec special" data-sec="fct">
       <h3>기상예보 자동 색칠</h3>
       <div class="body">
-        <!-- 통보문으로 색칠 (강수량 문자) — 맨 위로 -->
-        <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 강수량 붙여넣기</span></div>
+        <!-- 통보문으로 색칠 (강수량 문자) — 맨 위로. 불러오기·날짜 고르기·통째 붙여넣기는 js/bulletin-load.js -->
+        <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 예상 강수량</span></div>
         <div class="bulBox">
-          <p class="hint" style="margin-top:0"><b>통보문</b> 강수량 부분을 붙여넣으면 자동으로 칠해요.</p>
+          <div class="btns" style="margin:0"><button class="pri" id="bulLoad" style="flex:1" title="기상청 최신 단기예보 통보문의 예상 강수량을 날짜별로 가져와요">통보문 불러오기</button></div>
+          <div class="wrnRes" id="bulResult" role="status" aria-live="polite" hidden></div>
+          <div class="row" id="bulPickRow" style="display:none;margin:8px 0 0"><label>날짜</label><select id="bulPick" style="flex:1" title="가져올 날짜 — 고르면 아래 칸에 채워져요"></select></div>
+          <p class="hint" style="margin:10px 0 6px">직접 붙여넣어도 돼요 — 페이지 통째로도.</p>
           <div class="btns" style="margin:0 0 8px">
-            <a class="btn linkBtn pri" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지 열기 — 거기서 통보문을 복사하세요">단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
+            <a class="btn linkBtn" id="bulOpen" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지 열기 — 거기서 통보문을 복사하세요">단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
             <button type="button" id="bulHelpBtn" title="통보문에서 복사할 부분을 그림으로 보기">복사할 부분 보기</button>
           </div>
           <textarea id="bulPaste" rows="5" placeholder="- (수도권, 16일) 경기남서부: 5mm 안팎&#10;- (충청권) 대전.세종.충남, 충북: 20~60mm&#10;- (전라권) 전북, 광주.전남: 30~80mm&#10;..."></textarea>
@@ -1178,8 +1181,9 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/pointer-drag.js?v=34b47f2a"></script>
 <script src="js/warnings.js?v=fba4f760"></script>
 <script src="js/warnings-apply.js?v=6034c101"></script>
-<script src="js/bulletin.js?v=e95a54b7"></script>
-<script src="js/forecast-panel.js?v=80d231d0"></script>
+<script src="js/bulletin.js?v=34ebef75"></script>
+<script src="js/bulletin-load.js?v=966e79d7"></script>
+<script src="js/forecast-panel.js?v=97ff533f"></script>
 <script src="js/warnings-load.js?v=f130397b"></script>
 <script src="js/presets.js?v=a55f520a"></script>
 <script src="js/cg-setup.js?v=225ae355"></script>
@@ -1190,7 +1194,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/export-blobs.js?v=8a163fbc"></script>
 <script src="js/ae-export.js?v=a526f4bc"></script>
 <script src="js/project-io.js?v=2a59fd24"></script>
-<script src="js/wiring.js?v=9f9aaf56"></script>
+<script src="js/wiring.js?v=0f083b4c"></script>
 <script src="js/anim.js?v=c2a7515d"></script>
 <script src="js/timeline-ui.js?v=dcfd671a"></script>
 <script src="js/floating-panels.js?v=0ac75a13"></script>
