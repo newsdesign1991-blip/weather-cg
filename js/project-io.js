@@ -29,6 +29,7 @@ function importSettings() {
       ok: '가져오기', danger: true,
     });
     if (!ok) return;
+    fxBusy([fxSec('cfg'), '#importSettings'], true, { maxMs: 15000 });   // 작업 중 효과 — 새로고침까지(못 하면 15초 뒤 저절로 꺼짐)
     window.removeEventListener('beforeunload', saveWork);   // 새로고침 때 지금 작업이 가져온 작업을 덮어쓰지 않게
     let n = 0; for (const k of names) { try { localStorage.setItem(k, obj.keys[k]); n++; } catch (e) { /* 용량 초과 등 */ } }
     status(`설정 ${n}개를 가져왔습니다 — 새로고침합니다`, true);
@@ -81,7 +82,17 @@ async function saveBlobAs(blob, suggestedName, type) {
 
 // 프로젝트 저장. 처음(또는 다른 이름으로=saveAs)엔 위치를 고르고, 이후 Ctrl+S는 같은 파일에 덮어쓴다.
 let projFileHandle = null;
+// 작업 중·도착 효과(js/busy-fx.js) 대상 — 프로젝트 메뉴 섹션·제목줄 프로젝트(플로피) 버튼 + 누른 버튼
+const projFx = (btn) => [fxSec('proj'), '#titlebar [data-menu=proj]', btn];
 async function saveProject(saveAs) {
+  // 미리보기 그림 굽기·파일 쓰기 동안 흐름(Ctrl+S로 불러도 제목줄 플로피에 보인다). 실패·취소도 finally에서 끈다
+  const fx = projFx('#save'); let saved = false;
+  fxBusy(fx, true);
+  try { saved = await saveProjectRun(saveAs); }
+  finally { fxBusy(fx, false); if (saved) fxArrive(['#titlebar [data-menu=proj]', '#save']); }
+}
+// 반환: 저장했으면 true(취소면 false)
+async function saveProjectRun(saveAs) {
   const snap = JSON.parse(JSON.stringify(S));
   // 그림(PNG)에 작업 데이터를 심어 저장 — 탐색기 미리보기 + 다시 불러오기 둘 다 되는 한 파일.
   // 이름을 '날씨CG_날짜.wcg.png'로 해서 일반 사진 PNG와 헷갈리지 않게 한다(확장자는 .png라 썸네일은 그대로).
@@ -94,7 +105,7 @@ async function saveProject(saveAs) {
     blob = new Blob([JSON.stringify(snap, null, 1)], { type: 'application/json' });
     suggested = `날씨CG_${day}.json`; types = [{ description: '날씨 CG 프로젝트', accept: { 'application/json': ['.json'] } }];
   }
-  if (!window.showSaveFilePicker) { download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)'); return; }
+  if (!window.showSaveFilePicker) { download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)'); return true; }
   try {
     if (saveAs || !projFileHandle) {
       projFileHandle = await window.showSaveFilePicker({ suggestedName: (projFileHandle && projFileHandle.name) || suggested, types });
@@ -102,10 +113,12 @@ async function saveProject(saveAs) {
     const w = await projFileHandle.createWritable(); await w.write(blob); await w.close();
     addRecent(projFileHandle.name, projFileHandle, snap);   // 최근 파일에 기록
     status('저장됨: ' + projFileHandle.name);
+    return true;
   } catch (e) {
-    if (e.name === 'AbortError') return;   // 사용자가 취소
+    if (e.name === 'AbortError') return false;   // 사용자가 취소
     projFileHandle = null;                 // file:// 등 피커 미지원 → 다운로드 폴더로
     download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)');
+    return true;
   }
 }
 
@@ -164,7 +177,12 @@ async function bakeDefaults() {
   const by = await askSaverName('굽는 사람 (저장자)'); if (by == null) return;
   presets.__meta__ = { by, ts: Date.now() };   // 저장자·버전 — 슬롯에 꽂으면 팝업에 표시된다
   const js = '// 모두의 기본 배치 (fresh install 때 이 배치로 열린다). 앱의 굽기 버튼으로 다시 만들 수 있다.\nwindow.WCG_DEFAULTS = ' + JSON.stringify(presets) + ';\n';
-  const name = await saveBlobAs(new Blob([js], { type: 'application/javascript' }), 'default-presets.js', { description: '모두의 기본 배치', accept: { 'application/javascript': ['.js'] } });
+  const fx = [fxSec('cfg'), '#bakeDefaults'];   // 작업 중 효과(js/busy-fx.js) — 파일로 쓰는 동안. 실패해도 finally에서 끈다
+  fxBusy(fx, true);
+  let name = null;
+  try { name = await saveBlobAs(new Blob([js], { type: 'application/javascript' }), 'default-presets.js', { description: '모두의 기본 배치', accept: { 'application/javascript': ['.js'] } }); }
+  finally { fxBusy(fx, false); }
+  if (name) fxArrive('#bakeDefaults');
   if (name) status(`기본값 구움: ${name} (${keys.length}개 배치${by ? ', 저장자 ' + by : ''}) — WeatherCG 폴더의 default-presets.js 를 이 파일로 교체하세요`);
 }
 
@@ -220,6 +238,8 @@ async function buildRecentList() {
   }
 }
 async function openRecent(rec) {
+  const fx = projFx(null); let opened = false;   // 작업 중 효과 — 권한 확인·파일 읽기·그리기 동안
+  fxBusy(fx, true);
   try {
     let data = rec.data, fromSnap = false;
     if (rec.handle && rec.handle.queryPermission) {
@@ -236,7 +256,9 @@ async function openRecent(rec) {
     await addRecent(rec.name, rec.handle || null, data);   // 방금 연 걸 맨 위로(스냅샷으로 열어도 핸들은 남긴다 — 네트워크 드라이브가 잠깐 끊긴 경우 다음엔 원본을 다시 시도)
     $('#recentList').classList.remove('on');
     status(fromSnap && rec.handle ? '원본 파일을 못 찾아 마지막 저장 스냅샷으로 열었습니다: ' + rec.name : '열림: ' + rec.name, fromSnap && !!rec.handle);
+    opened = true;
   } catch (e) { status('열기 실패: ' + rec.name + ' — 파일이 옮겨졌거나 지워졌을 수 있어요', true); }
+  finally { fxBusy(fx, false); if (opened) fxArrive('#titlebar [data-menu=proj]'); }
 }
 // 프로젝트 데이터를 화면에 적용 (불러오기·최근파일 공용)
 // 작업 파일 최소 검사 — 아무 JSON이나 열려 현재 작업이 빈 기본값으로 바뀌거나 렌더 예외로 멈추지 않게
@@ -286,23 +308,33 @@ async function openProject() {
   if (window.showOpenFilePicker) {
     try {
       const [h] = await window.showOpenFilePicker({ types: [{ description: '날씨 CG 프로젝트', accept: { 'image/png': ['.png'], 'application/json': ['.json'] } }] });
-      const file = await h.getFile();
-      const { data, png } = await readProjectFile(file);
-      loadProjectData(data, png ? h : null);            // PNG 핸들만 이후 Ctrl+S 덮어쓰기에 쓴다
-      addRecent(h.name, png ? h : null, data);
-      status('불러옴: ' + h.name);
+      // 작업 중 효과(js/busy-fx.js) — 파일을 고른 뒤 읽고 그리는 동안. 실패해도 finally에서 끄고, 아래 catch가 알린다
+      const fx = projFx('#load');
+      fxBusy(fx, true);
+      try {
+        const file = await h.getFile();
+        const { data, png } = await readProjectFile(file);
+        loadProjectData(data, png ? h : null);            // PNG 핸들만 이후 Ctrl+S 덮어쓰기에 쓴다
+        addRecent(h.name, png ? h : null, data);
+        status('불러옴: ' + h.name);
+      } finally { fxBusy(fx, false); }
+      fxArrive('#titlebar [data-menu=proj]');
       return;
     } catch (e) { if (e.name === 'AbortError') return; if (e && e.message) { alert('불러오기 실패: ' + e.message); return; } }
   }
   const i = document.createElement('input');
   i.type = 'file'; i.accept = '.png,.json';
   i.onchange = async () => {
+    const fx = projFx('#load'); let opened = false;
+    fxBusy(fx, true);
     try {
       const { data } = await readProjectFile(i.files[0]);
       loadProjectData(data, null);
       addRecent(i.files[0].name, null, data);
       status('불러옴');
+      opened = true;
     } catch (err) { alert('불러오기 실패: ' + err.message); }
+    finally { fxBusy(fx, false); if (opened) fxArrive('#titlebar [data-menu=proj]'); }
   };
   i.click();
 }

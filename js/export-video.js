@@ -67,6 +67,8 @@ async function bakeMp4() {
   const out = await prepareOutput(dateTag(), ext, mime, `${vlabel} 영상`);
   if (!out) return;
   const btn = $('#tlBake'); if (btn) btn.disabled = true;
+  // 작업 중 효과(js/busy-fx.js) — 누른 버튼 + 제목줄 '영상으로 추출'(진행 막대). 가리개(#exportMask)의 흐름은 CSS. 실패해도 finally에서 끈다
+  const fx = [btn, '#tlToggle']; let saved = false;
 
   const samples = []; let avcc = null, encErr = null;
   const encoder = new VideoEncoder({
@@ -83,6 +85,7 @@ async function bakeMp4() {
   const cx = c.getContext('2d', { alpha: false });
   const t0 = performance.now();
   _exportingFrames = true; showExportMask(true);
+  fxBusy(fx, true);   // try 바로 앞 — 끄는 finally와 짝이 어긋나지 않게
   try {
     for (let i = 0; i < n; i++) {
       if (encErr) throw encErr;
@@ -103,12 +106,14 @@ async function bakeMp4() {
     const secs = (n * frameDur / timescale).toFixed(2), real = ((performance.now() - t0) / 1000).toFixed(1);
     $('#tlInfo').textContent = `${vlabel} 저장됨: ${name} · ${n}프레임 = ${secs}초 (굽는데 ${real}초)`;
     status(`${vlabel} 저장 완료 · ${name} · 정확히 ${secs}초`);
-    flashDone('영상 저장 완료');
+    flashDone('영상 저장 완료'); saved = true;
   } catch (e) {
     status(`${vlabel} 저장 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${vlabel} 저장 실패`;
   } finally {
+    fxBusy(fx, false);
     if (btn) btn.disabled = false;
     animOff();
+    if (saved) fxArrive(['#tlToggle', btn, $('#tlInfo')]);   // 도착 — 버튼에 한 번 빛 + 저장 안내 줄이 떠오름
   }
 }
 
@@ -131,6 +136,8 @@ async function exportPngSeq() {
   _exportingFrames = true; showExportMask(true);
   const btn = $('#tlExportPng');
   btn.disabled = true;
+  const fx = [btn, '#tlToggle']; let saved = false;   // 작업 중 효과(js/busy-fx.js) — bakeMp4와 같게
+  fxBusy(fx, true);
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha: vf });   // VF만 투명 배경
@@ -147,12 +154,14 @@ async function exportPngSeq() {
     await out.write(zip); const where = out.name;
     $('#tlInfo').textContent = `${n + 1}장을 ${where} 에 저장 — 압축 풀어 ${A.fps}fps로 합치세요`;
     status(`PNG ${n + 1}장 저장 완료 → ${where}`);
-    flashDone('PNG 시퀀스 저장 완료');
+    flashDone('PNG 시퀀스 저장 완료'); saved = true;
   } catch (e) {
     status('PNG 저장 실패: ' + (e.message || e), true); $('#tlInfo').textContent = 'PNG 저장 실패';
   } finally {
+    fxBusy(fx, false);
     btn.disabled = false;
     animOff();
+    if (saved) fxArrive(['#tlToggle', btn, $('#tlInfo')]);
   }
 }
 
@@ -331,6 +340,8 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   const mv = alpha ? $('#wnsMov') : $('#wnsMxf');
   animStop();
   if (mv) mv.disabled = true;
+  const fx = [mv, '#tlToggle']; let saved = false;   // 작업 중 효과(js/busy-fx.js) — bakeMp4와 같게
+  fxBusy(fx, true);
   _exportingFrames = true; showExportMask(true);
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha });
@@ -400,11 +411,13 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     const buf = await fr.arrayBuffer();   // 인코딩된 파일 바이트
     await out.write(buf); const where = out.name;
     $('#tlInfo').textContent = `${label} 저장됨: ${where} · ${n}프레임 @29.97fps`; status(`${label} 저장 완료 → ${where}` + (fpsDiff ? ' (29.97fps로 변환됨)' : ''));
-    flashDone(`${label} 렌더 완료`);
+    flashDone(`${label} 렌더 완료`); saved = true;
   } catch (e) {
     status(`${label} 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${label} 실패`;
   } finally {
+    fxBusy(fx, false);
     if (mv) mv.disabled = false;
     animOff();
+    if (saved) fxArrive(['#tlToggle', mv, $('#tlInfo')]);
   }
 }

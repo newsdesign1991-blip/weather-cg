@@ -23,6 +23,8 @@ function applyFct(txt) {
   paintFct();
   syncStyleUse();
   status(`${rows.length}줄 읽음 — 발표시각과 예보 시점을 고르세요`);
+  // 도착 효과(js/busy-fx.js) — 섹션 머리에 한 번 빛 + 발표·예보 시점 칸과 들어온 예보 줄이 위에서부터 떠오른다(읽기는 바로 끝나 작업 중 효과는 없음)
+  fxArrive([fxSec('fct'), $('#fctPickRow'), $('#fctEfRow'), ...fxRows($('#fctList'))]);
 }
 
 // 발표시각 / 예보시점 고르는 칸을 데이터에서 만든다

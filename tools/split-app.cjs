@@ -1,6 +1,6 @@
 // tools/split-app.cjs — 한 파일 index.html → js/*.js + css/*.css + 얇은 index.html (코드 무변경 기계 분할)
 //
-// 2026-10-08 분할(기준 커밋 a6d0794)을 만든 도구다. 기준표(MAP)는 지금 구조(경계 조정 반영)를 적어 둔다.
+// 2026-10-08 분할(기준 커밋 a6d0794)을 만든 도구다. 기준표(MAP)는 지금 구조(경계 조정·뒤에 더한 busy-fx 한 쌍 반영)를 적어 둔다.
 // 이미 나뉜 저장소의 index.html에 그대로 돌리면 '이미 분할된 index.html'로 멈춘다 — 재분할은 --src(한 파일)·--like로(MODULES.md 11·12장).
 //
 //   node tools/split-app.cjs --check                  검사·보고만(아무것도 안 씀)
@@ -67,6 +67,7 @@ const MAP = {
     { file: 'presets.js', start: '// ===================== 해상도별 배치 프리셋', desc: '해상도별 배치 프리셋 + 작업 자동 저장(saveWork/loadWork), 배포 기본값 갱신, applyPreset' },
     { file: 'cg-setup.js', start: '// ===================== 추출 =====================', desc: '해상도(RES)·CG 구성 창, 상태 표시(status·flash), 출력 폴더(IndexedDB·prepareOutput)' },
     { file: 'modals-notices.js', start: 'function popAnimClose(ov, done) {', desc: '팝업 공통(닫힘 애니메이션·포커스 — popAnimClose·popFocusIn), 토스 카드 모달(tossModal), 공지사항(시드·작성·삭제·부팅 확인), 내보내기 진행 마스크, 확인/입력 모달(tossConfirm·tossPrompt)' },
+    { file: 'busy-fx.js', start: '// ===================== 작업 중·도착 효과', desc: '작업 중·도착 효과(fxBusy·fxRun·fxArrive·fxProgress): 흐르는 그라디언트, 버튼 진행 표시, 빛 훑는 자리표시 막대, 도착 떠오름' },
     { file: 'preset-slots.js', start: '// ===================== 배치 지정하기', desc: '배치 지정하기(완전 기본/개인 슬롯, 구운 배치 파일)' },
     { file: 'export-image.js', start: 'let _suiteFontCss = null;', desc: '이미지 추출 공통: 출력 글꼴 임베드, 카메라 레이어·가장자리, 텍스트 오버레이, svgToImage, 3D 틸트 워프, drawExportFrame' },
     { file: 'export-video.js', start: '// ===== 정확 MP4 (베이킹)', desc: '정확 MP4(베이킹)·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더(wnsRender)' },
@@ -90,8 +91,9 @@ const MAP = {
     { file: 'menus-windows.css', start: '.menuDrop > .sec { border: none; }', desc: '제목줄 메뉴 드롭다운 안 섹션·설정(렌치) 메뉴·기능 확장팩 줄, 떼어낸 창(탭·크기 조절·도킹 미리보기·붙을 자리)' },
     { file: 'timeline.css', start: '/* ===== 타임라인 (하단) ===== */', desc: '타임라인, 추출 진행 바, 영상 추출 집중 모드, 카메라 키 편집·팝오버' },
     { file: 'dialogs.css', start: '/* 인증키가 없을 때만 뜨는 안내', desc: '인증키 안내, 특보 불러오기 결과 카드·빈 상태 카드, 알림 색 점, API 설정 창, 확인 모달, 배치 지정하기 모달·플로피' },
-    { file: 'panel-misc.css', start: '/* ===== 통보문 색칠 박스', desc: '통보문·예보 API 박스, 링크 버튼, 칠한 색 목록·경고 배너, 최근 파일, 이미지 안내 팝업, 마우스 배지, 안내/완료 토스트·체크 모션, 브러쉬 영역 강조' },
+    { file: 'panel-misc.css', start: '/* ===== 통보문 색칠 박스', desc: '통보문·예보 API 박스(예보 API 묶음 접기), 링크 버튼, 칠한 색 목록·경고 배너, 최근 파일, 이미지 안내 팝업, 마우스 배지, 안내/완료 토스트·체크 모션, 브러쉬 영역 강조' },
     { file: 'toss-modal.css', start: '/* ===== 토스 카드 모달 (공지·안내 공통)', desc: '토스 카드 모달, 공지 목록·작성, 접이식 묶음, 렌더 가리개, 참고 이미지 드롭, 토글 스위치, 지도 배경 버튼, 브러쉬 원·산 히트·가이드(포인터 통과)' },
+    { file: 'busy-fx.css', start: '/* ===== 작업 중·도착 효과', desc: '작업 중·도착 효과(js/busy-fx.js): 흐르는 그라디언트·버튼 진행·제목줄 버튼 흐름·진행 막대·빛 훑는 자리표시 막대·도착 빛, 렌더 가리개 흐름, 움직임 줄이기' },
   ],
   cssUrlRebase: 9,   // @font-face 글꼴 url() 개수(Pretendard 2 + SUITE 7). 달라지면 멈춘다.
 };

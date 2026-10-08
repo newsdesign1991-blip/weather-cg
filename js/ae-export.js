@@ -298,6 +298,9 @@ async function sendToAE() {
   const hasBrush = (typeof brushStrokes === 'function') && brushStrokes().some((s) => !s.erase);   // 브러쉬로만 칠한 경우도 AE 허용(존 클릭 색이 없어도)
   if (!isTyphoon() && !Object.keys(F).length && !warningDefs.length && !hasBrush) { status(wrnNoneLeftMapEmpty() ? wrnNoneEmptyText('보내세요') : '칠한 색이 없습니다 — 먼저 색칠하세요', true); return; }
   const btn = $('#aeSend'); if (btn) btn.disabled = true;
+  // 작업 중 효과(js/busy-fx.js) — 제목줄 'AE로 보내기'에 색 띠 흐름 + 전송 진행 막대(exportProgress → fxProgress).
+  // 성공하면 'AE 여는 중…'(재전송 잠금 9초) 동안도 흐름을 두고, 잠금이 풀릴 때 끄고 도착 빛. 실패·취소는 finally에서 바로 끈다.
+  fxBusy(btn, true, { disable: false });
   let cooldown = false;
   try {
     const [W, H] = RES[S.res].size;
@@ -500,12 +503,15 @@ async function sendToAE() {
     if (btn) {
       const lblEl = btn.querySelector('.tbLbl') || btn;
       const lbl = lblEl.textContent; lblEl.textContent = 'AE 여는 중…';
-      setTimeout(() => { btn.disabled = false; lblEl.textContent = lbl; }, 9000);
+      setTimeout(() => { btn.disabled = false; lblEl.textContent = lbl; fxBusy(btn, false); fxArrive(btn); }, 9000);
     }
   } catch (e) {
     status('AE 보내기 실패: ' + (e.message || e), true);
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE 보내기 실패'; }
-  } finally { if (btn && !cooldown) btn.disabled = false; }
+  } finally {
+    if (btn && !cooldown) btn.disabled = false;
+    if (!cooldown || !btn) fxBusy(btn, false);
+  }
 }
 
 // 폴더를 물어보고 그 안에 이미지를 만든다. 폴더 선택을 못 쓰는 브라우저는 한 장씩 내려받는다.
@@ -515,6 +521,9 @@ async function doExport() {
   const [W, H] = RES[S.res].size;
   const btn = $('#doExport');
   btn.disabled = true;
+  // 작업 중 효과(js/busy-fx.js) — 저장 위치를 고른 뒤 굽는 동안: 추출 메뉴 섹션·뽑기 버튼·제목줄 '이미지로 추출'. 실패해도 finally에서 끈다
+  const fx = [fxSec('out'), btn, '#titlebar [data-menu=out]'];
+  let fxOn = false, saved = false;
   try {
     // 저장 대상을 '굽기 전에' 준비 — 폴더 권한 요청·저장창은 클릭 직후(사용자 활성화 안)에만 뜬다. 굽기가 길면 활성화가 끝나 다운로드로 새던 문제.
     // 폴더 선택기(directory picker)는 file://·다운로드·바탕화면 같은 '시스템 폴더'를 막는다.
@@ -525,6 +534,7 @@ async function doExport() {
     const single = total === 1;
     const out = single ? await prepareOutput(dateTag(), 'png', 'image/png', '이미지(PNG)') : await prepareOutput(dateTag(), 'zip', 'application/zip', '이미지 묶음(zip)');
     if (!out) { status('저장을 취소했습니다'); return; }
+    fxBusy(fx, true); fxOn = true;
     status('굽는 중…', true);
     const files = [];
     for (const k of keys) for (const f of await exportBlobs(k)) files.push({ name: `${f.name}.png`, blob: f.blob });
@@ -532,18 +542,20 @@ async function doExport() {
 
     if (single && files.length === 1) {
       await out.write(await files[0].blob.arrayBuffer());
-      $('#exInfo').textContent = `${out.name} 저장됨`; status('저장됨: ' + out.name); flashDone('이미지 저장 완료');
+      $('#exInfo').textContent = `${out.name} 저장됨`; status('저장됨: ' + out.name); flashDone('이미지 저장 완료'); saved = true;
     } else {
       const zf = [];
       for (const f of files) zf.push({ name: f.name, data: await blobBytes(f.blob) });
       await out.write(zipStore(zf));
       $('#exInfo').textContent = `${files.length}장을 ${out.name} 로 저장 (압축 풀어서 사용)`;
-      status(`${files.length}장 저장됨 · ${out.name}`); flashDone('이미지 저장 완료');
+      status(`${files.length}장 저장됨 · ${out.name}`); flashDone('이미지 저장 완료'); saved = true;
     }
   } catch (err) {
     status('추출 실패: ' + err.message, true);
   } finally {
     btn.disabled = false;
+    if (fxOn) fxBusy(fx, false);
+    if (saved) fxArrive(['#titlebar [data-menu=out]', btn, $('#exInfo')]);   // 도착 — 버튼에 한 번 빛 + 저장 안내 줄이 떠오름
   }
 }
 

@@ -37,10 +37,10 @@ const TEXT_FORWARD_OK = ['js/wiring.js refreshToolGroup'];
 const JS_ORDER = ['js/core.js', 'js/brush.js', 'js/brush-ui.js', 'js/map-build.js', 'js/map-render.js', 'js/vf-legend.js', 'js/labels-mountains.js',
   'js/typhoon-core.js', 'js/typhoon-render.js', 'js/typhoon-panel.js', 'js/typhoon-api.js', 'js/panels.js', 'js/view-camera.js', 'js/pointer-drag.js',
   'js/warnings.js', 'js/warnings-apply.js', 'js/bulletin.js', 'js/forecast-panel.js', 'js/warnings-load.js', 'js/presets.js', 'js/cg-setup.js',
-  'js/modals-notices.js', 'js/preset-slots.js', 'js/export-image.js', 'js/export-video.js', 'js/export-blobs.js', 'js/ae-export.js', 'js/project-io.js',
+  'js/modals-notices.js', 'js/busy-fx.js', 'js/preset-slots.js', 'js/export-image.js', 'js/export-video.js', 'js/export-blobs.js', 'js/ae-export.js', 'js/project-io.js',
   'js/wiring.js', 'js/anim.js', 'js/timeline-ui.js', 'js/floating-panels.js', 'js/tour.js', 'js/boot.js'];
 const CSS_ORDER = ['css/base.css', 'css/sidebar.css', 'css/stage.css', 'css/titlebar.css', 'css/start-tour.css', 'css/cg-setup.css', 'css/menus-windows.css',
-  'css/timeline.css', 'css/dialogs.css', 'css/panel-misc.css', 'css/toss-modal.css'];
+  'css/timeline.css', 'css/dialogs.css', 'css/panel-misc.css', 'css/toss-modal.css', 'css/busy-fx.css'];
 // 로드 때 실행되는 최상위 리스너 등록(문서 순서, '파일 대상 이벤트 [옵션]') — 같은 대상·이벤트는 등록 순서 = 실행 순서(규칙 7:
 // typhoon-panel 캡처 → view-camera → pointer-drag). 지금 등록 목록은 이것을 부분수열로 가져야 한다 — 새 등록을 끼워 넣는 것은 되고,
 // 기존 등록을 다른 파일로 옮기거나 순서를 바꾸면 실패한다. 등록을 정말 없앨 때만 여기서 지운다.
