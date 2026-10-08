@@ -245,9 +245,10 @@ test('화면 흐름 — 붙여넣기 가로채기 조건, 정상 없음이면 �
   ].join('\n');
   const c = ctx();
   const run = (pre) => {
-    const k = { ...c, shown: [], els: {} };
+    const k = { ...c, shown: [], els: {}, arrived: [] };
     vm.createContext(k);
     vm.runInContext(`let bulFetchSeq = 0, bulWaitWnd = false, bulFilled = '', bulWndLast = '', bulPickList = [];
+      const bulArriveFx = (filled) => { arrived.push(filled); };   // 도착 효과(js/busy-fx.js) 흉내 — 무엇이 채워졌다고 알렸는지 기록
       const $ = (s) => els[s]; const showBulResult = (r) => { shown.push(r); bulWaitWnd = !!(r && r.kind === 'busy' && r.src === 'wnd'); };
       const bulResetPick = () => { bulPickList = []; };
       function bulFillPick(groups) { bulPickList = bulPickItems(groups); bulFilled = $('#bulPaste').value = bulGroupText(bulPickList[0].groups); return bulPickList[0]; }
@@ -270,6 +271,8 @@ test('화면 흐름 — 붙여넣기 가로채기 조건, 정상 없음이면 �
   assert.equal(paste(k, '2026년 10월 08일 (목)요일 11:00 발표\n- (제주도) 제주도: 5~10mm'), false);
   assert.equal(paste(k, FX.text.pdf_202610071700), true);   // 강수량 없는 통보문 한 판 → '없음' 카드
   assert.equal(k.shown.at(-1).kind, 'none');
+  // 도착 효과 — 가로챈 붙여넣기만(묶음을 채움 = true, 정상 없음 = false(카드만)). 그대로 붙인 글은 효과 없음
+  assert.deepEqual([...k.arrived], [true, true, false]);
   // 정상 없음: 칸이 지난번에 채운 글 그대로면 비우고 카드에 알린다, 손댄 글은 그대로
   k = run();
   k.api.bulShowPage(c.bulReadPage(FX.html.now_108_202610081100, 'html'), 'fetch');
@@ -301,6 +304,12 @@ test('화면 흐름 — 붙여넣기 가로채기 조건, 정상 없음이면 �
   k.els['#bulPaste'].value = '고친 글';
   k.api.bulFromWnuri({ ...d, first: false });
   assert.notEqual(k.els['#bulPaste'].value, '고친 글');
+  // 도착 효과 — 읽어 반영한 때만(같은 글 다시 읽기·창 닫힘·창 오류·단기예보 아닌 화면은 없음)
+  assert.deepEqual([...k.arrived], [true, true, true]);
+  k.api.wait = true; k.api.bulFromWnuri({ err: '연결 끊김' });
+  k.api.wait = true; k.api.bulFromWnuri({ text: '  ', first: true });
+  assert.deepEqual(k.shown.slice(-2).map((r) => r.kind), ['net', 'format']);
+  assert.equal(k.arrived.length, 3);
 });
 
 test('헬퍼 실패 판정 — 이 경로는 인증키를 안 써서 401·403·429는 "사이트가 막음"', () => {

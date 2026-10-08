@@ -117,6 +117,29 @@ test('버튼을 비활성으로 바꾸며 빠진 포커스를 끝날 때 돌려�
   assert.equal(doc.activeElement, other, '사용자가 옮긴 포커스를 빼앗음');
 });
 
+test('섹션 머리(h3 — 뒤에서 도는 확인): 머리 띠(.fx-head)만 — 흐름 판·비활성·자리표시 없이, 끄면 .5초 사라짐 뒤 치운다', () => {
+  const { ctx, mk, reg, flush } = world();
+  const h3 = mk('h3');
+  const sec = reg('.sec[data-sec="typhoon"]', mk('div', { cls: ['sec'] }));
+  sec.querySelector = (q) => (q === ':scope > h3' ? h3 : null);
+  assert.equal(ctx.fxHead('typhoon'), h3);
+  assert.equal(ctx.fxHead('없음'), null);
+  const job = [ctx.fxHead('typhoon')];
+  ctx.fxBusy(job, true, { lines: 3, maxMs: 120000 });
+  assert.ok(on(h3) && has(h3, 'fx-head') && !has(h3, 'fx-glow'), '머리 띠가 아님');
+  assert.ok(!h3.next && !has(h3, 'fx-ph-hide') && h3.disabled === false, '머리에 자리표시·비활성');
+  assert.ok(!on(sec), '섹션 전체가 흐름');
+  ctx.fxBusy(job, false);
+  assert.ok(!on(h3) && has(h3, 'fx-out') && has(h3, 'fx-head'));
+  flush();
+  assert.ok(!has(h3, 'fx-out') && !has(h3, 'fx-head'));
+  // 섹션 흐름과 머리 띠는 따로 센다 — 불러오기(섹션)가 끝나 꺼져도 뒤에서 도는 확인(머리)은 그대로
+  const load = [sec], bg = [h3];
+  ctx.fxBusy(load, true); ctx.fxBusy(bg, true); ctx.fxBusy(load, false);
+  assert.ok(!on(sec) && on(h3));
+  ctx.fxBusy(bg, false); assert.ok(!on(h3));
+});
+
 test('결과 목록 자리: 상자 바로 뒤에 빛 훑는 막대(폭 92/68/84…%), 옛 내용 숨김 — 끄면 치운다', () => {
   const { ctx, mk } = world();
   const list = mk('div');
@@ -258,6 +281,7 @@ function bodyOf(name) {
 test('연결 — 불러오기·추출·저장 함수가 켠 작업 중 효과를 finally에서 끈다', () => {
   const cases = {
     fetchWrn: 'fx', doExport: 'fx', bakeMp4: 'fx', exportPngSeq: 'fx', wnsRender: 'fx', saveProject: 'fx', openRecent: 'fx', bakeDefaults: 'fx',
+    fetchTyphoon: 'fx', fetchTyphoonPast: 'fx', fetchJma: 'fx', attachEdgeTD: 'fx', fetchBulletin: 'fx',
   };
   for (const [fn, v] of Object.entries(cases)) {
     const b = bodyOf(fn);
@@ -272,4 +296,31 @@ test('연결 — 불러오기·추출·저장 함수가 켠 작업 중 효과를
   assert.ok(/fxProgress\(\['#tlToggle', '#aeSend'\], /.test(bodyOf('exportProgress')));
   // 예보 읽기는 바로 끝나므로 도착 효과만
   assert.ok(/fxArrive\(/.test(bodyOf('applyFct')));
+
+  // 태풍 — 그렸을 때만 도착 효과(실패·태풍 없음·헬퍼 꺼짐은 finally에서 끄기만), 끈 뒤에 도착
+  for (const [fn, v] of [['fetchTyphoon', 'okTyp'], ['fetchTyphoonPast', 'ok'], ['fetchJma', 'ok']]) {
+    const fin = bodyOf(fn).slice(bodyOf(fn).lastIndexOf('finally'));
+    assert.ok(new RegExp(`fxBusy\\(fx, false\\); if \\(${v}\\) typArriveFx\\(\\);`).test(fin), `${fn}: 성공일 때만, 끈 뒤에 도착 효과`);
+  }
+  assert.ok(/let ok = false;/.test(bodyOf('fetchJma')) && /ok = true;\s*\} catch/.test(bodyOf('fetchJma')), 'JMA: 그린 뒤에만 성공');
+  // 발생·소멸 TD — 불러오기 뒤 자동 확인은 섹션 머리에만(fxHead — 섹션 흐름·버튼 잠금 없이), 버튼은 섹션 + 버튼, 붙였을 때만 도착
+  const edge = bodyOf('attachEdgeTD');
+  assert.ok(/const fx = auto \? \[fxHead\(secName\)\] : \[fxSec\(secName\), btn\];/.test(edge));
+  assert.ok(/joined = true;\s*\} catch/.test(edge) && /if \(joined\) fxArrive\(/.test(edge.slice(edge.lastIndexOf('finally'))));
+  // 붙여넣기·파일 끌어놓기(바로 끝남)는 그렸을 때만 도착 효과
+  assert.equal((html.match(/pushUndo\(\); if \(applyTyphoonText\((?:t\.value|txt)\)\) typArriveFx\(\);/g) || []).length, 3, '태풍 붙여넣기 2곳 + 끌어놓기 1곳');
+  assert.ok(!/pushUndo\(\); applyTyphoonText\(/.test(html), '도착 효과 없이 그리는 붙여넣기가 남음');
+
+  // 통보문 — 불러오기·창 기다림 효과는 '불러오는 중' 카드와 함께 산다(카드가 바뀌면 showBulResult가 먼저 끈다)
+  assert.ok(/function showBulResult\(r, quiet\) \{\n\s*bulFxOff\(\);/.test(bodyOf('showBulResult')), 'showBulResult 첫 줄에서 앞 효과 끄기');
+  const fb = bodyOf('fetchBulletin');
+  assert.ok(fb.indexOf("showBulResult({ kind: 'busy', src: 'fetch' })") < fb.indexOf('fxBusy(fx, true'), '카드를 띄운 뒤 켠다(카드가 끄지 않게)');
+  assert.ok(/const fx = bulLoadFx = \[/.test(fb) && /if \(got\) bulArriveFx\(/.test(fb.slice(fb.lastIndexOf('finally'))));
+  const op = bodyOf('bulOpenPage');
+  assert.ok(op.indexOf("showBulResult({ kind: 'busy', src: 'wnd' })") < op.indexOf('fxBusy(fx, true') && /const fx = bulLoadFx = \[/.test(op) && /maxMs: \d+/.test(op), '창 기다림: 카드 뒤에 켜고 안전 해제');
+  assert.ok(/if \(bulShowPage\(page, 'wnd'\)\) bulArriveFx\(/.test(bodyOf('bulFromWnuri')));
+  assert.ok(/if \(bulShowPage\(page, 'paste'\)\) bulArriveFx\(/.test(bodyOf('bulOnPaste')));
+  // 통보문으로 색칠은 바로 끝나므로 도착 효과만 — 실패 return 뒤 맨 끝에
+  const ab = bodyOf('applyBulletin');
+  assert.ok(/fxArrive\(\[fxSec\('fct'\), '#bulApply', \$\('#bulInfo'\), \.\.\.fxRows\(\$\('#bulList'\)\)\]\);\s*\}\s*$/.test(ab));
 });

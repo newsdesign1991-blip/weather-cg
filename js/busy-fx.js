@@ -7,6 +7,7 @@
 // RevealLines(결과가 위에서부터 차례로 떠오름)를 웹으로 옮겼다. 모양·움직임 값은 css/busy-fx.css.
 //  - fxBusy(대상, 켜기, opts): 대상 = 요소·선택자 글자·배열·NodeList(섞어도 됨, null 은 건너뜀). 요소 종류마다 효과가 다르다:
 //      섹션(.sec)·그 밖 상자 → 흐르는 그라디언트(.fx-glow) / 제목줄 버튼 → 색 띠가 흐름(.fx-tb) / 그 밖 버튼 → 작은 흐름 + 비활성(.fx-btn)
+//      섹션 머리(h3 — fxHead) → 머리에만 옅은 띠가 천천히 훑음(.fx-head — 뒤에서 도는 확인용. 비활성·자리표시 없이 사용자를 막지 않는다)
 //      opts.lines 를 준 상자(결과 목록 자리) → 바로 뒤에 빛 훑는 회색 막대 자리표시(.fx-ph), 옛 내용은 끝날 때까지 숨김
 //    같은 요소를 여러 작업이 켜면 센다 — 마지막 작업이 끝나야 꺼진다(겹친 불러오기). 켜지 않은 요소를 끄면 아무 일도 안 한다.
 //    대상은 변수에 담아 켤 때·끌 때 '같은 배열'을 넘긴다(const fx = […]; fxBusy(fx, true) … finally fxBusy(fx, false)) — 그 배열이 곧
@@ -20,13 +21,16 @@
 //    (투명→불투명 .34초 + 아래 14px→제자리 .42초, 3차 감속). 떠오름은 요소의 transform 을 건드리지 않게 translate 속성으로 한다.
 //  - fxProgress(대상, 0~1): 제목줄 버튼 아래 얇은 진행 막대 — 대상 중 '일하는 중'(켜진) 요소에만 붙는다(대상이 없으면 켜진 제목줄 버튼 전부).
 //    값이 null 이면 막대를 치운다. 렌더 진행률(exportProgress)은 렌더·AE 버튼만 대상으로 준다 — 함께 도는 저장(플로피)에 막대가 섞이지 않게.
-//  - fxSec(이름): 그 섹션 요소(사이드바·떼어낸 창·제목줄 드롭다운 어디에 있든). fxRows(상자): 상자의 자식 요소들(도착 효과용).
+//  - fxSec(이름): 그 섹션 요소(사이드바·떼어낸 창·제목줄 드롭다운 어디에 있든). fxHead(이름): 그 섹션의 머리(h3).
+//    fxRows(상자): 상자의 자식 요소들(도착 효과용).
 //  - fxClear(대상): 센 횟수와 상관없이 바로 끈다(작업을 통째로 버릴 때).
 // 움직임 줄이기 설정이면 흐름·훑기·떠오름 대신 은은한 색·짧은 페이드만 쓴다(CSS @media + fxReduced).
 // 움직임은 transform·opacity 만 바꾼다(레이아웃 없음 — 합성기에서 돌아 렌더 중 메인 스레드를 쓰지 않는다). 끄면 가상 요소째 사라져 애니메이션도 멈춘다.
 // 연결된 곳: 특보 불러오기(fetchWrn), 예보 읽기(applyFct — 도착만), 이미지 추출(doExport), PNG 시퀀스·MP4·MXF/MOV(exportPngSeq·bakeMp4·wnsRender),
-//   AE로 보내기(sendToAE), 프로젝트 저장·열기·최근 파일, 설정 가져오기, 기본값 굽기, 렌더 진행률(exportProgress → fxProgress).
-//   태풍(js/typhoon-api.js)·통보문(js/bulletin.js)은 아직 안 붙였다 — 붙일 때도 켠 함수의 finally에서 끄는 짝을 지킨다(tests/busy-fx.test.cjs '연결').
+//   AE로 보내기(sendToAE), 프로젝트 저장·열기·최근 파일, 설정 가져오기, 기본값 굽기, 렌더 진행률(exportProgress → fxProgress),
+//   태풍 불러오기(fetchTyphoon·fetchTyphoonPast·fetchJma — 비교 지도 포함, 붙여넣기·끌어놓기는 도착만), 발생·소멸 TD(attachEdgeTD — 자동은 머리만),
+//   통보문 불러오기·날씨누리 창 읽기(fetchBulletin·bulOpenPage → 결과가 오면 끔), 통보문으로 색칠(applyBulletin — 도착만).
+//   새로 붙일 때도 켠 함수의 finally에서 끄는 짝을 지킨다(tests/busy-fx.test.cjs '연결').
 const _fxSt = new WeakMap();   // 요소 → { n: 켠 횟수, gen: 안전 해제 세대, kind, dis: 우리가 비활성으로 바꿨나, ph: 자리표시 요소, outT·maxT·arrT: 타이머 }
 const _fxJobs = new WeakMap(); // 작업(켤 때·끌 때 같은 대상 배열) → Map(요소 → { gen: 켤 때 세대, k: 그 작업이 켠 횟수 })
 const FX_PH_W = [92, 68, 84, 50, 76, 60];   // 자리표시 막대 폭(%) — 검수 화면과 같은 들쭉날쭉
@@ -35,6 +39,7 @@ const FX_ARRIVE_MS = 1100;    // 도착 빛(섹션 머리·버튼)이 끝나는 
 const FX_STAGGER_MAX = 10;    // 떠오름 차례 간격(80ms)은 11번째부터 더 늘리지 않는다(긴 목록이 늦게까지 안 보이지 않게)
 const fxReduced = () => { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } };
 function fxSec(name) { return document.querySelector(`.sec[data-sec="${name}"]`); }
+function fxHead(name) { const s = fxSec(name); return s ? s.querySelector(':scope > h3') : null; }
 function fxRows(box) { return box && box.children ? [...box.children].filter((n) => !n.classList.contains('fx-ph')) : []; }
 // 대상 → 요소 배열(중복·null 제거). 요소인지 먼저 본다 — <select>·<form> 도 length 가 있어 목록으로 오인하지 않게.
 function fxEls(target) {
@@ -50,6 +55,7 @@ function fxEls(target) {
 }
 function fxKind(el, opts) {
   if (el.classList.contains('sec')) return 'glow';
+  if (el.tagName === 'H3') return 'head';   // 섹션 머리 — ::after 는 접기 꺾쇠라 흐름 판(.fx-glow::after)을 못 쓴다. ::before 띠로
   if (el.tagName === 'BUTTON' || el.tagName === 'A') return el.closest && el.closest('#titlebar') ? 'tb' : 'btn';
   return opts && opts.lines ? 'ph' : 'glow';
 }

@@ -205,12 +205,16 @@ let bulFetchSeq = 0;    // 불러오기 차례 번호 — 겹치면 마지막 �
 let bulWaitWnd = false; // 결과 카드가 날씨누리 창을 기다리는 중 — 창을 그냥 닫으면 카드를 치운다
 let bulFilled = '';     // 고르기로 붙여넣기 칸에 마지막으로 채운 글 — 칸이 아직 이 글이면(손대지 않음) '없음'을 받았을 때 비운다
 let bulWndLast = '';    // 데스크톱 창에서 마지막으로 읽은 글 — 같은 화면을 다시 읽으면(쪽 안 이동·스크립트 갱신) 고른 날짜·칸을 그대로 둔다
+let bulLoadFx = null;   // 지금 켜 둔 작업 중 효과(js/busy-fx.js — 불러오기·날씨누리 창 기다림의 대상 배열). 결과 카드가 바뀌면 끈다(bulFxOff)
 
 // 데스크톱 앱(새 판)이면 앱 안 날씨누리 창을 띄우고 그 창의 통보문을 읽어 올 수 있다(desktop/main.js 'wcg:wnuri-open')
 const bulHasWnd = () => !!(window.wcgDesktop && typeof window.wcgDesktop.openWnuri === 'function');
 
 // 결과 카드(#bulResult — 특보 결과 카드와 같은 모양). r=null이면 숨김. quiet=true면 아래 알림(#status)은 안 띄운다.
+// 카드가 바뀌면(결과·오류·비움·새 '불러오는 중') 앞 작업의 작업 중 효과를 끈다 — 효과는 '불러오는 중' 카드와 함께 산다.
+// (붙여넣기·창 읽기가 진행 중인 불러오기를 버려도 날짜 줄이 숨은 채 응답을 기다리지 않게. 같은 배열을 두 번 꺼도 무해)
 function showBulResult(r, quiet) {
+  bulFxOff();
   const box = $('#bulResult'); if (!box) return;
   bulWaitWnd = !!(r && r.kind === 'busy' && r.src === 'wnd');
   if (!r) { box.hidden = true; box.textContent = ''; delete box.dataset.tone; return; }
@@ -236,6 +240,15 @@ function showBulResult(r, quiet) {
   if (!v.actions.length) acts.remove();
   box.hidden = false;
   if (!quiet) status(v.toast, r.kind === 'busy', v.tone === 'busy' ? '' : v.tone);
+}
+// 작업 중 효과(js/busy-fx.js) 끄기 — 켜는 곳(fetchBulletin·bulOpenPage)은 '불러오는 중' 카드를 띄운 뒤 bulLoadFx 에 대상 배열을 담고 켠다:
+// 섹션 흐름 + 누른 버튼 띠 + 날짜 줄 자리(결과 카드 바로 아래)에 빛 훑는 막대.
+function bulFxOff() { if (bulLoadFx) { fxBusy(bulLoadFx, false); bulLoadFx = null; } }
+// 도착 효과 — 섹션 머리 한 번 빛 + 결과 카드·날짜 줄·채운 칸이 위에서부터 떠오른다. filled=false(예상 강수량 없음)면 카드만.
+// 오류(칸·지도 그대로)에는 부르지 않는다.
+function bulArriveFx(filled) {
+  const row = $('#bulPickRow');
+  fxArrive([fxSec('fct'), $('#bulResult'), filled && row && row.style.display !== 'none' ? row : null, filled ? $('#bulPaste') : null]);
 }
 
 // 고르기 채우기 — 항목이 둘 이상이면 '날짜' 줄을 보이고, 처음 항목(적설 아닌 첫 묶음)을 칸에 채운다. 채운 항목을 돌려준다.
@@ -293,42 +306,62 @@ async function fetchBulletin() {
   const stale = () => seq !== bulFetchSeq;
   const fail = (f) => { if (stale()) return null; showBulResult({ ...f, src: 'fetch' }); return false; };
   showBulResult({ kind: 'busy', src: 'fetch' });
-  const hp = await pingHelper();
-  if (stale()) return null;
-  if (!hp.up) return fail({ kind: 'helperOff' });
-  let r = null, body = null;
-  for (const u of [BUL_PAGE_URL, BUL_PAGE_VIA]) {
-    // 주소가 늘 같다 — 발표(05·11·17시) 직후에 브라우저가 지난 응답을 다시 쓰지 않게 캐시를 안 쓴다
-    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(u), { cache: 'no-store' }); }
-    catch (e) { return fail(bulHttpFail(0, e && e.message)); }   // 확인 직후 연결이 끊김(확장팩 멈춤 등)
-    if (stale()) return null;
-    body = null;
-    if (r.status !== 400) break;
-    body = await r.text().catch(() => '');
-    if (!/허용되지 않은/.test(body)) break;   // 허용 목록 밖(weather.go.kr) → 다음 주소(kma.go.kr 302 경유)로
-  }
-  if (!r.ok) {
-    if (body == null) body = await r.text().catch(() => '');
-    if (stale()) return null;
-    // 두 주소 다 허용 목록 밖 = /api/kma 허용 호스트가 다른(더 옛·다른) 헬퍼
-    return fail(r.status === 400 && /허용되지 않은/.test(body) ? { kind: 'helperOld', detail: '허용되지 않은 주소' } : bulHttpFail(r.status, body));
-  }
-  let t;
+  // 작업 중 효과(js/busy-fx.js) — 섹션 흐름 + 버튼 띠 + 날짜 줄 자리에 빛 훑는 막대. 실패·밀려남·헬퍼 꺼짐도 finally에서 끄고
+  // (결과 카드가 바뀌면 showBulResult가 먼저 끈다 — 그래야 도착 효과 때 날짜 줄이 보인다), 칸을 채웠거나 정상 '없음'일 때만 도착 효과.
+  const fx = bulLoadFx = [fxSec('fct'), $('#bulLoad'), $('#bulPickRow')];
+  fxBusy(fx, true, { lines: 3, maxMs: 90000 });
+  let got = '';   // 보여 준 결과 종류('ok' | 'none') — 도착 효과용
   try {
-    const buf = await r.arrayBuffer();
-    t = new TextDecoder('utf-8').decode(buf);
-    if (!/[가-힣]/.test(t)) t = new TextDecoder('euc-kr').decode(buf);
-  } catch (e) { return fail({ kind: 'net', detail: e && e.message }); }
-  if (stale()) return null;
-  const page = bulReadPage(t, 'html');
-  if (page.kind === 'ok' || page.kind === 'none') { if (!page.where) page.where = '전국'; return bulShowPage(page, 'fetch'); }
-  return fail(page);
+    const hp = await pingHelper();
+    if (stale()) return null;
+    if (!hp.up) return fail({ kind: 'helperOff' });
+    let r = null, body = null;
+    for (const u of [BUL_PAGE_URL, BUL_PAGE_VIA]) {
+      // 주소가 늘 같다 — 발표(05·11·17시) 직후에 브라우저가 지난 응답을 다시 쓰지 않게 캐시를 안 쓴다
+      try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(u), { cache: 'no-store' }); }
+      catch (e) { return fail(bulHttpFail(0, e && e.message)); }   // 확인 직후 연결이 끊김(확장팩 멈춤 등)
+      if (stale()) return null;
+      body = null;
+      if (r.status !== 400) break;
+      body = await r.text().catch(() => '');
+      if (!/허용되지 않은/.test(body)) break;   // 허용 목록 밖(weather.go.kr) → 다음 주소(kma.go.kr 302 경유)로
+    }
+    if (!r.ok) {
+      if (body == null) body = await r.text().catch(() => '');
+      if (stale()) return null;
+      // 두 주소 다 허용 목록 밖 = /api/kma 허용 호스트가 다른(더 옛·다른) 헬퍼
+      return fail(r.status === 400 && /허용되지 않은/.test(body) ? { kind: 'helperOld', detail: '허용되지 않은 주소' } : bulHttpFail(r.status, body));
+    }
+    let t;
+    try {
+      const buf = await r.arrayBuffer();
+      t = new TextDecoder('utf-8').decode(buf);
+      if (!/[가-힣]/.test(t)) t = new TextDecoder('euc-kr').decode(buf);
+    } catch (e) { return fail({ kind: 'net', detail: e && e.message }); }
+    if (stale()) return null;
+    const page = bulReadPage(t, 'html');
+    if (page.kind === 'ok' || page.kind === 'none') {
+      if (!page.where) page.where = '전국';
+      const shown = bulShowPage(page, 'fetch');
+      if (shown) got = page.kind;
+      return shown;
+    }
+    return fail(page);
+  } finally {
+    fxBusy(fx, false);
+    if (bulLoadFx === fx) bulLoadFx = null;
+    if (got) bulArriveFx(got === 'ok');
+  }
 }
 
 // 단기예보 열기 — 데스크톱(새 판)은 앱 안 날씨누리 창(뜰 때마다 통보문을 읽어 옴 → bulFromWnuri), 웹은 새 탭(복사 → 붙여넣기)
 function bulOpenPage() {
   if (bulHasWnd()) {
     showBulResult({ kind: 'busy', src: 'wnd' });
+    // 작업 중 효과 — 창이 첫 화면을 읽어 올 때까지('여는 중' 카드와 함께). 결과·오류·창 닫힘으로 카드가 바뀌면 showBulResult가 끈다
+    // (bulFromWnuri). 창을 열어 둔 채 아무것도 안 오면 2분 뒤 저절로 꺼진다.
+    const fx = bulLoadFx = [fxSec('fct'), $('#bulOpen'), $('#bulPickRow')];
+    fxBusy(fx, true, { lines: 3, maxMs: 120000 });
     // main이 거절하면(false) '여는 중' 카드가 남지 않게 오류로 바꾼다
     const no = () => { if (bulWaitWnd) showBulResult({ kind: 'other', src: 'wnd' }); };
     Promise.resolve(window.wcgDesktop.openWnuri(BUL_PAGE_URL)).then((ok) => { if (ok === false) no(); }, no);
@@ -353,7 +386,7 @@ function bulFromWnuri(d) {
   const page = bulReadPage(all, 'body');
   const stn = (String(d.url || '').match(/[?&]stnId=(\d+)/) || [])[1];
   page.where = BUL_STN[stn || 108] || '';
-  bulShowPage(page, 'wnd');
+  if (bulShowPage(page, 'wnd')) bulArriveFx(page.kind === 'ok');   // 작업 중 효과는 카드가 바뀌며 꺼졌다 — 읽었으면 도착 효과
 }
 // 붙여넣기 칸에 페이지 통째·PDF 글을 붙여넣으면 '예상 강수량' 묶음만 뽑아 고르기로. 지금처럼 강수량 줄만(또는 머리+줄 한 묶음만)
 // 붙여넣으면 손대지 않고 그대로 붙는다.
@@ -367,5 +400,5 @@ function bulOnPaste(e) {
   if (!whole) return;
   e.preventDefault();
   bulFetchSeq++;
-  bulShowPage(page, 'paste');
+  if (bulShowPage(page, 'paste')) bulArriveFx(page.kind === 'ok');   // 바로 끝나는 일이라 도착 효과만
 }
