@@ -247,16 +247,18 @@ function wrnSummarize(events, at) {
     up: uniq(ev.filter((r) => wrnCommandKind(r.cmd) !== 'release' && !isPre(r.lvl) && wrnEventTime(r) > t).map(label)),
   };
 }
-const WRN_ACT_LABEL = { retry: '다시 시도', helper: '확장팩 안내 보기', helperOld: '확장팩 안내 보기', api: 'API 설정 열기', open: '기상청 화면 새 창으로 열기' };
+// paste = 접혀 있는 '자동이 안 될 때 · 수동 붙여넣기'를 펼쳐 보여 줌(새 창 열기·복사·붙여넣기 길). 헬퍼·연결 문제처럼 브라우저로는 될 수 있을 때만 준다
+// (인증키·횟수·기상청 서버 문제는 새 창도 같은 키·서버라 안 줌). 붙여넣기 결과엔 안 준다(이미 펼쳐 쓰는 중).
+const WRN_ACT_LABEL = { retry: '다시 시도', helper: '확장팩 안내 보기', helperOld: '확장팩 안내 보기', api: 'API 설정 열기', open: '기상청 화면 새 창으로 열기', paste: '직접 붙여넣기' };
 const WRN_FAIL = {
   helperOff: (r) => ({ title: r.desktop ? '내장 기능 확장팩이 응답하지 않아요' : '기능 확장팩이 꺼져 있어요',
     todo: r.desktop ? '앱을 완전히 닫았다가 다시 실행한 뒤 다시 눌러 주세요.' : '‘확장팩 안내 보기’대로 WNS_START를 한 번 실행한 뒤 다시 눌러 주세요.',
-    actions: ['helper', 'retry'] }),
+    actions: ['helper', 'paste', 'retry'] }),
   helperOld: (r) => ({ title: '기능 확장팩이 옛 버전이에요',
     todo: r.desktop ? '앱을 최신 버전으로 업데이트한 뒤 다시 눌러 주세요.' : 'WNS_START를 다시 실행하면 최신으로 바뀝니다. 그다음 다시 눌러 주세요.',
-    actions: ['helperOld', 'retry'] }),
+    actions: ['helperOld', 'paste', 'retry'] }),
   net: (r) => ({ title: r.timeout ? '기상청 응답이 너무 늦어요' : '기상청에 연결되지 않아요',
-    todo: '인터넷(사내망) 연결을 확인하고 잠시 뒤 다시 눌러 주세요.', actions: ['retry'] }),
+    todo: '인터넷(사내망) 연결을 확인하고 잠시 뒤 다시 눌러 주세요.', actions: ['retry', 'paste'] }),
   server: () => ({ title: '기상청 서버가 잠시 응답하지 않아요', todo: '기상청 쪽 문제예요. 1~2분 뒤 다시 눌러 주세요.', actions: ['retry'] }),
   // defKey = API 설정 칸이 비어 앱에 들어 있는 기본 인증키를 쓰는 중(여럿이 같이 써서 막히거나 횟수가 먼저 찰 수 있다)
   key: (r) => (r.maybeQuota
@@ -275,20 +277,20 @@ const WRN_FAIL = {
     actions: ['api', 'retry'] }),
   empty: (r) => (r.src === 'paste'
     ? { title: '붙여넣은 내용이 비어 있어요', todo: '새 창 글자를 전체 선택(Ctrl+A) → 복사(Ctrl+C)해서 아래 칸에 붙여넣어 주세요.', actions: ['open'] }
-    : { title: '기상청이 빈 응답을 보냈어요', todo: '잠시 뒤 다시 눌러 주세요. 계속되면 아래 ‘기상청 특보현황 새 창으로 열기’로 확인해 보세요.', actions: ['retry', 'open'] }),
+    : { title: '기상청이 빈 응답을 보냈어요', todo: '잠시 뒤 다시 눌러 주세요. 계속되면 아래 ‘기상청 화면 새 창으로 열기’로 확인해 보세요.', actions: ['retry', 'open'] }),
   format: (r) => (r.partial   // 일부 줄만 읽혔고 읽힌 줄엔 발효 특보가 없음 — '없음'이 확실하지 않아 칠을 바꾸지 않는다
     ? { title: '특보 표 일부를 읽지 못했어요',
-      todo: `읽지 못한 줄${r.unread ? ` ${r.unread}개` : ''} 때문에 특보가 정말 없는지 확실하지 않아요. 아래 ‘기상청 특보현황 새 창으로 열기’로 직접 확인해 주세요.`,
+      todo: `읽지 못한 줄${r.unread ? ` ${r.unread}개` : ''} 때문에 특보가 정말 없는지 확실하지 않아요. 아래 ‘기상청 화면 새 창으로 열기’로 직접 확인해 주세요.`,
       actions: ['open', 'retry'] }
     : r.drift   // 특보현황 머리는 왔는데 데이터 줄 모양이 달라 하나도 못 읽음
       ? { title: '특보 표 형식이 달라 읽지 못했어요',
-        todo: '기상청이 표 형식을 바꿨을 수 있어요. 특보가 없는 게 아니라 못 읽은 거예요 — 아래 ‘기상청 특보현황 새 창으로 열기’로 직접 확인해 주세요.',
+        todo: '기상청이 표 형식을 바꿨을 수 있어요. 특보가 없는 게 아니라 못 읽은 거예요 — 아래 ‘기상청 화면 새 창으로 열기’로 직접 확인해 주세요.',
         actions: ['open', 'retry'] }
       : r.src === 'paste'
         ? { title: '붙여넣은 글에서 특보 표를 찾지 못했어요', todo: '새 창 글자를 전체 선택(Ctrl+A)해서 그대로 붙여넣었는지 확인해 주세요.', actions: ['open'] }
         : { title: '특보 표가 아닌 응답이 왔어요', todo: '기상청이 점검 중이거나 주소가 바뀌었을 수 있어요. 잠시 뒤 다시 하거나 아래 ‘새 창으로 열기’로 확인해 보세요.', actions: ['retry', 'open'] }),
-  broken: () => ({ title: '한글이 깨진 채로 들어왔어요', todo: '아래 ‘기상청 특보현황 새 창으로 열기’로 연 화면을 복사해 붙여넣으면 보통 정상입니다.', actions: ['open'] }),
-  other: () => ({ title: '알 수 없는 문제가 생겼어요', todo: '잠시 뒤 다시 눌러 주세요.', actions: ['retry'] }),
+  broken: () => ({ title: '한글이 깨진 채로 들어왔어요', todo: '아래 ‘기상청 화면 새 창으로 열기’로 연 화면을 복사해 붙여넣으면 보통 정상입니다.', actions: ['open'] }),
+  other: () => ({ title: '알 수 없는 문제가 생겼어요', todo: '잠시 뒤 다시 눌러 주세요.', actions: ['retry', 'paste'] }),
 };
 // 'YYYYMMDDHHMM' → 분 단위 수(시간대와 무관하게 두 시각의 차이만 잰다). 형식이 틀리면 NaN.
 function wrnTmMin(t) {
@@ -339,12 +341,12 @@ function wrnResultView(r) {
       else if (r.offNames && r.offNames.length) lines.push(`목록에서 꺼 둔 특보(${wrnNameList(r.offNames)})는 칠하지 않았어요`);
       if (r.unknown > 0) {   // 발효 중인데 지도에 그릴 자리가 없음 — 방송 그림에서 빠지므로 주황으로 알린다
         tone = 'warn';
-        lines.unshift(`지도에 없는 구역 ${r.unknown}곳${r.unknownNames && r.unknownNames.length ? `(${wrnNameList(r.unknownNames)})` : ''}은 칠하지 못했어요 — 기상청이 구역을 새로 나눴을 수 있어요. 아래 ‘기상청 특보현황 새 창으로 열기’로 확인해 보세요`);
+        lines.unshift(`지도에 없는 구역 ${r.unknown}곳${r.unknownNames && r.unknownNames.length ? `(${wrnNameList(r.unknownNames)})` : ''}은 칠하지 못했어요 — 기상청이 구역을 새로 나눴을 수 있어요. 아래 ‘기상청 화면 새 창으로 열기’로 확인해 보세요`);
       }
     }
     if (r.unread > 0) {   // 일부 줄을 못 읽음 — 읽은 만큼은 칠했지만 빠진 특보가 있을 수 있다
       tone = 'warn';
-      lines.unshift(`읽지 못한 줄이 ${r.unread}개 있어요 — 그 줄의 특보는 칠하지 못했을 수 있어요. 아래 ‘기상청 특보현황 새 창으로 열기’로 확인해 보세요`);
+      lines.unshift(`읽지 못한 줄이 ${r.unread}개 있어요 — 그 줄의 특보는 칠하지 못했을 수 있어요. 아래 ‘기상청 화면 새 창으로 열기’로 확인해 보세요`);
     }
     if (r.pre && r.pre.length) lines.push(`예비특보(${wrnNameList(r.pre)})는 아직 발효 전이라 꺼 두었어요 — 아래 목록에서 켤 수 있어요`);
     if (r.up && r.up.length) lines.push(`곧 발효될 특보(${wrnNameList(r.up)})가 있어요 — 위 ‘통보문’에서 ‘발효 예정’ 시각을 고르면 볼 수 있어요`);
@@ -355,7 +357,7 @@ function wrnResultView(r) {
   }
   const f = (WRN_FAIL[k] || WRN_FAIL.other)(r);
   const title = `${paste ? '칠하지 못했어요' : '불러오지 못했어요'} — ${f.title}`;
-  const actions = f.actions.filter((a) => !(paste && a === 'retry')).map((id) => ({ id, label: WRN_ACT_LABEL[id] }));
+  const actions = f.actions.filter((a) => !(paste && (a === 'retry' || a === 'paste'))).map((id) => ({ id, label: WRN_ACT_LABEL[id] }));
   const lines = [f.todo, '지도 색은 바꾸지 않았어요 — 이전 그대로입니다.'];
   // 날짜·통보문을 바꿔 자동으로 다시 부르다 실패하면, 고른 시각 표시도 지도에 칠해진 시각으로 되돌린다(호출하는 쪽) — 그걸 알려 준다
   if (r.back) lines.push(`날짜·시각 선택도 지도에 칠해진 시각(${r.back})으로 되돌렸어요.`);

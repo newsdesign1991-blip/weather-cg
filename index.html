@@ -95,7 +95,7 @@
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
 <link rel="stylesheet" href="css/dialogs.css?v=7b46d2b5">
-<link rel="stylesheet" href="css/panel-misc.css?v=4640b3e8">
+<link rel="stylesheet" href="css/panel-misc.css?v=2c54bab2">
 <link rel="stylesheet" href="css/toss-modal.css?v=f585119b">
 <link rel="stylesheet" href="css/busy-fx.css?v=d7a646d1">
 
@@ -413,18 +413,25 @@
         </div>
         <div class="subhead">2. 특보 불러오기</div>
         <div class="nokey" data-nokey>인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
-        <div class="btns" style="margin:4px 0"><button class="pri" id="wrnFetch" style="flex:1">기상청에서 불러오기</button></div>
+        <!-- '특보 색 지우기'는 불러오기·붙여넣기 어느 쪽으로 칠했든 쓰는 버튼이라 접힌 '자동이 안 될 때' 밖, 불러오기 옆에 둔다 -->
+        <div class="btns" style="margin:4px 0"><button class="pri" id="wrnFetch" style="flex:1">기상청에서 불러오기</button><button id="wrnClear" style="flex:0 0 auto" title="지도에 칠한 특보 색을 모두 지워요 (Ctrl+Z로 되돌리기)">특보 색 지우기</button></div>
         <p class="hint" style="margin-top:0">고른 시각의 특보를 불러와 칠해요.</p>
         <div class="row" id="wrnBulletinRow" style="display:none"><label>통보문</label><select id="wrnBulletinSel" style="flex:1" title="표출할 특보 발표(통보문)를 고르세요 — 최신이 기본"></select></div>
         <div class="wrnRes" id="wrnResult" role="status" aria-live="polite" hidden></div>
 
-        <div class="subhead">자동이 안 될 때 · 수동 붙여넣기</div>
-        <div class="btns" style="margin-bottom:6px"><button id="wrnOpen">기상청 특보현황 새 창으로 열기</button></div>
-        <p class="hint" style="margin-top:0">새 창에서 <b>Ctrl+A → Ctrl+C</b> 후 붙여넣기.</p>
-        <textarea id="wrnPaste" rows="4" placeholder="복사한 내용 붙여넣기 (#START7777 ...)"></textarea>
-        <div class="btns" style="margin:6px 0">
-          <button class="pri" id="wrnApply">붙여넣은 걸로 칠하기</button>
-          <button id="wrnClear">특보 색 지우기</button>
+        <!-- 자동이 안 될 때 · 수동 붙여넣기 — 평소엔 안 써서 기본 접힘(접이식 묶음 공용 — js/panels.js foldWire, css/panel-misc.css .subFold).
+             제목 줄을 누르면 펼침/접힘, 펼침 상태는 localStorage 'wcg_wrn_manual_open'. 불러오기 실패 카드의 '직접 붙여넣기'·'기상청 화면 새 창으로 열기'는
+             이번만 펼치고 보이게 스크롤한다(foldReveal — 기억은 안 바꿈) -->
+        <button type="button" class="subhead subFoldHead" id="wrnManualHead" aria-expanded="false" aria-controls="wrnManual">자동이 안 될 때 <span>· 수동 붙여넣기</span></button>
+        <div class="subFold closed" id="wrnManual">
+        <div class="subFoldInner">
+        <div class="subFoldBox">
+          <div class="btns" style="margin:0 0 6px"><button id="wrnOpen">기상청 특보현황 새 창으로 열기</button></div>
+          <p class="hint" style="margin:0 0 6px">새 창에서 <b>Ctrl+A → Ctrl+C</b> 후 붙여넣기.</p>
+          <textarea id="wrnPaste" rows="4" placeholder="복사한 내용 붙여넣기 (#START7777 ...)"></textarea>
+          <div class="btns" style="margin:6px 0 0"><button class="pri" id="wrnApply">붙여넣은 걸로 칠하기</button></div>
+        </div>
+        </div>
         </div>
         <div id="wrnList"></div>
         <p class="hint" id="wrnInfo"></p>
@@ -458,10 +465,10 @@
         </div>
 
         <!-- 기상청 예보 API로 색칠 (성격이 다른 메뉴 — 배경색으로 구분). 잘 안 써서 기본 접힘 —
-             제목 줄(#fctFoldHead)을 누르면 펼침/접힘, 펼침 상태는 localStorage 'wcg_fct_api_open'(wire()에서 배선) -->
-        <button type="button" class="subhead fctFoldHead" id="fctFoldHead" aria-expanded="false" aria-controls="fctFold">기상청 예보 API로 색칠 <span>· 단기·중기</span></button>
-        <div class="fctFold closed" id="fctFold">
-        <div class="fctFoldInner">
+             제목 줄(#fctFoldHead)을 누르면 펼침/접힘, 펼침 상태는 localStorage 'wcg_fct_api_open'(wire()에서 foldWire로 배선 — 접이식 묶음 공용) -->
+        <button type="button" class="subhead subFoldHead" id="fctFoldHead" aria-expanded="false" aria-controls="fctFold">기상청 예보 API로 색칠 <span>· 단기·중기</span></button>
+        <div class="subFold closed" id="fctFold">
+        <div class="subFoldInner">
         <div class="fctBox">
           <p class="hint" style="margin-top:0">시도군·시도 어느 지도든 맞춰 칠해요.</p>
           <div class="subhead">1. 어떤 예보</div>
@@ -1270,28 +1277,28 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/typhoon-render.js?v=689a1c77"></script>
 <script src="js/typhoon-panel.js?v=2f0c5859"></script>
 <script src="js/typhoon-api.js?v=6890636a"></script>
-<script src="js/panels.js?v=5a0de650"></script>
+<script src="js/panels.js?v=4db9d5f9"></script>
 <script src="js/view-camera.js?v=2bda1a60"></script>
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
 <script src="js/pointer-drag.js?v=d4743ead"></script>
-<script src="js/warnings.js?v=fba4f760"></script>
+<script src="js/warnings.js?v=40550be8"></script>
 <script src="js/warnings-apply.js?v=6034c101"></script>
 <script src="js/bulletin.js?v=d72e065a"></script>
 <script src="js/bulletin-load.js?v=bebef3be"></script>
 <script src="js/forecast-panel.js?v=40d42aed"></script>
-<script src="js/warnings-load.js?v=9c1a8a9b"></script>
+<script src="js/warnings-load.js?v=c8ba991c"></script>
 <script src="js/presets.js?v=27fad655"></script>
 <script src="js/cg-setup.js?v=f6d7eafd"></script>
 <script src="js/modals-notices.js?v=8bb80e22"></script>
 <script src="js/busy-fx.js?v=68bb53cf"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
 <script src="js/export-image.js?v=9c69190f"></script>
-<script src="js/export-video.js?v=92e1603e"></script>
+<script src="js/export-video.js?v=bfec7573"></script>
 <script src="js/export-blobs.js?v=b0f799ef"></script>
 <script src="js/ae-export.js?v=4b1a0894"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=a36c3975"></script>
-<script src="js/wiring.js?v=29a3049e"></script>
+<script src="js/wiring.js?v=dc7b612a"></script>
 <script src="js/anim.js?v=63d61726"></script>
 <script src="js/timeline-plan.js?v=065640cc"></script>
 <script src="js/timeline-ui.js?v=05af56f8"></script>

@@ -82,7 +82,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 9 | `js/typhoon-render.js` | 753 | 태풍 그리기: 예보 비교 경로·라벨, 진로선, 지명표시, 제목, 재생 | `drawCompareTracks` `drawTyphoonTrack` `renderTyphoon` |
 | 10 | `js/typhoon-panel.js` | 567 | 태풍 패널 UI: 비교 카드, 패널·밴드, 펜툴, 참고 이미지 | `addCompareForecast` `buildTyphoonPanel` `startPen` `wireTyphoonPanel` |
 | 11 | `js/typhoon-api.js` | 431 | 태풍 데이터: 기상청 typ/td 파싱, JMA·JTWC, 이름 저장, 불러오기(기상청 조회 줄 — 동시 6개·우선순위·캐시(다시 누르면 최근 시각은 새로)·다시 보내기, 12시간 창 규칙으로 덜 묻기), 발생·소멸 TD는 뒤에서(입력 중이면 미룸) | `parseTypNow` `fetchTyphoon` `typhoonApiUrl` `kmaRequest` `_kmaFirst` |
-| 12 | `js/panels.js` | 608 | 사이드바 패널(팔레트·인셋·목록·섹션 열기), 캔버스 요소 → 섹션 자동 열기, 선택, 칠하기 | `buildPalette` `revealSec` `select` `refreshPanel` `syncPanelFromState` `paint` `markActive` |
+| 12 | `js/panels.js` | 608 | 사이드바 패널(팔레트·인셋·목록·섹션 열기), **섹션 안 접이식 묶음**(잘 안 쓰는 메뉴 — 예보 API·특보 '자동이 안 될 때'. 기본 접힘·제목 줄로 펼침·상태 기억, 실패 카드 등에서 이번만 펼쳐 보이게 스크롤), 캔버스 요소 → 섹션 자동 열기, 선택, 칠하기 | `buildPalette` `revealSec` `foldWire` `foldReveal` `select` `refreshPanel` `syncPanelFromState` `paint` `markActive` |
 | 13 | `js/view-camera.js` | 305 | 작업창 줌·맞춤·틸트 미리보기(그림 버퍼 #camCanvas 래스터·GL/CSS 그리기·첫 진입 게이트·예열·다시 굽기 판단 — 회전만 바뀌면 안 굽기, 태풍은 무거운 바탕을 따로 두고 경로 레이어만 다시 굽기, 드래그 놓을 때 섞어 바꾸기, 다시 굽게 하기 `tiltInvalidate`(늦게 온 위성 타일·작업 바꿈·GPU 리셋 — GPU 프로세스가 죽으면 2D 그림 버퍼도 비워지므로 그동안 평면 지도로 두고 되찾으면 다시 굽기), 타임라인을 닫으면 GL 텍스처 반납), 더블클릭 인라인 편집, Alt 카메라 조작 | `sizeFit` `applyView` `applyTilt` `rasterTiltCanvas` `tiltWant` `tiltPrewarm` `tiltInvalidate` `inlineEdit` |
 | 14 | `js/tilt-gl.js` | 174 | **틸트 지도 WebGL2 렌더러**: 블리드 지도 그림을 밉맵(LINEAR_MIPMAP_LINEAR)·비등방(최대 16) 텍스처로 원근 투영(warpTilt3D·CSS와 같은 식) — 미리보기(#camGL, 그림이 바뀔 때만 올리고 회전만 바뀌면 다시 그리기만)·추출(tglWarp) 공용. 가장자리 페이드는 셰이더. 못 쓰거나 컨텍스트를 잃으면 null/false → 미리보기 CSS 3D·추출 2D 메시로. 끄기: localStorage wcg_tiltgl=0 | `tglCreate` `tglUpload` `tglDraw` `tglQuad` `tglWarp` `tglOk` |
 | 15 | `js/pointer-drag.js` | 512 | 캔버스 포인터(칠·선택), 브러쉬 커서, 드래그·스냅, 리사이즈, **키보드 단축키**, 삭제·모드 | `dragLoop` `startDragItem` `delSel` `setMode` |
@@ -132,7 +132,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 8 | `css/menus-windows.css` | 165 | 제목줄 메뉴 드롭다운 안 섹션·설정(렌치) 메뉴·기능 확장팩 줄, 떼어낸 창(탭·크기 조절·도킹 미리보기) |
 | 9 | `css/timeline.css` | 190 | 타임라인(AE식 — 전용 토큰 어두운/밝은, 레이어 열·막대·키·CTI·눈금자·내비게이터), 도구 줄 오른쪽(저장 폴더 + 영상 렌더 묶음 `.tlRender` — MP4·PNG 시퀀스·MXF·알파 MOV 한 세그먼트, 초기화, 닫기 자리 — 닫기 모양은 toss-modal.css 공통 유리 원), 무대 줄이기, 추출 진행 바, 영상 추출 집중 모드, 카메라 키 팝오버 |
 | 10 | `css/dialogs.css` | 171 | 인증키 안내, 특보 불러오기 결과 카드, 알림 색 점, API 설정 창, 확인 모달, 배치 지정하기 모달 |
-| 11 | `css/panel-misc.css` | 141 | 통보문·예보 박스, 링크 버튼, 칠한 색 목록·경고, 최근 파일, 이미지 안내 팝업, 마우스 배지, 토스트, 브러쉬 영역 강조 |
+| 11 | `css/panel-misc.css` | 141 | 통보문·예보 박스, 섹션 안 접이식 묶음(`.subFold*` — 예보 API·특보 수동 붙여넣기), 링크 버튼, 칠한 색 목록·경고, 최근 파일, 이미지 안내 팝업, 마우스 배지, 토스트, 브러쉬 영역 강조 |
 | 12 | `css/toss-modal.css` | 158 | 토스 카드 모달, 공지, 접이식 묶음, 렌더 가리개, 참고 이미지 드롭, 토글 스위치, 지도 배경 버튼, 브러쉬 원·가이드 |
 | 13 | `css/busy-fx.css` | 119 | 작업 중·도착 효과(`js/busy-fx.js`)의 모양·움직임 — 흐름(transform만, 호스트 `overflow: clip`), 버튼 띠·진행 막대, 자리표시 막대, 도착 빛, 렌더 가리개 흐름, 움직임 줄이기. **맨 뒤**(다른 규칙을 덮어야 한다) |
 
@@ -158,6 +158,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | `pushUndo` `undo` `redo` `svg` `buildFrame` `setStyle` | `map-build.js` |
 | `renderAll` `renderLabels` `renderMtns` `renderSel` | `labels-mountains.js` |
 | `select` `refreshPanel` `syncPanelFromState` `revealSec` | `panels.js` |
+| `foldWire`(접이식 묶음 배선 — 기본 접힘·상태 기억) `foldReveal`(이번만 펼치고 보이게 스크롤·포커스) `foldSet` `foldIsOpen` (마크업·모양은 파일 안 주석, css `.subFold*`) | `panels.js` |
 | `apiKey` `apiUrl` | `warnings-apply.js` |
 | `saveWork` `loadWork` `applyPreset` | `presets.js` |
 | `status` `flash` `flashDone` `prepareOutput` `RES` | `cg-setup.js` |

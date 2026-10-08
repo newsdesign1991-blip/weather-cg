@@ -28,7 +28,10 @@ function showWrnResult(r, quiet) {
     helper: () => wnsHelperOffNotice(),
     helperOld: () => wnsHelperOffNotice('old', 'kma'),   // 기상청 불러오기가 막힌 상황에 맞는 안내(‘지금도 쓸 수 있어요’ 빼고)
     api: () => apiPop(true),
-    open: () => $('#wrnOpen').click(),
+    // 수동 길('자동이 안 될 때' — 평소 접힘)은 이번만 펼쳐 보이게 스크롤하고 붙여넣기 칸에 포커스(js/panels.js foldReveal — 펼침 기억은 안 바꿈).
+    // 새 창으로 열기도 먼저 펼친다 — 새 창에서 복사해 돌아오면 붙여넣을 칸이 보이고 Ctrl+V가 바로 들어가게.
+    paste: () => foldReveal($('#wrnManual'), $('#wrnPaste')),
+    open: () => { foldReveal($('#wrnManual'), $('#wrnPaste')); $('#wrnOpen').click(); },
   };
   for (const a of v.actions) {
     const b = document.createElement('button');

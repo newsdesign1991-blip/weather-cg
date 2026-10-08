@@ -1,4 +1,4 @@
-/* [모듈] js/panels.js — 사이드바 패널(팔레트·인셋·텍스트/라벨/산 목록·섹션 열기/스크롤), 캔버스 요소→섹션 자동 열기, 선택(select)·refreshPanel·syncPanelFromState, 칠하기 paint */
+/* [모듈] js/panels.js — 사이드바 패널(팔레트·인셋·텍스트/라벨/산 목록·섹션 열기/스크롤·섹션 안 접이식 묶음), 캔버스 요소→섹션 자동 열기, 선택(select)·refreshPanel·syncPanelFromState, 칠하기 paint */
 'use strict';
 
 // ===================== 패널 =====================
@@ -317,6 +317,68 @@ function scrollPanelToSec(sec0) {
   // 프레임이 멈춘 창에서도 끝 위치는 보장. (밀린 프레임이 나중에 와도 마지막 단계가 같은 자리로 다시 맞춘다)
   fin = setTimeout(() => { if (!done && gen === _secScrollGen) panel.scrollTop = want(); }, DUR + 120);
   rel = setTimeout(release, 1600);   // 그 뒤로는 손을 뗀다(사용자 스크롤 자유)
+}
+
+// ===== 섹션 안 접이식 묶음(잘 안 쓰는 메뉴) — '기상청 예보 API로 색칠', 특보 '자동이 안 될 때 · 수동 붙여넣기' =====
+// 마크업(모양은 css/panel-misc.css .subFold*):
+//   <button type="button" class="subhead subFoldHead" aria-expanded="false" aria-controls="묶음id">제목 <span>· 덧말</span></button>
+//   <div class="subFold closed" id="묶음id"><div class="subFoldInner">…</div></div>
+// 마크업 기본값이 접힘이라 첫 화면에 접히는 애니가 안 뜬다. 접힌 동안엔 visibility:hidden이라 Tab 포커스가 안 들어간다(CSS).
+// 섹션째 떼어낸 창으로 옮겨져도 같은 노드라 그대로 동작한다(머리는 aria-controls로 찾는다).
+function foldHeadOf(fold) { return fold && fold.id ? document.querySelector(`[aria-controls="${fold.id}"]`) : null; }
+function foldIsOpen(fold) { return !!fold && !fold.classList.contains('closed'); }
+// 펼침/접힘 + 머리 aria-expanded. key를 주면 그 상태를 localStorage에 기억한다(막혀 있으면(시크릿·로드 실패 가드) 그냥 넘어감).
+function foldSet(fold, open, key) {
+  if (!fold) return;
+  fold.classList.toggle('closed', !open);
+  const head = foldHeadOf(fold);
+  if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (key) { try { localStorage.setItem(key, open ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 그대로 */ } }
+}
+// 배선(wire()에서 한 번): 기억한 상태로 맞추고, 제목 줄을 누르면 펼침/접힘 — 사람이 바꾼 상태만 기억한다.
+function foldWire(fold, key) {
+  const head = foldHeadOf(fold);
+  if (!fold || !head) return;
+  let open = false;
+  try { open = localStorage.getItem(key) === '1'; } catch (e) { /* 저장소를 못 읽으면 접힌 채로 */ }
+  foldSet(fold, open);
+  head.onclick = () => foldSet(fold, !foldIsOpen(fold), key);
+}
+// 필요할 때 바로 열기(특보 불러오기 실패 카드의 '직접 붙여넣기' 등): 펼치고 묶음 전체가 보이게 스크롤, focusEl이 있으면 포커스.
+// 이번만 펼친다 — 기억은 안 바꾼다(다음에 열면 사람이 고른 상태대로. 실패는 그때뿐인 일이라).
+function foldReveal(fold, focusEl) {
+  if (!fold) return;
+  foldSet(fold, true);
+  if (focusEl) { try { focusEl.focus({ preventScroll: true }); } catch (e) { /* 포커스 못 줘도 펼침은 그대로 */ } }
+  foldScrollIntoView(fold);
+  // 펼침 애니메이션(.34s) 동안 아래 내용이 늘어난다 — 스크롤 칸이 아직 짧아(떼어낸 창 맨 아래 등) 덜 갔으면 다 펼친 뒤 한 번 더 맞춘다
+  setTimeout(() => { if (foldIsOpen(fold)) foldScrollIntoView(fold); }, 380);
+}
+// 머리 + 다 펼친 묶음이 스크롤 칸(사이드바 #panel 또는 떼어낸 창의 .body) 안에 보이게. 이미 보이면 그대로.
+// 높이는 '다 펼친 높이'(안쪽 scrollHeight)로 미리 잰다 — 애니메이션이 끝나길 기다리지 않고 바로 간다.
+// 사이드바·창은 zoom이 걸려 있어 화면 px ÷ 배율 = scrollTop 단위. scrollIntoView는 overflow:hidden 칸(.bodyInner)까지 밀 수 있어 쓰지 않는다.
+function foldScrollIntoView(fold) {
+  const head = foldHeadOf(fold) || fold;
+  let sc = fold.parentElement;
+  while (sc && sc !== document.body) {
+    const oy = getComputedStyle(sc).overflowY;
+    if (oy === 'auto' || oy === 'scroll') break;
+    sc = sc.parentElement;
+  }
+  if (!sc || sc === document.body || !fold.offsetParent) return;
+  const k = (sc.getBoundingClientRect().width / (sc.offsetWidth || 1)) || 1;
+  const top = sc.getBoundingClientRect().top + sc.clientTop * k;
+  const isPanel = sc.id === 'panel';
+  const v0 = (isPanel ? panelStickyH(sc) : 0) + 8;                          // 보이는 띠 위 끝(스크롤 칸 위 끝 기준, scrollTop 단위)
+  const v1 = sc.clientHeight - (isPanel ? panelFooterH(sc) : 0) - 10;      // 보이는 띠 아래 끝
+  const inner = fold.firstElementChild;
+  const a = (head.getBoundingClientRect().top - top) / k;                                          // 머리 위 끝
+  const b = (fold.getBoundingClientRect().top - top) / k + (inner ? inner.scrollHeight : fold.offsetHeight);   // 다 펼친 묶음 아래 끝
+  let d = 0;
+  if (b > v1) d = b - v1;           // 아래가 잘리면 올린다
+  if (a - d < v0) d = a - v0;       // 그래도 머리가 위로 넘치면(묶음이 화면보다 크거나 위에 있음) 머리 기준
+  if (Math.abs(d) < 1) return;
+  sc.scrollTo({ top: sc.scrollTop + d, behavior: fxReduced() ? 'instant' : 'smooth' });   // 움직임 줄이기면 바로(js/busy-fx.js)
 }
 
 // ===== 화면(캔버스) 요소 → 사이드바 섹션 자동 열기 — 연결은 전부 여기 한 곳에서 =====

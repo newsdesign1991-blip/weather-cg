@@ -1,4 +1,4 @@
-/* [모듈] css/panel-misc.css — 통보문·예보 API 박스(예보 API 묶음 접기), 링크 버튼, 칠한 색 목록·경고 배너, 최근 파일, 이미지 안내 팝업, 마우스 배지, 안내/완료 토스트·체크 모션, 브러쉬 영역 강조 */
+/* [모듈] css/panel-misc.css — 통보문·예보 API 박스, 섹션 안 접이식 묶음(.subFold — 예보 API·특보 수동 붙여넣기), 링크 버튼, 칠한 색 목록·경고 배너, 최근 파일, 이미지 안내 팝업, 마우스 배지, 안내/완료 토스트·체크 모션, 브러쉬 영역 강조 */
   /* ===== 통보문 색칠 박스 (배경을 살짝 달리해 눈에 띄게) ===== */
   .bulBox {
     padding: 10px 11px; border-radius: 13px;
@@ -6,39 +6,40 @@
     border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--outline-var));
   }
   .bulBox .hint code { background: var(--surface); }
-  /* 기상청 예보 API 박스 — 통보문(파랑 계열)과 성격이 다름을 배경색으로 확실히 구분(예보 전용색) */
-  .fctBox {
+  /* 기상청 예보 API 박스 — 통보문(파랑 계열)과 성격이 다름을 배경색으로 확실히 구분(예보 전용색).
+     접이식 묶음 안 상자(.subFoldBox — 특보 '자동이 안 될 때')도 같은 모양 */
+  .fctBox, .subFoldBox {
     padding: 10px 11px; border-radius: 13px; margin-bottom: 12px;
     background: var(--surface);
     border: 1px solid var(--outline-var);
   }
   /* 밝은 테마: 열린 섹션 바탕(연회색)과 --surface가 거의 같아 상자가 묻힌다 → 흰 카드로 띄운다 */
-  :root[data-theme="light"] .fctBox { background: var(--surface-c); }
+  :root[data-theme="light"] .fctBox, :root[data-theme="light"] .subFoldBox { background: var(--surface-c); }
   .fctBox .subhead { margin-top: 10px; }
   .fctBox .subhead:first-of-type { margin-top: 2px; }
-  /* '기상청 예보 API로 색칠' 묶음 접기(잘 안 써서 기본 접힘) — 제목 줄(button.subhead)을 누르면 펼침/접힘.
-     꺾쇠는 사이드바 섹션 머리(#panel > .sec > h3::after)와 같은 얇은 선: 닫힘=오른쪽, 열림=아래.
+  /* 섹션 안 접이식 묶음(잘 안 쓰는 메뉴 — '기상청 예보 API로 색칠', 특보 '자동이 안 될 때 · 수동 붙여넣기'). 배선은 js/panels.js foldWire.
+     제목 줄(button.subhead.subFoldHead)을 누르면 펼침/접힘. 꺾쇠는 사이드바 섹션 머리(#panel > .sec > h3::after)와 같은 얇은 선: 닫힘=오른쪽, 열림=아래.
      버튼 기본 모양(바탕·테두리·둥근 모서리·여백)은 지우고 .subhead 줄 모양만 남긴다. 접힘은 섹션과 같은 grid-rows 애니 */
-  .fctFoldHead {
+  .subFoldHead {
     width: 100%; align-items: center; text-align: left; cursor: pointer;
     background: none; border: 0; border-top: 1px solid var(--outline-var); border-radius: 0; box-shadow: none;
     padding: 12px 0 0; font: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: 0; color: var(--on-surface);
   }
-  .fctFoldHead:hover { background: none; color: var(--nav-active-fg); }
-  .fctFoldHead:hover span { color: inherit; }
-  .fctFoldHead:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset: 3px; border-radius: 6px; }
-  .fctFoldHead::after {
+  .subFoldHead:hover { background: none; color: var(--nav-active-fg); }
+  .subFoldHead:hover span { color: inherit; }
+  .subFoldHead:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset: 3px; border-radius: 6px; }
+  .subFoldHead::after {
     content: ''; flex: none; width: 6px; height: 6px; margin: 0 4px 0 auto;
     border-right: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor;
     opacity: .55; transform: translateY(-2px) rotate(45deg); transition: transform .2s;
   }
-  .fctFoldHead[aria-expanded="false"]::after { transform: rotate(-45deg); }
-  .fctFold { display: grid; grid-template-rows: 1fr; }
-  html.anim-ready .fctFold { transition: grid-template-rows .34s cubic-bezier(0.34, 0, 0.15, 1); }
-  .fctFold.closed { grid-template-rows: 0fr; }
+  .subFoldHead[aria-expanded="false"]::after { transform: rotate(-45deg); }
+  .subFold { display: grid; grid-template-rows: 1fr; }
+  html.anim-ready .subFold { transition: grid-template-rows .34s cubic-bezier(0.34, 0, 0.15, 1); }
+  .subFold.closed { grid-template-rows: 0fr; }
   /* 접힌 동안엔 visibility도 숨김 — 안 보이는 칸·버튼에 Tab 포커스가 들어가지 않게(펼치면 바로, 접히면 애니메이션 뒤) */
-  .fctFoldInner { min-height: 0; overflow: hidden; transition: opacity .22s ease, visibility 0s; }
-  .fctFold.closed > .fctFoldInner { opacity: 0; visibility: hidden; transition: opacity .22s ease, visibility 0s linear .34s; }
+  .subFoldInner { min-height: 0; overflow: hidden; transition: opacity .22s ease, visibility 0s; }
+  .subFold.closed > .subFoldInner { opacity: 0; visibility: hidden; transition: opacity .22s ease, visibility 0s linear .34s; }
   /* 링크형 버튼 (a 태그지만 버튼처럼 보이게 — button 요소 스타일을 안 물려받으므로 직접 준다) */
   a.linkBtn {
     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
