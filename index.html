@@ -110,17 +110,17 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5.2 3.6h11.2l4 4v11.2a1.6 1.6 0 01-1.6 1.6H5.2a1.6 1.6 0 01-1.6-1.6V5.2a1.6 1.6 0 011.6-1.6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7.6 3.6v4.6h7.6V3.6M7.2 20.4v-6.1h9.6v6.1"/><rect x="12.1" y="4.9" width="1.8" height="2.2" rx=".4" fill="currentColor"/></svg>
       </button>
     </div>
-    <div class="tbSep"></div>
-    <!-- 추출 3버튼 — 같은 폭(grid 균등 칸) + 채운 아이콘(사진·재생·보내기, currentColor라 .on/.pri 때 흰색으로 따라감).
+  </nav>
+  <div class="tbFill"></div>
+  <div class="tbRight">
+    <!-- 추출 3버튼(오른쪽 — 확대 비율 왼쪽) — 같은 폭(grid 균등 칸) + 채운 아이콘(사진·재생·보내기, currentColor라 .on/.pri 때 흰색으로 따라감).
          글자는 .tbLbl 안에만 — JS가 글자를 잠깐 바꿀 땐(AE 여는 중…) 이 span 만 바꾼다(버튼 textContent 를 덮으면 아이콘 svg 가 지워짐) -->
     <div class="tbGroup" id="exportGroup">
       <button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog" title="이미지로 추출 — 고른 것을 PNG로 렌더해 폴더에 저장"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm3.5 6.6a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM5.2 18.2h13.6l-4.4-6-3.4 4.4-2.4-3.1z"/></svg><span class="tbLbl">이미지로 추출</span></button>
       <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 추출 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm-2.2 6v8l6.4-4z"/></svg><span class="tbLbl">영상으로 추출</span></button>
       <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a1 1 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .72.73 1.2 1.39.91z"/></svg><span class="tbLbl">AE로 보내기</span></button>
     </div>
-  </nav>
-  <div class="tbFill"></div>
-  <div class="tbRight">
+    <div class="tbSep"></div>
     <span class="zoomInfo" id="zoomV">100%</span>
     <div class="tbSep"></div>
     <button id="theme" class="themeToggle" role="switch" title="사이드바 밝기 (작업물과 무관)" aria-label="밝기 전환">
