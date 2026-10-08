@@ -95,6 +95,9 @@ function tlLayerPlan(opt) {
     else {
       if (camKeysRotate()) cam.diff.push('방향·기울기는 AE에 안 들어갑니다(위치·확대만)');
       if (ks.length > 2) cam.diff.push('AE에선 3번째 키부터 이징 없이 들어갑니다');
+      // AE는 작업 뷰로 구운 지도 PNG·태풍 리그를 CAM 널로 통째 확대한다 — 화면은 확대해도 아이콘·선 굵기를 그대로 다시 그린다
+      const s0 = +((stateForSave().map || {}).s) || 1;
+      if (ks.some((k) => Math.abs((+k.s || 1) / s0 - 1) > 0.01)) cam.diff.push('AE에선 확대한 만큼 지도 그림(PNG)이 흐려지고 태풍 아이콘·선 굵기·지명표시도 같이 커집니다(화면은 크기 그대로)');
     }
   }
   // 범례·제목 — 맨 위 정적
@@ -115,9 +118,10 @@ function tlLayerPlan(opt) {
         lay({ id: 'cmp:' + c.id, kind: 'typcmp', key: c.id, name: c.name || '비교 예보', icon: 'typhoon2', col: c.color || '#888', track: tr, animatable: true,
           implicit: !tr && tt ? [+tt.ps, +tt.pe] : null, note: c.show ? '' : '숨김', dim: !c.show });
       }
+      // AE 비교 리그는 타이밍 하나(타이밍 있는 막대의 가장 이른 시작~가장 늦은 끝) — 막대끼리 다르거나, 타이밍 없는(처음부터 보이는) 예보가 섞여 있으면 차이
       const live = out.filter((L) => L.kind === 'typcmp' && !L.dim);
-      const sp = live.map((L) => L.span || L.implicit).filter(Boolean);
-      if (sp.length > 1 && sp.some((s) => Math.abs(s[0] - sp[0][0]) > 0.01 || Math.abs(s[1] - sp[0][1]) > 0.01)) for (const L of live) L.diff.push('AE에선 비교 예보가 한 타이밍(가장 이른 시작~가장 늦은 끝)으로 들어갑니다');
+      const all = live.map((L) => L.span || L.implicit), sp = all.filter(Boolean);
+      if (sp.length && (sp.length < all.length || sp.some((s) => Math.abs(s[0] - sp[0][0]) > 0.01 || Math.abs(s[1] - sp[0][1]) > 0.01))) for (const L of live) L.diff.push('AE에선 비교 예보가 한 타이밍(가장 이른 시작~가장 늦은 끝)으로 들어갑니다');
     } else {
       const typ = lay({ id: 'typ', kind: 'typhoon', key: 'typhoon', name: '태풍 경로', icon: 'typhoon', col: iconCol, track: tt, animatable: true });
       const kids = [];
@@ -141,7 +145,8 @@ function tlLayerPlan(opt) {
     const labs = (S.labels || []).filter((b) => !b.off);
     for (let i = labs.length - 1; i >= 0; i--) {
       const b = labs[i];
-      lay({ id: 'label:' + b.id, kind: 'label', key: b.id, name: String(b.txt || '(빈 라벨)').split('\n')[0], icon: 'tag', col: b.fill || '#888', track: findKey('label', b.id), animatable: true, note: b.style === 'leader' ? '지시선' : '' });
+      const L = lay({ id: 'label:' + b.id, kind: 'label', key: b.id, name: String(b.txt || '(빈 라벨)').split('\n')[0], icon: 'tag', col: b.fill || '#888', track: findKey('label', b.id), animatable: true, note: b.style === 'leader' ? '지시선' : '' });
+      if (b.style === 'leader' && L.track) L.diff.push('AE에선 지시선이 같은 타이밍으로 나타나기만 하고 올라오는 박스를 따라가지 않습니다(박스만 26px 올라옴)');
     }
     const mtns = (S.mtns || []).filter((m) => !m.off);
     for (let i = mtns.length - 1; i >= 0; i--) {

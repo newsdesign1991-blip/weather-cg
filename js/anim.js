@@ -465,19 +465,21 @@ function renderAnimFrameBody(t) {
     const pts = curTyphoonPoints();
     const N = Math.max(2, pts.length);
     const { lo, hi } = typhoonAnimWindow(pts); const span = typhoonAnimSpan(lo, hi);   // '표시 날짜 범위' 구간만(라인 모드는 현재 위치까지 — playTyphoon과 동일)
-    if (!_tt) { typhoonProg = null; typhoonCmpProg = null; typhoonLabelAnim = null; renderTyphoon(); applyVfEnter(t); return; }   // 트랙 없으면 정적 전체 표시
-    const ps = +_tt.ps, pe = +_tt.pe, lab = _tt.lab || {};
+    // 트랙 없으면 정적 전체 표시. 비교 지도는 비교 예보 트랙만 있어도 그 막대대로 움직인다(메인 경로 트랙이 없으면 경로는 다 그린 상태 — 막대 = 화면 = AE)
+    const cmpOnly = !_tt && isTyphoonCompare() && anim().tracks.some((x) => x.kind === 'typcmp');
+    if (!_tt && !cmpOnly) { typhoonProg = null; typhoonCmpProg = null; typhoonLabelAnim = null; renderTyphoon(); applyVfEnter(t); return; }
+    const ps = _tt ? +_tt.ps : 0, pe = _tt ? +_tt.pe : 0, lab = (_tt && _tt.lab) || {};
     // 경로: [ps,pe] 동안 등속(이징) 진행
-    const pathK = clamp01((t - ps) / Math.max(0.001, pe - ps));
+    const pathK = _tt ? clamp01((t - ps) / Math.max(0.001, pe - ps)) : 1;
     typhoonProg = pathK >= 1 ? null : lo + easeInOutC(pathK) * span;
     // 라벨: 각 라벨의 [s,e] 키로 등장(리더+스케일 시간은 그 길이에 비례). 절대시각(ms) 기준.
     const map = {};
-    if (!typhoonLineMode()) for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
+    if (_tt && !typhoonLineMode()) for (const b of labelList()) if (!b.off && b.idx != null && b.idx >= lo && b.idx <= hi) {
       const e = lab[b.id]; if (!e) continue;
       const dur = Math.max(0.05, e.e - e.s) * 1000;
       map[b.id] = { st: e.s * 1000, LINE: dur * 0.6, SCALE: dur * 0.7 };
     }
-    typhoonLabelAnim = { at: t * 1000, map };
+    typhoonLabelAnim = _tt ? { at: t * 1000, map } : null;
     // 비교 예보선 진행도 — 타임라인 트랙(typcmp)이 있으면 그 시작·길이(초)로, 없으면 메인과 같은 타이밍.
     const cmp = (S.typhoon && S.typhoon.compare) || [];
     if (cmp.length) { const trk = anim().tracks; typhoonCmpProg = {}; for (const c of cmp) { const tr = trk.find((x) => x.kind === 'typcmp' && x.key === c.id); const ck = tr ? clamp01((t - tr.start) / Math.max(tr.len, 0.001)) : pathK; typhoonCmpProg[c.id] = ck >= 1 ? null : easeInOutC(ck); } }   // 0..1 비율(호길이 등속)
@@ -492,7 +494,7 @@ function renderAnimFrameBody(t) {
   const reveal = A.reveal || 'dissolve';
 
   const colProg = {};
-  for (const tr of A.tracks) if (tr.kind === 'fill') colProg[tr.key] = easeOut(trackProg(tr, t));
+  for (const tr of A.tracks) if (tr.kind === 'fill') colProg[String(tr.key || '').toUpperCase()] = easeOut(trackProg(tr, t));   // 색 키는 대문자로(타임라인 행·AE가 색을 대소문자 없이 찾는 것과 같게)
   const progOf = (kind, id) => {
     const tr = A.tracks.find((x) => x.kind === kind && x.key === id);
     return tr ? trackProg(tr, t) : 1;   // 트랙이 없으면 계속 보이는 것으로

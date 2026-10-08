@@ -260,7 +260,7 @@ function tlUpdateFootWarn() {
   for (const L of tlState.plan) { const sp = tlSpanNow(L); if (sp && sp[1] > dur + 1e-4 && L.kind !== 'vfEnter') n++; for (const c of (L.children || [])) { const cs = tlSpanNow(c); if (cs && cs[1] > dur + 1e-4) n++; } }
   for (const k of camKeys()) if (+k.t > dur + 1e-4) n++;
   const none = !anim().tracks.length && !camKeys().length && tlState.plan.some((L) => L.animatable && !L.gone);
-  w.textContent = n ? `길이 밖 ${n}개 — 길이를 늘리거나 당겨 오세요(추출엔 안 나옴)` : none ? '타이밍 없음 — 자동 구성을 누르거나 점선 막대를 끌어 등장 시각을 만드세요' : '';
+  w.textContent = n ? `길이 밖 ${n}개 — 길이를 늘리거나 당겨 오세요(영상 추출엔 안 나오고, AE는 컴프를 그 끝까지 늘려 보냄)` : none ? '타이밍 없음 — 자동 구성을 누르거나 점선 막대를 끌어 등장 시각을 만드세요' : '';
 }
 function tlSelSync() {
   for (const [id, e] of tlState.els) {

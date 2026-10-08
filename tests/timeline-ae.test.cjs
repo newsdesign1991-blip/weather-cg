@@ -116,14 +116,39 @@ const tyS = (over = {}) => Object.assign({
   anim: { dur: 6, fps: 29.97, tracks: [{ id: 'k1', kind: 'typhoon', key: 'typhoon', start: 1, len: 3, ps: 1, pe: 3 }], cam: { keys: [] } },
 }, over);
 test('태풍 — 카메라(키 있을 때) · 범례 · 제목 · 태풍 경로(하위: 경로 + 보이는 라벨, 지점 순) · 지명표시 · 배경', () => {
-  const S = tyS(); S.anim.cam.keys = [{ id: 'c1', t: 0.4, x: 1, y: 1, s: 1 }, { id: 'c2', t: 3, x: 2, y: 2, s: 1.2 }];
+  const S = tyS({ map: { x: 1160, y: 545, s: 1.02 } }); S.anim.cam.keys = [{ id: 'c1', t: 0.4, x: 1, y: 1, s: 1.02 }, { id: 'c2', t: 3, x: 2, y: 2, s: 1.02 }];
   const P = arr(planCtx(S).tlLayerPlan());
   assert.deepEqual(P.map((L) => L.id), ['cam', 'st:legend', 'st:title:x1', 'typ', 'st:place', 'st:bg']);
   const typ = P[3];
   assert.equal(typ.icon, 'typhoon'); assert.equal(P[0].icon, 'camera');
   assert.deepEqual(arr(typ.children).map((c) => c.id), ['typ:path', 'typ:lab:b1', 'typ:lab:b2']);   // 숨긴 b3 없음
   assert.deepEqual(arr(typ.children[0].span), [1, 3]);
-  assert.equal(P[0].diff.length, 0, '태풍 단일 + 위치·확대만 = AE 그대로');
+  assert.equal(P[0].diff.length, 0, '태풍 단일 + 이동만(확대 = 작업 뷰) = AE 그대로');
+});
+test('카메라 AE 차이 — 확대가 작업 뷰와 다르면(AE는 구운 PNG·리그를 통째 확대), 키 3개+, 방향·기울기, 일반·비교 지도', () => {
+  const S = tyS({ map: { x: 1160, y: 545, s: 1.02 } }); S.anim.cam.keys = [{ id: 'c1', t: 0.4, x: 1, y: 1, s: 1.02 }, { id: 'c2', t: 3, x: 2, y: 2, s: 1.35 }];
+  let cam = arr(planCtx(S).tlLayerPlan())[0];
+  assert.deepEqual(arr(cam.diff), ['AE에선 확대한 만큼 지도 그림(PNG)이 흐려지고 태풍 아이콘·선 굵기·지명표시도 같이 커집니다(화면은 크기 그대로)']);
+  // 미리보기 중(S.map = 카메라 보간 뷰)이어도 기준은 작업 뷰(stateForSave)
+  S.anim.cam.keys[0].s = 1.35; S.map.s = 1.35;   // 키가 모두 1.35 — 작업 뷰도 1.35면 차이 없음
+  assert.equal(arr(planCtx(S).tlLayerPlan())[0].diff.length, 0);
+  const c = planCtx(S); c._camSavedMap = { x: 1160, y: 545, s: 1.02, m3: null };   // 미리보기 중: S.map은 카메라 뷰(1.35), 작업 뷰는 1.02
+  assert.equal(arr(c.tlLayerPlan())[0].diff.length, 1);
+  S.map.s = 1.02; S.anim.cam.keys[0].s = 1.02;
+  S.anim.cam.keys.push({ id: 'c3', t: 4, x: 3, y: 3, s: 1.02, rz: 12 });
+  cam = arr(planCtx(S).tlLayerPlan())[0];
+  assert.equal(cam.diff.length, 3);
+  assert.ok(cam.diff.some((d) => d.includes('방향·기울기')) && cam.diff.some((d) => d.includes('3번째 키부터')));
+  const g = sggS(); g.anim.cam = { keys: [{ id: 'c1', t: 1, x: 0, y: 0, s: 1 }] };
+  assert.match(arr(planCtx(g).tlLayerPlan())[0].diff[0], /태풍 단일 지도만/);
+});
+test('지시선 라벨 — 막대가 있으면 AE 차이(지시선은 박스를 따라 올라오지 않음), 막대 없으면(처음부터 보임) 차이 없음', () => {
+  const S = sggS(); S.anim.tracks = [{ id: 'k1', kind: 'label', key: 'l2', start: 1, len: 1 }, { id: 'k2', kind: 'label', key: 'l1', start: 1, len: 1 }];
+  const P = arr(planCtx(S).tlLayerPlan());
+  assert.match(P.find((L) => L.id === 'label:l2').diff[0], /지시선/);
+  assert.equal(P.find((L) => L.id === 'label:l1').diff.length, 0, '일반 라벨은 AE와 같음');
+  S.anim.tracks = [];
+  assert.equal(arr(planCtx(S).tlLayerPlan()).find((L) => L.id === 'label:l2').diff.length, 0);
 });
 test('태풍 부모 끌기 = 경로·라벨 모두 같은 Δ, 라벨 하위 = 그 라벨 키만, 숨긴 라벨 키는 길이에서 빠지고 보존(B16)', () => {
   const S = tyS(); const c = planCtx(S);

@@ -375,9 +375,11 @@ async function sendToAE() {
           }
           typhoons.push({ color: c.color, lineW: (c.lineW || 2.2) * kk, iconFile, iconH: ic.h, iconRenderH: ic.iconH, iconScreenH: 15 * (c.iconScale == null ? 1 : c.iconScale) * kk, points: sp.map((p) => ({ x: SX(p.x), y: SY(p.y) })), iconAt, nameLabel, labels });
         }
-        // 비교 리그 타이밍 = 타임라인 비교 예보 막대(가장 이른 시작 ~ 가장 늦은 끝). 막대가 없으면(메인 경로 트랙도 없음) 처음부터 보임 — 화면과 같음.
+        // 비교 리그 타이밍 = 타임라인 비교 예보 막대(가장 이른 시작 ~ 가장 늦은 끝). 트랙 없는 예보는 메인 경로 막대(implicit), 그것도 없으면 처음부터 보임 — 화면과 같음.
         const cs = plan.filter((L) => L.kind === 'typcmp' && !L.dim && !L.gone).map((L) => (L.track ? [+L.track.start, +L.track.start + +L.track.len] : L.implicit)).filter(Boolean);
-        const reveal = cs.length ? { start: Math.min(...cs.map((s) => s[0])), path: Math.max(f1, Math.max(...cs.map((s) => s[1])) - Math.min(...cs.map((s) => s[0]))), labelLen: 1.0 } : { start: 0, path: f1, labelLen: f1 };
+        // 수치라벨: 화면은 선이 그 지점에 닿는 순간 완성(진행도 창 10~16%) — AE(헬퍼)는 닿은 뒤 labelLen 동안 나오므로 경로의 20%(0.2~1초)로 짧게 해 화면에 가깝게.
+        const cA = cs.length ? Math.min(...cs.map((s) => s[0])) : 0, cP = cs.length ? Math.max(f1, Math.max(...cs.map((s) => s[1])) - cA) : f1;
+        const reveal = cs.length ? { start: cA, path: cP, labelLen: +Math.min(1, Math.max(0.2, cP * 0.2)).toFixed(4) } : { start: 0, path: f1, labelLen: f1 };
         specLayers.push({ compareRig: { bg, reveal, typhoons }, name: '태풍 비교 리깅' });
       } else {
         // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
@@ -409,12 +411,12 @@ async function sendToAE() {
         // 타임라인의 태풍 트랙에서 경로·라벨 애니 타이밍을 가져온다. 트랙이 없으면 화면처럼 처음부터 다 보이게(1프레임).
         if (_tt) ensureTyphoonKeys(_tt);
         const revPathStart = _tt && _tt.ps != null ? +_tt.ps : 0;
-        const revPathLen = _tt && _tt.pe != null ? Math.max(0.1, +_tt.pe - +_tt.ps) : f1;
+        const revPathLen = _tt && _tt.pe != null ? Math.max(f1, +_tt.pe - +_tt.ps) : f1;   // 경로 막대 길이 그대로(최소 1프레임)
         const _lab = (_tt && _tt.lab) || {};
         const idxXY = {}; sp.forEach((p) => { idxXY[p.idx] = p; });
         const labels = [];
         // 라인 모드는 경로 라벨 숨김(화면과 동일) → labels=[]
-        if (!lineMode) for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : (_tt ? null : 0), revLen: e ? Math.max(0.1, +e.e - +e.s) : (_tt ? null : f1) }); }
+        if (!lineMode) for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : (_tt ? null : 0), revLen: e ? Math.max(0.05, +e.e - +e.s) : (_tt ? null : f1) }); }   // 라벨 막대 시작·길이 그대로(화면 renderAnimFrame과 같은 최소 0.05초)
         // 화면상 현재 아이콘 높이(px, 출력해상도 스케일) — AE 스케일 계산용. 라인 모드 선두도 화면에서 typhoonIconEl(…,17,…)이라 같은 값.
         const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5 * kk;
         const lineCol = T.lineColor || iconCol;

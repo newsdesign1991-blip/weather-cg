@@ -1,5 +1,5 @@
 // 묶음 E(앱 쪽) — MXF/MOV 29.97 기준 n프레임, AE 출력 해상도 배율(터치), 태풍 리깅 새 스펙(라인모드·선굵기·noIcon·과거아이콘 30%),
-// 지시선 라벨 별도 레이어, 비교 작은 원 크기, AE 컴프 길이, fontsOk 안내, HELPER_VER_MIN.
+// 지시선 라벨 별도 레이어, 비교 작은 원 크기, AE 컴프 길이(= 타임라인 길이), AE 타이밍 = 타임라인(트랙 없으면 자동 구성 타이밍), fontsOk 안내, HELPER_VER_MIN.
 // 실제 앱 스펙 검사(부팅 점검기 + fetch 가로채기)는 WCG_BOOT_CHECK=1 일 때만 돈다(일렉트론 필요·느림).
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -331,8 +331,35 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
   for (const k of ['tyLineTouch', 'tyFullTouch', 'tyFull1920', 'cmpTouch', 'cmp1920']) assert.equal(o[k].comp.dur, 6, k);
   for (const res of ['1920x1080', '1920x1080-vf']) assert.equal(o[res].comp.dur, 6, res);
   assert.equal(o.touch.comp.dur, 6);
+  // 타이밍 = 타임라인 값. 이 작업들은 트랙이 없어 '자동 구성' 타이밍(=타임라인을 열고 자동 구성을 누르면 생길 막대)으로 들어간다
+  // — 칠 0.8초(예전 AE 전용 1초 고정이 아님), 라벨 1초 + 26px 올라오기, 지시선 = 그 라벨 막대. (트랙을 손본 경우의 1:1 비교는 ae-timeline-spec.test.cjs)
+  {
+    const A = o.touch.auto, fz = Object.fromEntries(o.touch.fades);
+    assert.ok(A && A.length, '트랙 없음 → 자동 구성 계획');
+    const fillT = A.filter((t) => t.kind === 'fill');
+    assert.equal(fillT.length, 2);
+    for (const t of fillT) { assert.deepEqual(fz['색칠_' + t.key.slice(1)], { start: t.start, len: t.len }); assert.equal(t.len, 0.8); }
+    assert.equal(fillT[0].start, 0, '터치 = 0초부터');
+    for (const [id, nm] of [['l1', '라벨_1'], ['l2', '라벨_2']]) {
+      const t = A.find((x) => x.kind === 'label' && x.key === id);
+      assert.deepEqual({ start: fz[nm].start, len: fz[nm].len }, { start: t.start, len: t.len }); close(fz[nm].rise, 26 * kk);
+    }
+    const t2 = A.find((x) => x.kind === 'label' && x.key === 'l2');
+    assert.deepEqual(fz['지시선_2'], { start: t2.start, len: t2.len });
+    // 태풍(트랙 없음) = 자동 구성 경로 막대, 라벨은 경로가 그 지점을 지날 때
+    for (const k of ['tyFullTouch', 'tyFull1920']) {
+      const tt = o[k].auto.find((x) => x.kind === 'typhoon'), rv = o[k].rig.reveal;
+      close(rv.start, tt.ps); close(rv.path, tt.pe - tt.ps); assert.equal(rv.labelLen, 1);
+      assert.equal(rv.start, k === 'tyFullTouch' ? 0 : 1, '터치 0초, 노말 1초 홀드');
+    }
+    // 손본 태풍 트랙(경로 1→9초, 라벨 9.5→11초) = 그대로
+    assert.deepEqual(o.tyLong.reveal, { start: 1, path: 8, labelLen: 1 });
+    assert.deepEqual(o.tyLong.labels, [[9.5, 1.5]]);
+  }
   // 비교
   const ct = o.cmpTouch.rig.typhoons[0], cn = o.cmp1920.rig.typhoons[0];
+  const cmpT = o.cmp1920.auto.find((x) => x.kind === 'typcmp');
+  assert.deepEqual(o.cmp1920.rig.reveal, { start: cmpT.start, path: cmpT.len, labelLen: +Math.min(1, Math.max(0.2, cmpT.len * 0.2)).toFixed(4) }, '비교 = 비교 예보 막대');
   close(ct.iconScreenH, 15 * kk); close(ct.lineW, 3 * kk); close(ct.iconRenderH, 90 * 0.62 * 2.5 / 1.05);
   close(ct.labels[0].bx, cn.labels[0].bx * kx, 0.11); close(ct.nameLabel.size, cn.nameLabel.size * kk);
   // MXF 30프레임
