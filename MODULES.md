@@ -209,6 +209,11 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 
 ## 8. 테스트 · 도구
 
+특보 겹침 표시(2026-10-09): `warnings-apply.js`의 `wrnOverlapPlan`·`wrnStripeFill`이 겹친 활성 특보를 교차 색 띠로 그린다.
+`S.wrnOverlap`은 기본 켜짐, 개인 배치·프로젝트에도 저장한다. 지도/인셋·해상·이미지·영상·AE 분리 레이어가 같은 무늬를 쓴다.
+옛 영상 진입 효과 '블라인드'는 선택 메뉴에서 제거했고, 옛 저장본의 `anim.reveal=blinds`는 번짐으로 읽는다.
+헬퍼의 옛 스펙 처리·클립 정리 도우미는 이전 프로젝트 호환용으로 유지한다(새 출력에는 영상 블라인드를 보내지 않는다).
+
 | 명령 | 하는 일 |
 |---|---|
 | `node --test tests/*.test.cjs desktop/test/*.test.cjs` | 전체 테스트(Electron 없이). 구조 검사 `tests/split-structure.test.cjs` 포함 |

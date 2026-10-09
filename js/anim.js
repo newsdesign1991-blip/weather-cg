@@ -4,7 +4,12 @@
 // ===================== 영상 (타임라인) =====================
 // 원칙: 애니메이션은 '지금 만들어 둔 CG'를 시간에 따라 드러내는 것일 뿐,
 // 작업 내용(칠한 색·라벨 위치)을 바꾸지 않는다. 재생을 멈추면 renderAll()로 원상복구한다.
-const anim = () => (S.anim ||= { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] });
+const anim = () => {
+  const a = (S.anim ||= { dur: 6, fps: 29.97, reveal: 'dissolve', tracks: [] });
+  // 영상 블라인드 등장은 폐지. 예전 프로젝트도 번짐으로 재생·추출한다.
+  a.reveal = 'dissolve';
+  return a;
+};
 // 태풍 경로 트랙 = 경로(ps 시작/pe 끝) + 라벨마다 개별 키(tr.lab[labelId]={s,e}). 카메라처럼 하위 행으로 표시.
 function typhoonTrack() { return anim().tracks.find((x) => x.kind === 'typhoon'); }
 // 애니 대상 라벨 = 숨김 아니고 지점(idx)에 붙은 것
@@ -192,6 +197,8 @@ function autoTrackPlan() {
   const F = fills();
   const seen = {};
   for (const c of Object.values(F)) seen[c.toUpperCase()] = true;
+  if (S.style === 'warnsea') for (const c of Object.values(S.seaFills || {})) seen[c.toUpperCase()] = true;
+  if (typeof wrnOverlapPlan === 'function') for (const cols of Object.values(wrnOverlapPlan())) for (const c of cols) seen[c] = true;
   // 밝은 색 -> 어두운 색 순서
   const cols = Object.keys(seen).sort((a, b) => lumOf(b) - lumOf(a));
 
@@ -355,7 +362,7 @@ function animFastOn() {
   const blinds = (A.reveal || 'dissolve') === 'blinds';
   const fast = { groups: [], softKids: [], cam: null, blinds, masks: new Map(), tilt: false };
   // ① 칠: 서울 아님(한강 위 오버레이가 섞이는 식이 달라 정확 경로 유지)·태풍 아님. 번짐 = 그룹 opacity, 블라인드 = 그룹 마스크(슬랫 무늬 rect 하나)
-  if (!isTyphoon() && !isSeoul()) {
+  if (!isTyphoon() && !isSeoul() && !(typeof wrnOverlapPlan === 'function' && Object.keys(wrnOverlapPlan()).length)) {
     const trk = new Set(A.tracks.filter((x) => x.kind === 'fill').map((x) => String(x.key).toUpperCase()));
     const gm = $('#gMain');
     if (trk.size && gm) {
@@ -535,6 +542,7 @@ function renderAnimFrameBody(t) {
 
   const colProg = {};
   for (const tr of A.tracks) if (tr.kind === 'fill') colProg[String(tr.key || '').toUpperCase()] = easeOut(trackProg(tr, t));   // 색 키는 대문자로(타임라인 행·AE가 색을 대소문자 없이 찾는 것과 같게)
+  const overlap = typeof wrnOverlapPlan === 'function' ? wrnOverlapPlan() : {};
   const progOf = (kind, id) => {
     const tr = A.tracks.find((x) => x.kind === kind && x.key === id);
     return tr ? trackProg(tr, t) : 1;   // 트랙이 없으면 계속 보이는 것으로
@@ -596,8 +604,14 @@ function renderAnimFrameBody(t) {
       const target = F[id];
       let col = S.base;
       if (target) { const p = colProg[target.toUpperCase()]; col = p === undefined ? target : mixHex(S.base, target, p); }
-      for (const { el: e } of arr) e.setAttribute('fill', col);
+      for (const { el: e, inset } of arr) e.setAttribute('fill', overlap[id] ? wrnStripeFill(svg, overlap[id], inset ? S.insets[inset].s : S.map.s, colProg, null, inset) : col);
     }
+  }
+
+  // 해상 겹침도 같은 색별 타이밍을 쓴다.
+  if (Object.keys(overlap).length) for (const p of document.querySelectorAll('#seaT .sea')) {
+    const cols = overlap[p.dataset.id];
+    if (cols) p.setAttribute('fill', wrnStripeFill(svg, cols, S.map.s, colProg));
   }
 
   // 부드러운 경계 오버레이(#gMainSoft)도 애니메이션에 맞춰 같이 드러나게 —

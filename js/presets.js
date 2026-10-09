@@ -16,7 +16,7 @@ const PRESET_KEYS = ['map', 'insets', 'texts', 'labScale', 'mtnScale', 'cgLight'
   'txtShadow', 'labShadow',   // 제목·라벨 그림자 켬/끔도 화면(모드)별로 기억 (밝은 모드에서 뺀 게 유지되도록)
   // 바다(해상) 색·경계선도 화면별 룩에 포함 — '특보+해상' 화면의 바다 색/경계를 따로 기억한다.
   'seaCol', 'seaW', 'seaBase', 'seaBaseOp', 'seaFade',
-  'vfBar', 'vfScale', 'legend', 'wrnColors', 'wrnLevelColors',   // 노말 VF 제목 바·전체 크기 · 기상특보 범례 · 특보 기본색·단계별 색
+  'vfBar', 'vfScale', 'legend', 'wrnColors', 'wrnLevelColors', 'wrnOverlap',   // 특보 겹침 표시도 배치에 저장
   'map3d'];   // 3D 살짝 기울임 (미리보기·추출 공통) — 화면별로 기억/굽기
 
 // 배치는 [출력 화면] × [배치 그룹] × [밝은/어두운]으로 따로 기억한다.

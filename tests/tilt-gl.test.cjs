@@ -437,7 +437,8 @@ test('재생 중(가속): 회전만 바뀐 프레임은 지도 리비전이 안 
   A.renderAnimFrame(1.2); assert.equal(A.rev, r1 + 1, '칠 진행 중 → 다시 굽기');
   A.renderAnimFrame(1.25); assert.equal(A.rev, r1 + 2);
   A.renderAnimFrame(2.0); A.renderAnimFrame(2.5); assert.equal(A.rev, r1 + 3, '칠 끝난 뒤 그대로');
-  c.S.anim.reveal = 'blinds'; A.renderAnimFrame(2.6); assert.equal(A.rev, r1 + 4, '드러내기 방식이 바뀌면 다시');
+  c.S.anim.reveal = 'blinds'; A.renderAnimFrame(2.6); assert.equal(c.S.anim.reveal, 'dissolve', '폐지된 블라인드 영상 효과는 번짐으로 읽는다');
+  assert.equal(A.rev, r1 + 3, '실제 드러내기 방식은 그대로 — 다시 굽지 않음');
   // 태풍: 경로 진행도
   c.isTy = true; c.typhoonProg = 2.5; A.renderAnimFrame(3); const r2 = A.rev;
   A.renderAnimFrame(3.1); assert.equal(A.rev, r2, '태풍 진행도 그대로 → 그대로');

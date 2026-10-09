@@ -373,7 +373,10 @@ async function exportBake(key) {
       }, false, T);
     case 'fills': {
       const F = fills();
-      return svgBlob((c) => fillOnlyLayer(c, (z) => F[z.dataset.id], (p) => S.seaFills[p.dataset.id]), false, T);
+      const overlap = wrnOverlapPlan();
+      return svgBlob((c) => fillOnlyLayer(c,
+        (z) => overlap[z.dataset.id] ? wrnStripeFill(c, overlap[z.dataset.id], exZoneScale(z), null, null, z.getAttribute('data-inset')) : F[z.dataset.id],
+        (p) => overlap[p.dataset.id] ? wrnStripeFill(c, overlap[p.dataset.id], S.map.s) : S.seaFills[p.dataset.id]), false, T);
     }
     case 'lines': {   // 경계선만 — 화면의 선 그대로(구역 테두리=시군선·실제 구역선·시도 경계·바다 경계). 칠·브러쉬·한강·그림자는 뺀다
       const F = fills();

@@ -128,10 +128,10 @@
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
-<link rel="stylesheet" href="css/dialogs.css?v=9b6ff165">
+<link rel="stylesheet" href="css/dialogs.css?v=838ef6ce">
 <link rel="stylesheet" href="css/panel-misc.css?v=9fd0d100">
-<link rel="stylesheet" href="css/toss-modal.css?v=e76fa6c0">
-<link rel="stylesheet" href="css/date-picker.css?v=103121b5">
+<link rel="stylesheet" href="css/toss-modal.css?v=606aa1e8">
+<link rel="stylesheet" href="css/date-picker.css?v=33913418">
 <link rel="stylesheet" href="css/busy-fx.css?v=89c40212">
 
 <!-- 맨 위 제목줄 — 데스크톱 앱에선 이 줄이 곧 창 제목표시줄(빈 곳 끌기=창 이동, 오른쪽 끝=윈도 창 버튼).
@@ -323,7 +323,7 @@
           <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L1.2 21h21.6zm-1.2 6h2.4v6h-2.4zm0 8h2.4v2.4h-2.4z"/></svg></span>
           <div class="cgsPaneTxt">
             <div class="cgsPaneTitle" id="wrnColListTitle">특보 종류</div>
-            <div class="cgsPaneSub">위가 우선 — 한 구역에 겹치면 위에 있는 특보 색으로 칠해요</div>
+            <div class="cgsPaneSub">위가 우선 — 겹침 표시를 켜면 여러 특보 색이 교차 띠로 보여요</div>
           </div>
           <span class="cgsPick on" id="wrnColCount"></span>
         </div>
@@ -536,6 +536,8 @@
             <svg class="wrnColBtnGo" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
+        <label class="chk"><input type="checkbox" id="wrnOverlap" checked>겹친 특보 블라인드로 표시</label>
+        <div class="hint">같은 지역에 겹친 특보 색을 교차 띠로 함께 보여요. 끄면 위 특보 색만 표시해요.</div>
       </div>
     </div>
 
@@ -1012,13 +1014,8 @@
        <label class="tlNum">효과
          <select id="tlReveal">
            <option value="dissolve">번짐</option>
-           <option value="blinds">블라인드</option>
          </select>
        </label>
-       <span id="blindOpts" style="display:none; align-items:center; gap:8px">
-         <label class="tlNum">슬랫 <input type="number" id="tlBlindSize" min="8" max="400" step="2"><span>px</span></label>
-         <label class="tlNum">각도 <input type="number" id="tlBlindAngle" min="-90" max="90" step="1"><span>°</span></label>
-       </span>
        <span class="tlGrow"></span>
        <!-- 렌더 출력 덩어리(저장 폴더 + 렌더 묶음) — 좁은 창에서 줄이 바뀌어도 둘이 떨어지지 않게 함께 움직인다(css/timeline.css .tlOut) -->
        <div class="tlOut">
@@ -1362,11 +1359,11 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="place-data.js" onerror="window.PLACE_GAZ=null"></script>
 <script src="fct-data.js"></script>
 <script src="img-data.js"></script>
-<script src="js/core.js?v=573ec611"></script>
+<script src="js/core.js?v=6a1fd82d"></script>
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
 <script src="js/map-build.js?v=13856c4c"></script>
-<script src="js/map-render.js?v=2c0ceabc"></script>
+<script src="js/map-render.js?v=81f50098"></script>
 <script src="js/vf-legend.js?v=06464ea1"></script>
 <script src="js/labels-mountains.js?v=84a9ae7a"></script>
 <script src="js/typhoon-core.js?v=499ee16c"></script>
@@ -1377,30 +1374,30 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/panels.js?v=2a053688"></script>
 <script src="js/view-camera.js?v=2bda1a60"></script>
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
-<script src="js/pointer-drag.js?v=abf1c8e3"></script>
-<script src="js/warnings.js?v=40550be8"></script>
-<script src="js/warnings-apply.js?v=6034c101"></script>
+<script src="js/pointer-drag.js?v=144d339d"></script>
+<script src="js/warnings.js?v=c48fe730"></script>
+<script src="js/warnings-apply.js?v=17215aba"></script>
 <script src="js/bulletin.js?v=d72e065a"></script>
 <script src="js/bulletin-load.js?v=bebef3be"></script>
 <script src="js/forecast-panel.js?v=40d42aed"></script>
-<script src="js/warnings-load.js?v=b484d5f5"></script>
-<script src="js/presets.js?v=27fad655"></script>
+<script src="js/warnings-load.js?v=04ed43bd"></script>
+<script src="js/presets.js?v=31abe4c7"></script>
 <script src="js/cg-setup.js?v=df117938"></script>
 <script src="js/modals-notices.js?v=fd41c6a3"></script>
-<script src="js/date-picker.js?v=9fc0cb91"></script>
+<script src="js/date-picker.js?v=4c826b74"></script>
 <script src="js/busy-fx.js?v=05f4b1c5"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
 <script src="js/export-image.js?v=9c69190f"></script>
 <script src="js/export-video.js?v=c03f0d29"></script>
-<script src="js/export-blobs.js?v=d88ff707"></script>
-<script src="js/ae-export.js?v=ee40eb5b"></script>
+<script src="js/export-blobs.js?v=29750eaf"></script>
+<script src="js/ae-export.js?v=5889930b"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
-<script src="js/project-io.js?v=92bb50e8"></script>
-<script src="js/wiring.js?v=6552bdc2"></script>
-<script src="js/anim.js?v=dd4f23c6"></script>
+<script src="js/project-io.js?v=a8413164"></script>
+<script src="js/wiring.js?v=c340e860"></script>
+<script src="js/anim.js?v=3f7ec170"></script>
 <script src="js/timeline-plan.js?v=5b2480af"></script>
-<script src="js/timeline-ui.js?v=05af56f8"></script>
+<script src="js/timeline-ui.js?v=8c3c0a46"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
-<script src="js/floating-panels.js?v=a5013cc8"></script>
+<script src="js/floating-panels.js?v=3fe17ffd"></script>
 <script src="js/tour.js?v=2738fa27"></script>
-<script src="js/boot.js?v=4bc8faad"></script>
+<script src="js/boot.js?v=07cdcc67"></script>

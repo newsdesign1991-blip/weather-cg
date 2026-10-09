@@ -113,11 +113,7 @@ function wire() {
   updateWnsButtons();   // 노말 VF + 로컬일 때만 버튼 노출
   $('#tlDur').onchange = (e) => { pushUndo(); anim().dur = Math.max(0.5, +e.target.value || 6); if (tlHeadT > anim().dur) tlHeadT = anim().dur; buildTimeline(); tlRefreshPreview(); };
   $('#tlFps').onchange = (e) => { pushUndo(); anim().fps = parseFloat(e.target.value) || 29.97; tlNote(); buildTimeline(); };
-  const syncBlindOpts = () => { $('#blindOpts').style.display = (anim().reveal === 'blinds') ? 'inline-flex' : 'none'; };
-  $('#tlReveal').onchange = (e) => { pushUndo(); anim().reveal = e.target.value; syncBlindOpts(); buildTimeline(); animSeek(tlHeadT); };
-  const onBlind = () => { pushUndo('tlblind'); anim().blindSize = Math.max(8, +$('#tlBlindSize').value || 8); anim().blindAngle = +$('#tlBlindAngle').value || 0; animSeek(tlHeadT); };
-  $('#tlBlindSize').oninput = onBlind;
-  $('#tlBlindAngle').oninput = onBlind;
+  $('#tlReveal').onchange = () => { pushUndo(); anim().reveal = 'dissolve'; buildTimeline(); animSeek(tlHeadT); };
   // 눈금자·CTI·막대·키·휠·키보드·높이·이름 열 폭 — 타임라인 조작 배선(js/timeline-input.js)
   tlWire();
 
@@ -254,6 +250,7 @@ function wire() {
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value, null, 'paste');
   $('#wrnFetch').onclick = () => fetchWrn();   // 인자 없이(=목록 새로 만듦). onclick이 이벤트를 keepSel로 넘기지 않게 감쌈.
   setupWrnColPop();   // '특보 종류별 색' 버튼 → 2분할 팝업(js/warnings-load.js) — 옛 사이드바 색 격자 자리
+  wireWrnOverlap();
   // 발효시각을 고르면 그 시각으로 '재요청'해서 정확한 발효현황을 받아 칠한다(picker와 동일). 목록은 그대로 둠.
   { const bs = $('#wrnBulletinSel'); if (bs) bs.onchange = async () => {
       const v = bs.value, prevWhen = wrnWhen, prevFc = wrnSelFc;

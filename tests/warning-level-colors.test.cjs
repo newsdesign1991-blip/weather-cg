@@ -63,6 +63,7 @@ function createWarningEditorContext() {
   context.pushUndo = () => {};
   context.paintWrn = () => {};
   context.renderLegend = () => {};
+  context.buildWrnCols = () => {};
   const buildList = sliceBetween('function buildWrnList()', '// ===================== 기상예보 자동 색칠');
   vm.runInContext(
     'var wrnRows = []; function wrnRank(){ return 0; } function tmShort(){ return ""; }\n'

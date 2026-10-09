@@ -70,7 +70,7 @@ test('팝업 구조 — 장면 설정 창과 같은 틀(옅은 틴트 머리·�
   const left = body.indexOf('cgsPaneRes wrnColPaneList'), right = body.indexOf('cgsPaneStyle wrnColPaneDet');
   assert.ok(left > 0 && right > left, '왼쪽 목록 · 오른쪽 단계');
   assert.match(pop, /<div class="wrnColList" id="wrnColList" role="tablist" aria-orientation="vertical" aria-label="특보 종류"><\/div>/);
-  assert.match(pop, /위가 우선 — 한 구역에 겹치면 위에 있는 특보 색으로 칠해요/);
+  assert.match(pop, /위가 우선 — 겹침 표시를 켜면 여러 특보 색이 교차 띠로 보여요/);
   assert.match(pop, /id="wrnColDet" role="tabpanel"/);
   assert.match(pop, /<button type="button" class="cgsPick wrnColReset" id="wrnColReset"[^>]*>기본색으로<\/button>/);
   assert.match(pop, /<div class="wrnColLevels" id="wrnColLevels"><\/div>/);
@@ -119,6 +119,8 @@ test('스타일 — 넓은 창 2분할·좁은 창 위아래, 색은 토큰만(�
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/, '하드코딩 색 금지 — 토큰(var(--…))만');
   assert.match(css, /\.wrnColBody \{ grid-template-columns: minmax\(0, 320px\) minmax\(0, 1fr\);/);
   assert.match(css, /@media \(max-width: 900px\) \{\n    \.wrnColCard \{ height: auto; \}\n    \.wrnColBody \{ grid-template-columns: minmax\(0, 1fr\); overflow-y: auto; \}/);
+  // 좁은 창에선 판이 내용 높이 그대로 — 넓은 창의 min-height: 0 이 남으면 줄이 눌려 마지막 단계 카드·안내가 판 밖으로 샌다(검토 때 잡음)
+  assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.wrnColPaneList, \.wrnColPaneDet \{ min-height: auto; \}/);
 });
 
 // 저장 경로 — 옛 격자·들어온 특보 목록과 같은 자리(S.wrnColors · S.wrnLevelColors)를 쓰는지 실제로 돌려 본다
@@ -189,6 +191,8 @@ test('바꾸면 되돌리기 기록·지도 칠·목록이 옛 격자와 같게 
   assert.match(det, /pushUndo\(\);\n\s*wrnColSet\(k, l, v\); wrnColChanged\(\);/, '#hex');
   assert.match(fn('wrnColChanged'), /if \(wrnRows\.length\) \{ buildWrnList\(\); paintWrn\(\); \}\n\s*buildWrnCols\(\);/);
   assert.match(fn('setupWrnColPop'), /pushUndo\(\);\n\s*wrnColResetType\(k\); wrnColChanged\(\);/, '기본색으로도 되돌리기 가능');
+  // 들어온 특보 목록에서 단계 색을 바꿔도 버튼 점(경보 색)이 따라온다
+  assert.match(fn('buildWrnList'), /setWrnLevelColor\(a\.wrn, a\.lvl, e\.target\.value\);\n\s*paintWrn\(\); renderLegend\(\);\n\s*buildWrnCols\(\);/);
   // 배치(프리셋)·설정 옮기기·자동 저장은 S 그대로 — 두 키가 배치 키에 있다
   assert.match(html, /'wrnColors', 'wrnLevelColors'/);
   // 색 칸을 끄는 중엔 카드를 다시 만들지 않는다(색 고르기 창이 닫히지 않게) — 단계 목록이 바뀔 때만 새로
@@ -203,6 +207,8 @@ test('부팅 점검: 특보 지도 → 버튼 → 팝업 → 폭염 경보 #1234
   const R = out.evalResult;
   assert.deepEqual(R.sidebar, { grid: false, btn: true, dots: 6, text: '특보 종류별 색' });
   assert.deepEqual(R.before, { state: '#FA2E1E', fill: '#FA2E1E', svg: '#FA2E1E' });
+  assert.deepEqual(R.listDot, { exact: '#0000FF', dot: 'rgb(0, 0, 255)' }, '들어온 특보 목록 색 → 버튼 점');
+  assert.deepEqual(R.listDotUndo, { exact: null, dot: 'rgb(250, 46, 30)' }, '지도에서 Ctrl+Z → 버튼 점도');
   assert.deepEqual([R.open.open, R.open.aria, R.open.htmlCls, R.open.focusIn, R.open.count, R.open.dim], [true, 'false', true, true, '13종', 1]);
   assert.deepEqual(R.open.items.slice(0, 4), ['호우', '대설', '폭염', '열대야'], '위가 우선 순서 그대로');
   assert.deepEqual([R.hou.name, R.hou.levels, R.hou.sel], ['호우 특보', ['예비', '주의보', '경보'], ['호우']]);
@@ -226,4 +232,11 @@ test('부팅 점검: 특보 지도 → 버튼 → 팝업 → 폭염 경보 #1234
   assert.equal(R.xClose, true);
   assert.deepEqual(R.win, { inWin: true, open: true, closed: true, docked: true }, '떼어낸 창에서도 버튼 동작');
   assert.equal(R.saved, '#F57C00,#FA2E1E', '자동 저장에도 되돌린 색');
+});
+
+test('부팅 점검: 좁은 창(820px) — 두 판 위아래, 마지막 단계 카드·안내가 판 안, 본문 스크롤', { skip: process.env.WCG_BOOT_CHECK !== '1' && 'WCG_BOOT_CHECK=1 일 때만(일렉트론 필요)' }, () => {
+  const raw = execFileSync(process.execPath, [path.join(root, 'desktop', 'test', 'boot-check.cjs'), root, '--wait=8000', '--size=820x900', '--eval=' + path.join(__dirname, 'wrn-color-popup.boot-eval.js')], { encoding: 'utf8', timeout: 300000 });
+  const out = JSON.parse(raw.slice(raw.indexOf('{')));
+  assert.equal(out.ok, true, JSON.stringify(out.errors));
+  assert.deepEqual(out.evalResult.narrow, { cols: 1, scrolls: true, lastIn: true, noteIn: true, listIn: true, closed: true });
 });

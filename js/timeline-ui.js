@@ -456,9 +456,6 @@ function buildTimeline() {
   fpsSel.value = String(A.fps);
   if (fpsSel.selectedIndex < 0) { fpsSel.value = '29.97'; A.fps = 29.97; }
   $('#tlReveal').value = A.reveal || 'dissolve';
-  $('#tlBlindSize').value = A.blindSize == null ? 8 : A.blindSize;
-  $('#tlBlindAngle').value = A.blindAngle == null ? -45 : A.blindAngle;
-  $('#blindOpts').style.display = (A.reveal === 'blinds') ? 'inline-flex' : 'none';
   tlNote();
   tl.style.setProperty('--nameW', tlState.nameW + 'px');
   const shy = $('#tlShy'); if (shy) shy.classList.toggle('on', tlState.shy);

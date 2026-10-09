@@ -240,6 +240,8 @@ function renderInsets() {
 function renderFills() {
   bumpMapContent();
   const F = fills();
+  const overlap = typeof wrnOverlapPlan === 'function' ? wrnOverlapPlan() : {};
+  svg.querySelectorAll('[data-wrnstripe]').forEach((p) => p.remove());
   for (const [id, arr] of zoneEls) {
     const filled = !!F[id];
     const f = filled ? F[id] : S.base;
@@ -248,7 +250,7 @@ function renderFills() {
     for (const { el: e, inset } of arr) {
       // 그룹 배율로 나눠서, 확대해도 경계선 굵기는 화면상 일정하게
       const sc = inset ? S.insets[inset].s : S.map.s;
-      e.setAttribute('fill', f);
+      e.setAttribute('fill', overlap[id] ? wrnStripeFill(svg, overlap[id], sc, null, null, inset) : f);
       e.setAttribute('stroke', S.sggOn ? sCol : 'none');
       e.setAttribute('stroke-opacity', S.sggOp / 100);
       e.setAttribute('stroke-width', S.strokeW / (sc || 1));
@@ -291,6 +293,7 @@ function renderFills() {
 }
 // 지도 배율만 바뀌었을 때 — 칠(fill)은 건드리지 않고 경계선 굵기 보정(÷배율)만 다시. 좌표 입력·Alt 줌 확정에서 부른다.
 function renderStrokeScale() {
+  if (typeof wrnOverlapPlan === 'function' && Object.keys(wrnOverlapPlan()).length) { renderFills(); return; }
   for (const [, arr] of zoneEls) for (const { el: e, inset } of arr) {
     const sc = inset ? S.insets[inset].s : S.map.s;
     e.setAttribute('stroke-width', S.strokeW / (sc || 1));
@@ -337,9 +340,10 @@ function renderSea() {
   { const n = document.querySelector('.sec[data-sec="sea"]'); if (n) n.style.display = secDisplay('sea', n); }   // 창 비활성 탭이면 숨김 유지
   if (!on) { for (const p of document.querySelectorAll('#seaT .sea')) p.setAttribute('pointer-events', 'none'); return; }
   $('#seaT').setAttribute('transform', `translate(${S.map.x} ${S.map.y}) scale(${S.map.s})`);
+  const overlap = typeof wrnOverlapPlan === 'function' ? wrnOverlapPlan() : {};
   for (const p of document.querySelectorAll('#seaT .sea')) {
     const f = S.seaFills[p.dataset.id];
-    p.setAttribute('fill', f || S.seaBase);
+    p.setAttribute('fill', overlap[p.dataset.id] ? wrnStripeFill(svg, overlap[p.dataset.id], S.map.s) : (f || S.seaBase));
     p.setAttribute('fill-opacity', f ? 1 : S.seaBaseOp / 100);
     p.setAttribute('stroke', S.seaCol);
     p.setAttribute('stroke-opacity', (f ? 1 : Math.max(S.seaBaseOp / 100, 0.25)) * (S.sggOp / 100));

@@ -35,6 +35,26 @@ const keyOn = (target, key, o) => target.dispatchEvent(new KeyboardEvent('keydow
 const R = {};
 R.sidebar = { grid: !!document.getElementById('wrnCols'), btn: !!$('.sec[data-sec="wrn"] #wrnColBtn'), dots: $$('#wrnColDots i').length, text: $('#wrnColBtn').textContent.trim() };
 R.before = { state: S.wrnColors['폭염'][1], fill: S.fillsByStyle.warn.L1030100, svg: zoneFill('L1030100') };
+// 좁은 창(900px 이하 — 두 판 위아래)이면 여기서 판 높이만 본다: 마지막 단계 카드·안내가 판 안에 들어가고 본문이 스크롤된다
+if (innerWidth <= 900) {
+  $('#wrnColBtn').click(); await sleep(700);
+  $('#wrnColList .wrnColItem[data-k="폭염"]').click(); await sleep(150);
+  const body = $('#wrnColOv .wrnColBody'); body.scrollTop = 1e5; await sleep(150);
+  const bx = (n) => n.getBoundingClientRect();
+  const pane = bx($('#wrnColDet')), last = bx($$('#wrnColLevels .wrnColLv').pop()), note = bx($('#wrnColNote')), list = bx($('#wrnColOv .wrnColPaneList')), lastItem = bx($$('#wrnColList .wrnColItem').pop());
+  R.narrow = { cols: getComputedStyle(body).gridTemplateColumns.split(' ').length, scrolls: body.scrollHeight > body.clientHeight,
+    lastIn: last.bottom <= pane.bottom + 0.5, noteIn: note.bottom <= pane.bottom + 0.5, listIn: lastItem.bottom <= list.bottom + 0.5 };
+  keyOn(document.activeElement, 'Escape'); await sleep(400);
+  R.narrow.closed = !isOpen();
+  return R;
+}
+// 0) 들어온 특보 목록에서 단계 색을 바꿔도 버튼 점(경보 색)이 따라온다 — 지도에서 Ctrl+Z 로 되돌리면 점도 되돌아간다
+const dot2 = () => getComputedStyle($$('#wrnColDots i')[2]).backgroundColor;
+const li = $$('#wrnList .wrnItem').find((d) => d.querySelector('.nm').textContent === '폭염 경보').querySelector('.wrnCol');
+li.value = '#0000ff'; li.dispatchEvent(new Event('input', { bubbles: true })); await sleep(120);
+R.listDot = { exact: S.wrnLevelColors['폭염|경보'] || null, dot: dot2() };
+document.activeElement.blur(); keyOn(document.body, 'z', { ctrlKey: true }); await sleep(250);
+R.listDotUndo = { exact: S.wrnLevelColors['폭염|경보'] || null, dot: dot2() };
 // 1) 버튼 → 팝업
 $('#wrnColBtn').scrollIntoView({ block: 'center' });
 $('#wrnColBtn').focus(); $('#wrnColBtn').click(); await sleep(450);   // 실제 클릭처럼 버튼에 포커스(닫으면 여기로 돌아온다)

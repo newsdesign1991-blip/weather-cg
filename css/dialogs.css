@@ -278,6 +278,8 @@
   @media (max-width: 900px) {
     .wrnColCard { height: auto; }
     .wrnColBody { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+    /* 판은 내용 높이 그대로 — 넓은 창의 min-height: 0 이 남으면 본문 높이에 맞춰 줄이 눌려 마지막 단계 카드·안내가 판 밖으로 샌다 */
+    .wrnColPaneList, .wrnColPaneDet { min-height: auto; }
     .wrnColList, .wrnColLevels { flex: none; overflow: visible; margin: 0; padding: 0; }
     .wrnColList { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 4px; }
     .wrnColItem { min-height: 34px; gap: 7px; }

@@ -90,6 +90,7 @@ function aeWarningFillDefs() {
 }
 async function aeWarningFillBlob(def, part, opt) {
   const ids = new Set(def.ids);
+  const overlap = typeof wrnOverlapPlan === 'function' ? wrnOverlapPlan() : {};
   return svgBlob((c) => {
     keepLayers(c, ['L_sea', 'L_map']);
     c.querySelector('#L_map')?.removeAttribute('filter');
@@ -98,10 +99,10 @@ async function aeWarningFillBlob(def, part, opt) {
     c.querySelector('#gMainSoft')?.remove();
     c.querySelectorAll('#gMain .zone, #gInsets .zone').forEach((z) => {
       z.setAttribute('stroke', 'none');
-      z.setAttribute('fill', ids.has(z.dataset.id) ? def.col : 'none');
+      z.setAttribute('fill', ids.has(z.dataset.id) ? (overlap[z.dataset.id] ? wrnStripeFill(c, overlap[z.dataset.id], exZoneScale(z), null, def.col, z.getAttribute('data-inset')) : def.col) : 'none');
     });
     c.querySelectorAll('#seaT .sea').forEach((p) => {
-      p.setAttribute('fill', ids.has(p.dataset.id) ? def.col : 'none');
+      p.setAttribute('fill', ids.has(p.dataset.id) ? (overlap[p.dataset.id] ? wrnStripeFill(c, overlap[p.dataset.id], S.map.s, null, def.col) : def.col) : 'none');
       p.setAttribute('stroke', 'none'); p.removeAttribute('mask'); p.removeAttribute('opacity');
     });
     aeKeepPart(c, part);

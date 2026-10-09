@@ -136,7 +136,7 @@ function wrnColLevelInfo(k, l) {
   const base = l === '주의보' ? 0 : l === '경보' ? 1 : -1;
   const key = wrnColorKey(k, l);
   const exact = hex(ensureWrnLevelColors()[key]);
-  const col = wrnColorOf(k, l) || '#666666';
+  const col = hex(wrnColorOf(k, l)) || '#666666';   // 옛 작업·배치에 소문자 색이 남아 있어도 기본색 비교·색 칸 값이 어긋나지 않게
   const defs = wrnColDefaultsOf(k), defExact = hex(wrnLvDef()[key]);
   const follow = base < 0 && !exact ? (/경보/.test(l) ? '경보' : '주의보') : '';
   const def = base >= 0 ? defs[base] : (defExact || defs[/경보/.test(l) ? 1 : 0]);
@@ -350,6 +350,7 @@ function wrnColSelect(k, focus) {
 
 // 사이드바 버튼의 점(앞 6종의 경보 색) + 팝업이 떠 있으면 제자리 갱신
 function buildWrnCols() {
+  if (typeof wrnOverlapSyncControl === 'function') wrnOverlapSyncControl();
   const dots = $('#wrnColDots');
   const keys = Object.keys(S.wrnColors || {});
   if (dots) {

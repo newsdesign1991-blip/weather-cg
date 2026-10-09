@@ -78,6 +78,7 @@ const DEFAULTS = () => ({
   wrnColors: JSON.parse(JSON.stringify(WRN_COLORS)), // 특보 종류별 기본색 (주의보/경보 폴백)
   wrnLevelColors: { '폭염|중대경보': '#8B0000' }, // 들어온 특보에서 지정한 종류×정확한 단계별 색
   wrnOff: {},   // 목록에서 끈 특보 종류
+  wrnOverlap: 1,   // 겹친 특보를 교차 색 띠로 표시
   texts: [
     { id: 't1', txt: '내일~모레',  x: 128, y: 300, size: 66, w: 700, col: '#FFFFFF', track: -2, align: 'start' },
     { id: 't2', txt: '예상 강수량', x: 128, y: 388, size: 66, w: 700, col: '#5BC5F2', track: -2, align: 'start' },

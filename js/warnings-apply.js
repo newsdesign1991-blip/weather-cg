@@ -208,6 +208,81 @@ function reflectWhenToPicker() {
   }
 }
 
+// 한 구역에 겹친 특보 색. 칠한 값이 목록의 우선 색과 일치할 때만 사용해서 수동 지우기·덧칠을 존중한다.
+function wrnOverlapPlan() {
+  if ((S.style !== 'warn' && S.style !== 'warnsea') || S.wrnOverlap === 0) return {};
+  const src = wrnRows.length ? wrnRows : (S.wrnActive || []), groups = new Map();
+  for (const r of src) {
+    if (!r.id || (S.wrnOff || {})[wrnKeyOf(r)]) continue;
+    const col = wrnColorOf(r.wrn, r.lvl);
+    if (!col) continue;
+    if (!groups.has(r.id)) groups.set(r.id, []);
+    groups.get(r.id).push({ col: col.toUpperCase(), rank: wrnRank(r) });
+  }
+  const F = (S.fillsByStyle || {})[S.style] || {}, out = {};
+  for (const [id, rows] of groups) {
+    rows.sort((a, b) => a.rank - b.rank);
+    const painted = id.startsWith('S') ? (S.seaFills || {})[id] : F[id];
+    if (String(painted || '').toUpperCase() !== rows[0].col) continue;
+    const cols = [...new Set(rows.map((r) => r.col))];
+    if (cols.length > 1) out[id] = cols;
+  }
+  return out;
+}
+
+// SVG 무늬는 지도/인셋의 좌표계마다 만든다. 영상에서도 각 색의 등장 진행도를 따로 반영한다.
+// onlyColor는 AE 분리 레이어용: 다른 특보 띠는 투명하게 구워 기존 이미지 레이어 계약을 그대로 쓴다.
+function wrnStripeFill(root, cols, scale, progress, onlyColor, space) {
+  const sc = Math.max(0.001, +scale || 1), band = 10 / sc, period = band * cols.length;
+  // 배율 자체를 id에 넣지 않는다 — 카메라 확대 재생 중 프레임마다 새 무늬가 쌓이지 않게.
+  const id = 'wrnStripe-' + cols.map((c) => c.replace('#', '')).join('-') + '-' + (space || 'main') + (onlyColor ? '-only' + onlyColor.replace('#', '') : '');
+  let pat = root.querySelector('#' + id);
+  if (!pat) {
+    pat = el('pattern', { id, 'data-wrnstripe': '1', patternUnits: 'userSpaceOnUse', width: period, height: period, patternTransform: 'rotate(-45)' });
+    root.querySelector('defs').append(pat);
+    // 바탕을 먼저 채워 안티에일리어싱으로 생기는 띠 사이 빈틈을 막는다.
+    pat.append(el('rect', { width: period, height: period }));
+    for (let i = 0; i < cols.length - 1; i++) pat.append(el('rect', { x: 0, y: i * band, width: period, height: band + 0.02 / sc }));
+  }
+  const colorAt = (c) => {
+    if (onlyColor) return c === onlyColor.toUpperCase() ? c : 'none';
+    const p = progress && progress[c];
+    return p == null ? c : mixHex(S.base, c, p);
+  };
+  if (onlyColor) {
+    // 각 특보 레이어는 자기 띠만 채우고 나머지는 투명하게 둔다.
+    pat.children[0].setAttribute('fill', 'none');
+    while (pat.children.length < cols.length + 1) pat.append(el('rect', {}));
+    for (let i = 0; i < cols.length; i++) {
+      const r = pat.children[i + 1];
+      r.setAttribute('x', 0); r.setAttribute('y', i * band); r.setAttribute('width', period); r.setAttribute('height', band + 0.02 / sc);
+      r.setAttribute('fill', colorAt(cols[i]));
+    }
+  } else {
+    pat.children[0].setAttribute('fill', colorAt(cols[cols.length - 1]));
+    for (let i = 0; i < cols.length - 1; i++) pat.children[i + 1].setAttribute('fill', colorAt(cols[i]));
+  }
+  if (pat.getAttribute('data-scale') !== String(sc)) {
+    pat.setAttribute('data-scale', sc);
+    pat.setAttribute('width', period); pat.setAttribute('height', period);
+    pat.children[0].setAttribute('width', period); pat.children[0].setAttribute('height', period);
+    for (let i = 1; i < pat.children.length; i++) {
+      const r = pat.children[i]; r.setAttribute('y', (i - 1) * band);
+      r.setAttribute('width', period); r.setAttribute('height', band + 0.02 / sc);
+    }
+  }
+  return 'url(#' + id + ')';
+}
+
+function wrnOverlapSyncControl() {
+  const n = $('#wrnOverlap'); if (n) n.checked = S.wrnOverlap !== 0;
+}
+function wireWrnOverlap() {
+  const n = $('#wrnOverlap'); if (!n) return;
+  n.onchange = () => { pushUndo(); S.wrnOverlap = n.checked ? 1 : 0; renderFills(); };
+  wrnOverlapSyncControl();
+}
+
 // 지금 켜둔 특보만 골라 칠한다. 목록 체크를 바꾸면 다시 부른다.
 function paintWrn() {
   const known = new Set(MAP.styles.warn.zones.map((z) => z.id));
@@ -363,6 +438,7 @@ function buildWrnList() {
       pushUndo('wrncol' + key);
       setWrnLevelColor(a.wrn, a.lvl, e.target.value);
       paintWrn(); renderLegend();
+      buildWrnCols();   // '특보 종류별 색' 버튼 점(경보 색 미리보기)도 같은 단계 색을 따라오게(js/warnings-load.js)
     };
     d.querySelector('.eye').onclick = () => {
       pushUndo();
