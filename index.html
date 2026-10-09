@@ -9,6 +9,40 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="날씨 CG">
+<!-- 웹판 막기(2026-10-09 — 웹판은 접고 데스크톱 설치판 하나로 간다). 데스크톱 앱(window.wcgDesktop·app://)과 로컬 개발(file://·localhost·127.x·[::1]·*.localhost)이
+     아니면(예: GitHub Pages) 다른 스크립트보다 먼저 멈춘다: '설치판으로 재배포 예정' 카드를 쓰고(document.write) 바로 뒤에 <plaintext>를 열어
+     문서의 나머지(head의 css·데이터·js·부팅 boot.js·자동 저장·서비스워커 등록)를 그냥 글자로 읽게 한다 — 태그가 아예 만들어지지 않는다. 파싱이 끝나면
+     미리 받던 파일도 멈춘다(window.stop). head에서 바로 window.stop()을 부르면 body가 없어 크로미움이 화면을 끝내 그리지 않는다(실제로 확인).
+     닫기 없음 · 뒤에 조작할 화면이 없다. 저장된 작업(localStorage)은 지우지 않는다 — 혹시 모를 쓰기만 막는다.
+     판정(wcgGateOf)과 막힌 화면은 tests/web-gate.test.cjs가 본다. css가 아직 없으니 모양은 전부 인라인. -->
+<script>(function () {
+  function wcgGateOf(proto, host, desktop) {
+    if (desktop) return 'app';
+    proto = String(proto || '').toLowerCase(); host = String(host || '').toLowerCase();
+    if (proto === 'app:') return 'app';
+    if (proto === 'file:') return 'local';
+    if (proto !== 'http:' && proto !== 'https:') return 'block';
+    if (host === 'localhost' || /\.localhost$/.test(host) || host === '[::1]' || host === '::1' || /^127(\.\d{1,3}){3}$/.test(host)) return 'local';
+    return 'block';
+  }
+  var desk = !!(window.wcgDesktop && window.wcgDesktop.isDesktop);
+  if (wcgGateOf(location.protocol, location.hostname, desk) !== 'block') return;
+  window.__wcgWebBlocked = true;
+  try {   // 저장 막기 — 하던 작업·설정은 그대로 두고, 바뀌거나 지워지지 않게만
+    var P = Storage.prototype, set = P.setItem, rm = P.removeItem, clr = P.clear, ls = window.localStorage;
+    P.setItem = function () { if (this !== ls) return set.apply(this, arguments); };
+    P.removeItem = function () { if (this !== ls) return rm.apply(this, arguments); };
+    P.clear = function () { if (this !== ls) return clr.apply(this, arguments); };
+  } catch (e) {}
+  var dk = true; try { dk = localStorage.getItem('wcg_theme') !== 'light'; } catch (e) {}
+  document.addEventListener('DOMContentLoaded', function () { try { window.stop(); } catch (e) {} });   // 미리 받던 css·js(수 MB)도 멈춤
+  document.write('<div id="wcgWebGate" role="alertdialog" aria-modal="true" aria-labelledby="wcgWebGateT" style="position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;background:' + (dk ? '#0f0f0f' : '#eef1f5') + ';font-family:&quot;Wanted Sans Variable&quot;,&quot;Malgun Gothic&quot;,&quot;Segoe UI&quot;,sans-serif;">'
+    + '<div style="width:100%;max-width:420px;border-radius:20px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35);background:' + (dk ? '#1c1c1e' : '#fff') + ';">'
+    + '<div id="wcgWebGateT" style="background:#3182f6;color:#fff;padding:18px 22px;font-size:18px;font-weight:700;line-height:1.4;word-break:keep-all;">웹 버전은 이제 사용할 수 없어요</div>'
+    + '<div style="padding:18px 22px 22px;font-size:14px;line-height:1.65;word-break:keep-all;color:' + (dk ? '#e5e5ea' : '#1f2937') + ';">날씨 CG 메이커는 <b>설치 파일 버전</b>으로 찾아뵙겠습니다.'
+    + '<div style="margin-top:12px;padding:11px 13px;border-radius:12px;font-size:13px;background:' + (dk ? 'rgba(49,130,246,.16)' : '#eef4ff') + ';">설치 파일 받는 방법은 <b>팀 공지</b>를 확인해 주세요.</div></div></div></div>'
+    + '<plaintext style="display:none">');   // 이 뒤 문서 전체 = 숨긴 글자(태그·스크립트 없음)
+})();</script>
 <script>
   // 서비스워커 등록 — 앱 설치·오프라인용. file:// 로 열면 등록 안 함(서버에서만 동작).
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
