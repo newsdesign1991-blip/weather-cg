@@ -698,7 +698,7 @@
         <div class="subhead">2. 불러오기</div>
         <div class="nokey" data-nokey="data">공공데이터포털 인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="lifeFetch" style="flex:1" title="시군구마다 기상청 생활기상지수를 받아 칠해요">기상청에서 불러오기</button><button id="lifeClear" style="flex:0 0 auto" title="생활기상 지도에 칠한 색·라벨을 지워요 (Ctrl+Z로 되돌리기)">색 지우기</button></div>
-        <p class="hint" style="margin-top:0">시군구 230곳을 하나씩 받아요(약 230건 · 10~30초). 시각만 바꾸면 다시 받지 않아요.</p>
+        <p class="hint" style="margin-top:0">시군구 230곳을 하나씩 받아요(약 230건 · 보통 10초 안팎). 시각만 바꾸면 다시 받지 않아요.</p>
         <div class="wrnRes" id="lifeResult" role="status" aria-live="polite" hidden></div>
         <div class="row" id="lifeTimeRow" style="display:none"><label>시각</label><select id="lifeTime" style="flex:1" title="몇 시 예측값으로 칠할지 — 바꾸면 다시 받지 않고 바로 다시 칠해요"></select></div>
         <div class="dataSteps" id="lifeList"></div>
@@ -719,14 +719,14 @@
           <button type="button" data-v="pm10">미세먼지 PM10</button>
           <button type="button" data-v="pm25">초미세먼지 PM2.5</button>
         </div>
-        <div class="mode dataSeg" id="dustCond" role="group" aria-label="평균 기준" style="margin-top:6px">
-          <button type="button" data-v="HOUR">1시간</button>
-          <button type="button" data-v="DAILY">하루 평균</button>
+        <div class="mode dataSeg" id="dustCond" role="group" aria-label="값 기준" style="margin-top:6px">
+          <button type="button" data-v="HOUR" title="가장 최근 1시간 값(비면 같은 시군구의 3시간 안 직전 값·24시간 평균으로 채우고 결과 카드에 적어요)">1시간</button>
+          <button type="button" data-v="DAILY" title="최근 24시간 평균(24시간 중 18시간 이상 측정한 곳만)">24시간 평균</button>
         </div>
         <div class="subhead">2. 불러오기</div>
         <div class="nokey" data-nokey="data">공공데이터포털 인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
         <div class="btns" style="margin:4px 0"><button class="pri" id="dustFetch" style="flex:1" title="시도마다 에어코리아 시군구 평균 농도를 받아 칠해요">에어코리아에서 불러오기</button><button id="dustClear" style="flex:0 0 auto" title="미세먼지 농도 지도에 칠한 색·라벨을 지워요 (Ctrl+Z로 되돌리기)">색 지우기</button></div>
-        <p class="hint" style="margin-top:0">시도 17곳을 받아요(17건). PM10 ↔ PM2.5는 다시 받지 않아요.</p>
+        <p class="hint" style="margin-top:0">시도 17곳을 받아요(17건 · 보통 몇 초). PM10 ↔ PM2.5, 1시간 ↔ 24시간 평균은 다시 받지 않아요.</p>
         <div class="wrnRes" id="dustResult" role="status" aria-live="polite" hidden></div>
         <div class="dataSteps" id="dustList"></div>
         <label class="chk"><input type="checkbox" id="dustLabels">주요 도시 수치 라벨</label>
@@ -1549,8 +1549,8 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/bulletin-load.js?v=c51ec200"></script>
 <script src="js/forecast-panel.js?v=2b7687d6"></script>
 <script src="js/warnings-load.js?v=85869e98"></script>
-<script src="js/data-maps.js?v=004fb23c"></script>
-<script src="js/data-load.js?v=061d2793"></script>
+<script src="js/data-maps.js?v=f68fd9c7"></script>
+<script src="js/data-load.js?v=7f87adbe"></script>
 <script src="js/presets.js?v=31abe4c7"></script>
 <script src="js/cg-setup.js?v=dad25ddb"></script>
 <script src="js/modals-notices.js?v=9a319b43"></script>

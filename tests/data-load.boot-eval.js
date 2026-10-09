@@ -4,7 +4,10 @@ const check=(v,m)=>{if(!v)throw new Error(m);};
 const originalFetch=window.fetch, requests=[], captured=[];
 const fixture=async name=>JSON.parse(await (await originalFetch('tests/fixtures/datamaps/'+name)).text());
 const uv=await fixture('life-uv.json'), air=await fixture('life-air.json'), forecast=await fixture('dustfcst-pm10.json');
-let failure='', delay=0, missing=false;
+let failure='', delay=0, missing=false, gwSido='';   // gwSido = 이 시도는 게이트웨이 시간 초과(504 SERVICETIMEOUT — 다시 보내도 계속)
+const asked=[];   // [경로, 시도|조회일, searchCondition, numOfRows] — 키는 남기지 않는다
+// 미세먼지 농도 가짜 응답 = DAILY(최근 24시간 시간별 값, 실측 모양): 2026-10-09 01:00 ~ 24:00. 강원 양양군은 마지막 시각 줄이 없다(직전 시각 값으로 보충돼야).
+const dustHours=Array.from({length:24},(_,i)=>`2026-10-09 ${String(i+1).padStart(2,'0')}:00`);
 const json=o=>new Response(JSON.stringify(o),{headers:{'Content-Type':'application/json'}});
 window.fetch=async function(url,opts){
   const s=String(url);
@@ -13,6 +16,7 @@ window.fetch=async function(url,opts){
   if(s.includes('/api/ae')){captured.push(JSON.parse(opts.body));return json({ok:true,ae:'test'});}
   if(s.startsWith(WNS_HELPER+'/api/kma?')){
     const u=new URL(new URL(s).searchParams.get('u'));requests.push(u.pathname); // No credentials in test output.
+    asked.push([u.pathname.split('/').pop(),u.searchParams.get('sidoName')||u.searchParams.get('searchDate')||u.searchParams.get('areaNo')||'',u.searchParams.get('searchCondition')||'',u.searchParams.get('numOfRows')||'',u.searchParams.get('InformCode')||'']);
     if(delay)await pause(delay);
     if(failure==='403')return new Response(JSON.stringify({error:'HTTP Error 403: Forbidden'}),{status:502});
     if(failure==='format')return new Response('<html>maintenance</html>');
@@ -26,9 +30,13 @@ window.fetch=async function(url,opts){
     }
     if(u.pathname.includes('ArpltnStats')){
       const sido=u.searchParams.get('sidoName');
-      const items=dataAreas().filter(a=>a.sido===sido).map((a,i)=>({sidoName:sido,cityName:a.zone,districtCode:a.code,dataTime:'2026-10-09 23:00',pm10Value:String([20,60,100,180][i%4]),pm25Value:i===0?'-':String([10,20,50,90][i%4])}));
-      return json({response:{header:{resultCode:'00'},body:{items,totalCount:items.length}}});
+      if(sido===gwSido)return new Response(JSON.stringify({ok:false,error:'HTTP Error 504: Gateway Time-out'}),{status:502});
+      const items=[];
+      dataAreas().filter(a=>a.sido===sido).forEach((a,i)=>{for(const t of dustHours){if(a.id==='강원/양양군'&&t===dustHours[23])continue;items.push({sidoName:sido,cityName:a.zone,districtCode:'0'+(i%9),dataTime:t,pm10Value:String([20,60,100,180][i%4]),pm25Value:i===0?'-':String([10,20,50,90][i%4])});}});
+      return json({response:{header:{resultCode:'00'},body:{items,totalCount:sido==='광주'?0:items.length}}});   // 광주는 총건수 0(실측)
     }
+    // 예보: 오늘 조회 = 0건(05시 발표 전 모양) → 앱이 어제 조회를 함께 받아야 한다
+    if(u.searchParams.get('searchDate')===dataKstNow().ymd)return json({response:{header:{resultCode:'00',resultMsg:'NORMAL_CODE'},body:{items:[],totalCount:0}}});
     return json(forecast);
   }
   return originalFetch.call(this,url,opts);
@@ -62,8 +70,28 @@ try{
     check(!dataInfo('dust')&&dataPick.dust[field]===value,'first dust load overwrote changed '+field);
     q(reset).click();
   }
+  const dustAsk0=asked.length;
   check(await fetchDust()===true,'dust load failed: '+q('#dustResult').textContent);
   check(Object.keys(fills()).length===230,'dust count');
+  check(asked.slice(dustAsk0).every(a=>a[2]==='DAILY'&&a[3]==='1000'),'dust must ask DAILY with numOfRows 1000: '+JSON.stringify(asked.slice(dustAsk0)));
+  check(/빈 값을 같은 시군구 값으로 채운 곳 1곳: 강원 양양군\(9일 23시 값\)/.test(q('#dustResult').textContent),'filled district not reported: '+q('#dustResult').textContent);
+  check(dataInfo('dust').dataTime==='2026-10-09 24:00','dust base time');
+  // 1시간 ↔ 24시간 평균 — 다시 받지 않는다
+  const condCalls=requests.length;
+  q('#dustCond [data-v="DAILY"]').click();
+  check(dataInfo('dust').cond==='DAILY'&&requests.length===condCalls,'24h average switch fetched again');
+  check(/24시간 평균/.test(q('#dustResult').textContent)&&Object.keys(fills()).length===230,'24h average paint: '+q('#dustResult').textContent);
+  q('#dustCond [data-v="HOUR"]').click();check(dataInfo('dust').cond==='HOUR','back to hour');
+  // 한 시도가 계속 게이트웨이 시간 초과 → 나머지는 칠하고, 그 시도만 다시
+  setKey();gwSido='제주';
+  check(await fetchDust()===true,'one province failure must not block: '+q('#dustResult').textContent);
+  check(dataInfo('dust').noSido.join()==='제주'&&q('#dustResult').dataset.tone==='warn','failed province not reported');
+  check(asked.filter(a=>a[1]==='제주').length>=4,'failed province not retried');
+  const missBtn=q('#dustResult [data-act="miss"]');check(missBtn,'miss retry button');
+  gwSido='';const missAsk=asked.length;missBtn.click();await pause(400);
+  for(let i=0;i<30&&dataInfo('dust').noSido.length;i++)await pause(100);
+  check(!dataInfo('dust').noSido.length&&asked.slice(missAsk).every(a=>a[1]==='제주')&&asked.length-missAsk===1,'miss retry should ask only Jeju once: '+JSON.stringify(asked.slice(missAsk)));
+  check(Object.keys(fills()).length===230,'after miss retry');
   const dustCalls=requests.length;
   q('#dustItem [data-v="pm25"]').click();
   check(dataInfo('dust').item==='pm25'&&requests.length===dustCalls,'dust item switch');
@@ -80,8 +108,16 @@ try{
   check(await fetchDust()===false&&requests.length===keyCalls,'missing key sent request');apiPop(false);setKey();
   setStyle('dustFcst');delay=120;const firstForecast=fetchDustFcst();await pause(35);q('#dfcCode [data-v="PM25"]').click();await firstForecast;delay=0;
   check(!dataInfo('dustFcst')&&dataPick.dustFcst.code==='PM25','first forecast overwrote changed kind');
-  q('#dfcCode [data-v="PM10"]').click();check(await fetchDustFcst()===true,'forecast load failed');
+  q('#dfcCode [data-v="PM10"]').click();check(await fetchDustFcst()===true,'forecast load failed: '+q('#dfcResult').textContent);
   check(Object.keys(fills()).length===19,'forecast count');
+  check(dataInfo('dustFcst').yday===true,'today without issues must merge yesterday');
+  check(/어제 발표/.test(q('#dfcResult').textContent),'yesterday note missing');
+  check(asked.filter(a=>a[0]==='getMinuDustFrcstDspth').every(a=>!a[4]),'InformCode must not be sent');
+  const kindCalls=requests.length;
+  q('#dfcCode [data-v="PM25"]').click();await pause(200);
+  check(requests.length===kindCalls,'kind switch fetched again (date cache)');
+  q('#dfcCode [data-v="PM10"]').click();await pause(200);
+  check(requests.length===kindCalls&&dataInfo('dustFcst').code==='PM10'&&Object.keys(fills()).length===19,'kind switch back');
   const fcCalls=requests.length;
   const day=q('#dfcDay');day.value=[...day.options].map(x=>x.value).find(x=>x!==dataInfo('dustFcst').day);day.dispatchEvent(new Event('change',{bubbles:true}));
   check(requests.length===fcCalls,'day fetched again');

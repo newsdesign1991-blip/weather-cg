@@ -285,6 +285,31 @@ ipcMain.handle('wcg:jtwc-fetch', (e, p) => {
   return jtwcFetch(String(p || ''), { fetch: (u, init) => ses.fetch(u, init) });
 });
 
+// ---------- 공공데이터포털(생활기상·미세먼지) 받기 ----------
+// 웹앱(js/data-maps.js dataSendOnce)이 wcgDesktop.dataFetch(주소, { timeoutMs }) → 'wcg:data-fetch'로 부른다. 받는 일은 desktop/data-fetch.js:
+// apis.data.go.kr 만, 연결을 모아 다시 쓰고(keep-alive — 포털이 새 연결 첫 요청의 약 1/3을 30초 넘게 붙잡는다, 2026-10-10 실측),
+// 새 연결이 늦으면 다른 연결로 하나 더, 첫 응답 시간 제한. 다시 보내기·기다릴 시간은 웹앱이 정한다.
+// 프록시를 써야 하는 PC(헬퍼와 같은 기준 — 환경변수·인터넷 설정)면 'proxy'로 돌려보내 웹앱이 헬퍼(/api/kma) 길로 받는다.
+// 부르는 쪽은 메인 창의 주 프레임(app://weathercg 웹앱)만. 자동 점검(WCG_TEST)에서는 WCG_TEST_DATA_FETCH=1 일 때만 실제로 받는다(아니면 'off' → 헬퍼 길 = 가짜 fetch).
+const { createDataFetcher, DATA_HOST } = require('./data-fetch');
+let dataFetcher = null;
+function dataFetcherGet() {
+  if (dataFetcher) return dataFetcher;
+  const PU = require('./wns/pyurl');
+  let secureContext;
+  try { const ca = PU.caList(); if (ca) secureContext = require('tls').createSecureContext({ ca }); } catch (err) { secureContext = undefined; }   // 파이썬처럼 시스템 인증서도(사내 인증서)
+  dataFetcher = createDataFetcher({
+    agentOptions: secureContext ? { secureContext } : {},
+    proxyFor: async () => { const cfg = await PU.systemProxyConfig(); return !!(cfg.proxies && cfg.proxies.https) && !PU.proxyBypass(DATA_HOST, cfg); },
+  });
+  return dataFetcher;
+}
+ipcMain.handle('wcg:data-fetch', (e, u, o) => {
+  if (!privateKeyCallerOk(e, win)) return { ok: false, err: 'denied', detail: 'sender' };
+  if (TEST_MODE && process.env.WCG_TEST_DATA_FETCH !== '1') return { ok: false, err: 'off' };
+  return dataFetcherGet().fetch(String(u || ''), { timeoutMs: +(o && o.timeoutMs) || 0 });
+});
+
 // ---------- 닫기 전 묻기(저장하지 않은 변경·렌더 중) ----------
 // 메인 창 닫기(X·Alt+F4·작업표시줄 닫기·앱 종료)는 막고 웹앱에 묻는다. 무엇을 물을지·팝업은 웹앱(js/project-io.js closeAsk),
 // 순서와 안전장치(웹앱이 5초 안에 답이 없으면 그냥 닫기, 팝업 하나)는 desktop/close-guard.js.
@@ -379,6 +404,7 @@ if (!TEST_MODE && !app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => { app.quit(); });
   app.on('will-quit', () => {
     try { wns && wns.close(); } catch (e) {}
+    try { dataFetcher && dataFetcher.close(); } catch (e) {}
     stopOwnExternalHelper();
   });
 }

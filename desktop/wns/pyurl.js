@@ -874,4 +874,5 @@ module.exports = {
   pyStrip, urlsplit, urlparse, urlunparse, urljoin, unquote, parseQs, quoteLatin1, hostnameOf,
   kmaUrlAllowed, decodeKmaBody, pyEucKrDecode, urlopen, makeRequest,
   envProxies, parseRegistryProxy, proxyBypass, parseProxy, fnmatchWin,
+  systemProxyConfig, caList,   // 데스크톱 메인의 공공데이터포털 받기(desktop/data-fetch.js)가 같은 프록시·인증서 기준을 쓴다
 };

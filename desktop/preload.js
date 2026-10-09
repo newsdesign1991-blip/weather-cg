@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
   // 미해군(JTWC) 자료 받기 — 'rss/jtwc.rss' 또는 'products/wp2726.tcw'(RSS의 전체 주소도 됨). 그 밖 주소는 메인이 거절한다(desktop/jtwc.js).
   // 돌려주는 것: { ok: true, status, url, text } 또는 { ok: false, err: 'denied'|'timeout'|'too-big'|'http'|'net', status?, detail? }
   jtwcFetch: (p) => ipcRenderer.invoke('wcg:jtwc-fetch', String(p || '')),
+  // 공공데이터포털(apis.data.go.kr) 자료 받기 — 메인이 연결을 모아 다시 쓰고 늦은 새 연결은 하나 더 보낸다(desktop/data-fetch.js). 그 밖 주소는 거절.
+  // 돌려주는 것: { ok: true, status, text, sent } 또는 { ok: false, err: 'denied'|'proxy'|'off'|'timeout'|'too-big'|'net', detail?, sent }
+  dataFetch: (u, o) => ipcRenderer.invoke('wcg:data-fetch', String(u || ''), { timeoutMs: Math.floor(+(o && o.timeoutMs)) || 0 }),
   // 창 닫기 전 묻기 — cb(번호)는 곧바로 closeReply(번호, 'close'|'wait')로, 팝업에서 고르면 closeReply(번호, 'close'|'stay')로 답한다(한 번만 건다)
   onCloseAsk: (cb) => { closeAskCb = typeof cb === 'function' ? cb : null; },
   closeReply: (id, act) => closeReply(id, act),

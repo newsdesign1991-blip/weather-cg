@@ -1,10 +1,13 @@
-/* [모듈] js/data-maps.js — 공공데이터포털 자료 공통(10-10): 주소·이름 설정(DATA_API), 인증키(dataKey)·키 가리기(dataMask)·요청(dataGet — 헬퍼 /api/kma)·응답 판정(dataReadBody)·동시 요청(dataPool), 색 단계표(DATA_SCALES)·범례 항목(dataLegendItems·autoLegendItems), 결과 카드(dataResultView·showDataResult), 단계 목록, 수치 라벨·지도별 라벨 맡기기(dataLabelsSwap) */
+/* [모듈] js/data-maps.js — 공공데이터포털 자료 공통(10-10): 주소·이름 설정(DATA_API), 인증키(dataKey)·키 가리기(dataMask)·요청(dataGet — 데스크톱 메인의 연결 재사용 wcgDesktop.dataFetch, 없으면 헬퍼 /api/kma · 시도마다 시간 제한·다시 보내기)·응답 판정(dataReadBody)·동시 요청(dataPool)·캐시(유효 시각), 색 단계표(DATA_SCALES)·범례 항목(dataLegendItems·autoLegendItems), 결과 카드(dataResultView·showDataResult), 단계 목록, 수치 라벨·지도별 라벨 맡기기(dataLabelsSwap) */
 'use strict';
 
 // ===================== 공공데이터포털 자료 공통 =====================
 // 생활기상(기상청 생활기상지수 4.0)·미세먼지 농도(에어코리아 대기오염통계 현황)·미세먼지 예보(에어코리아 대기오염정보)를
 // 들어오는 구분 그대로 자기 지도(S.style = life·dust·dustFcst)에만 칠한다 — 다른 구분 지도로 옮겨 칠하지 않는다(MODULES.md 7-1).
-// 요청은 특보처럼 내장 헬퍼 /api/kma?u= 프록시로(허용 목록에 *.data.go.kr 이 이미 있다 — 헬퍼 수정 없음).
+// 요청(10-10 느림·멈춤 고치기): 데스크톱이면 메인 프로세스가 연결을 모아 다시 쓰며 받는다(wcgDesktop.dataFetch — desktop/data-fetch.js).
+//  포털 게이트웨이는 새 연결 첫 요청의 약 1/3을 30~57초 붙잡는다(504/503 SERVICETIMEOUT 05) — 다시 쓴 연결은 안 멈췄다(실측).
+//  메인 길이 없거나(웹·옛 데스크톱)·프록시 PC·자동 점검이면 내장 헬퍼 /api/kma?u= 프록시로(허용 목록에 *.data.go.kr — 헬퍼 수정 없음).
+//  어느 길이든 시도마다 첫 응답 시간 제한을 두고(5·9·15·25초), 시간 초과·게이트웨이 오류면 잠깐 쉬었다 다시 보낸다(dataGet — 최대 4번).
 // 인증키 = 개인 설정 우선, 없으면 데스크톱 비공개 번들 기본 키. 작업·프로젝트·알림·콘솔에 그대로 쓰지 않는다(dataMask).
 // 불러오기·고르기·패널은 js/data-load.js.
 
@@ -29,7 +32,13 @@ const DATA_API = {
       세종특별자치시: '세종', 경기도: '경기', 강원도: '강원', 강원특별자치도: '강원', 충청북도: '충북', 충청남도: '충남', 전라북도: '전북', 전북특별자치도: '전북',
       전라남도: '전남', 경상북도: '경북', 경상남도: '경남', 제주도: '제주', 제주특별자치도: '제주' },   // 응답 sidoName → 지도 시도 약칭(? 새 이름이 오면 여기에)
     fields: { pm10: 'pm10Value', pm25: 'pm25Value' },                  // ✓
-    conds: { HOUR: '1시간', DAILY: '하루 평균' },                       // ? DAILY = 하루 평균으로 가정
+    // ✓(10-10 실측) searchCondition=DAILY 는 '하루 평균'이 아니라 최근 24시간의 시간별 값이다(서울 25곳 × 24시각 ≈ 600줄, '2026-10-09 24:00' 꼴 시각 포함).
+    //   그래서 시도마다 DAILY 를 numOfRows 1000 으로 한 번에(1쪽) 받아 1시간 값(가장 최근 시각)과 24시간 평균을 둘 다 만든다 — 1시간 ↔ 24시간 평균은 다시 받지 않는다.
+    //   totalCount 가 0 으로 오는 시도(광주·전남)가 있어, 받은 줄이 numOfRows 보다 적으면 마지막 쪽으로 본다(dataGetPages).
+    query: { searchCondition: 'DAILY', numOfRows: 1000 },
+    conds: { HOUR: '1시간', DAILY: '24시간 평균' },
+    fillHours: 3,        // 1시간 값이 비었거나 그 시각 줄이 없으면 이만큼 안의 직전 시각 값(같은 시군구)으로, 그것도 없으면 같은 시군구 24시간 평균으로 — 결과 카드에 표시
+    avgMin: 18,          // 24시간 평균은 24칸 중 이만큼(75%) 이상 값이 있을 때만
   },
   dustFcst: {
     svc: '한국환경공단_에어코리아_대기오염정보',
@@ -37,6 +46,9 @@ const DATA_API = {
     codes: { PM10: '미세먼지', PM25: '초미세먼지', O3: '오존' },        // ✓ InformCode
     regionAlias: { 영동: '강원영동', 영서: '강원영서' },                 // ✓ informGrade 의 권역 이름 → 지도 권역
     regionSplit: { 전남광주: ['광주', '전남'], 광주전남: ['광주', '전남'] },   // ? 2026 통합 이름이 오면 둘 다 같은 등급(같은 땅을 나눠 그린 것 — 옮겨 칠하기 아님)
+    // ✓(10-10 실측) InformCode 는 무시된다 — 한 날짜 조회에 PM10·PM25·O3 가 늘 함께 온다(28줄 · 약 40KB). 그래서 날짜당 한 번만 받고 종류는 응답에서 고른다.
+    //   발표 05·11·17·23시. 05시 발표 전에 '오늘'을 조회하면 0건이라 어제 조회(23시 발표 = 오늘·내일·모레)를 함께 쓴다.
+    issueHours: [5, 11, 17, 23],
     notThis: '한국환경공단_에어코리아_고농도 초미세먼지(50초과) 예보 정보',   // ✓ 다른 서비스(B552584/MinuDustFrcstDspthSvc) — 일반 예보가 아님
   },
 };
@@ -96,12 +108,16 @@ function dataReadBody(text) {
   if (s[0] === '{' || s[0] === '[') {
     let j;
     try { j = JSON.parse(s); } catch (e) { return { kind: 'format', detail: cut(s) }; }
-    const resp = (j && j.response) || j || {};
+    // 게이트웨이 오류는 JSON 으로도 감싸 온다(✓ 10-10: 504/503 {"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":"SERVICETIMEOUT_ERROR",…"returnReasonCode":"05"}}})
+    const resp = (j && (j.response || j.OpenAPI_ServiceResponse)) || j || {};
     const head = resp.header || resp.cmmMsgHeader || null;
     const code = head && head.resultCode != null ? String(head.resultCode) : (head && head.returnReasonCode != null ? String(head.returnReasonCode) : '');
     if (!code) return { kind: 'format', detail: cut(s) };
-    const kind = dataCodeKind(code);
+    let kind = dataCodeKind(code);
     const msg = String((head && (head.resultMsg || head.returnAuthMsg || head.errMsg)) || '');
+    // 생활기상 V5 는 자료 없는 구역 코드에 03 이 아니라 99 '검색결과가 없습니다. [구역]'을 준다(✓ 10-10) — 자료 없음으로(옛 코드로 받기가 이어지게)
+    if (kind === 'other' && /검색\s*결과가\s*없|NO_?DATA/i.test(msg)) kind = 'nodata';
+    if (kind === 'nodata') return { kind, total: 0, code: code.padStart(2, '0') };
     if (kind !== 'ok') return { kind, code: code.padStart(2, '0'), detail: cut(`${code.padStart(2, '0')} ${msg}`) };
     const body = resp.body || {};
     let items = body.items;
@@ -110,7 +126,8 @@ function dataReadBody(text) {
     items = (items || []).filter((x) => x && typeof x === 'object');
     const total = +body.totalCount || 0;
     if (!items.length) return { kind: 'nodata', total };
-    return { kind: 'ok', items, total: total || items.length };
+    // totalRaw = 응답이 적은 총건수 그대로(0 = 모름 — 광주·전남 농도는 값이 와도 0 이다 ✓ 10-10)
+    return { kind: 'ok', items, total: total || items.length, totalRaw: total };
   }
   if (s[0] === '<') {
     const tag = (n) => { const m = s.match(new RegExp(`<${n}>\\s*([^<]*?)\\s*</${n}>`)); return m ? m[1] : ''; };
@@ -128,8 +145,17 @@ function dataReadBody(text) {
   if (/too many|rate limit|limited/i.test(s)) return { kind: 'quota', detail: cut(s) };
   return { kind: 'format', detail: cut(s) };
 }
-// 헬퍼 /api/kma 가 실패(HTTP 오류)했을 때. status 0 = fetch 자체가 끊김. 헬퍼는 바깥 오류를 502 {"error":"HTTP Error 401: Unauthorized"} 로 준다.
-// 공공데이터포털: 401 = 키 등록 안 됨, 403 = 활용신청 안 함(✓ 확인), 400 = 오퍼레이션 이름이 다름(✓ V4·체감온도), 429 = 한도.
+// 공공데이터포털 HTTP 상태 → 종류. 401 = 키 등록 안 됨, 403 = 활용신청 안 함(✓ 확인), 400·404 = 오퍼레이션 이름이 다름(✓ V4·체감온도), 429 = 한도, 5xx = 게이트웨이.
+function dataStatusKind(code) {
+  if (code === 401) return 'keyBad';
+  if (code === 403) return 'denied';
+  if (code === 400 || code === 404) return 'noService';
+  if (code === 429) return 'quota';
+  if (code >= 500) return 'server';
+  return 'other';
+}
+// 헬퍼 /api/kma 가 실패(HTTP 오류)했을 때. status 0 = fetch 자체가 끊김. 헬퍼는 바깥 오류를 502 {"error":"HTTP Error 401: Unauthorized"} 로,
+// 연결·시간 초과는 502 {"error":"The read operation timed out"}(파이썬 소켓 문구 그대로) 로 준다 — 시간 초과를 5xx 보다 먼저 본다(10-10: 전엔 '잠시 응답하지 않아요'로 잘못 나왔다).
 function dataHttpFail(status, body) {
   const b = String(body == null ? '' : body);
   let msg = b;
@@ -138,37 +164,106 @@ function dataHttpFail(status, body) {
   if (!status) return { kind: 'helperOff', detail: msg };
   if (status === 404) return { kind: 'helperOld', detail: 'HTTP 404' };
   if (status === 400 && /허용되지 않은/.test(msg)) return { kind: 'helperOld', detail: msg };
-  const code = +((msg.match(/HTTP Error (\d{3})/) || [])[1] || status);
-  if (code === 401) return { kind: 'keyBad', detail: msg };
-  if (code === 403) return { kind: 'denied', detail: msg };
-  if (code === 400 || code === 404) return { kind: 'noService', detail: msg };
-  if (code === 429) return { kind: 'quota', detail: msg };
-  if (code >= 500) return { kind: 'server', detail: msg };
+  const m = msg.match(/HTTP Error (\d{3})/);
+  if (m) return { kind: dataStatusKind(+m[1]), detail: msg };      // 포털이 보낸 HTTP 오류(헬퍼가 감싼 것)
   if (/timed? ?out|timeout|시간 초과/i.test(msg)) return { kind: 'net', detail: msg, timeout: true };
-  if (status === 502 || status === 504) return { kind: 'net', detail: msg };
-  return { kind: 'other', detail: msg || ('HTTP ' + status) };
+  if (status === 502 || status === 504) return { kind: 'net', detail: msg };   // 헬퍼가 포털에 닿지 못함(연결 오류)
+  const k = dataStatusKind(status);
+  return { kind: k, detail: msg || ('HTTP ' + status) };
 }
-// 한 건 받기 — 헬퍼 프록시로. 헬퍼가 떠 있는지(pingHelper)는 부르는 쪽이 불러오기마다 한 번만 본다.
-async function dataGet(url) {
-  let r;
-  try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(url), { cache: 'no-store' }); }
-  catch (e) { return dataHttpFail(0, e && e.message); }
-  let t = '';
-  try { t = await r.text(); } catch (e) { return { kind: 'net', detail: dataMask(e && e.message) }; }
-  if (!r.ok) return dataHttpFail(r.status, t);
-  return dataReadBody(t);
+// 포털이 직접 준 응답(데스크톱 메인 길) — 오류도 본문(JSON·XML)으로 오므로 먼저 본문을 읽고, 못 읽으면 상태 코드로.
+function dataHttpBody(status, text) {
+  if (status >= 200 && status < 300) return dataReadBody(text);
+  const r = dataReadBody(text);
+  if (r.kind !== 'ok' && r.kind !== 'nodata' && r.kind !== 'format' && r.kind !== 'empty') return { ...r, http: status };
+  return { kind: dataStatusKind(status), detail: `HTTP ${status}` + (r.detail ? ' ' + r.detail : ''), http: status };
+}
+
+// ── 받는 길 · 시간 제한 · 다시 보내기 ──
+// 시도마다 첫 응답을 ms[a] 까지 기다린다(늦은 응답일수록 더 오래 — 느린 서버도 끝내 받는다). 실패하면 wait[a] 쉬고 다시.
+// 실측(10-10): 정상 응답은 0.2초 안(p50 0.09초), 멈춘 요청은 30초 뒤 504·57초 뒤 503 — 오래 기다려도 소용없고 새로 보내면 대개 바로 온다.
+const DATA_TRY = { ms: [5000, 9000, 15000, 25000], wait: [300, 800, 1500] };
+// 이번 실행의 받는 길 상태 — desktopOff = 메인 길을 못 써 헬퍼 길로(옛 메인·프록시 PC·자동 점검). sent = 보낸 요청 수(하나 더 보낸 것 포함), retried = 다시 보낸 수.
+const dataNet = { desktopOff: false, sent: 0, retried: 0 };
+const dataSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const dataDesktopFetch = () => { const D = typeof window !== 'undefined' ? window.wcgDesktop : null; return D && typeof D.dataFetch === 'function' && !dataNet.desktopOff ? D : null; };
+// 다시 보낼 만한 실패 — 게이트웨이 오류(5xx·01·02·04·05)·연결 끊김·시간 초과·빈 응답. 키·신청·한도·요청 값 오류는 다시 보내도 같다.
+const dataRetryable = (r) => !!r && (r.kind === 'server' || r.kind === 'net' || r.kind === 'empty');
+// 헬퍼 길 한 번 — 시간 제한은 받는 쪽에서 끊는다(헬퍼는 자기 20초 제한까지 마저 기다렸다 버린다).
+async function dataSendHelper(url, ms) {
+  const ac = typeof AbortController === 'function' ? new AbortController() : null;
+  let timedOut = false;
+  const timer = ac ? setTimeout(() => { timedOut = true; ac.abort(); }, ms) : null;
+  const late = () => ({ kind: 'net', timeout: true, detail: `${Math.round(ms / 1000)}초 동안 응답이 없어 끊었어요` });
+  dataNet.sent++;
+  try {
+    let r;
+    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(url), { cache: 'no-store', signal: ac ? ac.signal : undefined }); }
+    catch (e) { return timedOut ? late() : dataHttpFail(0, e && e.message); }
+    let t = '';
+    try { t = await r.text(); } catch (e) { return timedOut ? late() : { kind: 'net', detail: dataMask(e && e.message) }; }
+    if (!r.ok) return dataHttpFail(r.status, t);
+    return dataReadBody(t);
+  } finally { if (timer) clearTimeout(timer); }
+}
+// 한 번 보내기 — 데스크톱 메인 길(연결 재사용·늦은 새 연결엔 하나 더) 우선, 못 쓰면 헬퍼 길.
+async function dataSendOnce(url, ms) {
+  const D = dataDesktopFetch();
+  if (D) {
+    let x;
+    try { x = await D.dataFetch(url, { timeoutMs: ms }); } catch (e) { x = { ok: false, err: 'ipc', detail: String((e && e.message) || e) }; }
+    x = x || { ok: false, err: 'ipc' };
+    dataNet.sent += Math.max(0, +x.sent || 0);
+    if (x.ok) return dataHttpBody(+x.status || 0, x.text);
+    if (x.err === 'timeout') return { kind: 'net', timeout: true, detail: `${Math.round(ms / 1000)}초 동안 응답이 없어 끊었어요` + (x.stage === 'body' ? '(받는 중 멈춤)' : '') };
+    if (x.err === 'net') return { kind: 'net', detail: dataMask(x.detail || '연결 오류') };
+    if (x.err === 'too-big') return { kind: 'format', detail: '응답이 너무 커요' };
+    // off(자동 점검)·proxy(프록시 PC)·ipc(옛 메인 — 처리기 없음)는 이번 실행 동안 헬퍼 길로. denied(허용 밖 주소)는 이번 것만.
+    if (x.err !== 'denied') dataNet.desktopOff = true;
+  }
+  return dataSendHelper(url, ms);
+}
+// 받을 준비 — 데스크톱 메인 길이 있으면 헬퍼를 볼 필요 없다. 아니면 헬퍼가 떠 있는지 한 번(pingHelper). 반환 { up, desktop? }
+async function dataReady() {
+  if (dataDesktopFetch()) return { up: true, desktop: true };
+  return pingHelper();
+}
+// 한 건 받기 — 시도마다 시간 제한, 다시 보낼 만한 실패면 쉬었다 다시(최대 DATA_TRY.ms.length 번).
+// o: { stale()(참이면 다음 시도 안 함 → cancelled), onRetry(번째, 실패) }. 실패 결과엔 tries(보낸 시도 수)를 붙인다.
+async function dataGet(url, o) {
+  o = o || {};
+  const T = DATA_TRY.ms;
+  let r = null, a = 0;
+  for (; a < T.length; a++) {
+    if (a && o.stale && o.stale()) return { kind: 'cancelled' };
+    r = await dataSendOnce(url, T[a]);
+    if (!dataRetryable(r) || a === T.length - 1) break;
+    dataNet.retried++;
+    if (o.onRetry) { try { o.onRetry(a + 1, r); } catch (e) { /* 진행 표시 실패는 무시 */ } }
+    await dataSleep(DATA_TRY.wait[a] || 1500);
+  }
+  return r && r.kind !== 'ok' && r.kind !== 'nodata' ? { ...r, tries: a + 1 } : r;
 }
 // 페이지를 끝까지 받은 뒤에만 적용한다. 중간 오류·반복 페이지·비정상 총건수면 부분 자료로 지도를 덮지 않는다.
-async function dataGetPages(base, params, stale) {
-  const items = [], seen = new Set();
+// 끝 판정: 총건수(totalRaw)를 알면 그만큼 모였을 때, 모르면(0 — 광주·전남 농도) 받은 줄이 numOfRows 보다 적을 때·다음 쪽이 비었을 때.
+// o = dataGet 옵션(onRetry 등).
+async function dataGetPages(base, params, stale, o) {
+  const items = [], seen = new Set(), per = +((params || {}).numOfRows) || 0;
+  let known = false;   // 응답이 총건수를 알려 줬나
   for (let pageNo = 1; pageNo <= 50; pageNo++) {
     if (stale && stale()) return { kind: 'cancelled' };
-    const r = await dataGet(dataUrl(base, { ...params, pageNo }));
-    if (r.kind !== 'ok') return pageNo > 1 && r.kind === 'nodata' ? { kind: 'format', detail: '자료를 끝까지 받지 못했어요.' } : r;
+    const r = await dataGet(dataUrl(base, { ...params, pageNo }), { ...(o || {}), stale });
+    if (r.kind === 'cancelled') return r;
+    if (r.kind !== 'ok') {
+      if (pageNo > 1 && r.kind === 'nodata') return known ? { kind: 'format', detail: '자료를 끝까지 받지 못했어요.' } : { kind: 'ok', items, total: items.length };
+      return r;
+    }
     const sig = JSON.stringify(r.items);
     if (seen.has(sig)) return { kind: 'format', detail: '같은 자료 페이지가 반복돼요.' };
     seen.add(sig); items.push(...r.items);
-    if (items.length >= r.total) return { kind: 'ok', items, total: r.total };
+    const tot = r.totalRaw != null ? r.totalRaw : r.total;
+    known = tot > 0;
+    if (tot > 0 ? items.length >= tot : (!per || r.items.length < per)) return { kind: 'ok', items, total: tot > 0 ? tot : items.length };
   }
   return { kind: 'format', detail: '응답 자료가 너무 많아요.' };
 }
@@ -176,6 +271,7 @@ async function dataGetPages(base, params, stale) {
 const DATA_FATAL = new Set(['keyBad', 'denied', 'quota', 'noService', 'helperOff', 'helperOld']);
 // 여러 건 받기 — 동시 limit(기본 4)개, 요청 시작 사이 gap(기본 60ms), 초당 한도(tps)는 0.6·1.2초 뒤 두 번 다시.
 // 치명 오류가 나오거나 o.stale()이 참이면 남은 요청을 보내지 않는다(그 칸은 undefined). 반환 { out[], fatal }.
+// o.quick(항목) = 참이면 캐시에서 바로 나오는 항목 — 간격을 기다리지 않는다(다시 칠할 때 230곳 × 간격을 헛되이 기다리지 않게).
 async function dataPool(list, worker, o) {
   o = o || {};
   const limit = Math.max(1, o.limit || 4), gap = o.gap == null ? 60 : o.gap;
@@ -186,9 +282,13 @@ async function dataPool(list, worker, o) {
     while (next < list.length) {
       if (fatal || (o.stale && o.stale())) return;
       const i = next++;
-      const now = Date.now(), at = Math.max(now, lastStart + gap);
-      lastStart = at;
-      if (at > now) await sleep(at - now);
+      let quick = false;
+      if (o.quick) { try { quick = !!o.quick(list[i], i); } catch (e) { quick = false; } }
+      if (!quick) {
+        const now = Date.now(), at = Math.max(now, lastStart + gap);
+        lastStart = at;
+        if (at > now) await sleep(at - now);
+      }
       if (fatal || (o.stale && o.stale())) return;
       let r;
       for (let a = 0; ; a++) {
@@ -287,9 +387,12 @@ function dataResultView(r) {
   r = r || {};
   const k = r.kind, nm = DATA_NAME[r.st] || '자료', svc = ((DATA_API[r.st] || {}).svc) || '';
   if (k === 'busy') {
+    // 진행: r.done / r.total + 단위(r.unit — '곳'·'시도'), r.retried = 늦은 응답을 다시 보낸 수, r.prev = 지금 지도에 칠해 둔 이전 자료 이름(새 자료가 오면 바뀐다)
     const t = r.title || `${nm} 불러오는 중…`;
-    const meta = r.total ? `${r.done || 0} / ${r.total}건` : (r.meta || '');
-    return { tone: 'busy', title: t, meta, lines: [], detail: '', actions: [], toast: t };
+    const meta = r.total ? `${r.unit ? r.unit + ' ' : ''}${r.done || 0} / ${r.total}` + (r.retried ? ` · 늦은 응답 ${r.retried}건 다시 요청` : '') : (r.meta || '');
+    const lines = (r.lines || []).filter(Boolean);
+    if (r.prev) lines.push(`지금 지도는 이전 자료(${r.prev}) — 새 자료가 오면 바꿔요.`);
+    return { tone: 'busy', title: t, meta, lines, detail: '', actions: [], toast: t };
   }
   if (k === 'ok') {
     const tone = r.tone === 'warn' ? 'warn' : 'ok';
@@ -319,8 +422,9 @@ function dataResultView(r) {
     noService: () => ({ title: '서비스·오퍼레이션 이름이 달라요',
       todo: `data.go.kr 에서 ‘${svc}’를 신청했는지 확인해 주세요. 비슷한 이름의 다른 서비스를 신청했거나 서비스 주소가 바뀌었을 수 있어요.`, actions: ['site', 'retry'] }),
     param: () => ({ title: '요청 값이 맞지 않는다고 해요', todo: '서비스의 요청 규칙이 바뀌었을 수 있어요. 아래 기술 정보를 개발자에게 알려 주세요.', actions: ['retry'] }),
-    server: () => ({ title: '공공데이터포털이 잠시 응답하지 않아요', todo: '1~2분 뒤 다시 눌러 주세요.', actions: ['retry'] }),
-    net: () => ({ title: r.timeout ? '응답이 너무 늦어요' : '공공데이터포털에 연결되지 않아요', todo: '인터넷(사내망) 연결을 확인하고 잠시 뒤 다시 눌러 주세요.', actions: ['retry'] }),
+    server: () => ({ title: '공공데이터포털이 잠시 응답하지 않아요', todo: (r.tries > 1 ? `${r.tries}번 다시 보냈지만 포털 쪽이 계속 답하지 않았어요. ` : '') + '1~2분 뒤 다시 눌러 주세요.', actions: ['retry'] }),
+    net: () => ({ title: r.timeout ? '응답이 너무 늦어요' : '공공데이터포털에 연결되지 않아요',
+      todo: (r.tries > 1 ? `${r.tries}번 다시 보냈지만 답이 없었어요. ` : '') + (r.timeout ? '포털이 붐비는 때일 수 있어요. 잠시 뒤 다시 눌러 주세요.' : '인터넷(사내망) 연결을 확인하고 잠시 뒤 다시 눌러 주세요.'), actions: ['retry'] }),
     helperOff: () => ({ title: r.desktop ? '내장 기능 확장팩이 응답하지 않아요' : '기능 확장팩이 꺼져 있어요',
       todo: r.desktop ? '앱을 완전히 닫았다가 다시 실행한 뒤 다시 눌러 주세요.' : '‘확장팩 안내 보기’대로 WNS_START를 한 번 실행한 뒤 다시 눌러 주세요.', actions: ['helper', 'retry'] }),
     helperOld: () => ({ title: '기능 확장팩이 옛 버전이에요', todo: r.desktop ? '앱을 최신 버전으로 업데이트한 뒤 다시 눌러 주세요.' : 'WNS_START를 다시 실행하면 최신으로 바뀝니다.', actions: ['helper', 'retry'] }),
@@ -371,11 +475,13 @@ function showDataResult(st, r, quiet) {
 
 // ── 진행 중 요청·메모리 캐시 ──
 // 불러오기 차례 번호(겹치면 마지막 것만 칠한다)와 받은 응답 캐시(시각만·품목만 바꿀 땐 다시 받지 않는다 — 한도 아끼기).
+// 캐시는 자료마다 유효 시각을 따로 준다(dataCachePut 의 ms — 농도는 다음 정시 자료가 올라올 때까지, 예보는 다음 발표까지, 생활기상은 발표가 바뀌지 않으므로 길게).
+// 불러오기가 도중에 무효가 돼도(지도 전환·종류 바꿈) 받은 응답은 캐시한다 — 다시 누르면 바로 칠한다.
 const dataSeq = { life: 0, dust: 0, dustFcst: 0 };
-const dataCache = new Map();   // 키 → { at(ms), r }
+const dataCache = new Map();   // 키 → { at(ms), until(ms), r }
 const DATA_CACHE_MS = 10 * 60e3;
-function dataCacheGet(k) { const c = dataCache.get(k); if (!c) return null; if (Date.now() - c.at > DATA_CACHE_MS) { dataCache.delete(k); return null; } return c.r; }
-function dataCachePut(k, r) { if (dataCache.size > 3000) dataCache.clear(); dataCache.set(k, { at: Date.now(), r }); }
+function dataCacheGet(k) { const c = dataCache.get(k); if (!c) return null; if (Date.now() >= c.until) { dataCache.delete(k); return null; } return c.r; }
+function dataCachePut(k, r, ms) { if (dataCache.size > 3000) dataCache.clear(); const at = Date.now(); dataCache.set(k, { at, until: at + (ms > 0 ? ms : DATA_CACHE_MS), r }); }
 // 다른 작업을 열거나 새로 시작할 때(resetWorkRuntime) — 진행 중인 불러오기는 버리고 결과 카드를 비운다. 캐시는 남긴다(같은 자료).
 function dataResetRuntime(resetPicks) {
   for (const st of Object.keys(dataSeq)) { dataSeq[st]++; showDataResult(st, null); }
