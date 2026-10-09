@@ -88,6 +88,7 @@ buildPalette();
 buildSwapBtns();
 buildInsetPanel(); // 인셋 입력칸을 먼저 만들어야 syncPanelFromState가 채울 수 있다
 wire();
+setupDataPanels();   // 생활기상·미세먼지 섹션·API 설정의 공공데이터포털 키 칸 배선(js/data-load.js) — wire() 뒤(인증키 안내 클릭을 데이터 키 칸으로 덮는다)
 dpAttachAll();   // 시스템 날짜·시각 칸(특보·예보 지난 날짜, 과거 태풍) → 근무표식 달력·시각 칸(js/date-picker.js) — 원래 input은 숨긴 채 값 그대로
 ddAttachAll();   // 시스템 드롭다운(select 전부) → 우리 칸 + 토스 카드 목록(js/dropdown.js) — 원래 select는 숨긴 채 값·옵션·change 그대로
 // 나중에 생기는 비교 카드·팝업의 날짜 칸·드롭다운도 빠짐없이 같은 입력기로(한 번 훑어 둘 다 없으면 지나감 — 지도 SVG 노드는 건너뜀).

@@ -130,6 +130,7 @@
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
 <link rel="stylesheet" href="css/dialogs.css?v=7882d9b9">
 <link rel="stylesheet" href="css/panel-misc.css?v=4c67cdc4">
+<link rel="stylesheet" href="css/data-maps.css?v=11a3cd7a">
 <link rel="stylesheet" href="css/toss-modal.css?v=140bb66f">
 <link rel="stylesheet" href="css/dropdown.css?v=fba3cc7e">
 <link rel="stylesheet" href="css/date-picker.css?v=55ed447a">
@@ -595,7 +596,7 @@
       <div class="body">
         <div class="mapUnitRow" data-map-unit></div>
         <!-- 통보문으로 색칠 (강수량 문자) — 맨 위로. 불러오기·날짜 고르기·통째 붙여넣기는 js/bulletin-load.js -->
-        <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 예상 강수량</span></div>
+        <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 예상 강수량·적설</span></div>
         <div class="bulBox">
           <div class="btns" style="margin:0"><button class="pri" id="bulLoad" style="flex:1" title="기상청 최신 단기예보 통보문의 예상 강수량을 날짜별로 가져와요">통보문 불러오기</button></div>
           <div class="wrnRes" id="bulResult" role="status" aria-live="polite" hidden></div>
@@ -675,16 +676,29 @@
     </div>
 
     <!-- 데이터 지도(10-10) — 생활기상·미세먼지 농도·미세먼지 예보. 각자의 지도(S.style = life·dust·dustFcst)에서만 보인다(js/map-build.js secModeHidden).
-         지금은 뼈대(구분 줄 + 빈 상태 안내 .dataEmpty) — 공공데이터포털 불러오기 컨트롤은 데이터 단계에서 채운다. 손으로 칠하는 건 지금도 된다 -->
+         공공데이터포털(data.go.kr) 자료를 들어오는 구분 그대로 칠한다(js/data-load.js — 불러오기·고르기·단계 목록, js/data-maps.js — 키·판정·결과 카드·색 단계).
+         자료 없이 색 팔레트로 손으로 칠해도 된다(안내 .dataEmpty는 자료를 불러오면 숨는다). 단계 목록(.dataSteps)의 색 칸 = 단계 색 바꾸기, 이름 = 칠할 색으로 집기 -->
     <div class="sec special" data-sec="life">
       <h3>생활기상 자동 색칠</h3>
       <div class="body">
         <div class="mapUnitRow" data-map-unit></div>
         <div class="dataEmpty" data-data-empty="life">
           <b>기상청 생활기상지수</b>
-          <p>자외선지수·대기정체지수를 시군구마다 받아 단계 색으로 칠해요.</p>
-          <p class="dataSoon">자료 불러오기는 곧 붙어요 — 지금은 색 팔레트로 손으로 칠해도 돼요.</p>
+          <p>자외선지수·대기정체지수를 시군구마다 받아 단계 색으로 칠해요. 자료 없이 손으로 칠해도 돼요.</p>
         </div>
+        <div class="subhead">1. 어떤 지수</div>
+        <div class="mode dataSeg" id="lifeIdx" role="group" aria-label="생활기상 지수">
+          <button type="button" data-v="uv">자외선</button>
+          <button type="button" data-v="air">대기정체</button>
+        </div>
+        <div class="subhead">2. 불러오기</div>
+        <div class="nokey" data-nokey="data">공공데이터포털 인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
+        <div class="btns" style="margin:4px 0"><button class="pri" id="lifeFetch" style="flex:1" title="시군구마다 기상청 생활기상지수를 받아 칠해요">기상청에서 불러오기</button><button id="lifeClear" style="flex:0 0 auto" title="생활기상 지도에 칠한 색·라벨을 지워요 (Ctrl+Z로 되돌리기)">색 지우기</button></div>
+        <p class="hint" style="margin-top:0">시군구 230곳을 하나씩 받아요(약 230건 · 10~30초). 시각만 바꾸면 다시 받지 않아요.</p>
+        <div class="wrnRes" id="lifeResult" role="status" aria-live="polite" hidden></div>
+        <div class="row" id="lifeTimeRow" style="display:none"><label>시각</label><select id="lifeTime" style="flex:1" title="몇 시 예측값으로 칠할지 — 바꾸면 다시 받지 않고 바로 다시 칠해요"></select></div>
+        <div class="dataSteps" id="lifeList"></div>
+        <label class="chk"><input type="checkbox" id="lifeLabels">주요 도시 수치 라벨</label>
       </div>
     </div>
 
@@ -694,9 +708,24 @@
         <div class="mapUnitRow" data-map-unit></div>
         <div class="dataEmpty" data-data-empty="dust">
           <b>에어코리아 미세먼지 농도</b>
-          <p>미세먼지(PM10)·초미세먼지(PM2.5) 시군구 평균을 받아 등급 색으로 칠해요.</p>
-          <p class="dataSoon">자료 불러오기는 곧 붙어요 — 지금은 색 팔레트로 손으로 칠해도 돼요.</p>
+          <p>시군구 평균 농도를 받아 환경부 등급 색으로 칠해요. 값이 없는 시군구는 비워 둬요.</p>
         </div>
+        <div class="subhead">1. 어떤 농도</div>
+        <div class="mode dataSeg" id="dustItem" role="group" aria-label="미세먼지 종류">
+          <button type="button" data-v="pm10">미세먼지 PM10</button>
+          <button type="button" data-v="pm25">초미세먼지 PM2.5</button>
+        </div>
+        <div class="mode dataSeg" id="dustCond" role="group" aria-label="평균 기준" style="margin-top:6px">
+          <button type="button" data-v="HOUR">1시간</button>
+          <button type="button" data-v="DAILY">하루 평균</button>
+        </div>
+        <div class="subhead">2. 불러오기</div>
+        <div class="nokey" data-nokey="data">공공데이터포털 인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
+        <div class="btns" style="margin:4px 0"><button class="pri" id="dustFetch" style="flex:1" title="시도마다 에어코리아 시군구 평균 농도를 받아 칠해요">에어코리아에서 불러오기</button><button id="dustClear" style="flex:0 0 auto" title="미세먼지 농도 지도에 칠한 색·라벨을 지워요 (Ctrl+Z로 되돌리기)">색 지우기</button></div>
+        <p class="hint" style="margin-top:0">시도 17곳을 받아요(17건). PM10 ↔ PM2.5는 다시 받지 않아요.</p>
+        <div class="wrnRes" id="dustResult" role="status" aria-live="polite" hidden></div>
+        <div class="dataSteps" id="dustList"></div>
+        <label class="chk"><input type="checkbox" id="dustLabels">주요 도시 수치 라벨</label>
       </div>
     </div>
 
@@ -707,8 +736,27 @@
         <div class="dataEmpty" data-data-empty="dustFcst">
           <b>에어코리아 미세먼지 예보</b>
           <p>미세먼지·초미세먼지·오존 예보 등급을 예보 권역 19곳에 칠해요 · 오늘~모레.</p>
-          <p class="dataSoon">자료 불러오기는 곧 붙어요 — 지금은 색 팔레트로 손으로 칠해도 돼요.</p>
         </div>
+        <div class="subhead">1. 어떤 예보</div>
+        <div class="mode dataSeg" id="dfcCode" role="group" aria-label="예보 종류">
+          <button type="button" data-v="PM10">미세먼지</button>
+          <button type="button" data-v="PM25">초미세먼지</button>
+          <button type="button" data-v="O3">오존</button>
+        </div>
+        <div class="subhead">2. 언제 발표한 것</div>
+        <div class="btns" style="margin-bottom:6px">
+          <button id="dfcWhenNow" class="pri">오늘</button>
+          <button id="dfcWhenPast">지난 날짜</button>
+        </div>
+        <div class="row" id="dfcPastRow" style="display:none"><label>날짜</label><input type="date" id="dfcDate" min="2015-01-01"></div>
+        <div class="nokey" data-nokey="data">공공데이터포털 인증키 없음 — 눌러서 <b>API 설정</b>에 넣기</div>
+        <div class="btns" style="margin:4px 0"><button class="pri" id="dfcFetch" style="flex:1" title="에어코리아 예보 등급을 받아 예보 권역에 칠해요">에어코리아에서 불러오기</button><button id="dfcClear" style="flex:0 0 auto" title="미세먼지 예보 지도에 칠한 색·라벨을 지워요 (Ctrl+Z로 되돌리기)">색 지우기</button></div>
+        <div class="wrnRes" id="dfcResult" role="status" aria-live="polite" hidden></div>
+        <div class="row" id="dfcIssueRow" style="display:none"><label>발표</label><select id="dfcIssue" style="flex:1" title="어느 발표를 칠할지 — 바꾸면 다시 받지 않고 바로 다시 칠해요"></select></div>
+        <div class="row" id="dfcDayRow" style="display:none"><label>예보일</label><select id="dfcDay" style="flex:1" title="오늘·내일·모레 중 칠할 날"></select></div>
+        <p class="hint dataOverall" id="dfcOverall" hidden></p>
+        <div class="dataSteps" id="dfcList"></div>
+        <label class="chk"><input type="checkbox" id="dfcLabels">권역 등급 글자 라벨</label>
       </div>
     </div>
 
@@ -965,7 +1013,7 @@
       <div class="body">
         <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgOn">제목 밑에 범례 표시</label>
         <div class="lgWarnOnly">
-          <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgAuto">기상특보 목록에서 자동</label>
+          <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="lgAuto"><span id="lgAutoTxt">기상특보 목록에서 자동</span></label>
           <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="lgHoriz">가로로 배치</label>
           <div id="lgManual">
             <div class="list" id="lgList"></div>
@@ -1421,6 +1469,17 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
     <div class="btns" style="margin-bottom:8px"><button class="pri" id="apiSite">apihub.kma.go.kr 열기</button></div>
     <div class="row wide"><label>인증키</label><input type="password" id="apiKey" placeholder="기본 키가 들어 있어요 — 개인 키가 있으면 붙여넣기"></div>
     <p class="hint" id="apiInfo"><b>기본 인증키가 내장</b>되어 있어 바로 쓸 수 있습니다. 직접 발급받은 키를 넣으면 그 키를 씁니다(개인 키 권장 — 할당량을 나눠 쓰지 않아요). 키는 이 브라우저에만 저장되고 파일엔 안 들어갑니다.</p>
+    <!-- 공공데이터포털(data.go.kr) 인증키 — 생활기상·미세먼지(js/data-maps.js dataKey, localStorage 'wcg_datakey'). 기본 내장 키 없음(공개 저장소) -->
+    <div class="apiSep" role="separator"></div>
+    <p class="hint" style="margin-top:0"><b>공공데이터포털(data.go.kr)</b> 인증키 — 생활기상·미세먼지 지도에 써요. 서비스마다 <b>활용신청</b>을 따로 해야 해요(같은 키로 돼요):</p>
+    <ul class="apiSvc">
+      <li><b>생활기상</b> 기상청_생활기상지수 조회서비스(4.0)</li>
+      <li><b>미세먼지 농도</b> 한국환경공단_에어코리아_대기오염통계 현황</li>
+      <li><b>미세먼지 예보</b> 한국환경공단_에어코리아_대기오염정보</li>
+    </ul>
+    <div class="btns" style="margin-bottom:8px"><button id="dataSite">data.go.kr 열기</button></div>
+    <div class="row wide"><label>인증키</label><input type="password" id="dataKeyIn" placeholder="일반 인증키(Decoding) 붙여넣기" autocomplete="off" spellcheck="false"></div>
+    <p class="hint" id="dataKeyInfo">마이페이지의 <b>일반 인증키(Decoding)</b>를 넣어요. 키는 이 컴퓨터에만 저장되고 작업·프로젝트 파일엔 안 들어가요. 발급·신청 직후엔 1시간쯤 뒤부터 돼요.</p>
   </div>
 </div>
 
@@ -1464,12 +1523,12 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="place-data.js" onerror="window.PLACE_GAZ=null"></script>
 <script src="fct-data.js"></script>
 <script src="img-data.js"></script>
-<script src="js/core.js?v=7881038e"></script>
+<script src="js/core.js?v=f3516663"></script>
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
-<script src="js/map-build.js?v=79ee82e0"></script>
+<script src="js/map-build.js?v=31cced5c"></script>
 <script src="js/map-render.js?v=4f711f02"></script>
-<script src="js/vf-legend.js?v=06464ea1"></script>
+<script src="js/vf-legend.js?v=104ed949"></script>
 <script src="js/labels-mountains.js?v=84a9ae7a"></script>
 <script src="js/typhoon-core.js?v=6c96f249"></script>
 <script src="js/typhoon-render.js?v=640604db"></script>
@@ -1481,11 +1540,13 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
 <script src="js/pointer-drag.js?v=aa99387f"></script>
 <script src="js/warnings.js?v=c48fe730"></script>
-<script src="js/warnings-apply.js?v=d1435d59"></script>
-<script src="js/bulletin.js?v=d72e065a"></script>
-<script src="js/bulletin-load.js?v=1508c73b"></script>
-<script src="js/forecast-panel.js?v=40d42aed"></script>
+<script src="js/warnings-apply.js?v=580d7788"></script>
+<script src="js/bulletin.js?v=24dd3e7b"></script>
+<script src="js/bulletin-load.js?v=8a74ec98"></script>
+<script src="js/forecast-panel.js?v=78199f39"></script>
 <script src="js/warnings-load.js?v=85869e98"></script>
+<script src="js/data-maps.js?v=80953b15"></script>
+<script src="js/data-load.js?v=d204d76e"></script>
 <script src="js/presets.js?v=31abe4c7"></script>
 <script src="js/cg-setup.js?v=dad25ddb"></script>
 <script src="js/modals-notices.js?v=9a319b43"></script>
@@ -1501,9 +1562,9 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/project-io.js?v=a8413164"></script>
 <script src="js/wiring.js?v=1d9def53"></script>
 <script src="js/anim.js?v=3f7ec170"></script>
-<script src="js/timeline-plan.js?v=5b2480af"></script>
+<script src="js/timeline-plan.js?v=d051c4b7"></script>
 <script src="js/timeline-ui.js?v=8c3c0a46"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
 <script src="js/floating-panels.js?v=2c3d98f7"></script>
 <script src="js/tour.js?v=031b7a02"></script>
-<script src="js/boot.js?v=5deb228d"></script>
+<script src="js/boot.js?v=69ea351e"></script>

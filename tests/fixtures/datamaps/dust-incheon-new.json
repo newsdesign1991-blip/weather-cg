@@ -1,0 +1,159 @@
+{
+ "_note": "문서·실키 확인 형식(2026-10-09) 기준 예시 — 값은 지어낸 것. 실키로 받은 원문으로 바꿀 때 인증키·주소는 넣지 말 것",
+ "response": {
+  "body": {
+   "totalCount": 11,
+   "items": [
+    {
+     "sidoName": "인천",
+     "cityName": "제물포구",
+     "cityNameEng": "Incheon-0",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "82",
+     "pm25Value": "13",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "57"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "영종구",
+     "cityNameEng": "Incheon-1",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "105",
+     "pm25Value": "49",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "70"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "미추홀구",
+     "cityNameEng": "Incheon-2",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "20",
+     "pm25Value": "48",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "85"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "연수구",
+     "cityNameEng": "Incheon-3",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "17",
+     "pm25Value": "11",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "59"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "남동구",
+     "cityNameEng": "Incheon-4",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "36",
+     "pm25Value": "20",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "78"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "부평구",
+     "cityNameEng": "Incheon-5",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "77",
+     "pm25Value": "55",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "72"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "계양구",
+     "cityNameEng": "Incheon-6",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "113",
+     "pm25Value": "34",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "48"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "서해구",
+     "cityNameEng": "Incheon-7",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "87",
+     "pm25Value": "35",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "72"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "검단구",
+     "cityNameEng": "Incheon-8",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "103",
+     "pm25Value": "63",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "77"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "강화군",
+     "cityNameEng": "Incheon-9",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "93",
+     "pm25Value": "57",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "60"
+    },
+    {
+     "sidoName": "인천",
+     "cityName": "옹진군",
+     "cityNameEng": "Incheon-10",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "120",
+     "pm25Value": "34",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "93"
+    }
+   ],
+   "pageNo": 1,
+   "numOfRows": 100
+  },
+  "header": {
+   "resultMsg": "NORMAL_CODE",
+   "resultCode": "00"
+  }
+ }
+}

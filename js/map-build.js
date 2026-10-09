@@ -186,7 +186,7 @@ function secModeHidden(s) {
     case 'wrn': return !isWarn;
     case 'fct': return !isFct;
     case 'life': case 'dust': case 'dustFcst': return S.style !== s;   // 데이터 지도 섹션 = 그 지도에서만
-    case 'legend': return !((isWarn || isTy) && !isTyCmp);   // 범례 탭: 특보용·단일 태풍. 비교 지도에선 숨김(각 태풍 탭 안에 범례 토글)
+    case 'legend': return !((isWarn || isTy || !!curStyle().data) && !isTyCmp);   // 범례 탭: 특보용·단일 태풍·데이터 지도(칠한 단계). 비교 지도에선 숨김(각 태풍 탭 안에 범례 토글)
     case 'label': return isTyCmp;                             // 기본 수치라벨 탭: 비교 지도에선 숨김(각 태풍 탭 안에 수치라벨)
     case 'typhoon': case 'typhoonPlaces': return !(isTy && !isTyCmp);   // 단일 태풍 메뉴·지명표시는 단일 태풍 지도에서만
     case 'typhoonCompare': return !isTyCmp;
@@ -219,6 +219,7 @@ function updateAutoPaintSecs() {
   if (isTy && !isTyCmp) buildTyphoonPlacesPanel();   // 지명표시 목록/입력 배선
   if (isTyCmp) buildCompareSection();
   syncMapUnit();   // 아트보드 '지금 구분' 배지·사이드바 구분 줄
+  if (typeof syncDataPanels === 'function') syncDataPanels();   // 데이터 섹션(생활기상·미세먼지)·범례 이름을 지금 지도·자료에 맞춤(js/data-load.js)
 }
 // '지금 칠하는 구분' 표시 — 아트보드 오른쪽 위 배지(#fctMapBtn 재용도 — 옛 전국/서울 버튼 자리)와 사이드바 데이터 섹션 첫 줄([data-map-unit]).
 // 태풍 지도엔 구역 칠하기가 없어 배지를 숨긴다(같은 자리에 지도 배경 버튼). 이미지·영상·AE 출력엔 안 나온다(SVG 밖 HTML).
@@ -308,7 +309,9 @@ function setStyle(name) {
   const before = presetKey();
   const after = presetKey(S.res, name);
   const enteringTyphoon = isTyphoon(name) && !isTyphoon(S.style);
+  const prevStyle = S.style;
   S.style = name;
+  if (typeof dataLabelsSwap === 'function') dataLabelsSwap(prevStyle, name);   // 자료 라벨은 자기 지도에만(떠나는 지도 것은 맡겨 두고, 들어가는 지도 것은 되돌림 — js/data-maps.js)
   if (isTyphoon(name)) { initTyphoonData(); applyTyphoonStyle(); (S.legend ||= {}).on = (MAP.styles[name] && MAP.styles[name].compare) ? 0 : 1; }   // 단일 태풍은 범례 기본 표시, 비교 지도는 기본 숨김(토글로 켬)
   updateAutoPaintSecs();
   buildZones();

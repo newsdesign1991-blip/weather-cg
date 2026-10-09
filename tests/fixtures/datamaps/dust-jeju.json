@@ -1,0 +1,42 @@
+{
+ "_note": "문서·실키 확인 형식(2026-10-09) 기준 예시 — 값은 지어낸 것. 실키로 받은 원문으로 바꿀 때 인증키·주소는 넣지 말 것",
+ "response": {
+  "body": {
+   "totalCount": 2,
+   "items": [
+    {
+     "sidoName": "제주",
+     "cityName": "제주시",
+     "cityNameEng": "Jeju-do-0",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "111",
+     "pm25Value": "21",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "76"
+    },
+    {
+     "sidoName": "제주",
+     "cityName": "서귀포시",
+     "cityNameEng": "Jeju-do-1",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "17",
+     "pm25Value": "57",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "81"
+    }
+   ],
+   "pageNo": 1,
+   "numOfRows": 100
+  },
+  "header": {
+   "resultMsg": "NORMAL_CODE",
+   "resultCode": "00"
+  }
+ }
+}

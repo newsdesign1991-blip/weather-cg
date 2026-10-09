@@ -37,6 +37,7 @@ function planCtx(S, opt = {}) {
     brushStrokes: () => ((S.brushByStyle ||= {})[S.style] ||= []),
     aeWarningFillDefs: () => opt.warnDefs || [],
     wrnLegendItems: () => opt.legend || [],
+    autoLegendItems: () => opt.legend || [],   // 범례 자동 항목(js/data-maps.js — 데이터 지도면 칠한 단계, 아니면 특보 목록)
     typhoonLineMode: () => !!(S.typhoon && S.typhoon.trackMode === 'line' && S.style !== 'typhoonCompare'),
     curTyphoonPoints: () => ((S.typhoon && S.typhoon.issues && S.typhoon.issues[0] && S.typhoon.issues[0].points) || []),
     labelList: () => (S.style === 'typhoon' || S.style === 'typhoonCompare' ? ((S.typhoon ||= {}).labels ||= []) : S.labels),

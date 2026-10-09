@@ -21,21 +21,26 @@ const API_URLS = {
 };
 const apiKey = () => ((localStorage.getItem(WRN_KEY_STORE) || '').trim() || DEFAULT_API_KEY);
 
-const apiPop = (on) => {
+// which = 'data'면 공공데이터포털 인증키 칸(생활기상·미세먼지 — js/data-maps.js)으로 포커스
+const apiPop = (on, which) => {
   $('#apiPop').classList.toggle('on', on);
   $('#apiGear').classList.toggle('on', on);
-  if (on) $('#apiKey').focus();
+  if (on) { const k = (which === 'data' && $('#dataKeyIn')) || $('#apiKey'); k.focus(); if (which === 'data') k.scrollIntoView({ block: 'nearest' }); }
 };
 
 // 인증키가 없으면 특보·예보 항목에 안내를 띄우고 톱니바퀴에 빨간 점을 찍는다.
 // 키를 넣는 곳이 한 군데(API 설정)뿐이라, 없을 때 어디로 가야 하는지 알려주지 않으면 막힌다.
+// [data-nokey="data"] = 공공데이터포털 인증키(생활기상·미세먼지). 톱니 빨간 점은 기상청 키가 없거나, 지금 지도가 데이터 지도인데 공공데이터포털 키가 없을 때만
+// (평소 안 쓰는 사람에게 늘 빨간 점이 뜨지 않게).
 function syncKeyWarn() {
   const has = !!apiKey();
+  const hasData = typeof dataKey === 'function' ? !!dataKey() : true;
   for (const n of document.querySelectorAll('[data-nokey]')) {
-    n.classList.toggle('on', !has);
-    n.closest('.sec')?.classList.toggle('nokeyed', !has);
+    const ok = n.dataset.nokey === 'data' ? hasData : has;
+    n.classList.toggle('on', !ok);
+    n.closest('.sec')?.classList.toggle('nokeyed', !ok);
   }
-  $('#apiGear').classList.toggle('warn', !has);
+  $('#apiGear').classList.toggle('warn', !has || (!hasData && !!curStyle().data));
 }
 
 // {KEY}/{TM}/{TM1}/{TM2} 를 채워 실제 주소를 만든다

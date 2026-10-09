@@ -94,6 +94,10 @@ const DEFAULTS = () => ({
   mtns: [],      // 산 표시
   softFill: 0,   // 아사모사(부드러운 경계) — 통보문 색칠을 경계에서 부드럽게 섞을지
   softZonesByStyle: {}, // 지도 종류별 '부드럽게' 대상 구역 id들(내륙·해안·산지처럼 애매한 표현만). 확실한 지명은 또렷하게 둔다.
+  // 데이터 지도(10-10 — js/data-load.js): 지도 키별 마지막으로 불러온 자료와 고른 옵션(칠은 늘 fillsByStyle[키]). 옛 저장본은 빈 값으로 열린다.
+  dataByStyle: {},
+  dataColors: {},   // 단계 색 바꾼 것 { 단계표(uv·air·pm10·pm25·grade): { 단계: '#색' } }
+  bulKind: 'rain',  // 통보문으로 마지막에 칠한 종류 'rain'|'snow' — 불러오기에서 처음 고를 묶음(js/bulletin-load.js bulPickDefault)
   vfBar: { on: 0, x: 1140, y: 150, w: 640, h: 110, shOp: 42, shBlur: 7, shDy: 7 }, // 노말 VF 제목 바(배경 크롭+그림자 농도/번짐/거리). 배치는 프리셋에 저장.
   vfScale: 100, // 노말 VF 출력 전체 크기(%). 파란 배경판 오른쪽 위를 고정하고 전체를 함께 확대·축소.
   vfScales: {}, // 작업 중 공유값: common / warnsea 두 칸. 밝은·어두운 전환 때 현재 크기가 유지된다.

@@ -1,0 +1,31 @@
+/* [모듈] css/data-maps.css — 데이터 지도 섹션(생활기상·미세먼지 — js/data-load.js): 고르기 세그먼트, 단계 목록(색 칸·이름·칠한 수), 예보 개황 한 줄, API 설정의 공공데이터포털 키 칸 구분선·서비스 목록 */
+  /* ===== 데이터 지도 섹션 =====
+     고르기(지수·농도·예보 종류·평균 기준)는 사이드바 공용 세그먼트(.mode) — 칸을 똑같이 나눈다. 결과 카드는 특보 결과 카드(.wrnRes — dialogs.css) 그대로. */
+  .dataSeg { width: 100%; }
+  .dataSeg button { flex: 1 1 0; min-width: 0; height: 30px; min-height: 0; padding: 0 8px; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dataEmpty { margin: 0 0 4px; }
+  .dataEmpty[hidden] { display: none; }
+  /* 단계 목록 — 색 칸(누르면 그 단계 색 바꾸기) · 이름과 범위(누르면 칠할 색으로 집기) · 칠한 곳 수 */
+  .dataSteps { margin: 10px 0 8px; display: flex; flex-direction: column; gap: 2px; }
+  .dataSteps:empty { display: none; }
+  .dataStepsHead { font-size: 11px; color: var(--on-surface-var); margin: 0 0 3px 2px; }
+  .dataStep { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 9px; }
+  .dataStep:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+  .dataSw { width: 30px; height: 24px; border: 1px solid var(--outline-var); border-radius: 6px; background: none; padding: 0; cursor: pointer; flex: 0 0 auto; }
+  .dataStepPick {
+    flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; height: auto; min-height: 0; padding: 3px 4px;
+    border: none; background: none; box-shadow: none; text-align: left; font-size: 12px; color: var(--on-surface); cursor: pointer;
+  }
+  .dataStepPick:hover { background: none; color: var(--primary); }
+  .dataStepPick b { font-weight: 800; }
+  .dataStepRange { color: var(--on-surface-var); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dataStepN { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--on-surface-var); min-width: 34px; text-align: right; }
+  /* 미세먼지 예보 개황(informOverall) — 세 줄까지, 전체는 마우스를 올리면 */
+  .dataOverall { margin: 6px 0 2px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .dataOverall[hidden] { display: none; }
+
+  /* ===== API 설정 — 공공데이터포털 인증키 묶음 ===== */
+  .apiSep { height: 1px; margin: 14px -14px 12px; background: var(--pop-hd-line); }
+  .apiSvc { margin: 0 0 8px; padding: 0 0 0 15px; font-size: 11px; line-height: 1.55; color: var(--pop-muted, var(--on-surface-var)); word-break: keep-all; }
+  .apiSvc b { color: var(--on-surface); font-weight: 700; margin-right: 3px; }
+  #apiPop { max-height: calc(100vh - 80px); overflow-y: auto; }

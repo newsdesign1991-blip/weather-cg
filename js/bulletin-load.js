@@ -102,8 +102,8 @@ function bulPickItems(groups) {
   for (const it of items) it.n = bulRegionCount(it.groups);
   return items;
 }
-// 처음 고를 항목 — 적설이 아닌 첫 항목(모두 적설이면 첫 항목)
-const bulPickDefault = (items) => Math.max(0, items.findIndex((it) => !it.snow));
+// 처음 고를 항목 — 적설이 아닌 첫 항목(모두 적설이면 첫 항목). kind = 'snow'(지난번에 적설을 칠함 — S.bulKind)면 첫 적설 항목(없으면 위와 같게)
+const bulPickDefault = (items, kind) => { if (kind === 'snow') { const i = items.findIndex((it) => it.snow); if (i >= 0) return i; } return Math.max(0, items.findIndex((it) => !it.snow)); };
 
 // '2026년 10월 08일 (목)요일 11:00 발표'·'2026년 10월 08일 11시 00분 발표'(PDF)·발표시각 12자리 → '10월 8일 11:00 발표'
 function bulAnnounceText(s, tmfc) {
@@ -162,7 +162,8 @@ function bulResultView(r) {
     const title = `${head} — ${r.n > 1 ? `${r.n}묶음` : String(r.label || '').replace(/ /g, ' ')}`;
     // 여럿이면 고른 항목은 '날짜' 칸이 보여 준다(카드에 적으면 고를 때마다 낡는다)
     const lines = [r.n > 1 ? '날짜를 고른 뒤 ‘수동으로 색칠’을 펼쳐 내용을 확인하고 색칠하세요.' : '‘수동으로 색칠’을 펼쳐 내용을 확인하고 ‘통보문으로 색칠’을 누르세요.'];
-    if (r.snowOnly) lines.push('적설(cm)만 있어요 — 강수량 색 단계로 칠해요.');
+    if (r.snowOnly) lines.push('적설(cm)만 있어요 — 눈 색 단계로 칠하고 제목을 ‘예상 적설량’으로 바꿔요.');
+    else if (r.snowN) lines.push(`적설 묶음 ${r.snowN}개 — 날짜 칸에서 ‘적설’을 고르면 눈 색으로 칠해요.`);
     if (r.dropped) lines.push(`묶음에 못 넣은 강수량 줄 ${r.dropped}개가 있어요 — 원문과 칸을 견줘 보세요.`);   // 말없이 빠지는 줄이 없게
     return { tone: 'ok', title, meta, lines, detail: '', actions: [], toast: title };
   }
@@ -261,7 +262,7 @@ function bulFillPick(groups) {
     o.value = String(i); o.textContent = it.label + (it.n ? ` · 지역 ${it.n}곳` : '');
     sel.append(o);
   });
-  const d = bulPickDefault(bulPickList);
+  const d = bulPickDefault(bulPickList, S.bulKind);
   sel.value = String(d);
   row.style.display = bulPickList.length > 1 ? '' : 'none';
   bulPickFill(d);
@@ -284,8 +285,8 @@ function bulResetPick(card) {
 function bulShowPage(page, src) {
   if (page.kind === 'ok') {
     const it = bulFillPick(page.groups);
-    const snowOnly = page.groups.every((g) => g.kind === 'snow' || g.kind === 'snowrain');
-    showBulResult({ kind: 'ok', src, n: page.groups.length, label: it.label, at: page.at, where: page.where, snowOnly, dropped: page.dropped || 0 });
+    const snowN = page.groups.filter((g) => g.kind === 'snow' || g.kind === 'snowrain').length, snowOnly = snowN === page.groups.length;
+    showBulResult({ kind: 'ok', src, n: page.groups.length, label: it.label, at: page.at, where: page.where, snowOnly, snowN, dropped: page.dropped || 0 });
     return true;
   }
   let cleared = false;

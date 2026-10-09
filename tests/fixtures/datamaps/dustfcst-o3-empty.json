@@ -1,0 +1,15 @@
+{
+ "_note": "문서·실키 확인 형식(2026-10-09) 기준 예시 — 값은 지어낸 것. 실키로 받은 원문으로 바꿀 때 인증키·주소는 넣지 말 것",
+ "response": {
+  "body": {
+   "totalCount": 0,
+   "items": [],
+   "pageNo": 1,
+   "numOfRows": 100
+  },
+  "header": {
+   "resultMsg": "NORMAL_CODE",
+   "resultCode": "00"
+  }
+ }
+}
