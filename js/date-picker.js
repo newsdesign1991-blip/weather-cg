@@ -122,7 +122,7 @@ function dpAttach(input, o) {
   if (input._dp) { input._dp.sync(); return input._dp; }
   o = o || {};
   const f = document.createElement('button');
-  f.type = 'button'; f.className = 'dpField';
+  f.type = 'button'; f.className = 'dpField' + (o.short ? ' short' : '');   // short = 글자가 짧아 요일을 숨기는 폭도 좁다(css 컨테이너 질의)
   f.setAttribute('aria-haspopup', 'dialog'); f.setAttribute('aria-expanded', 'false');
   f.innerHTML = '<span class="dpFieldTx"></span>' + DP_CAL_SVG;
   if (input.style.flex) f.style.flex = input.style.flex;   // 줄 배치(style="flex:1")는 칸이 이어받는다
@@ -156,20 +156,29 @@ function dpAttach(input, o) {
   return api;
 }
 
-// 팝오버 자리 — 칸 아래(6px), 아래가 모자라면 위, 둘 다 모자라면 화면 안에 붙인다. 좌우도 화면 안(8px)
+// 팝오버 자리 — 칸 아래(6px), 아래가 모자라면 위. 둘 다 모자라면(창이 낮거나 칸이 사이드바 가운데 — 달력이 칸을 덮지 않게)
+// 칸 옆(사이드바 칸이면 오른쪽 작업창 위), 세로는 칸 가운데에 맞춰 화면 안. 옆자리도 없으면 화면 안에 붙인다. 좌우도 화면 안(8px).
+// 크기는 offsetWidth/Height(여는 움직임의 scale에 안 흔들림). 돌려주는 값 = 'down' | 'up' | 'right' | 'left'(여닫는 움직임 방향)
 function dpPlace(pop, field) {
-  const r = field.getBoundingClientRect(), pr = pop.getBoundingClientRect();
+  const r = field.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
   const vw = window.innerWidth, vh = window.innerHeight, M = 8, G = 6;
-  let top = r.bottom + G, up = false;
-  if (top + pr.height > vh - M) {
-    if (r.top - G - pr.height >= M) { top = r.top - G - pr.height; up = true; }
-    else top = Math.max(M, vh - M - pr.height);
+  let side = 'down', top = r.bottom + G, left = Math.max(M, Math.min(r.left, vw - M - pw));
+  if (top + ph > vh - M) {
+    if (r.top - G - ph >= M) { side = 'up'; top = r.top - G - ph; }
+    else {
+      const rOk = r.right + G + pw <= vw - M, lOk = r.left - G - pw >= M;
+      top = Math.max(M, Math.min(r.top + r.height / 2 - ph / 2, vh - M - ph));
+      if (rOk) { side = 'right'; left = r.right + G; }
+      else if (lOk) { side = 'left'; left = r.left - G - pw; }
+      else top = Math.max(M, vh - M - ph);
+    }
   }
-  const left = Math.max(M, Math.min(r.left, vw - M - pr.width));
   pop.style.left = Math.round(left) + 'px'; pop.style.top = Math.round(top) + 'px';
-  pop.classList.toggle('up', up);
-  return up;
+  pop.dataset.side = side;
+  return side;
 }
+// 여닫는 움직임의 밀림 — 칸 쪽에서 나온다(아래면 위에서, 옆이면 칸 쪽에서)
+const dpSlide = (side, n) => side === 'up' ? `translateY(${n}px)` : side === 'right' ? `translateX(${-n}px)` : side === 'left' ? `translateX(${n}px)` : `translateY(${-n}px)`;
 // 칸이 아직 보이는가 — 접힌 섹션·사이드바 스크롤 밖으로 나가면 팝오버를 닫는다
 function dpFieldVisible(field) {
   if (!field.isConnected) return false;
@@ -208,9 +217,9 @@ function dpPopup(kind, input, field, cls, html, label) {
   // 팝오버 안 누르기·키는 뒤로 안 보낸다 — 제목줄 메뉴 '바깥 누르기 닫기'·사이드바 끌기, 화살표 = 지도 선택 옮기기 같은 단축키
   pop.addEventListener('pointerdown', (e) => e.stopPropagation());
   pop.addEventListener('keydown', (e) => { if (!e.ctrlKey && !e.metaKey && !e.altKey) e.stopPropagation(); });
-  const up = dpPlace(pop, field);
+  const side = dpPlace(pop, field);
   field.classList.add('on'); field.setAttribute('aria-expanded', 'true');
-  if (!dpCalm() && pop.animate) pop.animate([{ opacity: 0, transform: `translateY(${up ? 8 : -8}px) scale(.97)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: DP_EASE });
+  if (!dpCalm() && pop.animate) pop.animate([{ opacity: 0, transform: `${dpSlide(side, 8)} scale(.97)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: DP_EASE });
   _dpNow = st;
   return st;
 }
@@ -226,7 +235,7 @@ function dpClose(back) {
   pop.classList.add('closing');
   if (back && (inside || document.activeElement === document.body || document.activeElement === field) && field.isConnected && st.kind === 'date') { try { field.focus({ preventScroll: true }); } catch (e) {} }
   if (dpCalm() || !pop.animate) { pop.remove(); return; }
-  pop.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateY(${pop.classList.contains('up') ? 6 : -6}px) scale(.97)` }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
+  pop.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `${dpSlide(pop.dataset.side, 6)} scale(.97)` }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
   setTimeout(() => pop.remove(), 150);
 }
 // 전환 모핑(근무표 ndMorph 결) — 나가는 쪽이 블러·투명·살짝 작게(150ms) → 바꾸기 → 들어오는 쪽이 블러에서 또렷하게(300ms).
@@ -296,8 +305,9 @@ function dpOpenCal(input) {
     }
   };
   const nav = (dm, fk) => {
-    const k = dpYmOf(st.y, st.m) + dm;
-    if (k < dpYm(L.min) || k > dpYm(L.max)) return;
+    // 범위 밖 달에 서 있으면(값이 min/max 밖 — 예: 옛 범위값) 한 번에 범위 끝 달로 들어온다(< > 가 헛돌지 않게)
+    const k0 = dpYmOf(st.y, st.m), k = Math.max(dpYm(L.min), Math.min(dpYm(L.max), k0 + dm));
+    if (k === k0) return;
     st.y = Math.floor(k / 12); st.m = k - st.y * 12 + 1;
     renderCal(fk, dm);
   };
@@ -326,7 +336,8 @@ function dpOpenCal(input) {
     st.colM = dpWheel(freshCol('m'), dpMonthItems(st.y, L), st.m - 1, (m) => { st.m = m; setTitle(); });
     st.m = st.colM.idx + 1; setTitle();
   };
-  const toggleWheel = (want) => {
+  // kb = 키보드로 열었다(Enter·Space) — 휠이 열리면 해 열에 포커스(바로 ↑↓로 굴린다)
+  const toggleWheel = (want, kb) => {
     if (want === st.wheel) return;
     st.wheel = want;
     card.classList.toggle('wheelOn', want);
@@ -334,14 +345,14 @@ function dpOpenCal(input) {
     title.title = want ? '이 달의 달력으로' : '연·월 고르기';
     dpMorph(st, want ? calEl : whEl, want ? whEl : calEl, () => {
       calEl.hidden = want; whEl.hidden = !want;
-      if (want) buildWheel();
+      if (want) { buildWheel(); if (kb && _dpNow === st) try { q('.dpCol[data-k="y"]').focus({ preventScroll: true }); } catch (e) {} }
       else { if (st.colY) st.colY.stop(); if (st.colM) st.colM.stop(); renderCal(); }
     });
   };
   st.onEsc = () => dpClose(true);
   st.onClose = () => { if (st.morph) st.morph(); if (st.colY) st.colY.stop(); if (st.colM) st.colM.stop(); };
 
-  title.addEventListener('click', () => toggleWheel(!st.wheel));
+  title.addEventListener('click', (e) => toggleWheel(!st.wheel, e.detail === 0));
   prev.addEventListener('click', () => nav(-1, document.activeElement === prev ? 'prev' : ''));
   next.addEventListener('click', () => nav(1, document.activeElement === next ? 'next' : ''));
   todayBtn.addEventListener('click', () => pick(dpToday()));
@@ -406,8 +417,13 @@ function dpWheel(el, items, idx, onPick) {
     clearTimeout(W.t);
     if (Math.abs(el.scrollTop - top) > 0.5) {
       W.anim = true; el.scrollTo({ top, behavior: how === 'smooth' && !dpCalm() ? 'smooth' : 'auto' });
-      // 안전망 — 부드러운 스크롤이 끝내 안 오면(창이 그림을 안 그리는 동안 등) 바로 그 줄에 맞춘다
-      W.t = setTimeout(() => { if (W.live && W.anim && !W.drag && Math.abs(el.scrollTop - W.idx * DP_ITEM) > 0.5) { el.scrollTo({ top: W.idx * DP_ITEM, behavior: 'auto' }); paint(); } }, 900);
+      // 안전망 — 부드러운 스크롤이 끝내 안 오면(창이 그림을 안 그리는 동안 등) 바로 그 줄에 맞추고 맞춤 상태를 푼다
+      // (scroll 이벤트도 프레임에 실려 오므로 기다리지 않는다 — 'drag'가 남으면 scroll-snap이 꺼진 채로 남는다)
+      W.t = setTimeout(() => {
+        if (!W.live || !W.anim || W.drag) return;
+        if (Math.abs(el.scrollTop - W.idx * DP_ITEM) > 0.5) el.scrollTo({ top: W.idx * DP_ITEM, behavior: 'auto' });
+        W.anim = false; el.classList.remove('drag'); paint();
+      }, 900);
     } else { W.anim = false; el.classList.remove('drag'); }
     paint();
     if (changed) onPick(W.items[i].v);
@@ -508,7 +524,8 @@ function dpTimeAttach(input, o) {
     dirty = false;
     if (_dpNow && _dpNow.input === input) _dpNow.refresh();
   };
-  const sync = () => { if (!box.contains(document.activeElement)) show(input.value); else if (_dpNow && _dpNow.input === input) _dpNow.refresh(); };
+  // 코드가 값을 바꿈(특보를 못 불러와 시각을 되돌림 등) — 치는 중이 아니면(칸에 있어도 고친 게 없으면) 바로 보여 준다
+  const sync = () => { if (!dirty || !box.contains(document.activeElement)) show(input.value); else if (_dpNow && _dpNow.input === input) _dpNow.refresh(); };
   const setRaw = dpWatchValue(input, sync);
   const commit = (final) => {
     clearTimeout(t);

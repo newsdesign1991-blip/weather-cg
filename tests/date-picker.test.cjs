@@ -22,7 +22,8 @@ const src = (() => {
 })();
 const css = (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n');
 const NAMES = ['DP_W', 'DP_ITEM', 'DP_YEAR_MIN', 'dpPad', 'dpYmd', 'dpToday', 'dpLeap', 'dpDaysIn', 'dpDowOf', 'dpValid', 'dpYm', 'dpMonthCells', 'dpLimits', 'dpDayOk', 'dpMonthOk',
-  'dpClamp', 'dpYearItems', 'dpMonthItems', 'dpNearestOk', 'dpWheelIndex', 'dpAddDays', 'dpAddMonths', 'dpFmtField', 'dpFmtLong', 'dpTimeNorm', 'dpTimeStep', 'dpAmpm', 'dpWatchValue'];
+  'dpClamp', 'dpYearItems', 'dpMonthItems', 'dpNearestOk', 'dpWheelIndex', 'dpAddDays', 'dpAddMonths', 'dpFmtField', 'dpFmtLong', 'dpTimeNorm', 'dpTimeStep', 'dpAmpm', 'dpWatchValue',
+  'dpPlace', 'dpSlide'];
 // 가짜 HTMLInputElement — value 접근자만(dpWatchValue 검사용)
 class FakeInput { constructor() { this._v = ''; } }
 Object.defineProperty(FakeInput.prototype, 'value', { configurable: true, get() { return this._v; }, set(v) { this._v = String(v); } });
@@ -146,6 +147,29 @@ test('value 계약 — 원래 input의 읽기·쓰기는 그대로, 코드가 �
   assert.equal(new FakeInput().value, '', '다른 input은 그대로(프로토타입을 안 건드림)');
 });
 
+test('팝오버 자리 — 칸 아래, 모자라면 위, 둘 다 모자라면 칸 옆(사이드바 → 오른쪽), 옆도 없으면 화면 안. 크기는 offset(여는 scale 무시)', () => {
+  // 가짜 칸·팝오버 — 칸 rect, 팝오버 offset 크기(476 = 달력 카드 × 사이드바 배율 1.3 남짓)
+  const place = (fr, vw, vh, pw = 359, ph = 476) => {
+    ctx.window.innerWidth = vw; ctx.window.innerHeight = vh;
+    const pop = { offsetWidth: pw, offsetHeight: ph, style: {}, dataset: {} };
+    const field = { getBoundingClientRect: () => ({ left: fr[0], top: fr[1], right: fr[0] + fr[2], bottom: fr[1] + fr[3], width: fr[2], height: fr[3] }) };
+    const side = D.dpPlace(pop, field);
+    return [side, pop.style.left, pop.style.top, pop.dataset.side];
+  };
+  assert.deepEqual(place([200, 300, 150, 36], 1600, 900), ['down', '200px', '342px', 'down'], '아래 자리 있음');
+  assert.deepEqual(place([200, 700, 150, 36], 1600, 900), ['up', '200px', '218px', 'up'], '아래 모자람 → 위');
+  // 900 높이 창 가운데 칸(사이드바): 위아래 다 모자람 → 칸 오른쪽, 세로는 칸 가운데(화면 안)
+  assert.deepEqual(place([60, 430, 150, 36], 1600, 900), ['right', '216px', '210px', 'right']);
+  assert.deepEqual(place([60, 600, 150, 36], 1600, 900, 359, 800), ['right', '216px', '92px', 'right'], '키 큰 팝오버 — 칸 가운데 맞춤이 넘치면 화면 아래에 붙음');
+  // 오른쪽 끝 칸(떼어낸 창이 오른쪽에 있을 때) → 왼쪽
+  assert.deepEqual(place([1300, 430, 150, 36], 1600, 900), ['left', '935px', '210px', 'left']);
+  // 좁고 낮은 창: 옆자리도 없음 → 아래로 붙이고 화면 안(칸을 덮는 마지막 수)
+  assert.deepEqual(place([100, 300, 150, 36], 600, 500), ['down', '100px', '16px', 'down']);
+  // 오른쪽 넘침은 화면 안으로
+  assert.equal(place([1500, 100, 90, 36], 1600, 900)[1], '1233px');
+  assert.deepEqual(['down', 'up', 'right', 'left'].map((s) => D.dpSlide(s, 8)), ['translateY(-8px)', 'translateY(8px)', 'translateX(-8px)', 'translateX(8px)']);
+});
+
 test('붙이는 자리 — 부팅 때 문서 전체(wire 뒤·loadLayout 앞), 다시 그리는 태풍 비교 카드, 날짜 칸을 만드는 js는 모두 dpAttach', () => {
   const boot = html.slice(html.indexOf('buildFrame();\nbuildZones();'));
   const iw = boot.indexOf('\nwire();'), ia = boot.indexOf('\ndpAttachAll();'), il = boot.indexOf('\nloadLayout();');
@@ -175,6 +199,10 @@ test('모양 — 원래 칸 숨김, 휠 scroll-snap(가운데)·줄 높이 = DP_
   assert.match(dcss, /\.dpBody \{ position: relative; height: 252px; \}/);
   assert.match(dcss, /\.dpPadRow \{ height: 108px; \}/, '(252 − 36) / 2');
   assert.match(dcss, /\.dpCard\.wheelOn \.dpTitleChev \{ transform: rotate\(90deg\); \}/, '휠이 열리면 꺾쇠가 아래로');
+  // 좁은 칸은 요일만 숨김 — 해 뺀 짧은 칸(태풍 비교 범위)은 더 좁아도 요일이 들어간다
+  assert.match(dcss, /@container \(max-width: 116px\) \{ \.dpField:not\(\.short\) \.dpFtW \{ display: none; \} \}/);
+  assert.match(dcss, /@container \(max-width: 84px\) \{ \.dpField\.short \.dpFtW \{ display: none; \} \}/);
+  for (const s of ['up', 'right', 'left']) assert.match(dcss, new RegExp(`\\.dpPop\\[data-side="${s}"\\] \\{ transform-origin:`), `칸 ${s}쪽 팝오버 — 칸 쪽에서 열림`);
   assert.doesNotMatch(dcss, /#[0-9a-fA-F]{3,8}\b/, '색은 토큰으로(#hex 금지)');
   for (const theme of [':root, :root[data-theme="dark"] {', ':root[data-theme="light"] {']) {
     const i = css.indexOf(theme + '\n    --dp-acc');

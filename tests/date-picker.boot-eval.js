@@ -58,7 +58,8 @@ $('.dpPop .dpTitle').click(); await sleep(500);
 const colY = $('.dpPop .dpCol[data-k="y"]'), colM = $('.dpPop .dpCol[data-k="m"]');
 R.wheel = { on: $('.dpPop .dpCard').classList.contains('wheelOn'), calHidden: $('.dpPop .dpCal').hidden, wheelShown: !$('.dpPop .dpWheel').hidden,
   years: [colY.querySelector('.dpItem').textContent, [...colY.querySelectorAll('.dpItem')].pop().textContent], lastYearDis: [...colY.querySelectorAll('.dpItem')].pop().classList.contains('dis'),
-  snap: getComputedStyle(colY).scrollSnapType, title: title(), chev: getComputedStyle($('.dpPop .dpTitleChev')).transform };
+  snap: getComputedStyle(colY).scrollSnapType, title: title(), chev: getComputedStyle($('.dpPop .dpTitleChev')).transform,
+  kbFocus: document.activeElement === colY };   // .click()은 키보드 누르기(detail 0)와 같다 — 휠이 열리면 해 열에 포커스
 // 오늘 이후는 못 감 — 달 ↓(11월 흐림), 해 마우스 휠 아래(올해+1 흐림)
 key(colM, 'ArrowDown'); await sleep(120);
 colY.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true })); await sleep(120);
@@ -107,6 +108,9 @@ let tch = 0; wt.addEventListener('change', () => tch++);
 // 숨김 창은 포커스 이벤트를 안 보낼 때가 있다 — 실제 창처럼 focusin/focusout을 직접 보낸다(이미 왔으면 두 번째는 아무 일 없음)
 H.focus(); if (!document.querySelector('.dpTimePop')) H.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); await sleep(300);
 R.timePop = !!document.querySelector('.dpTimePop:not(.closing)');
+// 칸에 있어도 아직 안 고쳤으면 코드가 바꾼 값(특보를 못 불러와 되돌림 등)이 바로 보인다
+wt.value = '06:00'; await sleep(30);
+R.timeExternal = H.value + ':' + M.value;
 H.value = '14'; H.dispatchEvent(new Event('input', { bubbles: true })); await sleep(50);
 R.timeAdv = document.activeElement === M;
 M.value = '37'; M.dispatchEvent(new Event('input', { bubbles: true })); await sleep(50);
@@ -135,4 +139,36 @@ tap([...tm.querySelectorAll('.dpItem')].find((n) => n.textContent === '9월')); 
 $('.dpPop .dpTitle').click(); await sleep(500);
 $('.dpPop .dpDay[data-d="2019-09-07"]').click(); await sleep(400);
 R.typ = { value: tp.value, field: tf.textContent, change: tpc, closed: !pop() };
+// 값이 min/max 밖이면(옛 범위값) < 를 한 번 누르면 범위 끝 달로 들어온다(헛돌지 않음) — 잠깐 범위를 붙였다 뗀다
+tp.min = '2019-01-01'; tp.max = '2019-09-30'; tp.value = '2020-05-05';
+tf.click(); await sleep(450);
+R.outRange = { title0: title(), allOff: $$('.dpPop .dpDay').every((b) => b.disabled), prevOn: !$('.dpPop .dpPrev').disabled };
+$('.dpPop .dpPrev').click(); await sleep(300);
+R.outRange.title1 = title();
+key(document.activeElement, 'Escape'); await sleep(300);
+tp.removeAttribute('min'); tp.removeAttribute('max'); tp.value = '2019-09-07';
+
+// 9) 태풍 비교 카드 — 표시 날짜범위(min/max, 해 뺀 짧은 칸). 사이드바 가운데 칸이라 위아래 자리가 없으면 칸 옆(오른쪽)에 뜬다
+const cpts = [{ lon: 137.2, lat: 19.4, tmef: '202408200000', label: 'a' }, { lon: 136.3, lat: 20.6, tmef: '202408250000', label: 'b' }, { lon: 135.0, lat: 22.3, tmef: '202409020000', label: 'c' }];
+const cmpWork = { res: '1920x1080', style: 'typhoonCompare', map: { x: 1160, y: 545, s: 1.02 }, labels: [],
+  typhoon: { name: '비교', issues: [{ tmfc: '', label: 't', points: cpts }], sel: 0, places: [], labels: [],
+    compare: [{ id: 'c1', name: 'JTWC', color: '#FF5A5A', show: 1, rangeOn: 1, points: cpts, labels: [], _open: true }] },
+  anim: { dur: 6, fps: 29.97, reveal: 'dissolve', blindSize: 8, blindAngle: -45, tracks: [] } };
+const dt = new DataTransfer(); dt.items.add(new File([JSON.stringify(cmpWork)], 'cmp.json', { type: 'application/json' }));
+window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+await sleep(1500);
+for (let i = 0; i < 6; i++) { const x = document.querySelector('#tossOv .tossX'); if (x) { x.click(); await sleep(300); } }
+const cf = $('input[data-cmpfrom]'), ct = $('input[data-cmpto]');
+const cff = cf._dp.field;
+const panel = $('#panel'); panel.style.scrollBehavior = 'auto';
+cff.scrollIntoView({ block: 'center' }); await sleep(400);
+R.cmp = { from: cf.value, to: ct.value, short: cff.classList.contains('short'), text: [cff.textContent, ct._dp.field.textContent],
+  weekday: getComputedStyle(cff.querySelector('.dpFtW')).display, fits: cff.querySelector('.dpFieldTx').scrollWidth <= cff.querySelector('.dpFieldTx').clientWidth };
+let cfc = 0; cf.addEventListener('change', () => cfc++);
+cff.click(); await sleep(450);
+const cpr = pop().getBoundingClientRect(), cfr = cff.getBoundingClientRect();
+R.cmp.pop = { side: pop().dataset.side, noCover: cpr.left >= cfr.right || cpr.top >= cfr.bottom || cpr.bottom <= cfr.top, inView: cpr.left >= 0 && cpr.top >= 0 && cpr.right <= innerWidth && cpr.bottom <= innerHeight,
+  title: title(), on: $$('.dpPop .dpDay:not(:disabled)').map((b) => +b.dataset.d.slice(8)).join(','), todayOff: $('.dpPop .dpTodayBtn').disabled };
+$('.dpPop .dpDay[data-d="2024-08-23"]').click(); await sleep(400);
+R.cmp.picked = { value: cf.value, field: cff.textContent, change: cfc, closed: !pop(), state: (S.typhoon.compare[0] || {}).rangeFrom };
 return R;
