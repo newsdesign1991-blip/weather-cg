@@ -5,7 +5,7 @@ await document.fonts.ready;
 const faces=await document.fonts.load('650 14px "Wanted Sans UI"','장면 설정 Weather CG 0123');
 check(faces.length===1&&faces[0].status==='loaded','local Wanted Sans font not loaded');
 check(faces[0].weight==='400 1000','variable weight range missing');
-const fontNodes=['body','#cgSetupBtn','#aeSend','#regionQuery','#cgsDone','.dpField'];
+const fontNodes=['body','#cgSetupBtn','#aeSend','#regionQuery','#cgsDone','.dpField','.ddField'];
 for(const theme of ['light','dark']) {
   document.documentElement.dataset.theme=theme;
   for(const selector of fontNodes) {

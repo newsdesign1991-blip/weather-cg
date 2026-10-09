@@ -1,7 +1,7 @@
 # 날씨 CG 메이커 — 모듈 지도 (먼저 읽을 것)
 
 이 앱은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** `index.html`은 뼈대(head·마크업·데이터 스크립트)와 태그뿐이고,
-로직은 `js/*.js`(42개), 스타일은 `css/*.css`(14개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍을 더했다).
+로직은 `js/*.js`(43개), 스타일은 `css/*.css`(15개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍, 드롭다운 `dropdown` 한 쌍을 더했다).
 
 - Claude·GPT 등 AI 공용 안내는 [`AGENTS.md`](AGENTS.md). 이 문서는 그 자세한 판이다.
 - 함수 찾기: `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`
@@ -12,10 +12,10 @@
 ## 1. 구조
 
 ```
-index.html          뼈대: head 인라인(웹판 막기·서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 14개
-                    + 마크업 + 테마 + 데이터 스크립트 12개 + <script src="js/…"> 42개(맨 끝)
-js/                 앱 로직 42개 — 아래 표 순서가 곧 로드 순서
-css/                스타일 14개 — 아래 표 순서가 곧 덮어쓰기 우선순위
+index.html          뼈대: head 인라인(웹판 막기·서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 15개
+                    + 마크업 + 테마 + 데이터 스크립트 12개 + <script src="js/…"> 43개(맨 끝)
+js/                 앱 로직 43개 — 아래 표 순서가 곧 로드 순서
+css/                스타일 15개 — 아래 표 순서가 곧 덮어쓰기 우선순위
 *.js (루트)          데이터 스크립트(지도·글꼴·이미지·배치 — window.X = … 꼴, 앱 로직 아님)
 FontNew/            글꼴 파일(css/base.css의 @font-face가 ../FontNew/ 로 가리킴)
 sw.js               서비스워커(웹판 설치·오프라인, network-first)
@@ -96,23 +96,24 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 23 | `js/presets.js` | 266 | 해상도별 배치 프리셋, **작업 자동 저장**, 배포 기본값 갱신 | `savePreset` `saveWork` `loadWork` `applyPreset` |
 | 24 | `js/cg-setup.js` | 297 | 해상도·CG 구성 창(화면 이름 **장면 설정**, 10-09 바꿈 — 코드·주석은 옛 이름), **상태 표시**, 출력 폴더(IndexedDB) | `RES` `openCgSetup` `status` `flash` `flashDone` `prepareOutput` |
 | 25 | `js/modals-notices.js` | 354 | **팝업 공통**(닫힘 애니메이션·포커스), **토스 카드 모달**, 공지사항, 내보내기 진행 마스크, 확인/입력 모달 | `popAnimClose` `popFocusIn` `tossModal` `checkNoticeOnBoot` `showExportMask` `tossConfirm` `tossPrompt` |
-| 26 | `js/date-picker.js` | 578 | **날짜 고르기**(10-09): 시스템 날짜·시각 칸(`<input type=date>`·`type=time`)을 숨기고(값·change 계약 그대로 — `input.value` 접근자를 덧씌워 코드가 바꿔도 칸이 따라감) 근무표식 **아이폰 달력 팝오버**(칸 아래·자리 없으면 위, position: fixed·사이드바 배율, 바깥·Esc 닫기, 화살표·PageUp/Down(Shift = 한 해)·Enter) + 제목을 누르면 **iOS식 연·월 휠**(scroll-snap·가운데 띠·위아래 흐림, 마우스 휠·끌기·누르기·키, 블러+스케일 모핑) + **시각 직접 입력**(근무표 ndTime — '시 : 분', ↑↓·휠, 분 = step 단위, 자주 쓰는 시각 팝오버). 지난 날짜용 — 오늘 이후·min/max 밖은 흐리게. 붙이기: boot.js `dpAttachAll()`, 태풍 비교 카드는 `wireCompareCard`에서 | `dpAttach` `dpTimeAttach` `dpAttachAll` `dpClose` `dpMonthCells` `dpLimits` `dpYearItems` `dpMonthItems` `dpTimeNorm` |
-| 27 | `js/busy-fx.js` | 163 | **작업 중·도착 효과**(뉴스 플레이어 검수 로딩 효과): 섹션·상자에 흐르는 그라디언트, 버튼 진행(흐름+비활성)·제목줄 버튼 색 띠·진행 막대, 결과 목록 자리 빛 훑는 막대, 섹션 머리만 옅은 띠(뒤에서 도는 확인 — h3), 도착(머리 빛·행 떠오름). 겹친 작업은 센다(켤 때·끌 때 같은 배열 = 한 작업 — 안전 해제 뒤 늦은 끄기가 새 작업을 안 끈다), `fxRun`은 실패해도 끈다 | `fxBusy` `fxRun` `fxArrive` `fxProgress` `fxSec` `fxHead` `fxRows` `fxClear` |
-| 28 | `js/preset-slots.js` | 251 | 배치 지정하기(완전 기본/개인 슬롯, 구운 배치 파일) | `openPresetSlots` `buildCurrentPresets` |
-| 29 | `js/export-image.js` | 314 | 이미지 추출 공통: 출력 글꼴 임베드, 카메라 레이어, 텍스트 오버레이, 3D 틸트 워프 | `suiteFontCss` `svgToImage` `drawExportFrame` |
-| 30 | `js/export-video.js` | 410 | 정확 MP4·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더 | `bakeMp4` `pingHelper` `checkHelperFreshOnBoot` `wnsHelperOffNotice` `wnsRender` |
-| 31 | `js/export-blobs.js` | 198 | **추출 핵심**: 레이어 목록·SVG→PNG blob, 미리보기, 프로젝트 파일 PNG 메타(읽기), 내보내기 대상 | `ALL_LAYERS` `svgBlob` `keepLayers` `pngEmbed` `readProjectFile` `exportBlobs` |
-| 32 | `js/ae-export.js` | 572 | After Effects 보내기(타임라인 = AE — 헬퍼 20261008: 앱 이징 곡선을 AE 키 영향값으로·태풍/비교 진행 곡선·블라인드·일반/비교 지도 카메라(이동/고정 레이어 나눔·블리드)·방향·지시선 셰이프·옮기지 않은 비교 이름표 따라가기(nameLabel.follow)), 다운로드 | `sendToAE` `aeEaseOf` `aeCamSpec` `aeBleedBox` `aeLeaderSpec` `aeBlindMtnSpan` `download` |
-| 33 | `js/export-dialog.js` | 378 | **이미지로 추출 팝업**(CG 구성 모양 — 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 **저장**(폴더 고르기(지난번 폴더 'imgDir') → `오늘날짜_날씨CG메이커` 폴더 → 카드 이름 그대로 PNG, 같은 이름이면 덮어쓰기/번호/취소(같은 이름 '폴더'는 그 장만 번호), 폴더 고르기를 못 쓰면 ZIP, 취소·권한 거절은 까닭 + [ZIP으로 받기] — 말없이 ZIP 안 받음), 정지 화면에서 굽기 | `openExport` `renderExport` `withStaticFrame` `exportFolderName` `setupExportDialog` `EXPORT_ICON` `exErrText` |
-| 34 | `js/project-io.js` | 325 | 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기, **저장 안 한 변경 판정·닫기 전 묻기**(데스크톱 — 10장) | `exportSettings` `importSettings` `saveProject` `bakeDefaults` `workDirty` `workMarkClean` `closeAsk` |
-| 35 | `js/wiring.js` | 778 | 버튼·입력 배선 `wire()`(함수 하나) + 사이드바 그룹 정리(로드 때 실행) | `wire` `refreshToolGroup` |
-| 36 | `js/anim.js` | 640 | 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙(계획·적용), renderAnimFrame(정확 경로 + 재생 중 가속 경로 — 틸트 그림은 지도 내용이 바뀐 프레임만 다시 굽기: animMapKey), 재생/정지/탐색, 저장용 상태 | `cubicBezier` `renderAnimFrame` `animFastOn` `animPlay` `animStop` `stateForSave` `autoTrackPlan` |
-| 37 | `js/timeline-plan.js` | 230 | 타임라인 레이어 계획(화면·AE 공용 목록·순서·이름·타이밍), 시간 도우미(프레임·타임코드·입력 해석), 막대 끌기 계산, 스냅 대상 | `tlLayerPlan` `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` `tlDragCalc` `tlSnapTargets` |
-| 38 | `js/timeline-ui.js` | 560 | 타임라인 화면(AE식 레이어 열·아이콘·막대·키·눈금자·CTI·내비게이터), 그리기 스케줄러(rAF 하나), 열기·높이·미리보기, 카메라 키 팝오버. 내용 변경 알림 `tlContentChanged`(renderAll·renderFills — 가속 미리보기를 걷고 다시 그림) / 1.5초 행 점검 `tlCheckRows`(boot.js — 가속은 그대로) | `buildTimeline` `tlSync` `tlInvalidate` `tlFrame` `tlSetT` `tlSetOpen` `tlContentChanged` `tlCheckRows` `openCamKeyPopover` `TL_ICONS` |
-| 39 | `js/timeline-input.js` | 420 | 타임라인 조작: 막대·키 끌기(프레임·스냅·다중 선택), 스크럽·줌·스크롤, 이름 열 숫자 끌기·키 내비게이터, 키보드 단축키·패널 포커스, Alt 카메라 자동 키 | `tlWire` `tlKeydown` `tlOwnsKeys` `tlCamKeyAt` `tlCamAutoKey` |
-| 40 | `js/floating-panels.js` | 670 | 떼어낸 창, 패널 크기, 레이아웃, **제목줄 메뉴(추출·프로젝트·설정(렌치))**, 시작 화면 | `popOut` `dockSec` `loadLayout` `setupMenus` `setupStartScreen` `showStartScreen` |
-| 41 | `js/tour.js` | 200 | 둘러보기(온보딩 투어) | `tourOpen` `tourGo` `wireTour` |
-| 42 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
+| 26 | `js/dropdown.js` | 352 | **드롭다운**(10-09 — 공용 부품): 시스템 `<select>`를 숨기고(값·옵션·change 계약 그대로 — `select.value`·`selectedIndex` 접근자를 덧씌우고 옵션은 MutationObserver로 따라감: 추가·삭제·글자·disabled·hidden·optgroup, select의 disabled·hidden·style.display·title) 옆에 버튼형 칸(고른 항목 + 꺾쇠, 칸 폭 = 가장 긴 항목) + **토스 카드 목록 팝오버**(칸 아래·자리 없으면 위·둘 다 모자라면 넓은 쪽에 높이를 줄여, position: fixed·칸의 배율 zoom, 고른 항목 파란 글자·체크, 올리면 옅은 바탕, 앱 스크롤바, 열 때 고른 항목이 가운데). 키: 칸에서 Enter·Space·↑↓ = 열기 / ↑↓·Home·End·PageUp·PageDown·Enter·Space·Esc·Tab·글자로 찾기, 바깥 누르기 = 닫기, 포커스는 칸(aria-activedescendant). 붙이기: boot.js `ddAttachAll()` + 관찰자, 태풍 비교 카드는 `wireCompareCard`에서 | `ddAttach` `ddAttachAll` `ddClose` `_ddNow` `ddItems` `ddStep` `ddFind` `ddPlace` `ddLabel` |
+| 27 | `js/date-picker.js` | 578 | **날짜 고르기**(10-09): 시스템 날짜·시각 칸(`<input type=date>`·`type=time`)을 숨기고(값·change 계약 그대로 — `input.value` 접근자를 덧씌워 코드가 바꿔도 칸이 따라감) 근무표식 **아이폰 달력 팝오버**(칸 아래·자리 없으면 위, position: fixed·사이드바 배율, 바깥·Esc 닫기, 화살표·PageUp/Down(Shift = 한 해)·Enter) + 제목을 누르면 **iOS식 연·월 휠**(scroll-snap·가운데 띠·위아래 흐림, 마우스 휠·끌기·누르기·키, 블러+스케일 모핑) + **시각 직접 입력**(근무표 ndTime — '시 : 분', ↑↓·휠, 분 = step 단위, 자주 쓰는 시각 팝오버). 지난 날짜용 — 오늘 이후·min/max 밖은 흐리게. 붙이기: boot.js `dpAttachAll()`, 태풍 비교 카드는 `wireCompareCard`에서 | `dpAttach` `dpTimeAttach` `dpAttachAll` `dpClose` `dpMonthCells` `dpLimits` `dpYearItems` `dpMonthItems` `dpTimeNorm` |
+| 28 | `js/busy-fx.js` | 163 | **작업 중·도착 효과**(뉴스 플레이어 검수 로딩 효과): 섹션·상자에 흐르는 그라디언트, 버튼 진행(흐름+비활성)·제목줄 버튼 색 띠·진행 막대, 결과 목록 자리 빛 훑는 막대, 섹션 머리만 옅은 띠(뒤에서 도는 확인 — h3), 도착(머리 빛·행 떠오름). 겹친 작업은 센다(켤 때·끌 때 같은 배열 = 한 작업 — 안전 해제 뒤 늦은 끄기가 새 작업을 안 끈다), `fxRun`은 실패해도 끈다 | `fxBusy` `fxRun` `fxArrive` `fxProgress` `fxSec` `fxHead` `fxRows` `fxClear` |
+| 29 | `js/preset-slots.js` | 251 | 배치 지정하기(완전 기본/개인 슬롯, 구운 배치 파일) | `openPresetSlots` `buildCurrentPresets` |
+| 30 | `js/export-image.js` | 314 | 이미지 추출 공통: 출력 글꼴 임베드, 카메라 레이어, 텍스트 오버레이, 3D 틸트 워프 | `suiteFontCss` `svgToImage` `drawExportFrame` |
+| 31 | `js/export-video.js` | 410 | 정확 MP4·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더 | `bakeMp4` `pingHelper` `checkHelperFreshOnBoot` `wnsHelperOffNotice` `wnsRender` |
+| 32 | `js/export-blobs.js` | 198 | **추출 핵심**: 레이어 목록·SVG→PNG blob, 미리보기, 프로젝트 파일 PNG 메타(읽기), 내보내기 대상 | `ALL_LAYERS` `svgBlob` `keepLayers` `pngEmbed` `readProjectFile` `exportBlobs` |
+| 33 | `js/ae-export.js` | 572 | After Effects 보내기(타임라인 = AE — 헬퍼 20261008: 앱 이징 곡선을 AE 키 영향값으로·태풍/비교 진행 곡선·블라인드·일반/비교 지도 카메라(이동/고정 레이어 나눔·블리드)·방향·지시선 셰이프·옮기지 않은 비교 이름표 따라가기(nameLabel.follow)), 다운로드 | `sendToAE` `aeEaseOf` `aeCamSpec` `aeBleedBox` `aeLeaderSpec` `aeBlindMtnSpan` `download` |
+| 34 | `js/export-dialog.js` | 378 | **이미지로 추출 팝업**(CG 구성 모양 — 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 **저장**(폴더 고르기(지난번 폴더 'imgDir') → `오늘날짜_날씨CG메이커` 폴더 → 카드 이름 그대로 PNG, 같은 이름이면 덮어쓰기/번호/취소(같은 이름 '폴더'는 그 장만 번호), 폴더 고르기를 못 쓰면 ZIP, 취소·권한 거절은 까닭 + [ZIP으로 받기] — 말없이 ZIP 안 받음), 정지 화면에서 굽기 | `openExport` `renderExport` `withStaticFrame` `exportFolderName` `setupExportDialog` `EXPORT_ICON` `exErrText` |
+| 35 | `js/project-io.js` | 325 | 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기, **저장 안 한 변경 판정·닫기 전 묻기**(데스크톱 — 10장) | `exportSettings` `importSettings` `saveProject` `bakeDefaults` `workDirty` `workMarkClean` `closeAsk` |
+| 36 | `js/wiring.js` | 778 | 버튼·입력 배선 `wire()`(함수 하나) + 사이드바 그룹 정리(로드 때 실행) | `wire` `refreshToolGroup` |
+| 37 | `js/anim.js` | 640 | 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙(계획·적용), renderAnimFrame(정확 경로 + 재생 중 가속 경로 — 틸트 그림은 지도 내용이 바뀐 프레임만 다시 굽기: animMapKey), 재생/정지/탐색, 저장용 상태 | `cubicBezier` `renderAnimFrame` `animFastOn` `animPlay` `animStop` `stateForSave` `autoTrackPlan` |
+| 38 | `js/timeline-plan.js` | 230 | 타임라인 레이어 계획(화면·AE 공용 목록·순서·이름·타이밍), 시간 도우미(프레임·타임코드·입력 해석), 막대 끌기 계산, 스냅 대상 | `tlLayerPlan` `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` `tlDragCalc` `tlSnapTargets` |
+| 39 | `js/timeline-ui.js` | 560 | 타임라인 화면(AE식 레이어 열·아이콘·막대·키·눈금자·CTI·내비게이터), 그리기 스케줄러(rAF 하나), 열기·높이·미리보기, 카메라 키 팝오버. 내용 변경 알림 `tlContentChanged`(renderAll·renderFills — 가속 미리보기를 걷고 다시 그림) / 1.5초 행 점검 `tlCheckRows`(boot.js — 가속은 그대로) | `buildTimeline` `tlSync` `tlInvalidate` `tlFrame` `tlSetT` `tlSetOpen` `tlContentChanged` `tlCheckRows` `openCamKeyPopover` `TL_ICONS` |
+| 40 | `js/timeline-input.js` | 420 | 타임라인 조작: 막대·키 끌기(프레임·스냅·다중 선택), 스크럽·줌·스크롤, 이름 열 숫자 끌기·키 내비게이터, 키보드 단축키·패널 포커스, Alt 카메라 자동 키 | `tlWire` `tlKeydown` `tlOwnsKeys` `tlCamKeyAt` `tlCamAutoKey` |
+| 41 | `js/floating-panels.js` | 670 | 떼어낸 창, 패널 크기, 레이아웃, **제목줄 메뉴(추출·프로젝트·설정(렌치))**, 시작 화면 | `popOut` `dockSec` `loadLayout` `setupMenus` `setupStartScreen` `showStartScreen` |
+| 42 | `js/tour.js` | 200 | 둘러보기(온보딩 투어) | `tourOpen` `tourGo` `wireTour` |
+| 43 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
 
 경계 조정(2026-10-08, 코드 무변경 — 이어 붙인 텍스트는 그대로): 처음 분할의 `cg-setup.js` 뒤쪽(팝업 닫힘 애니메이션·토스 카드 모달)을
 `notices.js` 앞에 붙여 `modals-notices.js`로, `export-video.js`의 `ALL_LAYERS`부터 끝을 `export-blobs.js`로, `forecast-panel.js`의
@@ -136,8 +137,9 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 10 | `css/dialogs.css` | 171 | 인증키 안내, 특보 불러오기 결과 카드, 특보 종류별 색(사이드바 버튼·2분할 팝업 — 장면 설정 창 클래스 재사용 + `wrnCol*`), 알림 색 점, API 설정 창, 확인 모달, 배치 지정하기 모달 |
 | 11 | `css/panel-misc.css` | 141 | 통보문·예보 박스, 섹션 안 접이식 묶음(`.subFold*` — 예보 API·특보 수동 붙여넣기), 링크 버튼, 칠한 색 목록·경고, 최근 파일, 이미지 안내 팝업, 마우스 배지, 토스트, 브러쉬 영역 강조 |
 | 12 | `css/toss-modal.css` | 158 | 토스 카드 모달, 공지, 접이식 묶음, 렌더 가리개, 참고 이미지 드롭, 토글 스위치, 지도 배경 버튼, 브러쉬 원·가이드 |
-| 13 | `css/date-picker.css` | 132 | 날짜 고르기(`js/date-picker.js`) — 날짜 칸·달력 팝오버(근무표 nd-cal 모양: 반사 테두리 카드·파란 < >·요일 색·오늘 테두리·고른 날 파란 원·'오늘' 알약)·연월 휠(scroll-snap·가운데 띠·mask 흐림)·시각 칸·자주 쓰는 시각. 색 토큰 `--dp-*`는 base.css(두 테마) |
-| 14 | `css/busy-fx.css` | 119 | 작업 중·도착 효과(`js/busy-fx.js`)의 모양·움직임 — 흐름(transform만, 호스트 `overflow: clip`), 버튼 띠·진행 막대, 자리표시 막대, 도착 빛, 렌더 가리개 흐름, 움직임 줄이기. **맨 뒤**(다른 규칙을 덮어야 한다) |
+| 13 | `css/dropdown.css` | 67 | 드롭다운(`js/dropdown.js`) — 칸(입력칸·날짜 칸과 같은 높이·테두리, 꺾쇠 — 열리면 위로·파랑, 숨겨 겹친 항목 글자로 폭), 자리별 크기(타임라인 도구 줄 28px·비교 일괄 줄), 목록 팝오버(반사 테두리 카드·팝오버 그림자, 체크·올림 바탕·고른 줄 파랑, optgroup 제목, 앱 스크롤바). 색 = 공통 토큰 + `--dp-acc`(두 테마) |
+| 14 | `css/date-picker.css` | 132 | 날짜 고르기(`js/date-picker.js`) — 날짜 칸·달력 팝오버(근무표 nd-cal 모양: 반사 테두리 카드·파란 < >·요일 색·오늘 테두리·고른 날 파란 원·'오늘' 알약)·연월 휠(scroll-snap·가운데 띠·mask 흐림)·시각 칸·자주 쓰는 시각. 색 토큰 `--dp-*`는 base.css(두 테마) |
+| 15 | `css/busy-fx.css` | 119 | 작업 중·도착 효과(`js/busy-fx.js`)의 모양·움직임 — 흐름(transform만, 호스트 `overflow: clip`), 버튼 띠·진행 막대, 자리표시 막대, 도착 빛, 렌더 가리개 흐름, 움직임 줄이기. **맨 뒤**(다른 규칙을 덮어야 한다) |
 
 - css 안 상대 url은 **css/ 폴더 기준**이다(`url('../FontNew/…')`). js 안 경로(`fetch('FontNew/…')` 등)는 **문서 기준**이라 그대로다.
 - `index.html`의 `<style id="fontEmbed">`(head, 글꼴 데이터 주입)와 SVG 안 `<style id="fontStyle">`(추출 때 JS가 채움)은 **옮기지 않는다.**
@@ -149,9 +151,9 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | head 맨 앞 | **웹판 막기**(7장 — 첫 스크립트), 서비스워커 등록, `html.isDesktop` |
 | 그 다음 | **모듈 로드 실패 가드**(7장) |
 | | `default-presets.js` + 배치 슬롯으로 `WCG_DEFAULTS` 교체(`var _per/_mas`), `font-data.js` + `#fontEmbed`, Wanted Sans preload(UI 전용·FontNew 내장, CG 출력 SUITE는 그대로) |
-| | `<link rel="stylesheet" href="css/…?v=…">` 14개 |
+| | `<link rel="stylesheet" href="css/…?v=…">` 15개 |
 | body | 마크업(사이드바·제목줄·모달·SVG 등) |
-| 끝 | 테마(`data-theme`), 데이터 스크립트 10개(`onerror` 대체값), `<script src="js/…?v=…">` 42개 |
+| 끝 | 테마(`data-theme`), 데이터 스크립트 10개(`onerror` 대체값), `<script src="js/…?v=…">` 43개 |
 
 ## 6. 공용 도우미 위치
 
@@ -166,6 +168,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | `saveWork` `loadWork` `applyPreset` | `presets.js` |
 | `status` `flash` `flashDone` `prepareOutput` `RES` | `cg-setup.js` |
 | `popAnimClose` `popFocusIn` `tossModal` `tossConfirm` `tossPrompt` `showExportMask` | `modals-notices.js` |
+| `ddAttach`(드롭다운 칸 — 시스템 select 대신, 값·옵션·change 계약 그대로) `ddAttachAll(root)`(그 안의 select 전부 — 새로 그린 칸에) `ddClose` `_ddNow`(떠 있는 목록 — 뒤 팝업의 Esc 판정용) | `dropdown.js` |
 | `dpAttach`(날짜 칸 — 시스템 달력 대신, 값 계약 그대로) `dpTimeAttach`(시각 칸) `dpAttachAll(root)`(그 안의 date·time 전부 — 새로 그린 칸에) `dpClose` | `date-picker.js` |
 | `fxBusy` `fxRun` `fxArrive` `fxProgress` `fxSec` `fxHead` `fxRows` `fxClear` (작업 중·도착 효과 — 쓰는 법은 파일 머리 주석) | `busy-fx.js` |
 | `fetchWrn` `showWrnResult` `buildWrnCols`(특보 종류별 색 — 버튼 점·떠 있는 팝업 갱신, `syncPanelFromState`가 부른다) `openWrnColPop` `closeWrnColPop` `wrnColPopIsOpen` | `warnings-load.js` |
@@ -220,6 +223,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `WCG_BOOT_CHECK=1 node --test tests/brush-incremental.test.cjs tests/cg-setup.test.cjs tests/ae-cluster-e.test.cjs` | 실제 앱을 숨김 Electron으로 띄워 눌러 보는 점검(느림). 타임라인은 `tests/timeline-ae.boot.test.cjs`·`tests/ae-timeline-spec.test.cjs`도. 특보 종류별 색 팝업은 `tests/wrn-color-popup.test.cjs` |
 | `WCG_BOOT_CHECK=1 node --test tests/tilt-gl.boot.test.cjs` | **틸트 미리보기 WebGL** 실제 앱 점검: GL(밉맵)로 그리는지, 타임라인을 열면 틸트 그림을 미리 굽는지, 진입 프레임부터 기울인 지도(빈 지도 없음), 회전만 바뀌는 재생은 다시 안 굽는지, 컨텍스트를 잃으면 CSS·되찾으면 GL, 영상 프레임도 GL. 가짜 DOM·가짜 WebGL 단위 검사(폴백·게이트·다시 굽기 조건·투영식·메시 이음매·GPU 리셋 — 2D 그림 버퍼를 잃으면 평면 지도·되찾으면 다시 굽기, 늦은 타일·작업 바꿈, 타임라인 닫으면 텍스처 반납)는 `tests/tilt-gl.test.cjs`. 진짜 GPU 리셋은 CDP `Browser.crashGpuProcess`로만 재현된다(점검 스크립트에서) |
 | `WCG_BOOT_CHECK=1 node --test tests/date-picker.test.cjs` | **날짜 고르기**(js/date-picker.js): 날짜 계산(달 칸 6줄·윤년·말일·요일·오늘 이후 막기·연월 휠 목록·10분 시각)은 늘 돌고, 켜면 실제 앱에서 특보 지난 날짜 → 달력 → 휠 2019년 3월 → 15일(`#wrnDate.value`·기존 onchange → `wrnWhen`), 키·Esc·바깥 닫기, 시각 칸, 태풍 과거 날짜를 눌러 본다 |
+| `WCG_BOOT_CHECK=1 node --test tests/dropdown.test.cjs` | **드롭다운**(js/dropdown.js): 순수 도우미(항목 줄·optgroup·막힌 줄 건너뛰기·글자로 찾기·자리)와 값 계약(가짜 select — value·selectedIndex 접근자)·붙이는 자리·css 토큰은 늘 돌고, 켜면 실제 앱에서 모든 select가 숨고 칸이 붙었는지, 통보문 날짜(#bulPick)·타임라인 fps(#tlFps)·비교 카드 글꼴(다시 그린 카드)·토스 모달 안 select를 열기·키·고르기(input·change 1번씩·기존 리스너)·Esc·바깥 닫기, 코드가 값·옵션·disabled·숨김을 바꾸면 칸이 따라가는지 |
 | `node --test tests/ae-timeline-spec.test.cjs` | **타임라인 = AE 1:1**: 실제 `sendToAE`(vm)가 보내는 `/api/ae` 스펙과 헬퍼 JSX(`desktop/wns/ae-jsx.js`)를 AE 흉내로 실행한 키·이징·부모·효과를 무작위 작업 수백 개의 타임라인 값(트랙·태풍 키·카메라 키·길이)과 비교 — 헬퍼 20261008(새)·20261007(옛) 두 번. AE 보내기를 고치면 꼭 돌린다 |
 | `node --test tests/ae-ease-match.test.cjs` | **AE 키·표현식 = 화면 함수**: 헬퍼 JSX를 AE 흉내(`desktop/test/ae-model.cjs` — AE 시간 베지어·부모 보정·표현식 vm 실행)로 프레임마다 계산해 앱 실제 함수(easeOut·easeVf·camAt·typhoonScreenPts·typhoonBandInto·typhoonLabelProg·compareScreenPts·typhoonLeaderGeom·블라인드 덮임 식)와 비교. 끝에 항목별 최대 오차 표 |
 | `node --test desktop/test/golden-legacy.test.cjs` | 옛 앱 스펙 골든 137개가 헬퍼 확장 뒤에도 바이트까지 같다(sha256 — F1 카메라 6개만 의도한 변경) |
@@ -238,7 +242,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 - 이 `app-source.cjs`는 근무표(work schedule)의 `swap-backend/app-source.cjs`와 **동작이 다르다**(이쪽은 머리 제거·IIFE 재구성·url 역변환까지 하는 정확한 역변환). 서로 복사하지 않는다.
 - 데스크톱 개발판은 hot reload가 없다 — 고친 뒤 창에서 Ctrl+R.
 - 일반·비교 태풍의 `태풍 불러오기 · 선택`은 `typLoadOv` 창(`typhoon-panel.js`): 처음은 출처 선택만, 불러오기를 누르면 오른쪽 목록이 나타나는 큰 2분할 창이다. 현재/과거/해외 출처는 색으로 구분하고 기관 버튼에는 SVG 국기가 붙는다. 과거는 `typHistoryMonth` 연·월 휠로 선택하고 공식 목록의 발생 시각(한국 시각)으로 그 달에 발생한 태풍만 거른다. 이름·발표 시각 수정은 팝업 밖 사이드바 `typDetailSettings` 접이식에 유지한다. 창을 닫거나 출처를 바꾸면 진행 중 선택은 취소한다.
-- 날짜 UI는 `date-picker.js`가 date/month/time/datetime-local 모두 처리하며, boot의 관찰자가 나중에 추가된 칸도 연결한다. datetime-local은 원래 값·change 계약을 유지한 채 날짜/시각 칸으로 표시하고 min/max를 지킨다. 일반 달력은 연월 휠의 `확인 · 일자 선택`으로 일자 달력에 돌아간다. month는 처음부터 연·월 휠만 표시하고 확인하면 YYYY-MM 값을 저장하며 일자 달력은 열지 않는다. 모든 select는 데스크톱 Chromium의 `appearance: base-select`와 공통 CSS로 메뉴까지 앱 테마를 사용한다(기존 값/이벤트/키보드 동작 유지).
+- 날짜 UI는 `date-picker.js`가 date/month/time/datetime-local 모두 처리하며, boot의 관찰자가 나중에 추가된 칸도 연결한다. datetime-local은 원래 값·change 계약을 유지한 채 날짜/시각 칸으로 표시하고 min/max를 지킨다. 일반 달력은 연월 휠의 `확인 · 일자 선택`으로 일자 달력에 돌아간다. month는 처음부터 연·월 휠만 표시하고 확인하면 YYYY-MM 값을 저장하며 일자 달력은 열지 않는다. 모든 select는 `js/dropdown.js`의 공용 드롭다운(버튼형 칸 + 토스 카드 목록)으로 보인다 — 원래 select는 숨긴 채 값·옵션·change의 원천(10-09, 옛 `appearance: base-select` 방식은 걷어냄). boot의 같은 관찰자가 나중에 생긴 select도 붙인다.
 - 태풍 불러오기: JMA·기상청(현재/과거)은 `typhoon-api.js`의 `chooseTyphoonFromList`로 JTWC와 같은 선택 카드를 띄우고 고른 뒤에만 작업에 적용한다. 비교 패널 수동 붙여넣기는 `tycManual` 접이식, 펜·참고 이미지는 보라색 묶음. `tycBulk` 전체 조절은 숨긴 태풍까지 현재 비교 목록의 선택한 스타일 속성만 변경하며, 개별 색상·경로·날짜범위는 유지한다. 추가로 불러온 태풍에는 기존 기본값을 사용한다.
 - 창 시작 크기는 `desktop/window-layout.js`: 마우스가 있는 모니터의 작업 영역 안에 가로형 일반 창으로 가운데 배치(자동 최대화 없음). `desktop/main.js`를 바꾸면 앱을 다시 실행해야 한다. `boot.js`의 `startupUiEnter`는 첫 실행에만 UI를 0.85초 안에 투명도·블러로 순차 표시하며, 입력/모션 줄이기 설정은 효과를 건너뛴다. 모달이 떠 있으면 `modalWindowDrag`가 제목줄 위에서 창 이동을 허용한다.
 - 시군구·서울 지도는 색 팔레트 위의 **지역 이름 검색**으로 여러 구역을 선택하고 칠/지우기 가능(`panels.js`). 서울은 구 전체도 선택한다. 검색 선택 테두리는 임시 편집 표시로, `stripExportUi`에서 제거하며 프로젝트에는 저장하지 않는다.

@@ -89,12 +89,16 @@ buildSwapBtns();
 buildInsetPanel(); // 인셋 입력칸을 먼저 만들어야 syncPanelFromState가 채울 수 있다
 wire();
 dpAttachAll();   // 시스템 날짜·시각 칸(특보·예보 지난 날짜, 과거 태풍) → 근무표식 달력·시각 칸(js/date-picker.js) — 원래 input은 숨긴 채 값 그대로
-// 나중에 생기는 비교 카드·팝업의 날짜 칸도 빠짐없이 같은 입력기로.
-{ const dateInputs = new MutationObserver((records) => {
+ddAttachAll();   // 시스템 드롭다운(select 전부) → 우리 칸 + 토스 카드 목록(js/dropdown.js) — 원래 select는 숨긴 채 값·옵션·change 그대로
+// 나중에 생기는 비교 카드·팝업의 날짜 칸·드롭다운도 빠짐없이 같은 입력기로(한 번 훑어 둘 다 없으면 지나감 — 지도 SVG 노드는 건너뜀).
+{ const LATE = 'select,input[type=date],input[type=time],input[type=datetime-local]';
+  const lateFields = new MutationObserver((records) => {
   for (const record of records) for (const node of record.addedNodes) {
-    if (node.nodeType === 1 && node.isConnected && (node.matches('input[type=date],input[type=time],input[type=datetime-local]') || node.querySelector('input[type=date],input[type=time],input[type=datetime-local]'))) dpAttachAll(node);
+    if (node.nodeType !== 1 || !node.isConnected || node instanceof SVGElement) continue;
+    if (!node.matches(LATE) && !node.querySelector(LATE)) continue;
+    dpAttachAll(node); ddAttachAll(node);
   }
-}); dateInputs.observe(document.body, { childList: true, subtree: true }); }
+}); lateFields.observe(document.body, { childList: true, subtree: true }); }
 loadLayout();   // wire() 뒤라야 한다 — 창으로 옮겨도 핸들러가 이미 붙어 있어야 안 끊긴다
 setupMenus();   // 추출·프로젝트를 상단 메뉴바 드롭다운으로 (loadLayout 뒤 — 사이드바에서 빼내야 하니)
 setupStartScreen();   // 시작 화면의 저장 작업 이어보기 배선(장면 설정 자동 열기는 아래 작업 복원 판단 뒤)
