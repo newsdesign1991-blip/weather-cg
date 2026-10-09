@@ -288,9 +288,14 @@ const { createCloseGuard } = require('./close-guard');
 let closeGuard = null;
 function wireCloseGuard(w) {
   const guard = createCloseGuard({
-    ask: (id) => { if (!w.isDestroyed()) w.webContents.send('wcg:close-ask', id); },
+    ask: (id) => {
+      if (w.isDestroyed() || w.webContents.isCrashed()) return false;   // 웹앱(렌더러)이 죽었다 — 물을 곳이 없으니 곧바로 닫는다
+      w.webContents.send('wcg:close-ask', id);
+    },
     close: () => { if (!w.isDestroyed()) w.close(); },        // 다시 close 를 거친다(이번엔 통과) — 웹앱 beforeunload 자동 저장이 돈다
     destroy: () => { if (!w.isDestroyed()) w.destroy(); },    // 웹앱이 답하지 않음(멈춤) — 기다리지 않고 닫는다
+    // 팝업이 떴다 — 최소화한 창(작업표시줄에서 닫기)은 되살리고 앞으로. 숨긴 창(점검 모드)은 띄우지 않는다
+    reveal: () => { if (w.isDestroyed()) return; if (w.isMinimized()) w.restore(); else if (!w.isVisible()) return; w.focus(); },
   });
   closeGuard = guard;
   w.on('close', (e) => { if (guard.onClose()) e.preventDefault(); });

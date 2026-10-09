@@ -1,9 +1,11 @@
 // 창 닫기 전 묻기 — 실제 앱 점검기. 숨김 창(점검 모드)으로 앱을 띄우고, 메인 프로세스(Node 검사기 --inspect)에서
 // 진짜로 win.close()를 불러 main.js(close 막기·묻기) → preload → 웹앱(closeAsk) → 답 → 닫힘을 끝까지 본다.
-// 사용: node close-flow-check.cjs [앱폴더]   출력: JSON {ok, results{clean, dirty, frozen}, errors[]}. 하나라도 어긋나면 종료코드 1.
+// 사용: node close-flow-check.cjs [앱폴더]   출력: JSON {ok, results{clean, dirty, frozen, reload, crashed}, errors[]}. 하나라도 어긋나면 종료코드 1.
 //  - clean : 아무것도 안 바꾸고 닫기 → 묻지 않고 곧바로 꺼진다
 //  - dirty : 칠한 뒤 닫기 → 팝업(창은 그대로) · 또 닫기 → 팝업 하나 · 5초 넘게 둬도 안 꺼짐 · [취소] → 그대로 · 다시 닫기 → [저장 안 함] → 꺼진다
 //  - frozen: 웹앱이 멈춘 채 닫기 → 시간 제한(5초) 뒤 그냥 꺼진다
+//  - reload: 칠한 뒤 새로고침 → 닫기 → 그래도 팝업(변경 이어받음·새 페이지 콜백) + 최소화 흉내 창을 되살림 → [저장 안 함] → 꺼진다
+//  - crashed: 웹앱 렌더러가 죽은 채 닫기 → 시간 제한 없이 곧바로 꺼진다
 // 메인 검사기는 닫기 직전에 끊는다 — Node는 붙어 있는 검사기가 떨어질 때까지 끝나지 않는다.
 // tests 와 같은 임시 사용자 폴더(%TEMP%\wcg-test-<pid>)를 쓰고 끝나면 지운다. 사용자가 켜 둔 앱은 건드리지 않는다(단일 인스턴스 해제 모드).
 const { spawn, execFileSync } = require('child_process');
@@ -56,7 +58,8 @@ function kill(proc) {
   rmTestProfile(proc.pid);
 }
 // 메인에서 진짜 닫기(X·Alt+F4와 같은 BrowserWindow 'close')
-const mainClose = (M) => M.evalJs("(() => { const { BrowserWindow } = process.mainModule.require('electron'); const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().startsWith('app://')); if (!w) return 'no-window'; w.close(); return 'asked'; })()", false);
+const APP_WIN = "process.mainModule.require('electron').BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().startsWith('app://'))";
+const mainClose = (M) => M.evalJs(`(() => { const w = ${APP_WIN}; if (!w) return 'no-window'; w.close(); return 'asked'; })()`, false);
 const waitExit = async (app, ms) => { const t = Date.now(); while (Date.now() - t < ms) { if (app.exited()) return app.exited() - t; await sleep(100); } return -1; };
 
 // 웹앱 준비: 부팅 팝업 닫기 → (시작 화면이면) 장면 설정으로 들어가기 → 필요하면 칠하기
@@ -119,13 +122,40 @@ const click = (k) => `(() => { const b = document.querySelector('#tossOv .tossFo
     const ms = await waitExit(a, 15000);
     return { prep, exitMs: ms };
   });
-  const c = results.clean, d = results.dirty, f = results.frozen;
+  // 칠한 뒤 새로고침(Ctrl+R) → '변경 있음'을 이어받고, 새 페이지의 preload 콜백으로 물어 팝업이 뜬다(옛 페이지 콜백이 대신 'close'로 답하지 않는다).
+  // 최소화한 창을 작업표시줄에서 닫은 경우 흉내 — 숨김 창을 실제로 띄우지 않게 창의 isMinimized·restore·focus 를 바꿔 끼워 팝업이 뜰 때 되살리는지만 본다.
+  await run('reload', async (a) => {
+    const prep = await a.R.evalJs(PREP(true));
+    await a.M.evalJs(`(() => { ${APP_WIN}.webContents.reload(); return 1; })()`, false);
+    await sleep(7000);
+    const after = await a.R.evalJs(`(async () => { const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      for (let i = 0; i < 12 && document.getElementById('tossOv'); i++) { const x = document.querySelector('#tossOv .tossX'); if (x) x.click(); await sleep(150); }
+      return { dirty: workDirty(), start: document.querySelector('#startOverlay').classList.contains('on') }; })()`);
+    await a.M.evalJs(`(() => { const w = ${APP_WIN}; global.__wcgReveal = []; w.isMinimized = () => true; w.restore = () => { global.__wcgReveal.push('restore'); }; w.focus = () => { global.__wcgReveal.push('focus'); }; return 1; })()`, false);
+    await mainClose(a.M); await sleep(800);
+    const first = { ...(await a.R.evalJs(POPS)), alive: !a.exited(), reveal: await a.M.evalJs('global.__wcgReveal', false) };
+    a.M.close(); await a.R.evalJs(click('discard'));
+    return { prep, after, first, exitMs: await waitExit(a, 8000) };
+  });
+  // 웹앱 렌더러가 죽은 채(흰 창) 닫기 → 물을 곳이 없으니 시간 제한(5초)을 기다리지 않고 곧바로 꺼진다
+  await run('crashed', async (a) => {
+    const prep = await a.R.evalJs(PREP(true));
+    a.R.close();
+    await a.M.evalJs(`(() => { ${APP_WIN}.webContents.forcefullyCrashRenderer(); return 1; })()`, false);
+    await sleep(1500);
+    await mainClose(a.M); a.M.close();
+    return { prep, exitMs: await waitExit(a, 8000) };
+  });
+  const c = results.clean, d = results.dirty, f = results.frozen, rl = results.reload, cr = results.crashed;
   const fail = [];
   if (!c || c.exitMs < 0 || c.exitMs > 3000) fail.push('clean: 변경 없으면 곧바로 꺼져야 함 ' + JSON.stringify(c));
   if (!d || !d.prep.dirty || d.first.pops !== 1 || !d.first.alive || d.first.title !== '저장하지 않은 변경이 있어요'
     || d.first.buttons.join('|') !== '저장 안 함|취소|저장' || d.again.pops !== 1 || !d.again.alive || !d.afterTimeout.alive || d.afterTimeout.pops !== 1
     || d.cancel.pops !== 0 || !d.cancel.alive || !d.cancel.dirty || d.reopen !== 1 || d.exitMs < 0 || d.exitMs > 3000) fail.push('dirty: ' + JSON.stringify(d));
   if (!f || f.exitMs < 4000 || f.exitMs > 9000) fail.push('frozen: 멈춘 웹앱은 약 5초 뒤 꺼져야 함 ' + JSON.stringify(f));
+  if (!rl || !rl.prep.dirty || !rl.after.dirty || rl.after.start || rl.first.pops !== 1 || !rl.first.alive
+    || !(rl.first.reveal || []).includes('restore') || !(rl.first.reveal || []).includes('focus') || rl.exitMs < 0 || rl.exitMs > 3000) fail.push('reload: 새로고침 뒤에도 물어야 함(창을 되살려) ' + JSON.stringify(rl));
+  if (!cr || !cr.prep.dirty || cr.exitMs < 0 || cr.exitMs > 2500) fail.push('crashed: 죽은 웹앱은 곧바로 꺼져야 함 ' + JSON.stringify(cr));
   const out = { ok: !errors.length && !fail.length, appDir, results, errors: [...errors, ...fail] };
   console.log(JSON.stringify(out, null, 2));
   process.exit(out.ok ? 0 : 1);

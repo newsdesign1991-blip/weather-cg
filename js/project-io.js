@@ -88,7 +88,7 @@ async function saveBlobAs(blob, suggestedName, type) {
 let projFileHandle = null;
 // 작업 중·도착 효과(js/busy-fx.js) 대상 — 프로젝트 메뉴 섹션·제목줄 프로젝트(플로피) 버튼 + 누른 버튼
 const projFx = (btn) => [fxSec('proj'), '#titlebar [data-menu=proj]', btn];
-// 반환: 저장했으면 true(취소면 false) — 닫기 전 묻기의 [저장]이 이것으로 닫을지 정한다
+// 반환: 저장했으면 true, 파일 쓰기 대신 내려받기로 넘겼으면 'download', 취소면 false — 닫기 전 묻기의 [저장]이 이것으로 닫을지 정한다
 async function saveProject(saveAs) {
   // 미리보기 그림 굽기·파일 쓰기 동안 흐름(Ctrl+S로 불러도 제목줄 플로피에 보인다). 실패·취소도 finally에서 끈다
   const fx = projFx('#save'); let saved = false;
@@ -97,7 +97,8 @@ async function saveProject(saveAs) {
   finally { fxBusy(fx, false); if (saved) fxArrive(['#titlebar [data-menu=proj]', '#save']); }
   return saved;
 }
-// 반환: 저장했으면 true(취소면 false)
+// 반환: 저장했으면 true(취소면 false). 피커가 없거나 파일 쓰기에 실패해 내려받기(다운로드 폴더)로 넘겼으면 'download' —
+// 받기는 앱이 꺼지면 끊기므로 닫기 전 묻기는 이때 닫지 않는다(그 밖의 부르는 쪽은 참 값이면 저장으로 본다)
 async function saveProjectRun(saveAs) {
   // 카메라 미리보기 중이어도 작업 뷰로 저장(B5). 쓰는 동안(그림 굽기 등) 바뀐 것은 '저장 안 한 변경'으로 남게 지금 번호·내용을 기준으로
   const rev0 = _workRev, json0 = JSON.stringify(stateForSave());
@@ -113,7 +114,7 @@ async function saveProjectRun(saveAs) {
     blob = new Blob([JSON.stringify(snap, null, 1)], { type: 'application/json' });
     suggested = `날씨CG_${day}.json`; types = [{ description: '날씨 CG 프로젝트', accept: { 'application/json': ['.json'] } }];
   }
-  if (!window.showSaveFilePicker) { download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)'); workMarkSaved(json0, rev0); return true; }
+  if (!window.showSaveFilePicker) { download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)'); workMarkSaved(json0, rev0); return 'download'; }
   try {
     if (saveAs || !projFileHandle) {
       projFileHandle = await window.showSaveFilePicker({ suggestedName: (projFileHandle && projFileHandle.name) || suggested, types });
@@ -128,7 +129,7 @@ async function saveProjectRun(saveAs) {
     projFileHandle = null;                 // file:// 등 피커 미지원 → 다운로드 폴더로
     download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)');
     workMarkSaved(json0, rev0);
-    return true;
+    return 'download';
   }
 }
 
@@ -395,11 +396,13 @@ function workMarkBoot(resumed) {
 let _closePop = null;   // { id, reply, ov, saving } — 떠 있는(또는 [저장] 중인) 닫기 물음 하나
 function closeBusyWhat() {
   if (_exportingFrames) return 'render';
+  if (_exBusy) return 'image';   // 이미지로 추출 — 한 장씩 굽고 쓰는 중(js/export-dialog.js)
   const ae = $('#aeSend'); if (ae && ae.disabled) return 'ae';   // 보내는 중 + AE 여는 중(재전송 잠금)
   return '';
 }
 const CLOSE_BUSY = {
   render: { title: '영상을 렌더하는 중이에요', line: '지금 끄면 렌더가 멈춰 영상 파일이 끝까지 만들어지지 않아요.' },
+  image: { title: '이미지를 추출하는 중이에요', line: '지금 끄면 아직 굽지 않은 그림은 저장되지 않아요.' },
   ae: { title: 'AE로 보내는 중이에요', line: '지금 끄면 After Effects로 보내기가 끊길 수 있어요.' },
 };
 function closeAnswer(act) { const p = _closePop; _closePop = null; if (p) p.reply(act, p.id); }
@@ -416,18 +419,28 @@ function closeAsk(id, reply) {
   const body = dirty
     ? '<p>저장하지 않고 끄면 지금 작업은 파일로 남지 않아요.</p>'
       + (_failedWork ? '<p class="closeAskNote">자동 저장 공간이 부족해 다음에 켤 때 이어서 열 수도 없어요.</p>'
-        : '<p class="closeAskNote">다음에 켤 때 시작 화면의 ‘직전 작업 이어보기’로 한 번 더 열 수는 있지만, 새 작업을 시작하면 사라져요.</p>')
+        : '<p class="closeAskNote">다음에 켤 때 시작 화면의 ‘직전 작업 이어보기’로 한 번 더 열 수는 있지만, 새 작업을 시작하거나 다른 파일을 열면 사라져요.</p>')
       + (B ? `<p class="closeAskBusy">${B.line}</p>` : '')
     : `<p>${B.line}</p>`;
   let decided = false;
+  // 키는 이 물음이 먼저 받는다(창 캡처 단계) — 아래에 떠 있던 확인창(tossConfirm·tossPrompt — 문서 캡처 단계)이 Enter를 '예'로 받거나
+  // 뒤의 지도·타임라인 단축키(되돌리기·삭제 등)가 돌지 않게. Esc = 취소, Tab = 카드 안에서만, Enter·Space = 포커스 버튼 그대로(기본 동작).
+  const onTopKey = (e) => {
+    if (!m.ov.isConnected) { window.removeEventListener('keydown', onTopKey, true); return; }   // 다른 토스 팝업에 밀려 사라졌다
+    if (m.ov.classList.contains('popClosing')) return;
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); m.close(); }
+    else if (e.key === 'Tab') popTrapTab(m.card, e);
+  };
   const m = tossModal({
     title: dirty ? '저장하지 않은 변경이 있어요' : B.title, tone: 'blue',
     bodyHTML: body,
     footHTML: dirty
       ? '<button class="tossBtn ghost closeAskDiscard" data-discard>저장 안 함</button><button class="tossBtn ghost" data-cancel>취소</button><button class="tossBtn pri" data-save>저장</button>'
       : '<button class="tossBtn ghost closeAskDiscard" data-discard>끄기</button><button class="tossBtn pri" data-cancel>취소</button>',
-    onClose: () => { if (!decided) { decided = true; closeAnswer('stay'); } },   // Esc·바깥 클릭·X = 취소
+    onClose: () => { window.removeEventListener('keydown', onTopKey, true); if (!decided) { decided = true; closeAnswer('stay'); } },   // Esc·바깥 클릭·X = 취소
   });
+  window.addEventListener('keydown', onTopKey, true);
   m.card.classList.add('closeAsk');
   const q = { id, reply, ov: m.ov, saving: false };
   _closePop = q;
@@ -436,14 +449,16 @@ function closeAsk(id, reply) {
   m.foot.querySelector('[data-cancel]').onclick = () => decide('stay');
   const sv = m.foot.querySelector('[data-save]');
   if (sv) {
-    // [저장] = 프로젝트 저장 그대로(처음이면 저장 위치 고르기). 저장했으면 닫고, 고르기 취소·실패면 닫지 않는다.
+    // [저장] = 프로젝트 저장 그대로(처음이면 저장 위치 고르기). 파일에 썼으면 닫고, 고르기 취소·실패면 닫지 않는다.
+    // 파일 쓰기가 안 돼 내려받기로 넘겼으면('download')도 닫지 않는다 — 곧바로 끄면 받는 중인 파일이 끊긴다.
     sv.onclick = async () => {
       if (decided) return;
       decided = true; q.saving = true; m.close();
       let ok = false;
       try { ok = await saveProject(false); } catch (e) { ok = false; }
-      if (!ok) status('저장하지 않아 앱을 닫지 않았어요', true);
-      if (_closePop === q) closeAnswer(ok ? 'close' : 'stay');
+      if (ok === 'download') status('다운로드로 저장했어요 — 받기가 끝난 뒤 다시 닫아 주세요', true);
+      else if (!ok) status('저장하지 않아 앱을 닫지 않았어요', true);
+      if (_closePop === q) closeAnswer(ok === true ? 'close' : 'stay');
     };
   }
   popFocusIn(m.ov, sv || m.foot.querySelector('[data-cancel]'), m.ov._opener);   // Enter = 주 버튼(저장 / 렌더 중이면 취소)

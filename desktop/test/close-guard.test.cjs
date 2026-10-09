@@ -9,9 +9,10 @@ function rig(o = {}) {
   const log = [];
   const timers = new Map(); let tid = 0;
   const g = createCloseGuard({
-    ask: o.ask || ((id) => log.push(['ask', id])),
+    ask: o.ask || ((id) => { log.push(['ask', id]); }),
     close: () => log.push(['close']),
     destroy: () => log.push(['destroy']),
+    reveal: () => log.push(['reveal']),
     timeoutMs: 1000,
     setTimer: (fn, ms) => { const id = ++tid; timers.set(id, { fn, ms }); return id; },
     clearTimer: (id) => { timers.delete(id); },
@@ -44,10 +45,27 @@ test('답이 없으면(웹앱 멈춤) 시간 제한 뒤 그냥 닫는다(destroy
   assert.equal(g.state().pass, true);
 });
 
+test('물을 곳이 없으면(웹앱 렌더러가 죽음 — ask 가 false·던짐) 기다리지 않고 곧바로 닫는다(close 이벤트 밖에서)', () => {
+  for (const ask of [() => false, () => { throw new Error('창 없음'); }]) {
+    const { g, log, fire, timers } = rig({ ask });
+    assert.equal(g.onClose(), true, '이번 close 는 막고(이벤트 안에서 창을 부수지 않게)');
+    assert.equal(timers.size, 1);
+    assert.equal([...timers.values()][0].ms, 0, '시간 제한(5초) 대신 곧바로');
+    assert.deepEqual(log, []);
+    fire();
+    assert.deepEqual(log, [['destroy']]);
+    assert.equal(g.onClose(), false);
+  }
+  const ok = rig({ ask: () => undefined });   // 보냈으면(돌려주는 값 없음) 그대로 시간 제한
+  ok.g.onClose();
+  assert.equal([...ok.timers.values()][0].ms, 1000);
+});
+
 test('wait = 사용자가 고르는 중 → 시간 제한 없이 기다림, stay 면 그대로(다음 닫기에 다시 묻는다)', () => {
   const { g, log, timers } = rig();
   g.onClose(); g.onReply(1, 'wait');
   assert.equal(timers.size, 0, '팝업이 떠 있는 동안은 시간 제한 없음');
+  assert.deepEqual(log.at(-1), ['reveal'], '팝업이 떴다 — 창을 앞으로(최소화한 창을 작업표시줄에서 닫았을 때)');
   g.onReply(1, 'stay');
   assert.deepEqual(g.state(), { pass: false, asking: false, timer: false, last: 0 });
   assert.equal(g.onClose(), true, '다시 막고 묻는다');
@@ -77,17 +95,13 @@ test('팝업이 떠 있는데 또 닫기 → 다시 묻는다(웹앱은 같은 �
   assert.deepEqual(r.log.at(-1), ['destroy']);
 });
 
-test('모르는 번호·이상한 답·묻지 않을 때 온 답은 무시, ask 가 던져도 시간 제한이 닫는다, release(윈도 종료)는 막지 않는다', () => {
+test('모르는 번호·이상한 답·묻지 않을 때 온 답은 무시, release(윈도 종료)는 막지 않는다', () => {
   const { g, log, fire } = rig();
   g.onReply(1, 'close');
   assert.equal(log.length, 0, '묻지 않았는데 온 답');
   g.onClose();
-  for (const [id, act] of [[2, 'close'], [0, 'close'], ['x', 'close'], [1, 'bogus'], [1, '']]) g.onReply(id, act);
-  assert.deepEqual(log, [['ask', 1]]);
-  const t = rig({ ask: () => { throw new Error('창 없음'); } });
-  assert.equal(t.g.onClose(), true);
-  t.fire();
-  assert.deepEqual(t.log, [['destroy']]);
+  for (const [id, act] of [[2, 'close'], [0, 'close'], ['x', 'close'], [1, 'bogus'], [1, ''], [2, 'wait']]) g.onReply(id, act);
+  assert.deepEqual(log, [['ask', 1]], '모르는 번호의 wait 로는 창을 앞으로 부르지도 않는다');
   const s = rig();
   s.g.onClose(); s.g.release();
   assert.equal(s.timers.size, 0);

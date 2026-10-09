@@ -72,14 +72,55 @@ await paintOnce();
 const dirtyAfterPaint = workDirty();
 $('#undo').click(); await sleep(300);
 R.undoBack = { dirtyAfterPaint, dirtyAfterUndo: workDirty() };
+// 13b) [저장]이 파일 쓰기에 실패해 내려받기로 넘겼으면 닫지 않는다(곧바로 끄면 받는 중인 파일이 끊긴다) — 내려받기는 흉내(숨은 창에 저장 창이 안 뜨게)
+await paintOnce();
+projFileHandle = null;   // 시험 프로필 — 처음 저장처럼 위치 고르기부터
+const dlOrig = window.download; let dl = 0;
+window.download = () => { dl++; };
+window.showSaveFilePicker = async () => ({ name: '막힘.wcg.png', createWritable: async () => { throw new DOMException('쓰기 막힘', 'NotAllowedError'); } });
+{ const n0 = log.length; closeAsk(13, rec); await sleep(120); btn('save').click(); await until(() => log.length - n0 >= 2); await sleep(100); R.saveDownload = { replies: log.slice(n0), downloads: dl, status: $('#status').textContent }; }
+window.download = dlOrig; window.showSaveFilePicker = pickOrig; projFileHandle = null;
+{ const n0 = log.length; closeAsk(14, rec); await sleep(80); R.afterDownload = { replies: log.slice(n0), pop: pop() }; }
+// 13c) 이미지로 추출·영상 렌더 중 — 변경이 없어도 묻고, 렌더 가리개(#exportMask)보다 위에 뜬다
+_exBusy = true;
+{ const n0 = log.length; closeAsk(15, rec); await sleep(150); const t = ($('#tossOv .tossTitle') || {}).textContent, b = labels(); btn('cancel').click(); await gone(); R.imageBusy = { title: t, buttons: b, replies: log.slice(n0) }; }
+_exBusy = false;
+_exportingFrames = true; showExportMask(true); await sleep(400);
+{
+  const n0 = log.length; closeAsk(16, rec); await sleep(500);
+  const c = $('#tossOv .tossCard').getBoundingClientRect(), hit = document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2);
+  const t = ($('#tossOv .tossTitle') || {}).textContent;
+  btn('cancel').click(); await gone();
+  R.renderBusy = { title: t, onTop: !!(hit && hit.closest('#tossOv')), mask: getComputedStyle($('#exportMask')).display !== 'none', replies: log.slice(n0) };
+}
+_exportingFrames = false; showExportMask(false); await sleep(400);
 // 14) AE로 보내는 중(버튼 잠김) — 변경이 없어도 묻는다
 $('#aeSend').disabled = true;
 { const n0 = log.length; closeAsk(11, rec); await sleep(150); const t = ($('#tossOv .tossTitle') || {}).textContent, b = labels(); btn('cancel').click(); await gone(); R.busy = { title: t, buttons: b, replies: log.slice(n0) }; }
 $('#aeSend').disabled = false;
+// 15) 아래에 확인창(tossConfirm — 문서 캡처 단계 키)이 떠 있어도 키는 물음이 먼저 받는다 — Enter 가 확인창 '예'로 가지 않고, Esc = 물음만 취소
+await paintOnce();
+let confirmRes = 'pending';
+tossConfirm({ title: '시험 확인', message: '시험' }).then((v) => { confirmRes = v; });
+await sleep(400);
+{
+  const n0 = log.length; closeAsk(17, rec); await sleep(500);
+  const key = (k) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+  const focus = document.activeElement && document.activeElement.dataset ? Object.keys(document.activeElement.dataset)[0] || '' : '';
+  key('Enter'); await sleep(100);
+  const afterEnter = { confirm: confirmRes, pop: pop() };
+  key('Escape'); await gone();
+  R.keysOnTop = { focus, afterEnter, replies: log.slice(n0), pop: pop(), confirmOpen: $('#confirmOverlay').classList.contains('on'), confirm: confirmRes };
+  $('#confirmCancel').click(); await sleep(450);
+  R.keysOnTop.confirmAfterCancel = confirmRes;
+}
 // 끝: 화면 확인용 — (테마를 맞추고) 칠한 뒤 팝업을 띄워 둔다
 const want = typeof CLOSE_ASK_THEME === 'string' ? CLOSE_ASK_THEME : '';
 for (let i = 0; i < 2 && want && document.documentElement.dataset.theme !== want; i++) { $('#theme').click(); await sleep(300); }
 await paintOnce();
+if (!workDirty()) await paintOnce();   // 같은 색을 다시 칠하면 지우기 — 저장 시점과 같아졌으면 한 번 더
+R.shotDirty = workDirty();
 closeAsk(12, () => {}); await sleep(900);
+R.shotPop = pop();
 R.theme = document.documentElement.dataset.theme || '';
 return R;

@@ -28,7 +28,7 @@ function fakeModal(log) {
   return (opt) => {
     const btns = {};
     for (const m of opt.footHTML.matchAll(/<button class="([^"]*)" data-(\w+)>([^<]*)<\/button>/g)) btns[m[2]] = { cls: m[1], label: m[3], onclick: null };
-    const ov = { isConnected: true, _opener: null };
+    const ov = { isConnected: true, _opener: null, classList: { contains: () => false } };
     let closed = false;
     const close = () => { if (closed) return; closed = true; ov.isConnected = false; if (opt.onClose) opt.onClose(); };
     const md = { opt, btns, ov, close, closedBy: null, card: { classList: { add: (c) => { md.cardClass = c; } } }, foot: { querySelector: (s) => btns[/data-(\w+)/.exec(s)[1]] || null } };
@@ -40,19 +40,23 @@ function fakeModal(log) {
 }
 // 앱 코드(되돌리기 + 닫기 전 묻기)를 가짜 환경에서 — S·화면은 최소한만
 function makeCtx(o = {}) {
-  const log = { modals: [], replies: [], status: [], saves: 0, autosaves: 0 };
+  const log = { modals: [], replies: [], status: [], saves: 0, autosaves: 0, traps: 0 };
   const ss = new Map();
+  const keys = new Set();   // 창 캡처 단계 keydown 리스너(물음이 맨 위에서 키를 먼저 받는다)
   const ctx = {
     console, JSON, Math, performance: { now: () => ctx._now },
     _now: 1000, S: { a: 1, list: [] }, startOn: false, saveResult: true, busyAe: false,
     $: (s) => (s === '#aeSend' ? { disabled: ctx.busyAe } : null),
     stateForSave: () => ctx.S, startScreenOn: () => ctx.startOn,
-    status: (m) => log.status.push(m), popFocusIn: () => {},
+    status: (m) => log.status.push(m), popFocusIn: () => {}, popTrapTab: () => { log.traps++; },
     sessionStorage: { getItem: (k) => (ss.has(k) ? ss.get(k) : null), setItem: (k, v) => ss.set(k, String(v)), removeItem: (k) => ss.delete(k) },
-    window: {},
+    window: {
+      addEventListener: (t, fn, cap) => { if (t === 'keydown' && cap === true) keys.add(fn); },
+      removeEventListener: (t, fn, cap) => { if (t === 'keydown' && cap === true) keys.delete(fn); },
+    },
   };
   vm.createContext(ctx);
-  vm.runInContext(`let lastWork = '', _failedWork = '', _exportingFrames = false, projFileHandle = null;
+  vm.runInContext(`let lastWork = '', _failedWork = '', _exportingFrames = false, _exBusy = false, projFileHandle = null;
     function saveWork() { __log.autosaves++; }
     function updateUndoBtns() {} function status(m) { __status(m); }`, Object.assign(ctx, { __log: log, __status: ctx.status }));
   vm.runInContext(UNDO_SRC, ctx, { filename: 'map-build-undo.js' });
@@ -60,10 +64,16 @@ function makeCtx(o = {}) {
   ctx.applyState = (next) => { ctx.S = next; };   // 되돌리기 적용 = S 갈아끼우기만
   ctx.tossModal = fakeModal(log);
   ctx.saveProject = async () => { log.saves++; const ok = typeof ctx.saveResult === 'function' ? ctx.saveResult() : ctx.saveResult; if (ok) ctx.workMarkSaved(JSON.stringify(ctx.S), ctx.rev()); return ok; };
-  vm.runInContext('globalThis.rev = () => _workRev; globalThis.setFailed = (v) => { _failedWork = v; }; globalThis.setExporting = (v) => { _exportingFrames = v; }; globalThis.setLastWork = (v) => { lastWork = v; };', ctx);
+  vm.runInContext('globalThis.rev = () => _workRev; globalThis.setFailed = (v) => { _failedWork = v; }; globalThis.setExporting = (v) => { _exportingFrames = v; }; globalThis.setExBusy = (v) => { _exBusy = v; }; globalThis.setLastWork = (v) => { lastWork = v; };', ctx);
   const ask = (id) => ctx.closeAsk(id, (act, n) => log.replies.push([n, act]));
   const edit = (fn, tag) => { ctx.pushUndo(tag); fn(ctx.S); };
-  return { ctx, log, ask, edit, ss };
+  // 키 누르기 — 창 캡처 단계 리스너에 먼저 준다. 반환: 아래(확인창·지도 단축키)로 내려가는가
+  const key = (k) => {
+    const e = { key: k, stopped: false, prevented: false, stopPropagation() { this.stopped = true; }, preventDefault() { this.prevented = true; } };
+    for (const fn of [...keys]) fn(e);
+    return { down: !e.stopped, prevented: e.prevented };
+  };
+  return { ctx, log, ask, edit, ss, key, keys };
 }
 const tick = () => new Promise((r) => setImmediate(r));
 
@@ -217,6 +227,37 @@ test('물음 — [저장]: 저장했으면 close·기준 갱신, 저장 위치 �
   assert.deepEqual(log.replies.at(-1), [4, 'stay'], '실패도 닫지 않는다');
 });
 
+test('물음 — [저장]이 파일 쓰기 대신 내려받기로 넘겼으면(download) 닫지 않는다(곧바로 끄면 받는 중인 파일이 끊긴다)', async () => {
+  const { ctx, log, ask, edit } = makeCtx();
+  ctx.workMarkClean(); edit((S) => { S.a = 2; });
+  ctx.saveProject = async () => { log.saves++; ctx.workMarkSaved(JSON.stringify(ctx.S), ctx.rev()); return 'download'; };
+  ask(1); await log.modals[0].btns.save.onclick(); await tick();
+  assert.deepEqual(log.replies.at(-1), [1, 'stay']);
+  assert.match(log.status.at(-1), /다운로드로 저장했어요 — 받기가 끝난 뒤 다시 닫아 주세요/);
+  ask(2);
+  assert.deepEqual(log.replies.at(-1), [2, 'close'], '내려받은 내용 그대로면 다음 닫기는 묻지 않는다');
+});
+
+test('물음 — 키는 물음이 맨 위에서 먼저 받는다(아래 확인창·지도 단축키로 안 내려감): Esc = 취소, Tab = 카드 안, 닫히면 리스너를 뗀다', () => {
+  const { ctx, log, ask, edit, key, keys } = makeCtx();
+  ctx.workMarkClean(); edit((S) => { S.a = 2; });
+  assert.equal(key('Enter').down, true, '물음이 없을 땐 그대로');
+  ask(1);
+  assert.equal(keys.size, 1);
+  assert.deepEqual(key('Enter'), { down: false, prevented: false }, 'Enter 는 아래 확인창(문서 캡처)으로 안 내려가고 포커스 버튼의 기본 동작은 그대로');
+  assert.equal(key('z').down, false, '뒤의 단축키(되돌리기 등)도 막는다');
+  key('Tab'); assert.equal(log.traps, 1, 'Tab = 카드 안에서만');
+  assert.deepEqual(log.replies, [[1, 'wait']]);
+  assert.equal(key('Escape').prevented, true);
+  assert.deepEqual(log.replies.at(-1), [1, 'stay'], 'Esc = 취소');
+  assert.equal(keys.size, 0, '닫히면 뗀다');
+  ask(2); log.modals[1].btns.discard.onclick();
+  assert.equal(keys.size, 0, '[저장 안 함]으로 닫혀도 뗀다');
+  ask(3); log.modals[2].dispose();   // 공지 등 다른 토스 모달에 밀려 사라짐(onClose 없음)
+  assert.equal(key('Enter').down, true, '밀려 사라졌으면 키를 막지 않고');
+  assert.equal(keys.size, 0, '스스로 뗀다');
+});
+
 test('물음 — 렌더(영상·AE 보내기) 중이면 변경이 없어도 묻고, 변경이 있으면 그 줄을 덧붙인다. 자동 저장이 실패했으면 사실대로', () => {
   const { ctx, log, ask, edit } = makeCtx();
   ctx.workMarkClean();
@@ -239,12 +280,26 @@ test('물음 — 렌더(영상·AE 보내기) 중이면 변경이 없어도 묻�
   assert.match(m3.opt.bodyHTML, /자동 저장 공간이 부족해/);
   assert.doesNotMatch(m3.opt.bodyHTML, /직전 작업 이어보기/);
   ctx.busyAe = false; ctx.setFailed('');
+  m3.btns.cancel.onclick();
+  // 이미지로 추출(한 장씩 굽고 쓰는 중) — 변경이 없어도 묻는다
+  ctx.undo(); ctx.setExBusy(true);
+  ask(4);
+  const m4 = log.modals[3];
+  assert.equal(m4.opt.title, '이미지를 추출하는 중이에요');
+  assert.match(m4.opt.bodyHTML, /아직 굽지 않은 그림은 저장되지 않아요/);
+  assert.deepEqual(Object.values(m4.btns).map((b) => b.label), ['끄기', '취소']);
+  m4.btns.cancel.onclick();
+  assert.deepEqual(log.replies.at(-1), [4, 'stay']);
+  ctx.setExBusy(false);
+  ask(5);
+  assert.deepEqual(log.replies.at(-1), [5, 'close'], '끝나면 다시 바로 닫힘');
 });
 
 test('배선 — main.js: close 를 막고 묻기(desktop/close-guard.js), 답은 메인 창만 · preload: onCloseAsk/closeReply, 콜백 없으면 바로 close', () => {
   assert.match(mainJs, /const \{ createCloseGuard \} = require\('\.\/close-guard'\);/);
   const wire = mainJs.slice(mainJs.indexOf('function wireCloseGuard('), mainJs.indexOf("ipcMain.on('wcg:close-reply'"));
-  assert.match(wire, /ask: \(id\) => \{ if \(!w\.isDestroyed\(\)\) w\.webContents\.send\('wcg:close-ask', id\); \}/);
+  assert.match(wire, /ask: \(id\) => \{\s*if \(w\.isDestroyed\(\) \|\| w\.webContents\.isCrashed\(\)\) return false;[^\n]*\n\s*w\.webContents\.send\('wcg:close-ask', id\);\s*\},/, '웹앱이 죽었으면 물을 곳이 없다(false → 곧바로 닫기)');
+  assert.match(wire, /reveal: \(\) => \{ if \(w\.isDestroyed\(\)\) return; if \(w\.isMinimized\(\)\) w\.restore\(\); else if \(!w\.isVisible\(\)\) return; w\.focus\(\); \},/, '팝업이 뜨면 최소화한 창을 되살려 앞으로(숨긴 점검 창은 그대로)');
   assert.match(wire, /close: \(\) => \{ if \(!w\.isDestroyed\(\)\) w\.close\(\); \}/);
   assert.match(wire, /destroy: \(\) => \{ if \(!w\.isDestroyed\(\)\) w\.destroy\(\); \}/);
   assert.match(wire, /w\.on\('close', \(e\) => \{ if \(guard\.onClose\(\)\) e\.preventDefault\(\); \}\);/);
@@ -266,6 +321,8 @@ test('배선 — 웹앱: 부팅이 기준을 잡고 데스크톱에서만 묻기
   const run = fnSrc('saveProjectRun');
   assert.equal((run.match(/workMarkSaved\(json0, rev0\);/g) || []).length, 3, '저장 성공 길 세 곳 모두');
   assert.match(run, /if \(e\.name === 'AbortError'\) return false;/);
+  assert.equal((run.match(/return 'download';/g) || []).length, 2, '내려받기로 넘긴 길 두 곳은 download(닫기 전 묻기는 이때 닫지 않는다)');
+  assert.match(fnSrc('closeAsk'), /closeAnswer\(ok === true \? 'close' : 'stay'\)/, '[저장]은 파일에 썼을 때만 닫는다');
   assert.match(fnSrc('loadProjectData'), /workMarkClean\(\);[^\n]*\n\}$/);
   assert.match(fnSrc('markStartStep'), /saveWork\(\); workMarkClean\(\); \}, 260\);/);
   assert.match(fnSrc('pushUndo'), /redoStack\.length = 0;\n  _workRev\+\+;/);
@@ -280,7 +337,7 @@ test('배선 — 웹앱: 부팅이 기준을 잡고 데스크톱에서만 묻기
 });
 
 // ── 실제 앱(부팅 점검기) — WCG_BOOT_CHECK=1 일 때만 ──
-test('부팅 점검: 변경 없으면 안 묻고, 칠하면 팝업(버튼 3개)·저장 안 함=닫기·취소=유지·저장=닫기', { skip: process.env.WCG_BOOT_CHECK !== '1' && 'WCG_BOOT_CHECK=1 일 때만(일렉트론 필요)' }, () => {
+test('부팅 점검: 변경 없으면 안 묻고, 칠하면 팝업(버튼 3개)·저장 안 함=닫기·취소=유지·저장=닫기·내려받기=유지, 렌더 중·키는 물음이 맨 위', { skip: process.env.WCG_BOOT_CHECK !== '1' && 'WCG_BOOT_CHECK=1 일 때만(일렉트론 필요)' }, () => {
   const raw = execFileSync(process.execPath, [path.join(root, 'desktop', 'test', 'boot-check.cjs'), root, '--wait=8000', '--size=1600x900', '--keepalive', '--eval=' + path.join(__dirname, 'close-ask.boot-eval.js')], { encoding: 'utf8', timeout: 300000 });
   const out = JSON.parse(raw.slice(raw.indexOf('{')));
   assert.equal(out.ok, true, JSON.stringify(out.errors));
@@ -302,5 +359,12 @@ test('부팅 점검: 변경 없으면 안 묻고, 칠하면 팝업(버튼 3개)�
   assert.deepEqual(R.saveOk, { replies: [[9, 'wait'], [9, 'close']], dirty: false, wrote: true }, '저장하면 닫기');
   assert.deepEqual(R.afterSave, { replies: [[10, 'close']], pop: false }, '저장 직후 끄기 = 안 물음');
   assert.deepEqual(R.undoBack, { dirtyAfterPaint: true, dirtyAfterUndo: false }, '되돌려 저장 시점으로 = 변경 없음');
+  assert.deepEqual(R.saveDownload, { replies: [[13, 'wait'], [13, 'stay']], downloads: 1, status: '다운로드로 저장했어요 — 받기가 끝난 뒤 다시 닫아 주세요' }, '파일 쓰기 대신 내려받기 = 닫지 않음');
+  assert.deepEqual(R.afterDownload, { replies: [[14, 'close']], pop: false });
+  assert.deepEqual(R.imageBusy, { title: '이미지를 추출하는 중이에요', buttons: ['끄기', '취소'], replies: [[15, 'wait'], [15, 'stay']] });
+  assert.deepEqual(R.renderBusy, { title: '영상을 렌더하는 중이에요', onTop: true, mask: true, replies: [[16, 'wait'], [16, 'stay']] }, '렌더 가리개보다 위');
   assert.deepEqual(R.busy, { title: 'AE로 보내는 중이에요', buttons: ['끄기', '취소'], replies: [[11, 'wait'], [11, 'stay']] });
+  assert.deepEqual(R.keysOnTop, { focus: 'save', afterEnter: { confirm: 'pending', pop: true }, replies: [[17, 'wait'], [17, 'stay']], pop: false, confirmOpen: true, confirm: 'pending', confirmAfterCancel: false },
+    '아래 확인창이 Enter 를 예로 받지 않고, Esc 는 물음만 취소');
+  assert.deepEqual([R.shotDirty, R.shotPop], [true, true], '끝 화면(--shot)에 팝업이 떠 있다');
 });
