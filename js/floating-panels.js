@@ -191,7 +191,7 @@ const secTitle = (s) => {
 function saveLayout() {
   try {
     const docked = [...$('#panel').children].map((n) => n.dataset.sec).filter(Boolean);
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ docked, wins, dockSide, toolbarX, toolbarY, toolbarV: TOOLBAR_V, panelZoom }));
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ docked, wins, dockSide, toolbarX, toolbarY, toolbarV: TOOLBAR_V, panelZoom, secV: SEC_LAYOUT_V }));
   } catch (e) { /* 용량 초과 등 — 배치는 없어도 앱은 돌아간다 */ }
 }
 
@@ -598,14 +598,17 @@ function loadLayout() {
   }
   const inWin = new Set(wins.flatMap((w) => w.secs));
   const panel = $('#panel');
+  // 데이터 섹션을 맨 위로 올리기 전(10-10)에 저장된 배치면 데이터 섹션(특보·예보 포함)은 저장 자리 대신 새 자리(SEC_ORDER — 맨 위)로
+  const reseat = (s) => s === 'legend' || (L.secV !== SEC_LAYOUT_V && SEC_DATA.includes(s));
   for (const s of L.docked) {
-    if (!known.has(s) || inWin.has(s) || s === 'legend') continue;   // 범례는 저장된 위치 무시하고 항상 정해진 자리(제목텍스트 밑)로
+    if (!known.has(s) || inWin.has(s) || reseat(s)) continue;   // 범례는 저장된 위치 무시하고 항상 정해진 자리(제목텍스트 밑)로
     const n = secNode(s);
     if (n) panel.append(n);
   }
-  // 저장 당시엔 없던 새 항목 + 범례는 SEC_ORDER 상의 원래 자리에 꽂는다
+  // 저장 당시엔 없던 새 항목 + 범례(+ 옛 배치의 데이터 섹션)는 SEC_ORDER 상의 원래 자리에 꽂는다. 범례는 제목 텍스트(text) 바로 밑
   for (const s of SEC_ORDER) {
-    if (inWin.has(s) || (L.docked.includes(s) && s !== 'legend')) continue;
+    if (inWin.has(s) || (L.docked.includes(s) && !reseat(s))) continue;
+    if (s === 'legend') { const t = secNode('text'); const nx = t && t.parentElement === panel ? t.nextElementSibling : null; if (nx && nx.dataset.sec) { dockSec(s, nx.dataset.sec); continue; } }
     dockSec(s);
   }
   renderWins();

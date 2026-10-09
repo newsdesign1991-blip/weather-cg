@@ -29,9 +29,7 @@ function tourExpand(sec, open) { const n = secNode(sec); if (!n) return; n.class
 // 지금 지도 모드와 상관없이 대상 카드만 강제로 펼쳐 보여준다(다른 자동색칠 카드는 숨김). 투어 끝나면 tourEnd가 updateAutoPaintSecs로 복원.
 function tourShowSec(sec) {
   document.querySelectorAll('#panel .sec.toolSec, #panel .sec.special').forEach((n) => n.classList.add('closed'));
-  const wrn = $('[data-sec="wrn"]'), fct = $('[data-sec="fct"]');
-  if (wrn) wrn.style.display = (sec === 'wrn') ? '' : 'none';
-  if (fct) fct.style.display = (sec === 'fct') ? '' : 'none';
+  for (const s of SEC_DATA) { const n = $(`[data-sec="${s}"]`); if (n) n.style.display = (s === sec) ? '' : 'none'; }   // 데이터 섹션은 비추는 것 하나만(지도와 상관없이 잠깐 보임 — 끝나면 updateAutoPaintSecs)
   const n = secNode(sec); if (!n) return;
   n.style.display = ''; n.classList.remove('closed');
   try { n.scrollIntoView({ block: 'center' }); } catch (e) {}
@@ -40,10 +38,10 @@ function tourAllClosed() { document.querySelectorAll('#panel .sec.toolSec').forE
 
 function tourStepList() {
   return [
-    { title: '장면 설정', body: '맨 위 왼쪽 <b>장면 설정</b>을 누르면 이 창이 열립니다. 왼쪽 <b>CG 종류</b>(터치 스크린 · 노말 CG · 노말 VF · 날씨 팀)와 오른쪽 <b>지도 종류</b>(시도군 · 시도 · 특보 · 태풍 등)를 <b>둘 다</b> 고르고 <b>선택 완료</b>를 눌러야 적용돼요. CG 종류마다 화면 크기와 지도 · 제목 배치를 따로 기억합니다.',
+    { title: '장면 설정', body: '맨 위 왼쪽 <b>장면 설정</b>을 누르면 이 창이 열립니다. 왼쪽 <b>CG 종류</b>(터치 스크린 · 노말 CG · 노말 VF · 날씨 팀)와 오른쪽 <b>지도 종류</b>(특보 · 예상 강수·적설 · 생활기상 · 미세먼지 · 서울 · 태풍 등 — 자료마다 카드 하나)를 <b>둘 다</b> 고르고 <b>선택 완료</b>를 눌러야 적용돼요. CG 종류마다 화면 크기와 지도 · 제목 배치를 따로 기억합니다. 지도는 자료가 들어오는 <b>구분 그대로</b>(특보구역 · 시군 · 시군구 · 예보 권역) 칠해요 — 카드 아래 <b>칠하는 구분</b> 줄에서 확인하고, 예상 강수·적설은 시군 · 시도를 바꿀 수 있어요.',
       target: () => document.querySelector('#cgSetupOv .cgSetupCard'), setup: () => tourCgSetup(), delay: 380, rect: cgsCardRect },
-    { title: '지도 종류 선택 · 지도 잠금', body: '<b>태풍 지도</b>에서는 아트보드 <b>오른쪽 위</b>에 버튼 두 개가 나옵니다. <b>접힌 지도 아이콘</b> = <b>지도 종류 선택</b> — 파란 지도 · 밝은/어두운 위성지도 · Mapbox 실시간 타일 중에서 고르고, 개인 Mapbox URL도 붙일 수 있어요. <b>자물쇠 아이콘</b> = <b>지도 잠금</b> — 켜면 지도가 실수로 움직이지 않게 고정됩니다(다시 누르면 해제).',
-      target: () => { const b = document.querySelector('.basemapBtn'); return (b && b.offsetParent) ? b : (document.querySelector('.fit') || $('#stage')); }, setup: () => tourMenuClose(), delay: 300 },
+    { title: '칠하는 구분 · 지도 배경 · 지도 잠금', body: '아트보드 <b>오른쪽 위</b> 바깥의 버튼이에요. 위 버튼 = 지금 <b>칠하는 구분</b>(시군 · 시군구 · 특보구역 · 예보 권역 · 동) — 누르면 무엇으로 칠하는지 보이고, 예상 강수·적설은 시군 · 시도를 바꿔요. <b>태풍 지도</b>에서는 같은 자리가 <b>지도 배경</b> 고르기(파란 지도 · 밝은/어두운 위성지도 · Mapbox 실시간 타일)예요. <b>자물쇠 아이콘</b> = <b>지도 잠금</b> — 켜면 지도가 실수로 움직이지 않게 고정됩니다(다시 누르면 해제).',
+      target: () => { const b = [...document.querySelectorAll('.basemapBtn')].find((x) => x.offsetParent); return b || document.querySelector('.fit') || $('#stage'); }, setup: () => tourMenuClose(), delay: 300 },
     { title: '이미지로 렌더 · 영상으로 렌더 · AE로 보내기', body: '오른쪽 위 파란 버튼 묶음이에요. <b>이미지로 렌더</b>는 창에서 완성 화면·레이어(색칠만·경계선만 등)를 골라 렌더하면, 고른 폴더 안 <b>오늘 날짜 폴더</b>에 카드 이름 그대로 저장해요. <b>영상으로 렌더</b>는 타임라인을 열어 영상(MP4·PNG 시퀀스·MXF)으로 렌더하고, <b>AE로 보내기</b>는 레이어째 애프터이펙트로 넘깁니다.',
       target: () => $('#exportGroup'), setup: () => tourMenuClose(), delay: 280 },
     { title: '프로젝트 (플로피 디스크 아이콘)', body: '파란 렌더 버튼 묶음 바로 오른쪽 <b>플로피 디스크 아이콘</b>이에요. 작업을 저장 · 불러오고 최근 파일을 엽니다. 저장 파일은 그림(PNG)이라 파일 탐색기에서 미리보기가 그대로 보여요.',
@@ -65,8 +63,10 @@ function tourStepList() {
       target: () => $('#panel'), setup: () => { tourMenuClose(); tourAllClosed(); }, delay: 320 },
     { title: '기상특보 자동 색칠', body: '‘기상청에서 불러오기’를 누르면(또는 특보 통보문을 붙여넣으면) 특보가 지역별로 자동 색칠됩니다. 이 카드는 특보 지도에서 나와요.',
       target: () => secNode('wrn'), setup: () => { tourMenuClose(); tourShowSec('wrn'); }, delay: 540 },
-    { title: '기상예보 자동 색칠', body: '기상청 예보를 붙여넣으면 강수 · 기온 등을 지역별로 자동으로 색칠합니다. 단기 · 중기 예보 중 골라 쓸 수 있어요. 이 카드는 예보(시도·시군) 지도에서 나와요.',
+    { title: '기상예보 자동 색칠', body: '기상청 예보를 붙여넣으면 강수 · 기온 등을 지역별로 자동으로 색칠합니다. 단기 · 중기 예보 중 골라 쓸 수 있어요. 이 카드는 예상 강수·적설(시군 · 시도) 지도에서 나와요.',
       target: () => secNode('fct'), setup: () => { tourMenuClose(); tourShowSec('fct'); }, delay: 540 },
+    { title: '생활기상 · 미세먼지', body: '<b>생활기상</b>(자외선 · 대기정체)과 <b>미세먼지 농도</b>는 시군구, <b>미세먼지 예보</b>는 예보 권역 19곳 지도예요. 장면 설정에서 그 카드를 고르면 이 카드가 사이드바 맨 위에 열려요. 자료 없이 손으로 칠해도 됩니다.',
+      target: () => secNode('life'), setup: () => { tourMenuClose(); tourShowSec('life'); }, delay: 540 },
     { title: '새로 시작 (작업 비우기)', body: '지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작합니다. 사이드바 맨 아래에 있어요.',
       target: () => $('#newWork'), setup: () => { updateAutoPaintSecs(); tourMenuClose(); }, delay: 320 },
   ];

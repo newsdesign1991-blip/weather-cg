@@ -152,6 +152,8 @@ const IMG = window.CG_IMAGES || {};
     MAP.styles.sgg.zones = out;
   } catch (e) {}
 })();
+// 지역 이름 검색(색 팔레트 위)을 쓰는 지도 — search 깃발(시군·서울·시군구). panels.js regionSearchRender·regionSearchPaint가 본다.
+if (MAP && MAP.styles && MAP.styles.sgg) MAP.styles.sgg.search = 1;
 
 // 태풍 지도 종류 — 광역(일본·중국·필리핀) 배경 + 태풍 예상경로 오버레이. 구역 색칠이 없으므로 zones는 빈 배열.
 // (typhoon-map-data.js가 있을 때만 '지도 종류'에 버튼이 뜬다)
@@ -164,12 +166,27 @@ const isTyphoon = (st) => !!(MAP.styles[st || S.style] && MAP.styles[st || S.sty
 // 태풍 '비교' 지도인지 — 태풍 지도 렌더 인프라를 공유하되 비교 전용 UI/렌더로 분기.
 const isTyphoonCompare = (st) => !!(MAP.styles[st || S.style] && MAP.styles[st || S.style].compare);
 
-// 서울 지도 — 시도군 지도의 '지도 종류' 변형. 서울 25개 자치구를 427개 행정동으로 세분(색칠 단위=동).
+// 서울 지도 — 서울 25개 자치구를 427개 행정동으로 세분(색칠 단위=동).
 // 구 경계선(guLines)은 시도선 레이어에 두껍게, 동 경계선은 각 zone 윤곽으로 얇게. 자체 좌표계라 noInsets.
-// #styleBtns 목록엔 숨기고(hidden), 아트보드의 지도종류 아이콘 버튼으로만 진입(태풍 basemap과 동일 컨셉).
+// (10-10부터 장면 설정의 '서울' 카드로 들어간다 — 예전엔 시도군 카드 안에 숨어 아트보드 지도 아이콘으로만 진입)
 if (window.SEOUL_MAP && MAP.styles && !MAP.styles.seoul) {
   MAP.styles.seoul = { label: '서울 지도', zones: window.SEOUL_MAP.zones || [],
-    sidoLines: { main: window.SEOUL_MAP.guLines || '' }, noInsets: true, hidden: true, seoul: true };
+    sidoLines: { main: window.SEOUL_MAP.guLines || '' }, noInsets: true, seoul: true, search: 1, unit: '동' };
+}
+// 데이터 지도(10-10) — 자료가 들어오는 구분 그대로 칠한다(다른 구분으로 옮겨 칠하지 않음).
+//  · 생활기상(life)·미세먼지 농도(dust) = 시군구(기초자치단체 230 — 일반구는 시로). 같은 도형을 쓰되 키를 나눠 칠·브러쉬를 따로 둔다.
+//  · 미세먼지 예보(dustFcst) = 에어코리아 예보 권역 19.
+// 도형은 region-map-data.js(tools/build-data-maps.cjs가 만든다). 못 읽으면 이 지도들은 없고 저장값은 normStyle이 시도군으로 돌린다.
+// 시군구 굵은 선은 시도군 지도 것을 같이 쓴다(같은 원본·같은 단순화라 1:1). 권역 굵은 선 = 권역 외곽(조각 d를 그룹별로 이음).
+if (window.REGION_MAP && MAP.styles && MAP.styles.sgg && !MAP.styles.life) {
+  const R = window.REGION_MAP, sg = R.sigungu, rg = R.dustRegion;
+  const linesOf = (zones) => { const o = {}; for (const z of zones) { const g = z.inset || 'main'; o[g] = (o[g] || '') + z.d; } return o; };
+  if (sg && Array.isArray(sg.zones) && sg.zones.length) {
+    const base = { zones: sg.zones, sidoLines: MAP.styles.sgg.sidoLines, unit: '시군구', search: 1 };
+    MAP.styles.life = { ...base, label: '생활기상', data: 'life' };
+    MAP.styles.dust = { ...base, label: '미세먼지 농도', data: 'dust' };
+  }
+  if (rg && Array.isArray(rg.zones) && rg.zones.length) MAP.styles.dustFcst = { label: '미세먼지 예보', zones: rg.zones, sidoLines: linesOf(rg.zones), unit: '예보 권역', data: 'dustFcst' };
 }
 const isSeoul = (st) => !!(MAP.styles[st || S.style] && MAP.styles[st || S.style].seoul);
 // 서울 지도 첫 진입(저장된 배치 없음) 시 서울이 화면에 꽉 차게 기본 뷰를 잡는다. 이후 사용자가 배치·저장하면 그 값 우선.

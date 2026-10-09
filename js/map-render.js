@@ -58,24 +58,25 @@ function wireMapPos() {
   wireBasemap();
   wireFctMap();
 }
-// 지도 종류(전국/서울) 아이콘 버튼 배선(1회). setStyle('sgg'|'seoul')로 전환.
+// 아트보드 '지금 칠하는 구분' 배지 배선(1회 — 옛 전국/서울 지도 종류 버튼 자리·id 그대로).
+// 누르면 팝오버: 예상 강수·적설이면 [시군 | 시도] 고르기(setStyle), 그 밖은 지금 구분 한 줄 + [장면 설정 열기](다른 자료 = 다른 카드).
 let _fctMapWired = false;
 function wireFctMap() {
   if (_fctMapWired) return;
   const btn = $('#fctMapBtn'), pop = $('#fctMapPop');
   if (!btn || !pop) return;
   _fctMapWired = true;
-  const syncOpts = () => pop.querySelectorAll('.bmOpt').forEach((b) => b.classList.toggle('on', b.dataset.mt === (S.style === 'seoul' ? 'seoul' : 'nationwide')));
-  btn.onclick = (e) => { e.stopPropagation(); const open = pop.style.display !== 'none'; pop.style.display = open ? 'none' : ''; if (!open) syncOpts(); };
-  pop.querySelectorAll('.bmOpt').forEach((b) => { b.onclick = (e) => {
+  btn.onclick = (e) => { e.stopPropagation(); const open = pop.style.display !== 'none'; if (!open) mapUnitPopFill(pop); pop.style.display = open ? 'none' : ''; };
+  pop.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || !pop.contains(b) || b.disabled) return;
     e.stopPropagation();
     pop.style.display = 'none';
-    const mt = b.dataset.mt;
-    if (mt === 'seoul') { if (S.style !== 'seoul') setStyle('seoul'); }
-    else { if (S.style === 'seoul') setStyle('sgg'); }
-  }; });
+    if (b.dataset.style) { if (S.style !== b.dataset.style && MAP.styles[b.dataset.style]) setStyle(b.dataset.style); }
+    else if (b.dataset.act === 'setup') openCgSetup();
+  });
   document.addEventListener('pointerdown', (e) => { if (pop.style.display !== 'none' && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) pop.style.display = 'none'; });
-  syncFctMapBtn();
+  syncMapUnit();
 }
 
 // ── Mapbox 실시간 타일 (개인 URL, 브라우저 로컬에만 저장 — 프로젝트/깃 미포함) ──

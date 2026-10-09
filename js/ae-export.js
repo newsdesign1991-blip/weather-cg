@@ -438,7 +438,9 @@ async function sendToAE() {
       if (L.sub.startsWith('title:')) { const t = S.texts.find((x) => x.id === L.key); if (t) addText('제목_' + (t.txt || '').slice(0, 8), t); }   // 제목=편집형 텍스트, 맨 위·정적
       else if (L.sub === 'legend') {
         const legendComp = aeLegendCompData();
-        if (!legendComp) { if (isTyphoon()) return; throw new Error('범례 레이어 측정 실패 — 화면을 새로고침한 뒤 다시 보내 주세요'); }
+        // 범례를 켜 뒀어도 항목이 없어 화면에 안 그려졌으면(예: 특보 없이 손으로 칠한 지도 — 생활기상·미세먼지 지도) 범례 레이어 없이 보낸다.
+        // 그려졌는데 못 잰 것만 오류(화면과 다른 AE가 되지 않게).
+        if (!legendComp) { if (isTyphoon() || !document.querySelector('#L_legend g[data-kind="legend"]')) return; throw new Error('범례 레이어 측정 실패 — 화면을 새로고침한 뒤 다시 보내 주세요'); }
         specLayers.push({ legendComp, name: '범례' });
       }
     };

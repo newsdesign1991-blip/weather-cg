@@ -120,17 +120,17 @@
 <!-- 편집기 UI 글꼴 Wanted Sans(OFL, FontNew/WantedSans-LICENSE.txt) — 앱에 직접 넣어 오프라인·첫 실행에도 바로 나온다 -->
 <link rel="preload" href="FontNew/WantedSansVariable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/base.css?v=06ae7863">
-<link rel="stylesheet" href="css/sidebar.css?v=46897638">
+<link rel="stylesheet" href="css/sidebar.css?v=acffb0f9">
 <link rel="stylesheet" href="css/stage.css?v=dd33058c">
 <link rel="stylesheet" href="css/titlebar.css?v=84d2c35e">
 <link rel="stylesheet" href="css/start-tour.css?v=87e8f3ff">
-<link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
+<link rel="stylesheet" href="css/cg-setup.css?v=7c445748">
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
 <link rel="stylesheet" href="css/dialogs.css?v=7882d9b9">
 <link rel="stylesheet" href="css/panel-misc.css?v=4c67cdc4">
-<link rel="stylesheet" href="css/toss-modal.css?v=67721767">
+<link rel="stylesheet" href="css/toss-modal.css?v=140bb66f">
 <link rel="stylesheet" href="css/dropdown.css?v=fba3cc7e">
 <link rel="stylesheet" href="css/date-picker.css?v=55ed447a">
 <link rel="stylesheet" href="css/busy-fx.css?v=89c40212">
@@ -193,7 +193,7 @@
      둘 다 골라야 '선택 완료'가 켜지고, 눌러야 적용된다(취소·Esc·바깥 클릭 = 아무것도 안 바뀜).
      창은 한 번만 만들어 두고 class 'on'으로 열고 닫는다(다시 만들면 #resBtns·#styleBtns 핸들러가 끊긴다). -->
 <div class="cgSetupOv" id="cgSetupOv" aria-hidden="true">
-  <div class="cgSetupCard" role="dialog" aria-modal="true" aria-labelledby="cgsTitle" tabindex="-1">
+  <div class="cgSetupCard cgsScene" role="dialog" aria-modal="true" aria-labelledby="cgsTitle" tabindex="-1">
     <!-- 머리 = 근무표 최신 팝업처럼 옅은 틴트 + 제목·부제(아이콘 타일 없음) + 유리 원 닫기 -->
     <div class="cgsHead">
       <div class="cgsHeadTxt">
@@ -230,12 +230,12 @@
           <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5 0 2.2-9 5-9-5zM3 16.8l9 5 9-5 0 2.2-9 5-9-5z"/></svg></span>
           <div class="cgsPaneTxt">
             <div class="cgsPaneTitle" id="cgsStyleTitle"><span class="cgsStepNo">2</span>지도 종류</div>
-            <div class="cgsPaneSub">어떤 지도로 그릴지 · 예보·특보·태풍 등 상황에 맞게</div>
+            <div class="cgsPaneSub">어떤 자료를 그릴지 · 자료마다 들어오는 구분 그대로 칠해요</div>
           </div>
           <span class="cgsPick" id="cgsStylePick">고르세요</span>
         </div>
+        <!-- 카드 = 데이터별(js/map-build.js MAP_CARDS) + 맨 끝 '칠하는 구분' 줄(예상 강수·적설의 시군 | 시도 칩) -->
         <div class="cgsChoices" id="styleBtns" role="group" aria-label="지도 종류"></div>
-        <p class="cgsNote" id="cgsStyleNote">서울 지도는 <b>시도군 구분</b>을 고른 뒤 아트보드 오른쪽 위 <b>지도 아이콘</b>으로 바꿔요.</p>
       </section>
     </div>
     <div class="cgsFoot">
@@ -541,6 +541,8 @@
     <div class="sec special" data-sec="wrn">
       <h3>기상특보 자동 색칠</h3>
       <div class="body">
+        <!-- 칠하는 구분 줄(데이터 섹션 공통 — js/map-build.js syncMapUnit·mapUnitRowFill이 채운다) -->
+        <div class="mapUnitRow" data-map-unit></div>
         <div class="subhead">1. 언제 특보</div>
         <div class="btns" style="margin-bottom:6px">
           <button id="wrnWhenNow" class="pri">지금</button>
@@ -591,6 +593,7 @@
     <div class="sec special" data-sec="fct">
       <h3>기상예보 자동 색칠</h3>
       <div class="body">
+        <div class="mapUnitRow" data-map-unit></div>
         <!-- 통보문으로 색칠 (강수량 문자) — 맨 위로. 불러오기·날짜 고르기·통째 붙여넣기는 js/bulletin-load.js -->
         <div class="subhead" style="margin-top:2px">통보문으로 색칠 <span>· 예상 강수량</span></div>
         <div class="bulBox">
@@ -667,6 +670,44 @@
           <p class="hint" id="fctInfo"></p>
         </div>
         </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 데이터 지도(10-10) — 생활기상·미세먼지 농도·미세먼지 예보. 각자의 지도(S.style = life·dust·dustFcst)에서만 보인다(js/map-build.js secModeHidden).
+         지금은 뼈대(구분 줄 + 빈 상태 안내 .dataEmpty) — 공공데이터포털 불러오기 컨트롤은 데이터 단계에서 채운다. 손으로 칠하는 건 지금도 된다 -->
+    <div class="sec special" data-sec="life">
+      <h3>생활기상 자동 색칠</h3>
+      <div class="body">
+        <div class="mapUnitRow" data-map-unit></div>
+        <div class="dataEmpty" data-data-empty="life">
+          <b>기상청 생활기상지수</b>
+          <p>자외선지수·대기정체지수를 시군구마다 받아 단계 색으로 칠해요.</p>
+          <p class="dataSoon">자료 불러오기는 곧 붙어요 — 지금은 색 팔레트로 손으로 칠해도 돼요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec special" data-sec="dust">
+      <h3>미세먼지 농도 자동 색칠</h3>
+      <div class="body">
+        <div class="mapUnitRow" data-map-unit></div>
+        <div class="dataEmpty" data-data-empty="dust">
+          <b>에어코리아 미세먼지 농도</b>
+          <p>미세먼지(PM10)·초미세먼지(PM2.5) 시군구 평균을 받아 등급 색으로 칠해요.</p>
+          <p class="dataSoon">자료 불러오기는 곧 붙어요 — 지금은 색 팔레트로 손으로 칠해도 돼요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec special" data-sec="dustFcst">
+      <h3>미세먼지 예보 자동 색칠</h3>
+      <div class="body">
+        <div class="mapUnitRow" data-map-unit></div>
+        <div class="dataEmpty" data-data-empty="dustFcst">
+          <b>에어코리아 미세먼지 예보</b>
+          <p>미세먼지·초미세먼지·오존 예보 등급을 예보 권역 19곳에 칠해요 · 오늘~모레.</p>
+          <p class="dataSoon">자료 불러오기는 곧 붙어요 — 지금은 색 팔레트로 손으로 칠해도 돼요.</p>
         </div>
       </div>
     </div>
@@ -1196,14 +1237,12 @@
         <p class="bmMbxHint">확대/이동 시 그 영역·배율의 타일을 실시간으로 불러옵니다. 토큰이 포함되니 Mapbox에서 <b>URL 제한</b>을 걸어두는 걸 권장.</p>
       </div>
     </div>
-    <button id="fctMapBtn" class="basemapBtn" title="지도 종류 — 전국 지도 / 서울 지도" aria-label="지도 종류 선택" style="display:none">
-      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" d="M9 4 3.5 5.9v13.6L9 17.6l6 1.9 5.5-1.9V4L15 5.9 9 4z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M9 4v13.6M15 5.9v13.6"/></svg>
+    <!-- 지금 칠하는 구분 배지(10-10 — 옛 전국/서울 버튼 자리·id 재용도): 카드 아이콘 + 구분 이름(시군·시군구·예보 권역 …). 태풍 지도에선 숨김.
+         누르면 팝오버(js/map-build.js mapUnitPopFill — 예상 강수·적설은 시군/시도 고르기, 그 밖은 지금 구분 + 장면 설정 열기). 출력엔 안 나온다(SVG 밖) -->
+    <button id="fctMapBtn" class="basemapBtn unitPill" type="button" title="칠하는 구분" aria-label="칠하는 구분" style="display:none">
+      <span class="unitIc" aria-hidden="true"></span><span class="unitTxt"></span>
     </button>
-    <div id="fctMapPop" class="basemapPop" style="display:none">
-      <div class="bmHead">지도 종류</div>
-      <button data-mt="nationwide" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#2b4a6e,#1c3350)"></span>전국 지도</button>
-      <button data-mt="seoul" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a8a,#2b7a5b)"></span>서울 지도</button>
-    </div>
+    <div id="fctMapPop" class="basemapPop unitPop" style="display:none"></div>
     <div id="camClip"><canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas><canvas id="camGL" width="1" height="1" style="display:none"></canvas></div>
     <svg id="cg" class="paintmode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
       <defs>
@@ -1416,6 +1455,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 
 <script src="map-data.js"></script>
 <script src="seoul-map-data.js" onerror="window.SEOUL_MAP=null"></script>
+<script src="region-map-data.js" onerror="window.REGION_MAP=null"></script>
 <script src="typhoon-map-data.js" onerror="window.TYPHOON_MAP=null"></script>
 <script src="typhoon-relief.js" onerror="window.TYPHOON_RELIEF=null"></script>
 <script src="typhoon-satellite.js" onerror="window.TYPHOON_SATELLITE=null"></script>
@@ -1424,11 +1464,11 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="place-data.js" onerror="window.PLACE_GAZ=null"></script>
 <script src="fct-data.js"></script>
 <script src="img-data.js"></script>
-<script src="js/core.js?v=8269810d"></script>
+<script src="js/core.js?v=7881038e"></script>
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
-<script src="js/map-build.js?v=da4b5458"></script>
-<script src="js/map-render.js?v=1ebc2c09"></script>
+<script src="js/map-build.js?v=79ee82e0"></script>
+<script src="js/map-render.js?v=4f711f02"></script>
 <script src="js/vf-legend.js?v=06464ea1"></script>
 <script src="js/labels-mountains.js?v=84a9ae7a"></script>
 <script src="js/typhoon-core.js?v=6c96f249"></script>
@@ -1436,7 +1476,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/typhoon-panel.js?v=b197c65e"></script>
 <script src="js/typhoon-api.js?v=9578633e"></script>
 <script src="js/typhoon-jtwc.js?v=cde1c8b2"></script>
-<script src="js/panels.js?v=b36d4e08"></script>
+<script src="js/panels.js?v=4845dde1"></script>
 <script src="js/view-camera.js?v=31608106"></script>
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
 <script src="js/pointer-drag.js?v=aa99387f"></script>
@@ -1447,8 +1487,8 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/forecast-panel.js?v=40d42aed"></script>
 <script src="js/warnings-load.js?v=85869e98"></script>
 <script src="js/presets.js?v=31abe4c7"></script>
-<script src="js/cg-setup.js?v=a202a4f5"></script>
-<script src="js/modals-notices.js?v=a7aace5d"></script>
+<script src="js/cg-setup.js?v=dad25ddb"></script>
+<script src="js/modals-notices.js?v=9a319b43"></script>
 <script src="js/dropdown.js?v=feecce61"></script>
 <script src="js/date-picker.js?v=98c0a274"></script>
 <script src="js/busy-fx.js?v=05f4b1c5"></script>
@@ -1456,14 +1496,14 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/export-image.js?v=10c7f5d5"></script>
 <script src="js/export-video.js?v=4669ab92"></script>
 <script src="js/export-blobs.js?v=29750eaf"></script>
-<script src="js/ae-export.js?v=d18c8193"></script>
+<script src="js/ae-export.js?v=4ee32a83"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=a8413164"></script>
-<script src="js/wiring.js?v=b9df55b8"></script>
+<script src="js/wiring.js?v=1d9def53"></script>
 <script src="js/anim.js?v=3f7ec170"></script>
 <script src="js/timeline-plan.js?v=5b2480af"></script>
 <script src="js/timeline-ui.js?v=8c3c0a46"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
-<script src="js/floating-panels.js?v=fcca2c85"></script>
-<script src="js/tour.js?v=2738fa27"></script>
+<script src="js/floating-panels.js?v=2c3d98f7"></script>
+<script src="js/tour.js?v=031b7a02"></script>
 <script src="js/boot.js?v=5deb228d"></script>

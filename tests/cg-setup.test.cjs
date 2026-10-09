@@ -99,8 +99,9 @@ test('고르기만 하고, 둘 다 골라 선택 완료를 눌러야 적용 — 
   assert.match(setup, /e\.key !== 'Escape'/);
   // 창이 떠 있는 동안 뒤의 지도 단축키는 막는다
   assert.match(html, /if \(cgSetupIsOpen\(\) \|\| exportIsOpen\(\)\) return;   \/\/ CG 구성 창·이미지로 추출 팝업이 떠 있는 동안엔/);
-  // 서울 지도(목록엔 숨김)는 시도군 카드로 표시
-  assert.match(fn('markStyleBtns'), /isSeoul\(pendingStyle\)\) \? 'sgg' : pendingStyle/);
+  // 카드 = 데이터별(10-10) — 고른 구분이 든 카드를 켜고(서울은 따로 카드), 카드의 data-style을 고른 구분으로
+  assert.match(fn('markStyleBtns'), /const pc = pendingStyle \? cardOf\(pendingStyle\) : null;/);
+  assert.match(fn('markStyleBtns'), /b\.dataset\.style = on \? pendingStyle : c\.styles\[0\];/);
 });
 
 test('시작 화면 — CG 종류와 지도 종류를 고르세요 + CG 구성 열기, 새로 시작하면 창이 바로 뜬다', () => {
@@ -124,24 +125,32 @@ test('둘러보기 — 출력 화면·지도 종류 두 단계를 CG 구성 한 
   assert.match(html, /function tourMenuClose\(\) \{ if \(_closeMenu\) _closeMenu\(\); closeCgSetup\(\); \}/);
 });
 
-test('시작 화면에선 시도군 구분 = 전국 지도(지난 작업의 서울을 물려받지 않음), 작업 중엔 서울 유지', () => {
-  assert.match(fn('buildStyleBtns'), /if \(k === 'sgg' && isSeoul\(S\.style\) && !startScreenOn\(\)\) pendingStyle = S\.style;/);
-  assert.match(fn('syncStyleUse'), /const seoulNow = k === 'sgg' && isSeoul\(S\.style\) && !startScreenOn\(\);/);
-  // 카드 onclick 로직을 그대로 돌려 본다
-  const body = /b\.onclick = \(\) => \{\n\s*pendingStyle = k;[\s\S]*?\n\s*\};/.exec(fn('buildStyleBtns'))[0];
-  const click = (k, style, start) => new Function('k', 'S', 'isSeoul', 'startScreenOn', 'syncCgSetup', 'cgsShowOtherPane',
-    `let pendingStyle = null; const b = {}; ${body}; b.onclick(); return pendingStyle;`)(k, { style }, (s) => s === 'seoul', () => start, () => {}, () => {});
-  assert.equal(click('sgg', 'seoul', true), 'sgg', '시작 화면: 시도군 구분 → 전국');
-  assert.equal(click('sgg', 'seoul', false), 'seoul', '작업 중: 서울 그대로');
-  assert.equal(click('warn', 'seoul', true), 'warn');
+test('지도 카드 클릭 — 작업 중엔 지금 지도의 구분 유지(예상 강수·적설 · 시도), 시작 화면은 카드의 첫 구분, 창에서 고른 칩 유지', () => {
+  // 카드 onclick 로직을 그대로 돌려 본다(MAP_CARDS·cardStyleFor 원문 + onclick 본문)
+  const cardsSrc = /const MAP_CARDS = \[[\s\S]*?\n\];/.exec(html)[0];
+  const body = /b\.onclick = \(\) => \{\n\s*const k = cardStyleFor\(c\);[^\n]*\n\s*pendingStyle = k;[\s\S]*?\n\s*\};/.exec(fn('buildStyleBtns'))[0];
+  const styles = Object.fromEntries(['sgg', 'sido', 'warn', 'warnsea', 'seoul', 'life', 'dust', 'dustFcst', 'typhoon', 'typhoonCompare'].map((k) => [k, {}]));
+  const click = (id, style, start, pending = null) => new Function('S', 'MAP', 'startScreenOn', 'syncCgSetup', 'cgsShowOtherPane',
+    `let pendingStyle = ${JSON.stringify(pending)}; ${cardsSrc}; ${fn('cardStyleFor')}; const c = MAP_CARDS.find((x) => x.id === ${JSON.stringify(id)}); const b = {}; ${body}; b.onclick(); return pendingStyle;`)({ style }, { styles }, () => start, () => {}, () => {});
+  assert.equal(click('rain', 'sido', false), 'sido', '작업 중 시도 지도: 예상 강수·적설 카드 = 시도 그대로');
+  assert.equal(click('rain', 'sido', true), 'sgg', '시작 화면: 지난 작업의 시도를 물려받지 않고 시군');
+  assert.equal(click('rain', 'warn', false, 'sido'), 'sido', '창에서 시도 칩을 골라 뒀으면 카드를 다시 눌러도 시도');
+  assert.equal(click('rain', 'warn', false), 'sgg');
+  assert.equal(click('seoul', 'sgg', true), 'seoul', '서울은 따로 카드');
+  assert.equal(click('warn', 'seoul', false), 'warn');
+  assert.equal(click('life', 'dust', false), 'life', '같은 시군구 도형이어도 카드(키)는 따로');
+  // 구분 줄 칩 — 같은 #styleBtns 안(옛 선택자 [data-style="sido"] 그대로), 칩을 누르면 그 구분
+  assert.match(fn('buildStyleBtns'), /ch\.onclick = \(\) => \{ pendingStyle = k; syncCgSetup\(\); cgsShowOtherPane\('style'\); \};/);
+  assert.match(fn('buildStyleBtns'), /row\.append\(lab, val, chips\);\n\s*w\.append\(row\);/);
+  assert.doesNotMatch(html, /id="cgsStyleNote"/, '서울 안내 문단은 구분 줄·서울 카드가 대신');
 });
 
 test('좁은 창(위아래로 쌓임) — 안내 방향은 위·아래, 고르면 아직 안 고른 판으로 스크롤', () => {
   const summary = (stacked, res, style) => {
     const sum = { textContent: '' }, done = { disabled: false };
     const ctx = { $: (id) => (id === '#cgsSummary' ? sum : id === '#cgsDone' ? done : null), RES: { r: { label: '노말 CG' } }, MAP: { styles: { s: { label: '시도' } } },
-      S: { res: 'r', style: 's' }, markResBtns() {}, markStyleBtns() {}, startScreenOn: () => false, cgsStacked: () => stacked, document: {} };
-    new Function('ctx', `const { $, RES, MAP, S, markResBtns, markStyleBtns, startScreenOn, cgsStacked, document } = ctx; let pendingRes = ${JSON.stringify(res)}, pendingStyle = ${JSON.stringify(style)}; ${fn('syncCgSetup')}; syncCgSetup();`)(ctx);
+      S: { res: 'r', style: 's' }, markResBtns() {}, markStyleBtns() {}, startScreenOn: () => false, cgsStacked: () => stacked, document: {}, cardLabelOf: (k) => ctx.MAP.styles[k].label };
+    new Function('ctx', `const { $, RES, MAP, S, markResBtns, markStyleBtns, startScreenOn, cgsStacked, document, cardLabelOf } = ctx; let pendingRes = ${JSON.stringify(res)}, pendingStyle = ${JSON.stringify(style)}; ${fn('syncCgSetup')}; syncCgSetup();`)(ctx);
     return sum.textContent;
   };
   assert.equal(summary(false, 'r', null), '오른쪽에서 지도 종류도 골라 주세요');
