@@ -99,11 +99,16 @@ test('사용자 요청(10-09): 저장(플로피)은 AE로 보내기 오른쪽, �
   assert.doesNotMatch(html, /\$\('#cgSetupBtn'\)\.(textContent|innerText|innerHTML) =/);
 });
 
-test('추출 3버튼 — 같은 폭(grid 균등 칸), 채운 아이콘(currentColor), 맨 왼쪽 앱 아이콘 없음', () => {
-  // 사용자 요청: 세 버튼 너비를 똑같이 + 채운(fill) 아이콘 하나씩. AE 버튼이 숨으면(display:none) 칸이 안 생겨 나머지 둘도 같은 폭
-  assert.match(html, /#titlebar #exportGroup \{[^}]*display: grid;[^}]*grid-auto-flow: column;[^}]*grid-auto-columns: 1fr;/);
+test('렌더 3버튼 — 한 묶음(세그먼트, 같은 폭), 아이콘 + 글자, 채운 아이콘(currentColor)·AE는 에펙 로고 모양, 맨 왼쪽 앱 아이콘 없음', () => {
+  // 사용자 요청(10-09): 세 버튼을 한 묶음으로(글자는 그대로), AE는 에펙 로고 모양을 우리 색으로 — Ae 글자는 마스크로 뚫어 가운데
+  assert.match(html, /#titlebar #exportGroup \{ display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px;[^}]*overflow: hidden;/);
+  assert.match(html, /#titlebar #exportGroup \.tbAction \{[^}]*border-radius: 0;/);
+  assert.doesNotMatch(html, /#exportGroup \.tbLbl \{/, '글자는 보인다');
   assert.match(html, /#titlebar \.tbAction \{[^}]*justify-content: center;/);
-  for (const sel of ['id="exportBtn"', 'id="tlToggle"', 'id="aeSend"']) {
+  const aeSvg = /<button[^>]*id="aeSend"[^>]*>(<svg[\s\S]*?<\/svg>)/.exec(titlebar)[1];
+  assert.match(aeSvg, /class="aeLogo"/); assert.match(aeSvg, /<mask id="aeLogoCut">/); assert.match(aeSvg, /fill="currentColor" mask="url\(#aeLogoCut\)"/); assert.match(aeSvg, /aria-hidden="true"/);
+  assert.doesNotMatch(aeSvg, /#00005b|#9999ff/i, '어도비 색 대신 우리 색');
+  for (const sel of ['id="exportBtn"', 'id="tlToggle"']) {
     const b = new RegExp(`<button[^>]*${sel}[^>]*>[\\s\\S]*?<\\/button>`).exec(titlebar)[0];
     const svg = /<svg[^>]*>[\s\S]*?<\/svg>/.exec(b)[0];
     assert.match(svg, /fill="currentColor"/, '채운 아이콘(글자색을 따라감)');

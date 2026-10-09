@@ -37,7 +37,6 @@
      AE로 보내기가 숨으면(display:none) 칸이 안 생겨 나머지 둘도 서로 같은 폭. */
   :root, :root[data-theme="dark"] { --tb-act-fg: #9cc3ff; --tb-act-bg: rgba(74,148,255,.15); --tb-act-hover: rgba(74,148,255,.27); --tb-act-ring: rgba(106,168,255,.34); }
   :root[data-theme="light"] { --tb-act-fg: #1b56d2; --tb-act-bg: rgba(49,130,246,.11); --tb-act-hover: rgba(49,130,246,.2); --tb-act-ring: rgba(49,130,246,.3); }
-  #titlebar #exportGroup { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
   #titlebar .tbAction {
     height: 26px; padding: 0 12px; justify-content: center; gap: 6px; border-radius: 8px; font-weight: 650;
     background: var(--tb-act-bg); color: var(--tb-act-fg); box-shadow: inset 0 0 0 1px var(--tb-act-ring);
@@ -50,6 +49,18 @@
   }
   #titlebar .tbAction.on:hover, #titlebar .tbAction.pri:hover { background: var(--primary-hover); }
   #titlebar .tbAction:disabled { opacity: .45; background: var(--tb-act-bg); }
+  /* 렌더 3버튼 = 한 묶음(세그먼트, 사용자 요청 10-09) — 아이콘 + 글자, 같은 폭(grid 1fr). 바깥 테두리 1px·버튼 사이 1px 줄은 묶음 바탕(--tb-act-ring)이 비쳐 보이는 것.
+     그래서 버튼 바탕은 불투명 틴트(--tb-act-solid). AE 아이콘은 에펙 로고 모양(둥근 사각 + Ae)을 우리 파랑(currentColor)으로 — 글자는 마스크로 뚫어 버튼 바탕이 비친다 */
+  :root, :root[data-theme="dark"] { --tb-act-solid: color-mix(in srgb, #4a94ff 15%, var(--surface)); --tb-act-solid-hover: color-mix(in srgb, #4a94ff 27%, var(--surface)); }
+  :root[data-theme="light"] { --tb-act-solid: color-mix(in srgb, #3182f6 11%, #ffffff); --tb-act-solid-hover: color-mix(in srgb, #3182f6 20%, #ffffff); }
+  #titlebar #exportGroup { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; padding: 1px; border-radius: 9px; overflow: hidden; background: var(--tb-act-ring); }
+  #titlebar #exportGroup .tbAction { height: 26px; padding: 0 12px; border-radius: 0; box-shadow: none; background: var(--tb-act-solid); }
+  #titlebar #exportGroup .tbAction:hover { background: var(--tb-act-solid-hover); }
+  #titlebar #exportGroup .tbAction.on, #titlebar #exportGroup .tbAction.pri { background: var(--primary); box-shadow: none; }
+  #titlebar #exportGroup .tbAction.on:hover, #titlebar #exportGroup .tbAction.pri:hover { background: var(--primary-hover); }
+  @media (max-width: 1280px) { #titlebar #exportGroup .tbAction { padding: 0 10px; } }
+  @media (max-width: 1040px) { #titlebar #exportGroup .tbAction { padding: 0 8px; } }
+  @media (max-width: 860px) { #titlebar #exportGroup .tbAction { padding: 0 7px; } }
   /* 장면 설정(#cgSetupBtn, 맨 왼쪽) — 작업의 시작점이라 렌더 버튼(파랑)과 구분되는 보라→파랑 틴트 + 채운 아이콘(레이아웃 타일).
      렌더 버튼과 같은 높이·모서리·글자 굵기. 창이 열리면(.on) 꽉 찬 보라 그라데이션(아이콘도 흰색으로 따라감). 밝은 테마 글자는 진한 보라(대비 4.5:1 이상) */
   :root, :root[data-theme="dark"] {
@@ -108,7 +119,6 @@
     #titlebar .tbMenu { padding: 0 5px; font-size: 12.5px; }
     #titlebar .tbAction { padding: 0 8px; }
     #titlebar .tbScene { padding: 0 8px; }
-    #titlebar #exportGroup { gap: 4px; }
     #titlebar #exportGroup + .tbIconMenu { margin-left: 0; }
     .titlebar { padding-left: 8px; }
   }
