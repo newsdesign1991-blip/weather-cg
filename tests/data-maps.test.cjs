@@ -39,6 +39,18 @@ test('credential decoding, encoding once and redaction BEFORE detail truncation'
     assert.ok(!detail.includes('TEST-ONLY')&&!detail.includes('aaaa'),detail);
   }
 });
+test('desktop default key, personal override, empty reset and redaction of both keys',()=>{
+  const embedded='BUILTIN-TEST-ONLY+/=';
+  const c=ctx({window:{wcgDesktop:{dataPortalKey:encodeURIComponent(embedded)}}});
+  assert.equal(c.dataKey(),embedded);
+  c.localStorage.setItem('wcg_datakey','PERSONAL-TEST-ONLY');
+  assert.equal(c.dataKey(),'PERSONAL-TEST-ONLY');
+  assert.equal(c.dataMask(embedded+' PERSONAL-TEST-ONLY'),'*** ***');
+  c.localStorage.setItem('wcg_datakey','  ');assert.equal(c.dataKey(),embedded);
+  c.localStorage.getItem=()=>{throw Error('blocked');};assert.equal(c.dataKey(),embedded);
+  assert.equal(ctx().dataKey(),'','local web/old desktop stays supported');
+});
+
 test('stage boundaries and invalid/missing numbers never become low stage',()=>{
   const c=ctx();
   for(const [sk,vals,names] of [['pm10',[30,31,80,81,150,151],['좋음','보통','보통','나쁨','나쁨','매우나쁨']],['pm25',[15,16,35,36,75,76],['좋음','보통','보통','나쁨','나쁨','매우나쁨']],['uv',[2,3,5,6,7,8,10,11],['낮음','보통','보통','높음','높음','매우높음','매우높음','위험']],['air',[25,50,75,100],['낮음','보통','높음','매우높음']]]) assert.deepEqual(vals.map(v=>c.dataStep(sk,v).k),names);

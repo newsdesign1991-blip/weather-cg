@@ -14,3 +14,5 @@ __pycache__/
 Thumbs.db
 .DS_Store
 .worktrees/
+# 데스크톱 전용 비공개 인증 설정(코드·프로젝트에 넣지 않음)
+/desktop/private/

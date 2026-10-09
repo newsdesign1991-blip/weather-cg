@@ -5,7 +5,7 @@
 // 생활기상(기상청 생활기상지수 4.0)·미세먼지 농도(에어코리아 대기오염통계 현황)·미세먼지 예보(에어코리아 대기오염정보)를
 // 들어오는 구분 그대로 자기 지도(S.style = life·dust·dustFcst)에만 칠한다 — 다른 구분 지도로 옮겨 칠하지 않는다(MODULES.md 7-1).
 // 요청은 특보처럼 내장 헬퍼 /api/kma?u= 프록시로(허용 목록에 *.data.go.kr 이 이미 있다 — 헬퍼 수정 없음).
-// 인증키는 이 컴퓨터 localStorage('wcg_datakey')에만 — 작업·프로젝트 파일·알림·결과 카드·콘솔에 그대로 쓰지 않는다(dataMask).
+// 인증키 = 개인 설정 우선, 없으면 데스크톱 비공개 번들 기본 키. 작업·프로젝트·알림·콘솔에 그대로 쓰지 않는다(dataMask).
 // 불러오기·고르기·패널은 js/data-load.js.
 
 // ★ 주소·오퍼레이션·응답 이름은 여기 한 곳에만 둔다 — 서비스가 바뀌면 여기만 고친다.
@@ -47,18 +47,24 @@ const DATA_SEC_ID = { life: 'life', dust: 'dust', dustFcst: 'dfc' };   // 섹션
 
 // ── 인증키 ──
 const DATA_KEY_STORE = 'wcg_datakey';
-// 'API 설정'에 넣은 공공데이터포털 키. Encoding 키(%2B 등)를 넣었으면 한 번 풀어 Decoding 키로 쓴다(주소엔 늘 한 번만 encode).
-function dataKey() {
-  let k = '';
-  try { k = (localStorage.getItem(DATA_KEY_STORE) || '').trim(); } catch (e) { return ''; }
+// Encoding 키(%2B 등)는 한 번만 풀고, 요청 주소를 만들 때 한 번만 encode한다.
+function dataDecodeKey(value) {
+  let k = String(value || '').trim();
   if (/%[0-9A-Fa-f]{2}/.test(k)) { try { k = decodeURIComponent(k); } catch (e) { /* 그대로 */ } }
   return k;
+}
+function dataBuiltinKey() {
+  return dataDecodeKey(typeof window !== 'undefined' && window.wcgDesktop && window.wcgDesktop.dataPortalKey);
+}
+function dataKey() {
+  let personal = '';
+  try { personal = dataDecodeKey(localStorage.getItem(DATA_KEY_STORE)); } catch (e) { /* 기본 키는 사용 가능 */ }
+  return personal || dataBuiltinKey();
 }
 // 글자 안의 인증키를 가린다 — serviceKey= 값과 키 문자열 자체(풀린 것·encode 된 것) 모두. 결과 카드·알림·콘솔에 쓰기 전에 꼭 거친다.
 function dataMask(s) {
   let t = String(s == null ? '' : s).replace(/(serviceKey=)[^&\s"'<]+/gi, '$1***');
-  const k = dataKey();
-  if (k && k.length >= 6) {
+  for (const k of new Set([dataKey(), dataBuiltinKey()])) if (k && k.length >= 6) {
     t = t.split(k).join('***');
     try { const e = encodeURIComponent(k); if (e !== k) t = t.split(e).join('***'); } catch (er) { /* 무시 */ }
   }

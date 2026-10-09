@@ -662,6 +662,11 @@ function setupDataPanels() {
   const ki = $('#dataKeyIn');
   if (ki) {
     try { ki.value = (localStorage.getItem(DATA_KEY_STORE) || '').trim(); } catch (e) { ki.value = ''; }
+    if (dataBuiltinKey()) {
+      ki.placeholder = '앱 기본 인증키 사용 · 변경할 때만 입력';
+      const hint = $('#dataKeyInfo');
+      if (hint) hint.textContent = '기본 인증키가 내장되어 있어 따로 입력하지 않아도 돼요. 다른 키를 입력하면 그 키를 우선 사용하고, 빈칸으로 두면 기본 키로 돌아가요. 개인 키는 이 컴퓨터에만 저장돼요.';
+    }
     ki.oninput = () => { try { localStorage.setItem(DATA_KEY_STORE, ki.value.trim()); } catch (e) { /* 저장소를 못 쓰면 이번만 */ } dataResetRuntime(); dataCache.clear(); syncKeyWarn(); };
   }
   const site = $('#dataSite'); if (site) site.onclick = () => window.open(DATA_API.site, '_blank', 'noopener');

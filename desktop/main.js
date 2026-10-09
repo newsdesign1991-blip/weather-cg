@@ -6,6 +6,7 @@
 //   웹판용 Python 헬퍼(3720)와 포트가 달라 같이 켜져 있어도 충돌하지 않는다. 내장 시작에 실패하면 Python 헬퍼로 대체.
 const { app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog, session, screen } = require('electron');
 const { initialWindowBounds } = require('./window-layout');
+const { readDataPortalKey, privateKeyCallerOk } = require('./private-config');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -343,6 +344,10 @@ function buildMenu() {
 
 // preload가 동기로 물어본다 — 페이지 스크립트가 시작하기 전에 헬퍼 주소가 정해져 있어야 함
 ipcMain.on('wcg:helper', (e) => { e.returnValue = { url: helperUrl, kind: helperKind, ver: HELPER_VER }; });
+// 별도 입력 없는 공공데이터포털 기본 키. 일반 자동 점검에서는 실제 키를 전달하지 않는다.
+ipcMain.on('wcg:data-key', (e) => {
+  e.returnValue = privateKeyCallerOk(e, win) && (!TEST_MODE || process.env.WCG_TEST_DATA_KEY === '1') ? readDataPortalKey(__dirname) : '';
+});
 // 밝기(테마)가 바뀌면 창 버튼(최소화·최대화·닫기) 바탕·기호 색도 제목줄에 맞춘다. 색은 #hex 만 받는다.
 const HEX = /^#[0-9a-f]{3,8}$/i;
 ipcMain.on('wcg:titlebar', (e, o) => {

@@ -7,7 +7,7 @@
 - `<script>`/`<link>` 태그 순서 변경, `defer`/`async`/`type="module"` 추가 금지. 순서 = 로드 순서 = 덮어쓰기 우선순위.
   기존 파일의 순서는 바꾸지 않는다(테스트가 고정 목록과 비교한다). 새 파일은 사이에 끼워 넣기만 하고, 그때 MODULES.md 표에 행을 하나 넣는다.
 - **지도 종류**: `S.style` = 지도 도형 키, 장면 설정 카드 = `MAP_CARDS`(js/map-build.js — 데이터별, `cardOf(S.style)`). 데이터 섹션은 자기 지도에서만(`secModeHidden`) — 다른 구분으로 옮겨 칠하지 않는다(MODULES.md 7-1).
-  공공데이터포털 자료(생활기상·미세먼지)의 주소·오퍼레이션·응답 이름은 `js/data-maps.js`의 `DATA_API` 한 곳에만(키는 사용자 PC localStorage `wcg_datakey` — 저장소·로그에 넣지 말 것).
+  공공데이터포털 자료(생활기상·미세먼지)의 주소·오퍼레이션·응답 이름은 `js/data-maps.js`의 `DATA_API` 한 곳에만. 키는 개인 설정(`wcg_datakey`) 우선, 없으면 데스크톱 비공개 `desktop/private/data-go.key`(Git 제외)를 쓴다. 키 값은 코드·문서·프로젝트·로그에 넣지 말 것.
   데이터 지도 도형 `region-map-data.js`는 손으로 고치지 말고 `node tools/build-data-maps.cjs --src=<원본 data 폴더>`로 다시 굽는다.
 - **같은 이름 함수를 두 파일에 만들지 말 것.** 최상위 `let/const/class`·`var`도 파일 사이에 겹치면 안 된다. 예약 이름(`top` `location` `window` `document` `wcgDesktop` `_per` `_mas` 등)·window 내장 이름도 금지.
 - 각 js 파일 머리 2줄(`/* [모듈] js/이름.js — 설명 */` + `'use strict';`)과 css 머리 1줄을 지우지 않는다.
@@ -24,8 +24,8 @@
   → `node desktop/test/boot-check.cjs . --wait=9000`이 `"ok": true`. 테스트는 정적 검사라 못 보는 로드 오류가 있다(MODULES.md 2장 규칙 3) —
   boot-check를 못 돌리는 환경(Electron 없음·GitHub 웹)이면 **배포(main push)하지 말고** 브랜치로 올려 사람에게 넘긴다. 데스크톱 개발판은 hot reload가 없다(Ctrl+R).
 - **웹판은 2026-10-09부터 막혀 있다**(index.html head 첫 스크립트 — 데스크톱 앱·로컬 개발만 동작, MODULES.md 7장). 앞으로는 데스크톱 설치판으로 배포한다.
-- 배포: 저장소 루트가 곧 사이트(GitHub Pages). 위 3단계를 마친 뒤
-  `git add index.html js css <고친 파일>`(경로를 적어서, `-A` 금지) → commit → push. `index.html`·`js/`·`css/`는 한 커밋에 함께.
+- **현재는 데스크톱 앱만 개발한다.** 평소에는 수정·검증·로컬 기록까지만. 사용자가 명시적으로 요청하지 않으면 GitHub push·웹 배포 준비·설치판 배포를 하지 않는다.
+  로컬 커밋은 경로를 적어서(`-A` 금지), `index.html`·`js/`·`css/`를 한 커밋에 함께. 설치판 제작을 요청받으면 비공개 키 파일도 로컬 빌드에 포함하되 Git 추적에는 넣지 않는다.
 - 디버그 eval·콘솔은 `(() => { … })()`로 감싸고 앱 전역(`S` `sel` `mode` …)에 대입하지 않는다(자동 저장으로 실제 작업에 남는다).
 - 헬퍼(기능 확장팩) 동작을 바꿀 때:
   - Python 헬퍼 **원본은 저장소 밖 `R:\[F]_Util\WNS\_src\helper.py`**다. 저장소의 `tools/wns-helper/helper.py`는 2026-07 옛 사본이니 고치지 않는다.

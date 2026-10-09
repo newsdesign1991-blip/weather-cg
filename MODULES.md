@@ -230,7 +230,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 - 지금 칠하는 구분 표시: 아트보드 오른쪽 위 배지(`#fctMapBtn` — 옛 전국/서울 버튼 자리, 태풍 지도에선 숨김) + 사이드바 데이터 섹션 첫 줄(`[data-map-unit]`). 둘 다 `syncMapUnit`.
 - **데이터 불러오기**(10-10 2단계 — `js/data-maps.js` 공통·`js/data-load.js` 불러오기): 생활기상 = 기상청 생활기상지수 4.0(`LivingWthrIdxServiceV5` — 자외선 `getUVIdxV5`·대기정체 `getAirDiffusionIdxV5`, 시군구 areaNo 230건),
   미세먼지 농도 = 에어코리아 대기오염통계 현황(`ArpltnStatsSvc/getCtprvnMesureSidoLIst` — 시도 17건, cityName = 시군구 그대로), 미세먼지 예보 = 에어코리아 대기오염정보(`ArpltnInforInqireSvc/getMinuDustFrcstDspth` — informGrade 권역 등급).
-  주소·이름은 `DATA_API` 한 곳(✓ 실키 확인·? 확인 필요 주석). 요청은 헬퍼 `/api/kma`(헬퍼 수정 없음). 인증키 = API 설정의 '공공데이터포털 인증키'(localStorage `wcg_datakey`, 기본 키 없음 — 공개 저장소).
+  주소·이름은 `DATA_API` 한 곳(✓ 실키 확인·? 확인 필요 주석). 요청은 헬퍼 `/api/kma`(헬퍼 수정 없음). 인증키는 API 설정의 개인 키(localStorage `wcg_datakey`) 우선, 빈칸이면 데스크톱 기본 키(아래 10장). 공개 코드에는 실제 키가 없다.
   자료·고른 옵션은 `S.dataByStyle[지도]`(작업·자동 저장·프로젝트·되돌리기에 S 통째로 따라감), 바꾼 단계 색 `S.dataColors`. 시각·품목·발표·예보일은 다시 받지 않고 다시 칠한다.
   불러오는 중 지도를 옮겼다 돌아오거나 작업을 편집·되돌리기·불러오기·초기화했으면 늦은 응답은 칠하지 않는다(`dataSeq` + `_workRev`). 키 변경·색 지우기도 진행 중 요청을 무효화한다.
   자료 라벨(`b.data = 지도`)은 지도를 바꾸면 `S.dataByStyle[지도].labelsAway`에 맡겨 두고 돌아오면 되돌린다(`dataLabelsSwap` + `setStyle`의 `renderLabels` — DOM도 즉시 갱신).
@@ -290,23 +290,23 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 - 일반 실행에서 복원할 작업이 없으면 시작 안내와 함께 **장면 설정을 자동으로 연다**(`boot.js`). 저장 작업 불러오기·이어보기는 `loadProjectData`가 설정창을 닫으며, 작업을 복원하는 새로고침에는 자동으로 열지 않는다. 시작 중 자동 둘러보기는 겹쳐 띄우지 않는다(상단 i로 수동 실행 가능).
 - 로컬 웹 미리보기는 `npx serve`(ETag로 매번 재검증)나 Electron을 쓴다. `py -m http.server`는 휴리스틱 캐시로 옛 js를 줄 수 있다. 미리보기 전에 stamp.
 
-## 9. 배포(GitHub Pages — 저장소 루트가 곧 사이트)
+## 9. 로컬 검증·데스크톱 배포 방침
 
 1. 고친다 → `node tools/stamp-version.cjs` → `node --test tests/*.test.cjs desktop/test/*.test.cjs`
    → **`node desktop/test/boot-check.cjs . --wait=9000`이 `"ok": true`** (필수 — 정적 검사가 못 보는 로드 오류를 잡는다. 하나라도 실패하면
    모든 사용자에게 '앱을 다 불러오지 못했어요'가 뜬다). Electron이 없는 환경(GitHub 웹·github.dev 등)이면 **배포하지 말고** 사람에게 넘긴다.
-2. `git add index.html js css <고친 다른 파일>` — **경로를 적어서**(`git add -A` 금지: 검사 산출물·임시 파일이 공개된다)
-3. commit → push. `index.html`·`js/`·`css/`는 **한 커밋**에 함께 간다(따로 가면 Pages가 중간본을 배포해 옛·새가 섞인다).
-4. Pages 반영(1–2분) 뒤 라이브 주소에서 콘솔 오류 0, js·css 200을 확인.
-- GitHub 웹에서 고칠 때(GPT 등)는 github.dev(저장소에서 `.` 키)로 js·css와 index.html의 `?v=`를 **한 커밋**으로 올리되,
-  main이 아닌 **브랜치(PR)**에 올린다(main 커밋 = 곧 배포인데 boot-check를 못 돌렸으므로). 병합은 boot-check를 돌린 뒤.
-  `?v=`는 아무 새 8자리 16진수면 되고, 다음 stamp가 바로잡는다.
+2. 로컬 기록이 필요하면 `git add index.html js css <고친 다른 파일>` — **경로를 적어서**(`git add -A` 금지). `index.html`·`js/`·`css/`는 **한 커밋**에 함께.
+3. **웹판은 더 이상 사용하지 않는다. 사용자의 명시적 요청 없이 push·웹 배포 준비를 하지 않는다.** 위 검사는 데스크톱 동작 검증이지 웹 배포 준비가 아니다.
+4. 설치판 제작·배포도 요청받을 때만. 개발판 소스 변경만으로 기존 설치판이 교체되지는 않는다.
 - 문서·코드 주석에 비밀번호·API 키를 쓰지 않는다(공개 저장소).
 
 ## 10. 데스크톱 앱 영향
 
 데스크톱 앱(Electron)은 영향 없다. `desktop/main.js`는 상위 폴더를 `app://weathercg`로 서빙하고(js·css MIME 등록됨, `no-store`,
 `?v=`는 경로만 보므로 무해), `desktop/test/boot-check.cjs`는 모듈 오류를 `EXC …@app://weathercg/js/x.js:줄`로 잡는다.
+
+- **공공데이터포털 기본 키**(2026-10-10 사용자 요청): `desktop/private-config.js`가 `desktop/private/data-go.key`를 읽는다(Git 제외, app://에서는 desktop/ 전체 접근 차단). `wcg:data-key` 동기 IPC는 메인 앱 창의 app://weathercg 주 프레임만 허용하고 preload가 `wcgDesktop.dataPortalKey`로 넘긴다. 개인 키가 없으면 자동 사용하며 입력칸에는 키를 채우지 않고 '기본 키 내장' 안내만 표시한다. 개인 키를 비우면 기본 키로 복귀. 키 두 종류 모두 오류에서 가린다.
+  설치판을 만들 때 이 비공개 파일을 desktop/private/ 경로에 함께 담아야 한다(아직 설치판 제작은 하지 않음). 클라이언트에 포함된 키는 설치 파일 소유자가 추출할 수 있으므로 강한 비밀 보관 수단은 아니다. 기본 자동 점검에는 실제 키를 넘기지 않으며 `WCG_TEST_DATA_KEY=1`을 명시한 별도 `tests/data-key.boot-eval.js`만 실제 내장 연결을 검사한다(값은 출력 안 함). main/preload 변경이므로 **앱 재실행 필요**.
 
 - **날씨누리 창**(2026-10-08): `main.js`가 웹앱의 '단기예보 열기'를 받아(`wcg:wnuri-open`) 앱 안 창으로 날씨누리를 띄우고, 다 뜰 때마다
   통보문 본문 글을 웹앱에 보낸다(`wcg:wnuri` → `js/bulletin-load.js` `bulFromWnuri`). 창이 이미 떠 있으면 새로고침한 뒤 읽는다(열어 둔 채

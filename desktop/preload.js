@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 let helper = { url: null, kind: null, ver: 0 };
 try { helper = ipcRenderer.sendSync('wcg:helper') || helper; } catch (e) {}
+let dataPortalKey = '';
+try { dataPortalKey = ipcRenderer.sendSync('wcg:data-key') || ''; } catch (e) {}
 
 // 창 닫기 전 묻기(main.js·desktop/close-guard.js) — 메인이 닫기를 막고 물으면 웹앱이 건 콜백(onCloseAsk)을 부른다.
 // 웹앱이 아직 안 걸었으면(부팅 전·로드 실패 안내 화면) 물을 작업이 없으니 바로 'close' — 메인의 시간 제한(5초)을 기다리지 않게.
@@ -15,6 +17,7 @@ ipcRenderer.on('wcg:close-ask', (_e, id) => {
 
 contextBridge.exposeInMainWorld('wcgDesktop', {
   isDesktop: true,
+  dataPortalKey,              // 비공개 번들 설정에서 읽은 기본 키(화면·프로젝트·로그에 출력하지 않음)
   helperUrl: helper.url,       // 내장 헬퍼면 http://127.0.0.1:3721
   helperKind: helper.kind,     // 'embedded' | 'external'
   platform: process.platform,
