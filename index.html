@@ -496,6 +496,8 @@
       <div class="body">
         <div class="subhead">불러오기 <span>· 태풍을 골라 추가</span></div>
         <div class="btns"><button class="pri" id="tycLoadOpen" style="flex:1">태풍 불러오기 · 비교에 담기</button></div>
+        <!-- 애니메이션 확인 — 불러오기 바로 밑(태풍 예상경로 섹션과 같은 자리, 10-09 사용자 요청) -->
+        <div class="btns" style="margin:6px 0"><button id="tycPlay" class="animPreviewBtn" style="flex:1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 7.5v9l7-4.5z" fill="currentColor"/></svg><span>애니메이션 확인</span></button></div>
         <button type="button" class="subhead subFoldHead" aria-expanded="false" aria-controls="tycManual">자동이 안 될 때 <span>· 수동 붙여넣기</span></button>
         <div class="subFold closed" id="tycManual"><div class="subFoldInner"><div class="subFoldBox">
         <div class="row"><label>최근 불러온 목록</label><select id="tycWhichSel" style="flex:1"></select></div>
@@ -531,7 +533,6 @@
         </div>
         <div class="subhead">비교 예보 <span>· 태풍마다 설정</span></div>
         <div id="tycList"></div>
-        <div class="btns" style="margin:8px 0 4px"><button id="tycPlay" class="animPreviewBtn" style="flex:1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 7.5v9l7-4.5z" fill="currentColor"/></svg><span>애니메이션 확인</span></button></div>
         <p class="hint" style="margin:2px 0">선 이름은 <b>끌어서</b> 옮기고 <b>더블클릭</b>으로 고쳐요.</p>
       </div>
     </div>
