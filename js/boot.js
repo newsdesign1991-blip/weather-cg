@@ -149,6 +149,7 @@ if (work) {
 
 wireTour();
 setupDropOpen();   // 파일을 창에 끌어다 놓으면 열기
+setupPopSmooth();   // 팝업 크기가 내용 때문에 바뀌면 부드럽게(js/modals-notices.js — ResizeObserver)
 // 처음엔 장면 설정을 먼저 쓴다. 시작 중에는 자동 둘러보기를 겹쳐 띄우지 않는다(상단 i로는 언제든 열 수 있음).
 const tourWillOpen = freshOpen && !startScreenOn() && !localStorage.getItem(TOUR_KEY);
 if (tourWillOpen) setTimeout(() => tourOpen(false), 650);

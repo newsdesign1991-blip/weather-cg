@@ -33,7 +33,42 @@ function popTrapTab(card, e) {
 // 열 때: 연 버튼을 기억하고 포커스를 팝업 안(카드 또는 지정한 칸)으로. 닫을 때: 포커스가 팝업 안·body 에 있으면 연 버튼으로 돌려준다.
 function popFocusIn(ov, target, opener) {
   ov._opener = opener !== undefined ? opener : document.activeElement;
+  const card = ov.matches && ov.matches(POP_SIZE_SEL) ? ov : ov.querySelector && ov.querySelector(POP_SIZE_SEL);
+  if (card) { popSmoothWatch(card); card._popSize.t = performance.now(); }   // 열리는 순간 — 열기 애니메이션 동안은 크기 애니메이션을 쉰다
   if (target) { try { target.focus({ preventScroll: true }); } catch (e) {} }
+}
+// ===================== 팝업 크기 변화 부드럽게 (사용자 요청 10-09 — 모든 팝업) =====================
+// 열린 팝업 카드의 크기가 내용 때문에 바뀌면(오른쪽 판이 생김·목록이 채워짐·안내가 붙음 등) 이전 크기에서 새 크기로 부드럽게 바꾼다.
+// ResizeObserver 콜백은 화면을 그리기 전에 돌아서, 여기서 시작한 애니메이션의 첫 장면 = 이전 크기 → 툭 튀지 않는다. 끝나면 원래 CSS 크기 그대로.
+// 쉬는 때: 막 보이기 시작함·열기 애니메이션(.46초)·닫히는 중·창 크기 바뀜(.25초 안)·카드에 다른 애니메이션이 도는 중(예: 태풍 창 2분할 펼침)·움직임 줄이기.
+// 크기는 offsetWidth/Height(레이아웃 크기 — 열기 scale 변형과 무관). 우리 애니메이션이 도는 동안의 크기 변화는 기록만(새로 시작하지 않음).
+const POP_SIZE_SEL = '.cgSetupCard, .tossCard, .confirmCard, .slotCard';
+let _popWinResizeAt = 0, _popSizeRO = null;
+function popSmoothWatch(card) {
+  if (!card || card._popSize) return;
+  card._popSize = { w: card.offsetWidth, h: card.offsetHeight, t: 0, anim: null };
+  if (!_popSizeRO && typeof ResizeObserver === 'function') _popSizeRO = new ResizeObserver((ents) => { for (const en of ents) popSmoothSize(en.target); });
+  if (_popSizeRO) _popSizeRO.observe(card);
+}
+// 부팅(boot.js)에서 한 번 — 창 크기 바뀜 기록 + 마크업에 미리 있는 팝업(장면 설정·이미지로 렌더·특보 색·태풍 불러오기·확인창)을 지켜본다.
+// 토스 모달·배치 지정하기는 열 때(popFocusIn). 로드 중 관찰자·리스너는 boot.js 규칙(MODULES.md 2장 규칙 4)
+function setupPopSmooth() {
+  window.addEventListener('resize', () => { _popWinResizeAt = performance.now(); });
+  document.querySelectorAll(POP_SIZE_SEL).forEach(popSmoothWatch);
+}
+function popSmoothSize(card) {
+  const st = card._popSize; if (!st) return;
+  const w = card.offsetWidth, h = card.offsetHeight, pw = st.w, ph = st.h, now = performance.now();
+  st.w = w; st.h = h;
+  if (!w || !h) return;                                    // 숨김(닫힘)
+  if (!pw || !ph) { st.t = now; return; }                  // 막 보이기 시작 — 첫 크기만 기억
+  if (Math.abs(w - pw) < 2 && Math.abs(h - ph) < 2) return;
+  if (st.anim && st.anim.playState === 'running') return;   // 우리 애니메이션 중(매 장면 크기) — 기록만
+  if (now - st.t < 460 || now - _popWinResizeAt < 250 || card.closest('.popClosing')) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!card.animate || card.getAnimations().some((a) => a.playState === 'running')) return;   // 다른 애니메이션이 크기를 맡고 있음
+  st.anim = card.animate([{ width: pw + 'px', height: ph + 'px', overflow: 'hidden' }, { width: w + 'px', height: h + 'px', overflow: 'hidden' }],
+    { duration: 420, easing: 'cubic-bezier(0.34, 0, 0.15, 1)' });   // 앱 공통 이징(easeOut)
 }
 function popFocusBack(ov) {
   const back = ov._opener; ov._opener = null;

@@ -592,12 +592,29 @@ function closeTyphoonLoad() {
   dpClose(false);
   ov.classList.remove('on'); ov.setAttribute('aria-hidden', 'true'); popFocusBack(ov);
 }
+// 오른쪽 결과 판을 연다(2분할). 처음 열 때만 창이 부드럽게 넓어진다 — 카드 폭·왼쪽 판 폭은 이전 크기에서 새 크기로,
+// 오른쪽 판은 0에서 자라며 흐림(blur)·투명에서 또렷해진다(Web Animations — 끝나면 원래 CSS 그대로). 좁은 창(위아래로 쌓임)·움직임 줄이기는 바로.
+function typLoadShowResults(ov) {
+  const res = $('#typLoadResults');
+  if (ov.classList.contains('has-results')) { res.hidden = false; return; }
+  const card = ov.querySelector('.typLoadCard'), body = ov.querySelector('.typLoadBody'), left = ov.querySelector('.typLoadSources');
+  const w0 = card.getBoundingClientRect().width, l0 = left.getBoundingClientRect().width;
+  res.hidden = false; ov.classList.add('has-results');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(max-width: 850px)').matches || !card.animate) return;
+  const w1 = card.getBoundingClientRect().width, cs = getComputedStyle(body), cols1 = cs.gridTemplateColumns, gap1 = cs.columnGap;
+  if (cols1.split(' ').length !== 2) return;
+  const o = { duration: 560, easing: 'cubic-bezier(0.34, 0, 0.15, 1)' };   // 앱 공통 이징(easeOut)
+  card.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], o);
+  body.animate([{ gridTemplateColumns: `${l0}px 0px`, columnGap: '0px' }, { gridTemplateColumns: cols1, columnGap: gap1 }], o);
+  res.animate([{ opacity: 0, filter: 'blur(14px)', transform: 'scale(.96)', overflow: 'hidden' }, { opacity: 1, filter: 'blur(0)', transform: 'none', overflow: 'hidden' }],
+    { duration: 620, delay: 90, easing: 'cubic-bezier(0.34, 0, 0.15, 1)', fill: 'backwards' });
+}
 // 일반·비교 모두 공통 목록을 큰 창 오른쪽에 표시한다.
 function typhoonPickerHost() {
   const ov = $('#typLoadOv'), host = $('#typLoadList');
   if (!ov || !ov.classList.contains('on') || !host) return null;
   if (typhoonLoadPicker) typhoonLoadPicker.close();
-  $('#typLoadResults').hidden = false; ov.classList.add('has-results');
+  typLoadShowResults(ov);
   host.innerHTML = '<div class="typPickerInline"><div class="tossHead"><div><div class="tossTitle"></div><div class="tossSub"></div></div></div><div class="tossBody"><div class="jtwcList" role="list"></div><p class="jtwcNote"></p></div><div class="tossFoot"></div></div>';
   const root = host.firstElementChild;
   let closed = false;
@@ -621,7 +638,7 @@ function setupTyphoonLoad() {
     if (!e.target.closest('#typFetch, #typFetchJma, #typJtwcDl, #tycFetch, #tycFetchJma, #tycJtwcDl, #typHistoryFetch')) return;
     ++typhoonPickSeq; ++jtwcSeq;
     if (typhoonLoadPicker) typhoonLoadPicker.close();
-    $('#typLoadResults').hidden = false; ov.classList.add('has-results');
+    typLoadShowResults(ov);
     $('#typLoadList').innerHTML = '<p class="hint">불러온 태풍 목록이 여기에 표시됩니다. 조회 안내는 화면 알림에서 확인할 수 있어요.</p>';
   }, true);   // 다른 출처를 누르면 이전 출처의 늦은 응답·선택은 취소
   ov.addEventListener('pointerdown', (e) => { if (e.target === ov) closeTyphoonLoad(); });
