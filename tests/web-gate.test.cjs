@@ -1,6 +1,6 @@
 // 웹판 막기(index.html head 맨 앞 인라인 — 2026-10-09: 웹판은 접고 데스크톱 설치판 하나로 간다).
 // 데스크톱 앱(wcgDesktop·app://)과 로컬 개발(file://·localhost·127.x·[::1]·*.localhost)은 그대로, 그 밖(GitHub Pages 등)은
-// 다른 스크립트보다 먼저 '설치판으로 재배포 예정' 카드를 쓰고 나머지 문서는 <plaintext>로 글자만 — 닫기 없음, 저장된 작업(localStorage)은 그대로(쓰기만 막음).
+// 다른 스크립트보다 먼저 '웹 버전은 이제 사용할 수 없어요 — 설치 파일 버전으로 찾아뵙겠습니다' 카드를 쓰고 나머지 문서는 <plaintext>로 글자만 — 닫기 없음, 저장된 작업(localStorage)은 그대로(쓰기만 막음).
 // 판정 함수(wcgGateOf)는 호스트별 표로, 스크립트 전체는 가짜 window·document·Storage(vm)로 돌려 본다.
 // 실제 브라우저에서는 로컬 서버를 LAN 주소로 열어(막힘)·localhost로 열어(안 막힘) 따로 봤다(보고서).
 const test = require('node:test');
@@ -102,7 +102,8 @@ test('막힘 — 카드를 쓰고 나머지 문서는 <plaintext>로 글자만(c
   assert.match(h, /^<div id="wcgWebGate" role="alertdialog" aria-modal="true" aria-labelledby="wcgWebGateT" style="position:fixed;inset:0;z-index:2147483647;/);
   assert.match(h, /<plaintext style="display:none">$/, '맨 끝에 plaintext — 뒤 문서가 태그로 안 읽힌다');
   assert.equal((h.match(/<div\b/g) || []).length, (h.match(/<\/div>/g) || []).length, '카드 div 짝이 맞아야(plaintext가 카드 밖)');
-  assert.match(h, />날씨 CG 메이커는 설치판으로 재배포 예정입니다</);
+  assert.match(h, />웹 버전은 이제 사용할 수 없어요</);   // 10-09 사용자 문구
+  assert.match(h, /<b>설치 파일 버전<\/b>으로 찾아뵙겠습니다/);
   assert.match(h, /팀 공지/);
   assert.doesNotMatch(h, /<button|<a |onclick|href=|<script/i, '닫기·링크·스크립트 없음');
   assert.match(h, /background:#0f0f0f/, '어두운 테마');
