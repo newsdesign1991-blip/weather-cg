@@ -586,6 +586,7 @@ function syncPanelFromState() {
   $('#shOp').value = s.op; $('#shOpV').textContent = s.op;
   $('#shCol').value = s.col; $('#shColHex').value = s.col;
   syncInsetPanel(); refreshPanel(); markCgMode();
+  buildWrnCols();   // 특보 종류별 색 — 사이드바 버튼 점·떠 있는 팝업도 되돌리기·불러오기·배치 적용 뒤 상태로(js/warnings-load.js)
 }
 
 // CG 밝은/어두운 모드 — 배경·베이스색·경계선·실루엣·기본 폰트색을 한 세트로 바꾼다.

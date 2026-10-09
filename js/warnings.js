@@ -351,7 +351,7 @@ function wrnResultView(r) {
     if (r.pre && r.pre.length) lines.push(`예비특보(${wrnNameList(r.pre)})는 아직 발효 전이라 꺼 두었어요 — 아래 목록에서 켤 수 있어요`);
     if (r.up && r.up.length) lines.push(`곧 발효될 특보(${wrnNameList(r.up)})가 있어요 — 위 ‘통보문’에서 ‘발효 예정’ 시각을 고르면 볼 수 있어요`);
     if (k === 'none' && r.rel && r.rel.length) lines.push(`이미 해제된 특보(${wrnNameList(r.rel)})는 칠하지 않았어요 — 위 ‘통보문’에서 지난 시각을 고르면 그때 모습을 볼 수 있어요`);
-    if (r.added && r.added.length) lines.push(`처음 보는 특보(${wrnNameList(r.added)})는 회색으로 넣었어요 — 아래 ‘특보 종류별 색’에서 바꾸세요`);
+    if (r.added && r.added.length) lines.push(`처음 보는 특보(${wrnNameList(r.added)})는 회색으로 넣었어요 — 아래 ‘특보 종류별 색’ 버튼에서 바꾸세요`);
     const actions = tone === 'warn' ? [{ id: 'open', label: WRN_ACT_LABEL.open }] : [];
     return { tone, title, meta, lines, detail: tone === 'warn' && r.sample ? `읽지 못한 줄: ${r.sample}` : '', actions, toast: title };
   }

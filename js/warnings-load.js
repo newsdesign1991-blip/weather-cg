@@ -1,4 +1,4 @@
-/* [모듈] js/warnings-load.js — 특보 불러오기(fetchWrn)·결과 카드(showWrnResult), 특보 열(buildWrnCols) */
+/* [모듈] js/warnings-load.js — 특보 불러오기(fetchWrn)·결과 카드(showWrnResult), 특보 종류별 색(사이드바 버튼 점 buildWrnCols + 2분할 팝업 openWrnColPop) */
 'use strict';
 
 // 특보를 '기상청에서 불러오기' — 태풍과 같은 내장 WNS 헬퍼(127.0.0.1:3720) /api/kma 프록시로 CORS 우회.
@@ -99,36 +99,324 @@ async function fetchWrn(keepSel, retry, opts) {
   }
 }
 
-// 특보 종류별 색 편집 줄
-function buildWrnCols() {
-  const w = $('#wrnCols');
-  w.textContent = '';
-  for (const k of Object.keys(S.wrnColors)) {
-    const row = document.createElement('div');
-    row.className = 'row';
-    row.innerHTML = `<label>${k}</label>` +
-      `<input type="color" data-w="${k}" data-i="0"><input type="text" data-wh="${k}" data-i="0">` +
-      `<input type="color" data-w="${k}" data-i="1"><input type="text" data-wh="${k}" data-i="1">`;
-    w.append(row);
+// 특보 종류별 색 편집 줄 → 사이드바엔 버튼 하나(#wrnColBtn — 오른쪽 점 = 종류별 경보 색 미리보기)와 '특보 종류별 색' 팝업(#wrnColOv).
+// (옛 사이드바 격자 — 종류마다 색 칸 + #hex 두 쌍이 줄줄이 — 를 팝업으로 옮겼다. 2026-10-09 사용자 요청)
+// 팝업 = 장면 설정 창과 같은 모양·2분할: 왼쪽 특보 종류(S.wrnColors 키 순서 = '위가 우선' — wrnRank·defaultWrnOrder의 종류 순서),
+// 오른쪽 고른 특보의 단계마다 큰 색 칸·#hex·그 색으로 칠한 지도 조각.
+// 저장 자리는 옛 격자·들어온 특보 목록과 같다(되돌리기·자동 저장·배치(PRESET_KEYS)·설정 옮기기가 그대로 따라온다):
+//   주의보·경보 = S.wrnColors[종류] = [주의보, 경보](옛 격자 자리) · 그 밖의 단계(예비·중대경보 …) = S.wrnLevelColors['종류|단계'](setWrnLevelColor).
+//   칠은 wrnColorOf — 정확한 단계 색이 있으면 그것, 없으면 이름에 '경보'가 들어가면 경보 색, 아니면 주의보 색(예비특보 = 주의보 색).
+// buildWrnCols = 버튼 점 다시 그리기 + 팝업이 떠 있으면 제자리 갱신. 부팅·배치 적용·처음 보는 특보(회색 추가)·syncPanelFromState(되돌리기·불러오기)가 부른다.
+// 팝업은 한 번만 만들어 두고(index.html) class 'on'으로 열고 닫는다. 색 칸을 끄는 동안 칸을 다시 만들면 색 고르기 창이 닫히므로 값만 바꾼다.
+const WRN_COL_LV = { 예비: '예비특보' };   // 단계 화면 이름(데이터 LVL '예비')
+const WRN_COL_DESC = {
+  예비: '발효 전 예고예요 · 들어오면 기본으로 꺼 둬요(들어온 특보에서 눈으로 켜기)',
+  주의보: '주의보가 내려진 구역',
+  경보: '경보가 내려진 구역 · 같은 종류 주의보보다 위',
+  중대경보: '가장 높은 단계 · 경보보다 위',
+};
+let wrnColPick = '';          // 팝업에서 고른 특보 종류(닫았다 열어도 기억)
+let _wrnColOpener = null;     // 팝업을 연 버튼(닫으면 포커스를 돌려준다)
+const _wrnChipTpl = {};       // 지도 조각 미리보기 틀(land·sea) — 처음 쓸 때 한 번 만들고 복제해 쓴다
+let _wrnLvDef = null;         // 배포 단계색(DEFAULTS().wrnLevelColors — 폭염 중대경보) — 색을 끄는 동안 자주 읽어서 한 번만 만든다
+const wrnLvDef = () => (_wrnLvDef ||= DEFAULTS().wrnLevelColors);
+function wrnColPopIsOpen() { const ov = document.getElementById('wrnColOv'); return !!(ov && ov.classList.contains('on')); }
+// 종류별 배포 기본색 [주의보, 경보] — 처음 보는 특보는 회색(showWrnAsOf가 넣는 값과 같다)
+const wrnColDefaultsOf = (k) => (WRN_COLORS[k] || ['#C4C4C4', '#8C8C8C']).slice();
+// 이 종류에서 색을 따로 볼 단계 — 예비특보·주의보·경보 + 정해 둔 단계 색(폭염 중대경보 등)·지금 들어온 단계
+function wrnColLevelsOf(k) {
+  const out = ['예비', '주의보', '경보'];
+  const add = (l) => { if (l && !out.includes(l)) out.push(l); };
+  for (const key of Object.keys(ensureWrnLevelColors())) { const i = key.indexOf('|'); if (key.slice(0, i) === k) add(key.slice(i + 1)); }
+  for (const r of wrnRows) if (r.wrn === k) add(r.lvl);
+  return out;
+}
+// 한 단계의 지금 색·기본색·상태. tag: def(기본색) | mine(바꾼 색) | follow(따로 안 정함 — 주의보·경보 색을 따라감)
+function wrnColLevelInfo(k, l) {
+  const base = l === '주의보' ? 0 : l === '경보' ? 1 : -1;
+  const key = wrnColorKey(k, l);
+  const exact = hex(ensureWrnLevelColors()[key]);
+  const col = wrnColorOf(k, l) || '#666666';
+  const defs = wrnColDefaultsOf(k), defExact = hex(wrnLvDef()[key]);
+  const follow = base < 0 && !exact ? (/경보/.test(l) ? '경보' : '주의보') : '';
+  const def = base >= 0 ? defs[base] : (defExact || defs[/경보/.test(l) ? 1 : 0]);
+  const tag = follow ? 'follow' : (col === def ? 'def' : 'mine');
+  const now = wrnRows.filter((r) => r.wrn === k && r.lvl === l && !(S.wrnOff || {})[wrnKeyOf(r)]).length;   // 지금 지도에 칠한(켜 둔) 구역 수
+  return { k, l, name: WRN_COL_LV[l] || l, base, col, def, follow, tag, now };
+}
+// 종류 전체가 배포 기본색 그대로인가(기본색으로 버튼 끄기)
+function wrnColIsDefault(k) {
+  const d = wrnColDefaultsOf(k), c = (S.wrnColors || {})[k] || [];
+  if (hex(c[0]) !== d[0] || hex(c[1]) !== d[1]) return false;
+  const defs = wrnLvDef();
+  return Object.entries(ensureWrnLevelColors()).every(([key, v]) => key.split('|')[0] !== k || hex(v) === hex(defs[key]));
+}
+// 색 바꾸기 — 주의보·경보는 옛 격자 자리(S.wrnColors), 들어온 특보 목록에서 정한 같은 단계 색이 있으면 걷는다(고른 색이 그대로 칠해지게).
+function wrnColSet(k, l, v) {
+  const i = l === '주의보' ? 0 : l === '경보' ? 1 : -1;
+  if (i < 0) { setWrnLevelColor(k, l, v); return; }
+  if (!Array.isArray(S.wrnColors[k])) S.wrnColors[k] = wrnColDefaultsOf(k);
+  S.wrnColors[k][i] = v;
+  delete ensureWrnLevelColors()[wrnColorKey(k, l)];
+}
+// 이 종류만 배포 기본색으로 — 단계 색도 걷고, 배포 단계색(폭염 중대경보)은 ensureWrnLevelColors가 다시 채운다
+function wrnColResetType(k) {
+  S.wrnColors[k] = wrnColDefaultsOf(k);
+  const m = ensureWrnLevelColors();
+  for (const key of Object.keys(m)) if (key.split('|')[0] === k) delete m[key];
+  ensureWrnLevelColors();
+}
+// 색을 바꾼 뒤 — 지도·들어온 특보 목록(옛 격자와 같게, paintWrn이 범례까지) + 버튼 점·팝업
+function wrnColChanged() {
+  if (wrnRows.length) { buildWrnList(); paintWrn(); }
+  buildWrnCols();
+}
+// '#123456' · '123456' · '#abc' → '#123456'꼴(대문자), 아니면 null
+function wrnColHexIn(v) {
+  let s = String(v == null ? '' : v).trim();
+  if (!s.startsWith('#')) s = '#' + s;
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) s = '#' + s.slice(1).split('').map((c) => c + c).join('');
+  return hex(s);
+}
+
+// 지도 조각 미리보기 틀 — 실제 특보 구역 경로 몇 개를 작게(land = 대전 둘레, sea = 남해 바다 — 풍랑). 칠할 구역은 data-k="p".
+function wrnColChipTpl(kind) {
+  if (_wrnChipTpl[kind]) return _wrnChipTpl[kind];
+  const bb = (d) => {
+    const n = String(d).match(/-?\d+(?:\.\d+)?/g) || [];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i + 1 < n.length; i += 2) { const x = +n[i], y = +n[i + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return [x0, y0, x1, y1];
+  };
+  const sea = kind === 'sea';
+  const land = ((MAP.styles.warn || {}).zones || []).filter((z) => !z.inset).map((z) => ({ z, b: bb(z.d), sea: false }));
+  const pool = sea ? (MAP.sea || []).map((z) => ({ z, b: bb(z.d), sea: true })).concat(land) : land;   // 바다 먼저(육지가 위)
+  const c0 = pool.find((q) => q.z.id === (sea ? 'S1311200' : 'L1030100')) || pool[0];
+  if (!c0) return null;
+  const cx = (c0.b[0] + c0.b[2]) / 2, cy = (c0.b[1] + c0.b[3]) / 2;
+  const W = sea ? 420 : 230, H = W * 2 / 3, R = sea ? 150 : 56;   // 조각 크기(지도 좌표)·칠할 반경
+  const x0 = cx - W / 2, y0 = cy - H / 2;
+  const s = document.createElementNS(svgNS, 'svg');
+  s.setAttribute('viewBox', [x0, y0, W, H].map((v) => +v.toFixed(1)).join(' '));
+  s.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  s.append(el('rect', { 'data-k': 'bg', x: x0, y: y0, width: W, height: H }));
+  for (const q of pool) {
+    if (q.b[2] < x0 || q.b[0] > x0 + W || q.b[3] < y0 || q.b[1] > y0 + H) continue;
+    const d = Math.hypot((q.b[0] + q.b[2]) / 2 - cx, (q.b[1] + q.b[3]) / 2 - cy);
+    s.append(el('path', { d: q.z.d, 'data-k': (sea === q.sea && d < R) ? 'p' : (q.sea ? 's' : 'l'), 'vector-effect': 'non-scaling-stroke', 'stroke-width': '.7' }));
   }
-  w.querySelectorAll('input[type=color]').forEach((n) => {
-    n.value = S.wrnColors[n.dataset.w][+n.dataset.i];
-    n.oninput = () => {
-      pushUndo('wrn' + n.dataset.w + n.dataset.i);
-      S.wrnColors[n.dataset.w][+n.dataset.i] = n.value.toUpperCase();
-      w.querySelector(`input[data-wh="${n.dataset.w}"][data-i="${n.dataset.i}"]`).value = n.value.toUpperCase();
-      if (wrnRows.length) { buildWrnList(); paintWrn(); } // 바꾼 색이 바로 보이게
+  return (_wrnChipTpl[kind] = s);
+}
+// 조각 색 — 칠한 구역 = 단계 색, 나머지 = 지금 CG의 바다·바탕·경계선 색(실제 지도와 같은 느낌)
+function wrnColPaintChip(svgEl, col) {
+  for (const n of svgEl.querySelectorAll('[data-k]')) {
+    const k = n.getAttribute('data-k');
+    if (k === 'bg') { n.setAttribute('fill', S.seaBase || '#2A3A63'); continue; }
+    n.setAttribute('fill', k === 'p' ? col : k === 's' ? 'none' : S.base);
+    n.setAttribute('stroke', k === 's' ? (S.seaCol || S.stroke) : (S.cgLight && k === 'p' ? col : S.stroke));
+  }
+}
+
+// 왼쪽 — 특보 종류 목록(종류가 바뀌었을 때만 새로 만들고, 고른 줄·색 점·지도 표시는 제자리 갱신)
+function wrnColRenderList() {
+  const list = $('#wrnColList'); if (!list) return;
+  const keys = Object.keys(S.wrnColors || {});
+  const sig = keys.join('\n');
+  if (list.dataset.sig !== sig) {
+    const had = list.contains(document.activeElement);
+    list.textContent = '';
+    keys.forEach((k, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'wrnColItem'; b.dataset.k = k;
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-controls', 'wrnColDet');
+      b.innerHTML = '<span class="wrnColNo"></span><span class="wrnColNm"></span><span class="wrnColOn" hidden>지도에</span><span class="wrnColPair" aria-hidden="true"></span>';
+      b.querySelector('.wrnColNo').textContent = i + 1;
+      b.querySelector('.wrnColNm').textContent = k;
+      b.onclick = () => wrnColSelect(k);
+      list.append(b);
+    });
+    list.dataset.sig = sig;
+    list._refocus = had;   // 새로 만들기 전에 목록에 포커스가 있었으면 아래에서 고른 줄로 돌려준다
+  }
+  const off = S.wrnOff || {};
+  const live = new Set(wrnRows.filter((r) => !off[wrnKeyOf(r)]).map((r) => r.wrn));
+  for (const b of list.querySelectorAll('.wrnColItem')) {
+    const k = b.dataset.k, on = k === wrnColPick;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.tabIndex = on ? 0 : -1;   // 목록 안은 ↑↓로 옮긴다(Tab 한 번에 목록을 지나간다)
+    b.querySelector('.wrnColOn').hidden = !live.has(k);
+    const pair = b.querySelector('.wrnColPair'), tip = [];
+    pair.textContent = '';
+    for (const l of wrnColLevelsOf(k)) {
+      const inf = wrnColLevelInfo(k, l);
+      if (inf.follow) continue;   // 따로 안 정한 단계(예비특보 등)는 점을 안 찍는다
+      const dot = document.createElement('i');
+      dot.style.background = inf.col;
+      pair.append(dot);
+      tip.push(`${inf.name} ${inf.col}`);
+    }
+    b.title = `${k} — ${tip.join(' · ')}${live.has(k) ? ' · 지금 지도에 칠함' : ''}`;
+  }
+  if (list._refocus) { list._refocus = false; list.querySelector('.wrnColItem.on')?.focus({ preventScroll: true }); }
+}
+// 오른쪽 — 고른 특보의 단계 카드(종류·단계 목록이 바뀔 때만 새로 만든다)
+function wrnColRenderDet() {
+  const k = wrnColPick, box = $('#wrnColLevels'); if (!box) return;
+  const act = document.activeElement, keepLv = box.contains(act) ? act.closest('.wrnColLv')?.dataset.lvl : null, keepCls = keepLv ? act.className : '';
+  box.textContent = '';
+  $('#wrnColDetName').textContent = k ? `${k} 특보` : '';
+  const levels = k ? wrnColLevelsOf(k) : [];
+  box.dataset.sig = k + '|' + levels.join(',');
+  for (const l of levels) {
+    const card = document.createElement('div');
+    card.className = 'wrnColLv'; card.dataset.lvl = l;
+    card.innerHTML = '<input type="color" class="wrnColSw" title="눌러서 색 고르기">' +
+      '<div class="wrnColLvTxt"><div class="wrnColLvHead"><b></b><span class="wrnColTag"></span><span class="wrnColNow"></span></div>' +
+      '<div class="wrnColLvDesc"></div>' +
+      '<div class="wrnColLvHex"><input type="text" class="wrnColHex" maxlength="7" spellcheck="false" autocomplete="off"><span class="wrnColDef"></span></div></div>' +
+      '<div class="wrnColChip" aria-hidden="true"></div>';
+    const name = `${k} ${WRN_COL_LV[l] || l}`;
+    card.querySelector('b').textContent = WRN_COL_LV[l] || l;
+    card.querySelector('.wrnColLvDesc').textContent = WRN_COL_DESC[l] || '이 단계가 내려진 구역';
+    const tpl = wrnColChipTpl(k === '풍랑' ? 'sea' : 'land');   // 풍랑은 바다에만 내린다
+    if (tpl) card.querySelector('.wrnColChip').append(tpl.cloneNode(true));
+    const sw = card.querySelector('.wrnColSw'), hx = card.querySelector('.wrnColHex');
+    sw.setAttribute('aria-label', `${name} 색 고르기`);
+    hx.setAttribute('aria-label', `${name} 색 코드 (#RRGGBB)`);
+    // 색 칸 — 끄는 동안 계속 온다: 같은 단계는 한 번의 되돌리기로 묶는다(옛 격자와 같게)
+    sw.oninput = () => {
+      const v = hex(sw.value.toUpperCase());
+      if (!v) return;
+      pushUndo('wrncol|' + k + '|' + l);
+      wrnColSet(k, l, v); wrnColChanged();
     };
-  });
-  w.querySelectorAll('input[type=text]').forEach((n) => {
-    n.value = S.wrnColors[n.dataset.wh][+n.dataset.i];
-    n.onchange = () => {
-      const v = hex(n.value.trim());
-      if (!v) { n.value = S.wrnColors[n.dataset.wh][+n.dataset.i]; return; }
+    // #hex — Enter·포커스 이동 때. 잘못 넣으면 지금 색으로 되돌리고 잠깐 빨간 테두리
+    hx.onchange = () => {
+      const v = wrnColHexIn(hx.value);
+      if (!v) { hx.value = hx.dataset.v || ''; hx.classList.remove('bad'); void hx.offsetWidth; hx.classList.add('bad'); clearTimeout(hx._badT); hx._badT = setTimeout(() => hx.classList.remove('bad'), 1400); return; }
+      hx.value = v;
+      if (v === hx.dataset.v && wrnColLevelInfo(k, l).tag !== 'follow') return;   // 같은 색(따라가던 단계는 같은 색이어도 이 단계 색으로 정한다)
       pushUndo();
-      S.wrnColors[n.dataset.wh][+n.dataset.i] = v;
-      w.querySelector(`input[data-w="${n.dataset.wh}"][data-i="${n.dataset.i}"]`).value = v;
-      if (wrnRows.length) { buildWrnList(); paintWrn(); }
+      wrnColSet(k, l, v); wrnColChanged();
     };
+    hx.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); hx.dispatchEvent(new Event('change')); } };
+    box.append(card);
+  }
+  wrnColSyncDet();
+  if (keepLv) box.querySelector(`.wrnColLv[data-lvl="${CSS.escape(keepLv)}"] ${keepCls.includes('wrnColHex') ? '.wrnColHex' : '.wrnColSw'}`)?.focus({ preventScroll: true });
+}
+// 단계 카드 값만 제자리 갱신(색 칸·#hex·상태·지도 조각) — 색 고르기 창이 열린 채로도 안전
+function wrnColSyncDet() {
+  const k = wrnColPick, box = $('#wrnColLevels'); if (!box || !k) return;
+  for (const card of box.querySelectorAll('.wrnColLv')) {
+    const inf = wrnColLevelInfo(k, card.dataset.lvl);
+    card.dataset.tag = inf.tag;
+    const sw = card.querySelector('.wrnColSw'), hx = card.querySelector('.wrnColHex');
+    if (sw.value.toUpperCase() !== inf.col) sw.value = inf.col;
+    const editing = document.activeElement === hx && hx.value.trim().toUpperCase() !== (hx.dataset.v || '');   // 고치던 글자는 그대로
+    if (!editing) hx.value = inf.col;
+    hx.dataset.v = inf.col;
+    const tag = card.querySelector('.wrnColTag');
+    tag.dataset.tag = inf.tag;
+    tag.textContent = inf.tag === 'follow' ? `${inf.follow} 색 따라감` : inf.tag === 'mine' ? '바꾼 색' : '기본색';
+    card.querySelector('.wrnColNow').textContent = inf.now ? `지금 ${inf.now}구역` : '';
+    card.querySelector('.wrnColDef').textContent = inf.tag === 'mine' ? `기본 ${inf.def}` : inf.tag === 'follow' ? '고르면 이 단계만 따로 칠해요' : '';
+    const chip = card.querySelector('.wrnColChip svg');
+    if (chip) wrnColPaintChip(chip, inf.col);
+  }
+}
+// 팝업 전체를 지금 상태에 맞춘다(열 때·색을 바꾼 뒤·되돌리기 뒤)
+function wrnColSyncPop() {
+  const keys = Object.keys(S.wrnColors || {});
+  if (!keys.includes(wrnColPick)) {   // 처음엔 지금 지도에 칠한 특보부터
+    const live = wrnRows.find((r) => keys.includes(r.wrn));
+    wrnColPick = live ? live.wrn : (keys[0] || '');
+  }
+  wrnColRenderList();
+  const box = $('#wrnColLevels');
+  if (box && box.dataset.sig !== wrnColPick + '|' + (wrnColPick ? wrnColLevelsOf(wrnColPick) : []).join(',')) wrnColRenderDet();
+  else wrnColSyncDet();
+  const rs = $('#wrnColReset'); if (rs) rs.disabled = !wrnColPick || wrnColIsDefault(wrnColPick);
+  const cnt = $('#wrnColCount'); if (cnt) cnt.textContent = `${keys.length}종`;
+}
+function wrnColSelect(k, focus) {
+  if (!k) return;
+  wrnColPick = k;
+  wrnColSyncPop();
+  const b = $(`#wrnColList .wrnColItem[data-k="${CSS.escape(k)}"]`);
+  if (b) { b.scrollIntoView({ block: 'nearest' }); if (focus) b.focus({ preventScroll: true }); }
+}
+
+// 사이드바 버튼의 점(앞 6종의 경보 색) + 팝업이 떠 있으면 제자리 갱신
+function buildWrnCols() {
+  const dots = $('#wrnColDots');
+  const keys = Object.keys(S.wrnColors || {});
+  if (dots) {
+    dots.textContent = '';
+    for (const k of keys.slice(0, 6)) { const d = document.createElement('i'); d.style.background = wrnColorOf(k, '경보') || '#666666'; dots.append(d); }
+  }
+  const b = $('#wrnColBtn'); if (b) b.title = `특보 ${keys.length}종의 단계별 색을 보고 바꿔요`;
+  if (wrnColPopIsOpen()) wrnColSyncPop();
+}
+function openWrnColPop(k) {
+  const ov = $('#wrnColOv'); if (!ov) return;
+  if (_closeMenu) _closeMenu();   // 열려 있던 드롭다운(프로젝트·설정)은 닫는다
+  if (k && (S.wrnColors || {})[k]) wrnColPick = k;
+  if (!wrnColPopIsOpen()) _wrnColOpener = document.activeElement;
+  ov.classList.add('on'); ov.setAttribute('aria-hidden', 'false');
+  document.documentElement.classList.add('wrnColOpen');   // 데스크톱: 막 아래 제목줄을 창 끌기 영역에서 뺀다(바깥 클릭 = 닫기)
+  $('#wrnColBtn')?.classList.add('on');
+  wrnColSyncPop();
+  $(`#wrnColList .wrnColItem.on`)?.scrollIntoView({ block: 'nearest' });
+  setTimeout(() => { if (!wrnColPopIsOpen()) return; const f = $('#wrnColList .wrnColItem.on') || ov.querySelector('.cgSetupCard'); try { f.focus({ preventScroll: true }); } catch (e) {} }, 40);
+}
+function closeWrnColPop() {
+  const ov = $('#wrnColOv'); if (!ov || !ov.classList.contains('on')) return;
+  ov.classList.remove('on'); ov.setAttribute('aria-hidden', 'true');
+  document.documentElement.classList.remove('wrnColOpen');
+  $('#wrnColBtn')?.classList.remove('on');
+  const back = _wrnColOpener; _wrnColOpener = null;
+  if (back && back.focus && document.contains(back) && !$('#tourWrap')?.classList.contains('on')) { try { back.focus({ preventScroll: true }); } catch (e) {} }
+}
+// 배선(wire()에서 한 번) — 사이드바·떼어낸 창 어디에 있든 버튼 자체에 붙인다(섹션은 옮겨 담을 뿐 다시 만들지 않는다)
+function setupWrnColPop() {
+  const ov = $('#wrnColOv'); if (!ov) return;
+  $('#wrnColBtn').onclick = (e) => { e.stopPropagation(); openWrnColPop(); };
+  $('#wrnColX').onclick = closeWrnColPop;
+  $('#wrnColDone').onclick = closeWrnColPop;
+  $('#wrnColReset').onclick = () => {
+    const k = wrnColPick;
+    if (!k || wrnColIsDefault(k)) return;
+    pushUndo();
+    wrnColResetType(k); wrnColChanged();
+  };
+  // 목록 안 ↑↓·Home·End — 고르면서 옮긴다
+  $('#wrnColList').onkeydown = (e) => {
+    const items = [...$('#wrnColList').querySelectorAll('.wrnColItem')];
+    const i = items.findIndex((b) => b.dataset.k === wrnColPick);
+    const to = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : null;
+    if (to == null || !items.length) return;
+    e.preventDefault();
+    wrnColSelect(items[Math.max(0, Math.min(items.length - 1, to))].dataset.k, true);
+  };
+  // 바깥(어두운 막) 클릭 = 닫기 — 누른 곳·뗀 곳이 둘 다 막일 때만(장면 설정과 같게)
+  let downOnOv = false;
+  ov.addEventListener('pointerdown', (e) => { downOnOv = e.target === ov; });
+  ov.addEventListener('click', (e) => { if (e.target === ov && downOnOv) closeWrnColPop(); downOnOv = false; });
+  // 위에 떠 있는 다른 창(확인창·토스 모달 등)이 먼저 키를 받는다 — 닫히는 중(.popClosing)인 창은 빼고
+  const above = () => $('#tourWrap')?.classList.contains('on') || document.querySelector('#tossOv:not(.popClosing)') || $('#confirmOverlay.on:not(.popClosing)') || $('#slotOverlay.on:not(.popClosing)');
+  window.addEventListener('keydown', (e) => {
+    if (!wrnColPopIsOpen() || above()) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeWrnColPop(); return; }
+    if (e.key === 'Tab') { popTrapTab(ov.querySelector('.cgSetupCard'), e); return; }
+    // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — 떠 있는 동안 뒤의 지도 단축키는 막혀 있으므로(pointer-drag) 되돌리기·다시 실행만 여기서.
+    // #hex 칸에 고치던 글자가 있으면 그 글자 되돌리기(브라우저 기본)에 맡긴다
+    const key = String(e.key || '').toLowerCase();
+    if (!(e.ctrlKey || e.metaKey) || (key !== 'z' && key !== 'y')) return;
+    const t = e.target;
+    if (t && t.classList && t.classList.contains('wrnColHex') && t.value.trim().toUpperCase() !== (t.dataset.v || '')) return;
+    e.preventDefault();
+    if (key === 'y' || e.shiftKey) redo(); else undo();
   });
 }

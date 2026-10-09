@@ -95,6 +95,7 @@
      드롭다운 close()가 menuOpen 을 지우므로 클래스를 따로 둔다. */
   html.isDesktop.cgsOpen .titlebar { -webkit-app-region: no-drag; }
   html.isDesktop.exOpen .titlebar { -webkit-app-region: no-drag; }   /* 이미지로 추출 팝업도 같게(바깥 클릭 = 닫기) */
+  html.isDesktop.wrnColOpen .titlebar { -webkit-app-region: no-drag; }   /* 특보 종류별 색 팝업도 같게 */
   /* 좁은 창 — 글자 메뉴 여백부터 줄여 한 줄에 다 들어가게 (창 버튼·서로 안 겹치게) */
   @media (max-width: 1280px) {
     #titlebar .tbMenu { padding: 0 7px; }

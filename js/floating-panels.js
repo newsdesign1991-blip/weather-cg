@@ -117,6 +117,7 @@ const TITLEBAR_DIM = [
   ['#tossOv', ''], ['#confirmOverlay.on', ''], ['#slotOverlay.on', ''], ['#bulHelpPop.on', ''], ['#dropHint.on', ''],
   ['#cgSetupOv.on', 'var(--pop-ov)'],   // CG 구성 창 — 막이 서서히 나타나 배경색 대신 최종 색(.cgSetupOv 배경과 같은 변수, 테마마다 다름)을 읽는다
   ['#exportOv.on', 'var(--pop-ov)'],    // 이미지로 추출 팝업 — CG 구성 창과 같은 막
+  ['#wrnColOv.on', 'var(--pop-ov)'],    // 특보 종류별 색 팝업 — 같은 막
 ];
 function titleBarDimLayers() {
   const out = [];

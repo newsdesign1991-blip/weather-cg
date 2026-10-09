@@ -122,7 +122,7 @@
 <link rel="stylesheet" href="css/base.css?v=93e1dc90">
 <link rel="stylesheet" href="css/sidebar.css?v=75433dcf">
 <link rel="stylesheet" href="css/stage.css?v=3aa470dd">
-<link rel="stylesheet" href="css/titlebar.css?v=353806b1">
+<link rel="stylesheet" href="css/titlebar.css?v=2af95c0c">
 <link rel="stylesheet" href="css/start-tour.css?v=36750797">
 <link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
@@ -305,6 +305,51 @@
   </div>
 </div>
 
+<!-- 특보 종류별 색 — 장면 설정 창과 같은 모양(클래스 재사용, 차이는 wrnCol* 클래스만). 왼쪽 = 특보 종류(위가 우선 — 겹치면 위 특보 색),
+     오른쪽 = 고른 특보의 단계(예비특보·주의보·경보·중대경보)마다 큰 색 칸·#hex·그 색으로 칠한 지도 조각. 바꾸면 바로 지도에 칠하고 Ctrl+Z로 되돌린다.
+     창은 한 번만 만들어 두고 class 'on'으로 열고 닫는다(js/warnings-load.js openWrnColPop·closeWrnColPop). 사이드바 #wrnColBtn 이 연다. -->
+<div class="cgSetupOv wrnColOv" id="wrnColOv" aria-hidden="true">
+  <div class="cgSetupCard wrnColCard" role="dialog" aria-modal="true" aria-labelledby="wrnColTitle" tabindex="-1">
+    <div class="cgsHead">
+      <div class="cgsHeadTxt">
+        <div class="cgsTitle" id="wrnColTitle">특보 종류별 색</div>
+        <div class="cgsSub">특보를 고르면 단계마다 지도에 칠해지는 색을 보고 바꿀 수 있어요</div>
+      </div>
+      <button class="cgsX" id="wrnColX" aria-label="닫기" title="닫기 (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="cgsBody wrnColBody">
+      <section class="cgsPane cgsPaneRes wrnColPaneList" aria-labelledby="wrnColListTitle">
+        <div class="cgsPaneHead">
+          <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L1.2 21h21.6zm-1.2 6h2.4v6h-2.4zm0 8h2.4v2.4h-2.4z"/></svg></span>
+          <div class="cgsPaneTxt">
+            <div class="cgsPaneTitle" id="wrnColListTitle">특보 종류</div>
+            <div class="cgsPaneSub">위가 우선 — 한 구역에 겹치면 위에 있는 특보 색으로 칠해요</div>
+          </div>
+          <span class="cgsPick on" id="wrnColCount"></span>
+        </div>
+        <div class="wrnColList" id="wrnColList" role="tablist" aria-orientation="vertical" aria-label="특보 종류"></div>
+        <p class="cgsNote">같은 종류는 <b>중대경보 → 경보 → 주의보</b> 순이에요. 들어온 특보 목록에서 끌어 바꾼 순서가 있으면 그 순서가 먼저예요.</p>
+      </section>
+      <section class="cgsPane cgsPaneStyle wrnColPaneDet" id="wrnColDet" role="tabpanel" aria-labelledby="wrnColDetName">
+        <div class="cgsPaneHead">
+          <span class="cgsPaneIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.6s-6.6 7.1-6.6 12a6.6 6.6 0 0013.2 0c0-4.9-6.6-12-6.6-12z"/></svg></span>
+          <div class="cgsPaneTxt">
+            <div class="cgsPaneTitle" id="wrnColDetName"></div>
+            <div class="cgsPaneSub" id="wrnColDetSub">단계마다 칠해지는 색 · 큰 색 칸을 눌러 바꿔요</div>
+          </div>
+          <button type="button" class="cgsPick wrnColReset" id="wrnColReset" title="이 특보만 배포 기본색으로 되돌려요 (Ctrl+Z로 취소)">기본색으로</button>
+        </div>
+        <div class="wrnColLevels" id="wrnColLevels"></div>
+        <p class="cgsNote" id="wrnColNote">육상·해상 구역은 같은 색으로 칠해요 — 바다는 ‘특보 + 해상’ 지도에서 보여요.</p>
+      </section>
+    </div>
+    <div class="cgsFoot">
+      <div class="cgsSummary" id="wrnColSum">바꾼 색은 바로 지도에 칠해져요 · <b>Ctrl+Z</b>로 되돌리기</div>
+      <button class="cgsDone" id="wrnColDone">완료</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <div class="panelResize" id="panelResize" title="끌어서 사이드바 크기 조절"></div>
   <aside class="panel" id="panel">
@@ -482,8 +527,15 @@
         </div>
         <div id="wrnList"></div>
         <p class="hint" id="wrnInfo"></p>
-        <div class="subhead">특보 종류별 색 <span>· 주의보 / 경보 · 위가 우선</span></div>
-        <div id="wrnCols"></div>
+        <!-- 특보 종류별 색 — 사이드바엔 버튼 하나(오른쪽 점 = 종류별 경보 색 미리보기, js/warnings-load.js buildWrnCols).
+             누르면 '특보 종류별 색' 팝업(#wrnColOv): 왼쪽 특보 종류(위가 우선) · 오른쪽 고른 특보의 단계별 색(예비특보·주의보·경보·중대경보) -->
+        <div class="wrnColRow">
+          <button type="button" class="wrnColBtn" id="wrnColBtn" aria-haspopup="dialog" aria-controls="wrnColOv" title="특보 종류마다 단계별로 칠해지는 색을 보고 바꿔요">
+            <span class="wrnColBtnTxt">특보 종류별 색</span>
+            <span class="wrnColDots" id="wrnColDots" aria-hidden="true"></span>
+            <svg class="wrnColBtnGo" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1310,7 +1362,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="place-data.js" onerror="window.PLACE_GAZ=null"></script>
 <script src="fct-data.js"></script>
 <script src="img-data.js"></script>
-<script src="js/core.js?v=18ffceb7"></script>
+<script src="js/core.js?v=573ec611"></script>
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
 <script src="js/map-build.js?v=13856c4c"></script>
@@ -1322,7 +1374,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/typhoon-panel.js?v=97c592c4"></script>
 <script src="js/typhoon-api.js?v=e7d25fdf"></script>
 <script src="js/typhoon-jtwc.js?v=6e4f030c"></script>
-<script src="js/panels.js?v=4db9d5f9"></script>
+<script src="js/panels.js?v=2a053688"></script>
 <script src="js/view-camera.js?v=2bda1a60"></script>
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
 <script src="js/pointer-drag.js?v=abf1c8e3"></script>
@@ -1331,7 +1383,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/bulletin.js?v=d72e065a"></script>
 <script src="js/bulletin-load.js?v=bebef3be"></script>
 <script src="js/forecast-panel.js?v=40d42aed"></script>
-<script src="js/warnings-load.js?v=c8ba991c"></script>
+<script src="js/warnings-load.js?v=b484d5f5"></script>
 <script src="js/presets.js?v=27fad655"></script>
 <script src="js/cg-setup.js?v=df117938"></script>
 <script src="js/modals-notices.js?v=fd41c6a3"></script>

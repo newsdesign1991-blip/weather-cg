@@ -253,6 +253,7 @@ function wire() {
   foldWire($('#typManual'), 'wcg_typ_manual_open');
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value, null, 'paste');
   $('#wrnFetch').onclick = () => fetchWrn();   // 인자 없이(=목록 새로 만듦). onclick이 이벤트를 keepSel로 넘기지 않게 감쌈.
+  setupWrnColPop();   // '특보 종류별 색' 버튼 → 2분할 팝업(js/warnings-load.js) — 옛 사이드바 색 격자 자리
   // 발효시각을 고르면 그 시각으로 '재요청'해서 정확한 발효현황을 받아 칠한다(picker와 동일). 목록은 그대로 둠.
   { const bs = $('#wrnBulletinSel'); if (bs) bs.onchange = async () => {
       const v = bs.value, prevWhen = wrnWhen, prevFc = wrnSelFc;
