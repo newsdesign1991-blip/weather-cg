@@ -325,8 +325,8 @@ if (want('anim')) {
     S.anim.reveal = reveal; autoTracks();
     const t = +(anim().dur * frac).toFixed(3);
     animSeek(t); await sleep(120);
-    const st = { t, before: { animT, mapBase: !!document.getElementById('L_mapBase') } };
-    if (nm === 'blindsEnd') {   // 안전망만(정지 화면으로 안 돌리고 굽기) — 블라인드 베이스 지도가 안 섞인다
+    const st = { t, before: { animT, reveal: anim().reveal, mapBase: !!document.getElementById('L_mapBase') } };
+    if (nm === 'blindsEnd') {   // 옛 블라인드 설정도 지금은 번짐으로 정규화 — 폐지한 베이스 지도가 섞이지 않는다
       const raw = await pix(await exportBake('fills'));
       st.rawFillsOut = cmp(raw, base['색칠만.png']).out;
     }

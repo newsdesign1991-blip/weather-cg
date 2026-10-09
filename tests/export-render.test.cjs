@@ -74,15 +74,16 @@ test('R3 색칠만 — 칠한 구역끼리 맞닿은 곳의 투명 이음새가 
   assert.ok(s.n_sgg_tri.fills < s.n_sgg_tri.merged * 0.2, '여러 색이 맞닿아도 틈이 없다');
 });
 
-test('R4 타임라인 미리보기(블라인드 끝·중간, 번짐 중간)에서 뽑아도 정지 화면과 같고, 끝나면 미리보기가 그대로', { skip: SKIP }, () => {
+test('R4 옛 블라인드 설정은 번짐으로 전환되고, 미리보기 중 뽑아도 정지 화면과 같고 미리보기를 복원한다', { skip: SKIP }, () => {
   const a = run().anim;
   for (const [nm, st] of Object.entries(a)) {
     for (const [f, d] of Object.entries(st.diff)) assert.equal(d, 0, `${nm}/${f} 정지 화면과 다름`);
     assert.equal(st.after.animT, st.before.animT, `${nm} 미리보기 시각`);
-    assert.equal(st.after.mapBase, st.before.mapBase, `${nm} 블라인드 미리보기 복원`);
+    assert.equal(st.before.reveal, 'dissolve', `${nm} 폐지된 영상 블라인드 대신 번짐`);
+    assert.equal(st.after.mapBase, st.before.mapBase, `${nm} 미리보기 복원`);
   }
-  assert.equal(a.blindsEnd.before.mapBase, true, '블라인드 베이스 지도가 있는 상태에서 점검');
-  assert.equal(a.blindsEnd.rawFillsOut, 0, '정지 화면으로 안 돌려도 복제본 안전망이 베이스 지도를 뺀다');
+  assert.equal(a.blindsEnd.before.mapBase, false, '폐지된 영상 블라인드 베이스를 만들지 않는다');
+  assert.equal(a.blindsEnd.rawFillsOut, 0, '옛 설정에서 뽑아도 베이스 지도가 섞이지 않는다');
 });
 
 test('R5 3D 기울기 — 전체 화면 = 영상 한 프레임, 색칠만도 기울어 나온다, 라벨은 평평', { skip: SKIP }, () => {
