@@ -101,7 +101,7 @@ test('사용자 요청(10-09): 저장(플로피)은 AE로 보내기 오른쪽, �
 
 test('렌더 3버튼 — 한 묶음(세그먼트, 같은 폭), 아이콘 + 글자, 채운 아이콘(currentColor)·AE는 에펙 로고 모양, 맨 왼쪽 앱 아이콘 없음', () => {
   // 사용자 요청(10-09): 세 버튼을 한 묶음으로(글자는 그대로), AE는 에펙 로고 모양을 우리 색으로 — Ae 글자는 마스크로 뚫어 가운데
-  assert.match(html, /#titlebar #exportGroup \{ display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px;[^}]*overflow: hidden;/);
+  assert.match(html, /#titlebar #exportGroup \{ display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px;[^}]*border: 1px solid var\(--tb-act-ring\);[^}]*overflow: hidden; background: var\(--tb-act-ring\) padding-box;/);
   assert.match(html, /#titlebar #exportGroup \.tbAction \{[^}]*border-radius: 0;/);
   assert.doesNotMatch(html, /#exportGroup \.tbLbl \{/, '글자는 보인다');
   assert.match(html, /#titlebar \.tbAction \{[^}]*justify-content: center;/);

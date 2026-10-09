@@ -53,7 +53,7 @@
      그래서 버튼 바탕은 불투명 틴트(--tb-act-solid). AE 아이콘은 에펙 로고 모양(둥근 사각 + Ae)을 우리 파랑(currentColor)으로 — 글자는 마스크로 뚫어 버튼 바탕이 비친다 */
   :root, :root[data-theme="dark"] { --tb-act-solid: color-mix(in srgb, #4a94ff 15%, var(--surface)); --tb-act-solid-hover: color-mix(in srgb, #4a94ff 27%, var(--surface)); }
   :root[data-theme="light"] { --tb-act-solid: color-mix(in srgb, #3182f6 11%, #ffffff); --tb-act-solid-hover: color-mix(in srgb, #3182f6 20%, #ffffff); }
-  #titlebar #exportGroup { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; padding: 1px; border-radius: 9px; overflow: hidden; background: var(--tb-act-ring); }
+  #titlebar #exportGroup { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; padding: 0; border: 1px solid var(--tb-act-ring); border-radius: 9px; overflow: hidden; background: var(--tb-act-ring) padding-box; }   /* 테두리는 border(안쪽 반경으로 깔끔히 잘림), 사이 줄은 gap 으로 비친 바탕 — 둘 다 같은 색 한 겹 */
   #titlebar #exportGroup .tbAction { height: 26px; padding: 0 12px; border-radius: 0; box-shadow: none; background: var(--tb-act-solid); }
   #titlebar #exportGroup .tbAction:hover { background: var(--tb-act-solid-hover); }
   #titlebar #exportGroup .tbAction.on, #titlebar #exportGroup .tbAction.pri { background: var(--primary); box-shadow: none; }
