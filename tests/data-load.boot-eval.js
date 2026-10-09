@@ -5,6 +5,7 @@ const originalFetch=window.fetch, requests=[], captured=[];
 const fixture=async name=>JSON.parse(await (await originalFetch('tests/fixtures/datamaps/'+name)).text());
 const uv=await fixture('life-uv.json'), air=await fixture('life-air.json'), forecast=await fixture('dustfcst-pm10.json');
 let failure='', delay=0, missing=false, gwSido='';   // gwSido = 이 시도는 게이트웨이 시간 초과(504 SERVICETIMEOUT — 다시 보내도 계속)
+let fcByDate=null;   // 예보 조회일 → items(있으면 그 날짜 응답을 이것으로 — 오늘 05시 발표 뒤 모양)
 const asked=[];   // [경로, 시도|조회일, searchCondition, numOfRows] — 키는 남기지 않는다
 // 미세먼지 농도 가짜 응답 = DAILY(최근 24시간 시간별 값, 실측 모양): 2026-10-09 01:00 ~ 24:00. 강원 양양군은 마지막 시각 줄이 없다(직전 시각 값으로 보충돼야).
 const dustHours=Array.from({length:24},(_,i)=>`2026-10-09 ${String(i+1).padStart(2,'0')}:00`);
@@ -36,6 +37,7 @@ window.fetch=async function(url,opts){
       return json({response:{header:{resultCode:'00'},body:{items,totalCount:sido==='광주'?0:items.length}}});   // 광주는 총건수 0(실측)
     }
     // 예보: 오늘 조회 = 0건(05시 발표 전 모양) → 앱이 어제 조회를 함께 받아야 한다
+    if(fcByDate&&fcByDate[u.searchParams.get('searchDate')]){const items=fcByDate[u.searchParams.get('searchDate')];return json({response:{header:{resultCode:'00'},body:{items,totalCount:items.length}}});}
     if(u.searchParams.get('searchDate')===dataKstNow().ymd)return json({response:{header:{resultCode:'00',resultMsg:'NORMAL_CODE'},body:{items:[],totalCount:0}}});
     return json(forecast);
   }
@@ -118,6 +120,18 @@ try{
   check(requests.length===kindCalls,'kind switch fetched again (date cache)');
   q('#dfcCode [data-v="PM10"]').click();await pause(200);
   check(requests.length===kindCalls&&dataInfo('dustFcst').code==='PM10'&&Object.keys(fills()).length===19,'kind switch back');
+  // 오늘 05시 발표가 나온 뒤(✓ 10-10 05:22 실측 — PM10·PM25·O3 × 오늘·내일 6줄)엔 오늘 조회 하나로 칠한다 — 어제 조회를 보태지 않는다
+  // (어제 23시 발표의 예보일도 어제·오늘·내일뿐이라 보탤 날이 없다 ✓ 10-10 실측)
+  { const ymd=(dd)=>dataKstNow(Date.now()+dd*864e5).ymd, T=ymd(0), all=DUST_REGIONS.map((r,i)=>`${{강원영서:'영서',강원영동:'영동'}[r]||r} : ${['좋음','보통','나쁨'][i%3]}`).join(',');
+    const row=(iss,day)=>({informCode:'PM10',dataTime:iss,informData:day,informGrade:all,informOverall:'시험'});
+    fcByDate={[T]:[row(T+' 05시 발표',ymd(0)),row(T+' 05시 발표',ymd(1))]};
+    dataCache.clear();const n0=asked.length;
+    check(await fetchDustFcst()===true,'forecast with today 05 issue failed: '+q('#dfcResult').textContent);
+    const fi=dataInfo('dustFcst');
+    check(asked.slice(n0).map(a=>a[1]).join()===T,'today issue present: only today asked: '+JSON.stringify(asked.slice(n0)));
+    check(dfcDays(fi,fi.issue).join()===[ymd(0),ymd(1)].join()&&fi.day===T&&fi.yday===false,'today 05 issue days');
+    check(!/어제 발표를 썼어요/.test(q('#dfcResult').textContent)&&Object.keys(fills()).length===19,'today issue card');
+    fcByDate=null;dataCache.clear();check(await fetchDustFcst()===true,'forecast restore');}
   const fcCalls=requests.length;
   const day=q('#dfcDay');day.value=[...day.options].map(x=>x.value).find(x=>x!==dataInfo('dustFcst').day);day.dispatchEvent(new Event('change',{bubbles:true}));
   check(requests.length===fcCalls,'day fetched again');
