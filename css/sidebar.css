@@ -128,11 +128,11 @@
   #panel > .sec.flash { animation-name: flashSecFlat; }
   /* 플로팅 — 근무표 카드처럼 창 가장자리에서 띄운 둥근 사각형(반경 20, 반사 테두리, 부드러운 그림자) */
   #panel {
-    margin: 10px 0 10px 10px; border-radius: 20px; border: 1px solid transparent;
+    margin: 0 0 10px 10px; border-radius: 20px; border: 1px solid transparent;
     background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
     box-shadow: var(--shadow-card);
   }
-  .app.dockR #panel { margin: 10px 10px 10px 0; box-shadow: var(--shadow-card); }
+  .app.dockR #panel { margin: 0 10px 10px 0; box-shadow: var(--shadow-card); }
   /* 크기 조절 — 손잡이(바·알약) 없이 사이드바 끝선을 잡고 끌면 된다(보이지 않는 잡기 영역 + 좌우 커서) */
   .panelResize, .panelResize:hover, .panelResize.on { background: transparent; border-left: 0; }
   .panelResize::after { display: none; }

@@ -5,7 +5,7 @@
      데스크톱(html.isDesktop): 빈 곳을 끌면 창 이동·더블클릭 최대화, 오른쪽 끝엔 윈도 창 버튼이 겹쳐 그려진다
      (Window Controls Overlay) — env(titlebar-area-*)로 그 자리를 비운다. 웹에선 env 값이 없어 평소 여백.
      높이 --tbH 는 desktop/main.js 의 TITLEBAR_H 와 같아야 한다. */
-  :root { --tbH: 36px; }
+  :root { --tbH: 48px; }   /* 창 위 끝 ~ 사이드바 위 끝까지 한 줄 — 버튼이 그 가운데 온다(사이드바·플로팅 툴바는 위 여백 0) */
   .titlebar {
     position: fixed; top: 0; left: 0; right: 0; height: var(--tbH);
     display: flex; align-items: center; gap: 2px; overflow: hidden; white-space: nowrap;

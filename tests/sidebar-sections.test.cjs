@@ -42,11 +42,11 @@ test('열린 섹션은 사이드바보다 어두운 바탕의 한 블록(두 테
   assert.match(css, /#panel > \.sec:not\(\.closed\) > h3 \{ background: var\(--nav-active-bg\); color: var\(--nav-active-fg\); \}/);   // 머리 활성 표시 유지
 });
 
-test('사이드바 뒤·옆 바탕 = 작업 영역 체커(창 기준으로 맞물림), 레이아웃은 그대로', () => {
+test('사이드바 뒤·옆 바탕 = 근무표 같은 단색(--surface, 체커 아님) 한 장, 레이아웃은 그대로', () => {
   const rule = css.match(/\.app, \.stage, \.startOverlay \{[^}]*\}/);
   assert.ok(rule, '.app/.stage/.startOverlay 공용 바탕 규칙이 없음');
-  assert.match(rule[0], /background-attachment: fixed/);
-  assert.match(rule[0], /var\(--stage-check\)/);
+  assert.match(rule[0], /background: var\(--surface\);/);   // 사용자 요청(10-09): 체커 대신 근무표 바탕색, 흰 카드가 위에 뜬다
+  assert.doesNotMatch(rule[0], /--stage-check/);
   const stage = css.match(/\n  \.stage \{[^}]*\}/)[0];
   assert.doesNotMatch(stage, /background/);              // 무늬는 공용 규칙 하나만 — 따로 그리면 칸이 어긋난다
   assert.match(stage, /flex: 1; display: flex; align-items: center; justify-content: center;/);   // 중앙 맞춤 그대로
