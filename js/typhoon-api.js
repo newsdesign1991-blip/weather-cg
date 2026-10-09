@@ -8,6 +8,7 @@ const typKey = () => (localStorage.getItem(TYP_KEY_STORE) || '').trim();
 const _tnum = (o, ...ks) => { for (const k of ks) { const v = o[k]; if (v != null && v !== '') { const n = parseFloat(v); if (!isNaN(n)) return n; } } return 0; };
 const _tstr = (o, ...ks) => { for (const k of ks) { const v = o[k]; if (v != null && v !== '') return String(v); } return ''; };
 let typhoonRaw = null;   // { src, whichList:[{tno,name,rows}] } — API 원본(비영속)
+let typhoonPickSeq = 0;   // 늦게 도착한 앞 요청이 새 목록을 덮지 않게
 
 // UTC YYYYMMDDHH(MM) -> KST "M월 D일 H시"
 function fmtKST(tm) {
@@ -72,10 +73,10 @@ function selectTyphoonFromApi(idx, opts) {
   const style = {};
   for (const k of TYPHOON_STYLE_KEYS) { const v = (prev[k] != null ? prev[k] : DEF[k]); if (v !== undefined) style[k] = v; }   // 아이콘/범례 등 스타일 키 모두 보존
   S.typhoon = Object.assign({
-    name: w.name, issues: [{ tmfc: '', label: '실황 + 예상경로', points: pts }], sel: 0, fromApi: true,
+    name: w.name, issues: [{ tmfc: '', label: w.archive ? '과거 실제 이동 경로' : '실황 + 예상경로', points: pts }], sel: 0, fromApi: true,
     src,   // 반경 이름을 나라별로 바꾸는 데 씀
     // 지점까지 저장 — 새로고침·파일 열기·되돌리기 뒤에도 드롭다운 전환이 S만으로 된다
-    whichList: list.map((x) => ({ tno: x.tno, year: x.year, td: x.td, name: x.name, points: JSON.parse(JSON.stringify(x.points || (x.rows ? x.rows.map(typPointFromRow) : []))) })), whichSel: idx, nowIdx: null, labelSel: null,
+    whichList: list.map((x) => ({ tno: x.tno, year: x.year, basin: x.basin, td: x.td, name: x.name, kmaName: x.kmaName, archive: x.archive, points: JSON.parse(JSON.stringify(x.points || (x.rows ? x.rows.map(typPointFromRow) : []))) })), whichSel: idx, nowIdx: null, labelSel: null,
     compare: prev.compare || [],   // 비교 목록은 불러오기(트랙 교체)에도 보존 — 여러 기관 누적 비교 가능
     refImgs: prev.refImgs || (prev.refImg ? [prev.refImg] : []), refSel: prev.refSel,   // 대고 그리는 참고 이미지는 통보문/예보 불러와도 보존(간섭 방지)
     places: prev.places || [], placeSize: prev.placeSize,   // 지명표시(사용자 입력)도 보존
@@ -109,9 +110,69 @@ function jmaAreaRadKm(area) {
   if (Array.isArray(area.arc)) for (const x of area.arc) { const r = +x[1] || 0; if (r > m) m = r; }
   return m ? Math.round(m / 1000) : 0;
 }
+// JTWC와 같은 선택 카드. 선택·취소 전에는 원본 목록도 작업 상태도 덮어쓰지 않는다.
+function chooseTyphoonFromList(whichList, provider, valid) {
+  if (!valid()) return Promise.resolve(-1);
+  return new Promise((resolve) => {
+    const m = jtwcModal();
+    let done = false;
+    const finish = (idx) => { if (done) return; done = true; watch.disconnect(); resolve(idx); };
+    const watch = new MutationObserver(() => { if (!m.alive()) finish(-1); });
+    watch.observe(document.body, { childList: true, subtree: true });
+    m.onGone = () => finish(-1);
+    jtwcModalHead(m, 'blue', provider + ' 태풍 불러오기', '가져올 태풍을 골라 주세요');
+    m.list.setAttribute('aria-label', provider + ' 태풍 목록');
+    const multi = isTyphoonCompare() && !!$('#typLoadOv.on'), picked = new Set();
+    const commit = () => { if (!picked.size || !m.alive()) return; finish(valid() ? [...picked] : -1); m.close(); };
+    const footer = () => jtwcModalFoot(m, multi ? [{ label: '선택한 ' + picked.size + '개 담기', pri: true, act: commit }, { label: '취소', act: () => m.close() }] : [{ label: '취소', act: () => m.close() }]);
+    whichList.forEach((w, idx) => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'jtwcRow';
+      const badge = document.createElement('span'); badge.className = 'jtwcId'; badge.textContent = String(w.tno || (idx + 1));
+      const text = document.createElement('span'); text.className = 'jtwcTxt';
+      const name = document.createElement('span'); name.className = 'jtwcName'; name.textContent = w.name;
+      const meta = document.createElement('span'); meta.className = 'jtwcMeta';
+      const pts = w.points || [], latest = pts.filter((p) => !p.fcst && p.tmef).map((p) => p.tmef).sort().pop();
+      meta.textContent = [w.td ? '열대저압부' : '태풍', latest ? fmtKST(latest) + ' 분석' : '', pts.length + '개 지점'].filter(Boolean).join(' · ');
+      text.append(name, meta); row.append(badge, text);
+      if (multi) row.setAttribute('aria-pressed', 'false');
+      row.onclick = () => {
+        if (!m.alive()) return;
+        if (multi) { if (picked.has(idx)) picked.delete(idx); else picked.add(idx); row.setAttribute('aria-pressed', String(picked.has(idx))); footer(); return; }
+        finish(valid() ? idx : -1); m.close();
+      };
+      m.list.append(row);
+    });
+    m.note.textContent = '시각은 한국 시각이에요 · ' + (isTyphoonCompare() ? '고른 태풍만 비교 목록에 추가해요.' : '고른 태풍만 지도에 적용해요.');
+    footer();
+    fxArrive(fxRows(m.list));
+  });
+}
+function applyPickedTyphoon(whichList, idx, src) {
+  if (Array.isArray(idx)) {
+    const chosen = [...new Set(idx)].filter((i) => whichList[i]);
+    if (!chosen.length) return false;
+    pushUndo(); typhoonRaw = { src, whichList };
+    for (const i of chosen) selectTyphoonFromApi(i);
+    if (S.typhoon) S.typhoon.r15Buf = 0;
+    if (S.map.s > 0.5) setTyphoonDefaultView();
+    autoTodayTyphoonLabel(); renderAll();
+    status('비교에 ' + chosen.length + '개 태풍을 담았어요', true); return true;
+  }
+  if (!whichList[idx]) return false;
+  pushUndo();
+  typhoonRaw = { src, whichList };
+  selectTyphoonFromApi(idx);
+  if (S.typhoon) S.typhoon.r15Buf = 0;
+  if (S.map.s > 0.5) setTyphoonDefaultView();
+  autoTodayTyphoonLabel(); renderAll();
+  status('불러옴 · ' + whichList[idx].name, true);
+  return true;
+}
 // 일본 기상청(JMA) 공개 JSON(bosai) — CORS 허용이라 브라우저가 직접 fetch(헬퍼 불필요).
 // 予報円(probabilityCircle)→r70(70% 확률반경), 暴風域(stormWarningArea)→r25(25m/s), 強風域(galeWarningArea)→r15(15m/s).
 async function fetchJma() {
+  const state = S, style = curStyle(), request = ++typhoonPickSeq;
+  const valid = () => request === typhoonPickSeq && S === state && curStyle() === style && isTyphoon();
   const B = 'https://www.jma.go.jp/bosai/typhoon/data/';
   const btn = $('#typFetchJma'); if (btn) btn.disabled = true;
   // 작업 중 효과 — 태풍 없음·해석 실패·끊김이어도 finally에서 끄고, 그렸을 때만 도착 효과
@@ -151,13 +212,10 @@ async function fetchJma() {
       whichList.push({ tno: num || id, name: nm + ' (JMA' + (num && /^\d+$/.test(num) ? ' 제' + num + '호' : '') + ')', td: tc.category === 'TD', points: pts });
     }
     if (!whichList.length) { status('JMA 자료를 해석하지 못했습니다', true); return; }
-    pushUndo();
-    typhoonRaw = { src: 'jma', whichList };
-    selectTyphoonFromApi(0);
-    if (S.typhoon) S.typhoon.r15Buf = 0;   // JMA r15=실제 強風域이라 버퍼 없음
-    if (S.map.s > 0.5) setTyphoonDefaultView();
-    autoTodayTyphoonLabel(); renderAll();
-    status(`일본 기상청(JMA) 불러옴 · ${whichList.length}개 · ${whichList[0].name}`, true);
+    fxBusy(fx, false);
+    const idx = await chooseTyphoonFromList(whichList, '일본 기상청(JMA)', valid);
+    if (idx < 0 || !valid()) return;
+    applyPickedTyphoon(whichList, idx, 'jma');
     ok = true;
   } catch (e) {
     status('JMA 불러오기 실패: ' + (e.message || e), true);
@@ -193,7 +251,7 @@ function parseJtwcTcw(text) {
   const points = Object.values(byTm).sort((a, b) => (a.tmef < b.tmef ? -1 : 1));
   if (points.length < 2) return null;
   const isTD = Math.max(...points.map((p) => p.ws)) < 17;
-  return [{ tno: stormNum || 'JTWC', name: (name ? name + ' ' : '') + '(JTWC' + (stormNum ? ' ' + stormNum + basin : '') + ')', td: isTD, points }];
+  return [{ tno: stormNum || 'JTWC', basin, name: (name ? name + ' ' : '') + '(JTWC' + (stormNum ? ' ' + stormNum + basin : '') + ')', td: isTD, points }];
 }
 // ── 태풍 번호별 이름 (기상청 typ_now API엔 이름이 없어 여기 표에 직접 저장 → 라벨/제목에 자동 부착) ──
 // 키 = "년도-번호"(예: "2026-13"). 브라우저 localStorage에 저장(개인·비동기화). 한 번 입력하면 다음 불러오기에도 유지.
@@ -201,16 +259,101 @@ const TYP_NAME_STORE = 'wcg_typ_names';
 function typNameMap() { try { return JSON.parse(localStorage.getItem(TYP_NAME_STORE) || '{}'); } catch (e) { return {}; } }
 function typNameGet(year, tno) { if (!year || !tno) return ''; return (typNameMap()[year + '-' + tno] || '').trim(); }
 function typNameSet(year, tno, nm) { const m = typNameMap(); const k = year + '-' + tno; if (nm && nm.trim()) m[k] = nm.trim(); else delete m[k]; localStorage.setItem(TYP_NAME_STORE, JSON.stringify(m)); }
+// 공식 연도별 목록(typ_lst)에는 typ_now에 없는 한글·영문 이름이 있다.
+function parseTyphoonCatalog(text) {
+  const result = [];
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const c = line.split(',').map((s) => s.trim());
+    if (!/^\d{4}$/.test(c[0]) || !/^\d{1,2}$/.test(c[1]) || c.length < 8) continue;
+    const year = c[0], tno = String(+c[1]), kmaName = c[6] || c[7];
+    result.push({ year, tno, kmaName, englishName: c[7], start: c[4], end: c[5], name: typhoonDisplayName(year, tno, false, kmaName) });
+  }
+  return result;
+}
+async function getTyphoonCatalog(year) {
+  if (!/^\d{4}$/.test(String(year))) return [];
+  const url = 'https://apihub.kma.go.kr/api/typ01/url/typ_lst.php?YY=' + year + '&disp=1&help=0&authKey=' + encodeURIComponent(apiKey());
+  return parseTyphoonCatalog(await kmaRequest(url, 0).p);
+}
+async function enrichTyphoonNames(list) {
+  const years = [...new Set(list.filter((w) => !w.td && w.year).map((w) => String(w.year)))];
+  let timer;
+  try {
+    const catalogs = await Promise.race([Promise.all(years.map(getTyphoonCatalog)), new Promise((resolve) => { timer = setTimeout(() => resolve([]), 5000); })]);
+    const names = catalogs.flat();
+    for (const w of list) {
+      const match = names.find((n) => n.year === String(w.year) && +n.tno === +w.tno);
+      if (match && !w.td) { w.kmaName = match.kmaName; w.name = typhoonDisplayName(w.year, w.tno, false, w.kmaName); }
+    }
+  } catch (e) { /* 이름 조회만 실패하면 경로 자료는 유지 */ }
+  finally { clearTimeout(timer); }
+  return list;
+}
+function filterTyphoonHistory() {
+  const term = ($('#typHistorySearch').value || '').trim().toLocaleLowerCase();
+  document.querySelectorAll('#typLoadList [data-history-search]').forEach((row) => { row.hidden = !row.dataset.historySearch.includes(term); });
+}
+// 발생 시각을 화면과 같은 한국 시각으로 비교한다. 활동 기간이 걸치는 다른 달은 포함하지 않는다.
+function typhoonCatalogInMonth(list, month) {
+  return list.filter((w) => typhoonDateKST(w.start).slice(0, 7) === month);
+}
+async function fetchTyphoonHistory() {
+  const month = $('#typHistoryMonth').value, year = Number(month.slice(0, 4));
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month < '1977-01' || month > dpToday().slice(0, 7)) { status('1977년부터 이번 달까지 연·월을 선택하세요', true); return; }
+  if (!apiKey()) { status('기상청 API 인증키를 확인해 주세요', true); return; }
+  const request = ++typhoonPickSeq, state = S, style = curStyle();
+  const valid = () => request === typhoonPickSeq && state === S && style === curStyle() && isTyphoon();
+  const m = jtwcModal();
+  const period = year + '년 ' + Number(month.slice(5, 7)) + '월';
+  $('#typHistorySearch').value = '';
+  m.note.textContent = period + '에 발생한 태풍 목록을 불러오는 중…';
+  jtwcModalHead(m, 'blue', period + ' 과거 태풍', '발생 월 기준 · 이름·영문·번호로 검색할 수 있어요');
+  try {
+    const catalog = await getTyphoonCatalog(year);
+    if (!valid() || !m.alive()) return;
+    if (!catalog.length) { m.note.textContent = '연도별 자료가 없거나 목록을 받지 못했어요. 연·월·인터넷 연결·기상청 API 권한을 확인해 주세요.'; return; }
+    const list = typhoonCatalogInMonth(catalog, month);
+    if (!list.length) { m.note.textContent = period + '에 발생한 태풍이 없어요. 다른 연·월을 선택해 주세요.'; return; }
+    m.close();
+    // 경로를 받기 전에는 지도·저장된 작업을 바꾸지 않는다.
+    const pending = chooseTyphoonFromList(list, '기상청 · ' + period, valid);
+    const host = $('#typLoadList .jtwcList');
+    if (host) [...host.children].forEach((row, i) => {
+      const w = list[i]; row.dataset.historySearch = [w.name, w.englishName, w.tno].join(' ').toLocaleLowerCase();
+      const meta = row.querySelector('.jtwcMeta'); if (meta) meta.textContent = w.englishName + ' · ' + fmtKST(w.start) + ' ~ ' + fmtKST(w.end);
+    });
+    filterTyphoonHistory();
+    const selection = await pending;
+    if (selection < 0 || !valid()) return;
+    const indexes = Array.isArray(selection) ? selection : [selection];
+    const loading = jtwcModal(); loading.note.textContent = '선택한 태풍의 전체 실제 경로를 불러오는 중…';
+    try {
+      const tracks = await Promise.all(indexes.map(async (i) => {
+        const entry = list[i];
+        const url = 'https://apihub.kma.go.kr/api/typ01/url/typ_data.php?YY=' + entry.year + '&typ=' + entry.tno + '&mode=0&disp=1&help=0&authKey=' + encodeURIComponent(apiKey());
+        const raw = await kmaRequest(url, 0).p;
+        const points = parseTypNow(raw || '').filter((c) => c[1].trim() === entry.year && +c[2] === +entry.tno).map(typPointFromRow);
+        return points.length >= 2 ? { ...entry, archive: true, points } : null;
+      }));
+      if (!valid() || !loading.alive()) return;
+      const good = tracks.filter(Boolean);
+      if (!good.length) { loading.note.textContent = '선택한 태풍의 경로 자료가 없거나 조회에 실패했어요. 다른 태풍을 고르거나 다시 시도해 주세요.'; return; }
+      loading.close();
+      applyPickedTyphoon(good, isTyphoonCompare() ? good.map((_, i) => i) : 0, 'apihub'); typArriveFx();
+      status('과거 태풍 ' + good.length + '개 불러옴 · 전체 실제 이동 경로' + (good.length < tracks.length ? ' (' + (tracks.length - good.length) + '개는 자료가 없어 제외)' : ''), true);
+    } catch (e) { if (loading.alive()) loading.note.textContent = '경로를 불러오지 못했어요. 다시 시도해 주세요.'; }
+  } catch (e) { if (m.alive()) m.note.textContent = '목록을 불러오지 못했어요. 다시 시도해 주세요.'; }
+}
 // 드롭다운/제목에 쓸 표시명 = "제N호 태풍" + (저장된 이름이 있으면 " 개미"). TD는 이름 안 붙임.
-function typhoonDisplayName(year, tno, isTD) {
+function typhoonDisplayName(year, tno, isTD, kmaName) {
   if (isTD) return '열대저압부(TD)';
-  const nm = typNameGet(year, tno);
+  const nm = typNameGet(year, tno) || kmaName || '';
   return '제' + tno + '호 태풍' + (nm ? ' ' + nm : '');
 }
 // 이름을 바꾼 뒤 whichList 라벨·드롭다운·제목을 다시 반영(불러오기 다시 안 해도 됨).
 function refreshTyphoonNames() {
   const T = S.typhoon; if (!T) return;
-  const fix = (arr) => { if (!arr) return; for (const w of arr) if (!w.td && w.year) w.name = typhoonDisplayName(w.year, w.tno, false); };
+  const fix = (arr) => { if (!arr) return; for (const w of arr) if (!w.td && w.year) w.name = typhoonDisplayName(w.year, w.tno, false, w.kmaName); };
   fix(T.whichList); fix(typhoonRaw && typhoonRaw.whichList);
   const cur = (T.whichList || [])[T.whichSel || 0];
   if (cur && !cur.td && cur.year) T.name = cur.name;   // 제목(태풍명 예상경로)도 갱신
@@ -236,13 +379,21 @@ function applyTyphoonText(rawTyp, rawTd) {
     }
     status('JTWC 통보문을 못 읽었습니다 (형식 확인)', true); return false;
   }
+  const whichList = parseKmaTyphoonList(rawTyp, rawTd);
+  if (!whichList.length) { $('#typInfo').textContent = '현재 활동 중인 태풍·열대저압부가 없습니다'; status('태풍·TD 없음', true); return false; }
+  typhoonRaw = { src: 'apihub', whichList };
+  selectTyphoonFromApi(0);
+  if (S.typhoon) S.typhoon.r15Buf = 0;
+  if (S.map.s > 0.5) setTyphoonDefaultView();
+  autoTodayTyphoonLabel(); renderAll();
+  status(`불러옴: ${whichList.map((w) => w.name).join(', ')}`);
+  return true;
+}
+// 목록을 고르는 동안에는 작업 상태를 바꾸지 않는다. 붙여넣기와 자동 불러오기가 같은 파서를 쓴다.
+function parseKmaTyphoonList(rawTyp, rawTd) {
   const typRows = rawTyp ? parseTypNow(rawTyp) : [];
   let tdRows = rawTd ? parseTdRows(rawTd) : [];
   if (!tdRows.length && rawTyp) tdRows = parseTdRows(rawTyp);   // 붙여넣기에 typ+TD가 섞여 있거나 TD만일 때 여기서 TD 추출
-  if (!typRows.length && !tdRows.length) {
-    $('#typInfo').textContent = '현재 활동 중인 태풍·열대저압부가 없습니다';
-    status('태풍·TD 없음', true); return false;
-  }
   const byTyp = {}; for (const c of typRows) { const t = (c[2] || '').trim(); (byTyp[t] ||= []).push(c); }
   const byTd = {}; for (const c of tdRows) { const t = (c[2] || '').trim(); (byTd[t] ||= []).push(c); }
   const tdUsed = {}, whichList = [];
@@ -265,15 +416,7 @@ function applyTyphoonText(rawTyp, rawTd) {
     if (tdUsed[tdno]) continue;
     whichList.push({ tno: 'TD' + tdno, name: '열대저압부(TD) ' + tdno + '호', td: true, points: byTd[tdno].map(typTdPointFromRow) });
   }
-  if (!whichList.length) { $('#typInfo').textContent = '태풍 응답 형식을 인식하지 못했습니다'; status('형식 오류', true); return false; }
-  typhoonRaw = { src: 'apihub', whichList };
-  selectTyphoonFromApi(0);
-  if (S.typhoon) S.typhoon.r15Buf = 0;   // 기상청 r15=실제 강풍반경 → JTWC 버퍼가 남지 않게 0
-  if (S.map.s > 0.5) setTyphoonDefaultView();
-  autoTodayTyphoonLabel();
-  renderAll();
-  status(`불러옴: ${whichList.map((w) => w.name).join(', ')}`);
-  return true;
+  return whichList;
 }
 
 // (b방식) 트랙 맨 앞(발생)에 열대저압부(TD)를 붙인다 — 추정이 아니라 기상청 td_now에서 '실제 좌표'를 가져온다.
@@ -598,6 +741,8 @@ function _typScanRecent(urlOf, lane, ahead0, lazy) {
   });
 }
 async function fetchTyphoon() {
+  const state = S, style = curStyle(), request = ++typhoonPickSeq;
+  const valid = () => request === typhoonPickSeq && S === state && curStyle() === style && isTyphoon();
   if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); status('apihub 인증키가 필요합니다 (API 설정)', true); return; }
   const btn = $('#typFetch'); if (btn) btn.disabled = true;
   // 작업 중 효과 — 헬퍼 꺼짐·태풍 없음·실패도 finally에서 끄고, 그렸을 때만 도착 효과.
@@ -618,7 +763,13 @@ async function fetchTyphoon() {
     if (tdRaw) console.log('[TD raw]', tdRaw.slice(0, 2000));
     if (!found && !tdRaw) { status('현재 활동 중인 태풍·열대저압부 정보가 없습니다 (기상청)', true); return; }
     console.log('[typhoon raw]', raw.slice(0, 3000));
-    okTyp = applyTyphoonText(raw, tdRaw);   // 태풍·TD를 각자 형식으로 파싱해 병합(TD→태풍 트랙)
+    const whichList = parseKmaTyphoonList(raw, tdRaw);
+    if (!whichList.length) { status('태풍 자료를 해석하지 못했습니다', true); return; }
+    await enrichTyphoonNames(whichList);
+    fxBusy(fx, false);
+    const idx = await chooseTyphoonFromList(whichList, '기상청', valid);
+    if (idx < 0 || !valid()) return;
+    okTyp = applyPickedTyphoon(whichList, idx, 'apihub');
     // 3) 기본값: 발생·소멸 열대저압부(실좌표)를 앞뒤로 자동 부착(실패해도 태풍만 표시).
     //    태풍은 이미 그렸으니 기다리지 않는다 — 뒤에서 찾아 붙으면 트랙·상태 문구만 갱신(버튼도 바로 다시 누를 수 있게).
     //    (붙이기 실패는 태풍 불러오기 실패가 아니다 — 문구는 attachEdgeTD가 '불러옴'으로 되돌린다)
@@ -648,6 +799,8 @@ async function _typPastFind(base) {
 }
 // 과거 태풍 — 고른 날짜(정오 기준) ±2일 범위의 발표시각을 훑어 데이터 있는 발표를 찾아 그린다. 이름은 별도 입력.
 async function fetchTyphoonPast() {
+  const state = S, style = curStyle(), request = ++typhoonPickSeq;
+  const valid = () => request === typhoonPickSeq && S === state && curStyle() === style && isTyphoon();
   const inp = $('#typPastDate'); const ds = inp ? inp.value.trim() : '';
   if (!ds) { status('날짜를 먼저 고르세요 (예: 2024-07-24)', true); return; }
   if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); status('apihub 인증키가 필요합니다 (API 설정)', true); return; }
@@ -665,8 +818,14 @@ async function fetchTyphoonPast() {
     const found = await _typPastFind(base);
     if (!found) { status('그 날짜엔 활동 중인 태풍이 없습니다 (±2일 확인) — 다른 날짜로 시도하세요', true); return; }
     const { raw, usedTm, tdRaw } = found;
-    ok = applyTyphoonText(raw, tdRaw);
-    if (ok) { if (S.map.s > 0.5) setTyphoonDefaultView(); status(`과거 태풍 불러옴 · ${usedTm.slice(0, 4)}-${usedTm.slice(4, 6)}-${usedTm.slice(6, 8)} 발표 기준 — 이름은 '이름' 칸에 입력`, true); }
+    const whichList = parseKmaTyphoonList(raw, tdRaw);
+    if (!whichList.length) { status('태풍 자료를 해석하지 못했습니다', true); return; }
+    await enrichTyphoonNames(whichList);
+    fxBusy(fx, false);
+    const idx = await chooseTyphoonFromList(whichList, '기상청 · ' + ds, valid);
+    if (idx < 0 || !valid()) return;
+    ok = applyPickedTyphoon(whichList, idx, 'apihub');
+    if (ok) { if (S.map.s > 0.5) setTyphoonDefaultView(); status(`과거 태풍 불러옴 · ${usedTm.slice(0, 4)}-${usedTm.slice(4, 6)}-${usedTm.slice(6, 8)} 발표 기준`, true); }
   } catch (e) {
     status('과거 태풍 실패: ' + (e.message || e), true);
   } finally { if (btn) btn.disabled = false; fxBusy(fx, false); if (ok) typArriveFx(); }

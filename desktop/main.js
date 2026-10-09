@@ -4,7 +4,8 @@
 //   (http 고정 포트 방식은 포트 충돌·서비스워커 캐시·폴더 노출 문제가 있어 버림)
 // - 기능 확장팩(기상청 불러오기·MXF/MOV·AE 보내기)은 앱 안에 내장(wns/server.js, 127.0.0.1:3721).
 //   웹판용 Python 헬퍼(3720)와 포트가 달라 같이 켜져 있어도 충돌하지 않는다. 내장 시작에 실패하면 Python 헬퍼로 대체.
-const { app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog, session } = require('electron');
+const { app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog, session, screen } = require('electron');
+const { initialWindowBounds } = require('./window-layout');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -149,9 +150,11 @@ function stopOwnExternalHelper() {
 const TITLEBAR_H = 48;
 const TITLEBAR_DARK = { color: '#0f0f0f', symbolColor: '#f1f1f1' };
 function createWindow() {
+  const bounds = initialWindowBounds(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea);
   win = new BrowserWindow({
-    width: TEST_SIZE ? +TEST_SIZE[1] : 1600, height: TEST_SIZE ? +TEST_SIZE[2] : 1000,
-    minWidth: TEST_SIZE ? 400 : 1100, minHeight: TEST_SIZE ? 300 : 700,
+    ...bounds,
+    ...(TEST_SIZE ? { width: +TEST_SIZE[1], height: +TEST_SIZE[2], minWidth: 400, minHeight: 300 } : {}),
+    fullscreen: false,
     backgroundColor: '#0f0f0f', title: '날씨 CG', icon: path.join(APP_DIR, 'icon.ico'),
     titleBarStyle: 'hidden', titleBarOverlay: { ...TITLEBAR_DARK, height: TITLEBAR_H },
     autoHideMenuBar: true, show: false, paintWhenInitiallyHidden: true,
@@ -162,7 +165,7 @@ function createWindow() {
       backgroundThrottling: false,   // 영상 추출 중 창이 가려져도 느려지지 않게
     },
   });
-  win.once('ready-to-show', () => { if (TEST_MODE) return; win.maximize(); win.show(); });   // 점검 모드는 화면에 안 띄움
+  win.once('ready-to-show', () => { if (TEST_MODE) return; win.show(); });   // 넓은 일반 창으로 시작. 점검 모드는 화면에 안 띄움
   win.on('page-title-updated', (e) => e.preventDefault());   // 작업표시줄·Alt+Tab 창 이름은 늘 '날씨 CG' (웹 <title>로 안 바뀌게)
   win.on('closed', () => { if (wnuri && !wnuri.isDestroyed()) wnuri.destroy(); });   // 날씨누리 창이 남아 앱이 안 꺼지는 일 없게
   wireCloseGuard(win);   // 닫기 전 '저장하지 않은 변경' 묻기(아래)

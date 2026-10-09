@@ -57,7 +57,7 @@
     position: relative;  /* topbar·status 의 기준 */
     flex: 1; display: flex; align-items: center; justify-content: center;
     /* 캔버스 밖 핸들이 들어갈 여백 */
-    padding: 26px 74px; overflow: hidden;
+    padding: var(--toolbar-space, 64px) 74px 26px; overflow: hidden;
   }
   /* 작업 영역 바탕 — 근무표처럼 옅은 회청색 단색(밝은 #f1f4f8 / 어두운 #0f0f0f = --surface, 근무표 --bg 와 같은 값).
      (예전 체커 무늬 대신) 앱 바닥(.app) 전체에 깔아 플로팅 사이드바·툴바(흰 카드)가 그 위에 떠 보이게 한다. */

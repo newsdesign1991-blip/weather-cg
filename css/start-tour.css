@@ -2,7 +2,7 @@
   /* 처음 켰을 때 빈 화면 + 안내 (지도는 덮고, 상단바 z10·드롭다운 z40 은 위라 메뉴는 눌린다) */
   .startOverlay {
     position: absolute; inset: 0; z-index: 9; display: none;
-    align-items: center; justify-content: center; padding: 26px 74px;
+    align-items: center; justify-content: center; padding: var(--toolbar-space, 64px) 74px 26px;
     /* 바탕(체커)은 위 .app·.stage 공용 규칙 — 창 기준으로 맞물린다 */
   }
   .startOverlay.on { display: flex; }

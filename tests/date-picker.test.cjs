@@ -184,7 +184,9 @@ test('붙이는 자리 — 부팅 때 문서 전체(wire 뒤·loadLayout 앞), �
     if (/type="time"/.test(t)) assert.match(t, /dpTimeAttach\(/, `${f}: 시각 칸을 만들면 dpTimeAttach`);
   }
   // 마크업의 날짜·시각 칸(dpAttachAll이 문서 전체를 붙인다) — 특보·예보 지난 날짜, 과거 태풍, 특보 시각(10분 단위)
-  for (const id of ['wrnDate', 'fctDate', 'typPastDate']) assert.match(html, new RegExp(`<input[^>]*(type="date"[^>]*id="${id}"|id="${id}"[^>]*type="date")`));
+  for (const id of ['wrnDate', 'fctDate']) assert.match(html, new RegExp(`<input[^>]*(type="date"[^>]*id="${id}"|id="${id}"[^>]*type="date")`));
+  assert.match(html, /id="typHistoryMonth" type="month"/);
+  assert.match(html, /each\('input\[type=month\]', dpAttach\)/);
   assert.match(html, /<input type="time" id="wrnTime" step="600">/);
 });
 
@@ -237,5 +239,5 @@ test('부팅 점검: 특보 지난 날짜 → 달력 → 휠 2019년 3월 → 15
   assert.equal(R.programmatic, '2020. 1. 5 (일)');
   assert.deepEqual([R.timePop, R.timeAdv, R.timeTyped.value, R.timeTyped.change, R.timeTyped.ampm, R.timeTyped.when], [true, true, '14:30', 1, '오후 2시 30분', '202001051430']);
   assert.deepEqual([R.timeChip.value, R.timeChip.change, R.timeUp.value, R.timeUp.change, R.timeClosed], ['18:00', 2, '18:10', 3, true]);
-  assert.deepEqual(R.typ, { value: '2019-09-07', field: '2019. 9. 7 (토)', change: 1, closed: true });
+  assert.deepEqual(R.typ, { value: '2019-09', field: '2019년 9월', change: 1, closed: true });
 });

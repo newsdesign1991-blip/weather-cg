@@ -398,6 +398,7 @@ function startDragMap(e) {
 
 let labelClip = [];   // Ctrl+C 로 복사한 라벨/텍스트
 window.addEventListener('keydown', (e) => {
+  if ($('#typLoadOv')?.classList.contains('on')) return;   // 태풍 선택창 뒤의 지도/펜/타임라인 단축키 차단
   if (penMode && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); if (e.key === 'Enter') finishPen(); else cancelPen(); return; }   // 펜툴: Enter 완료 · Esc 취소
   if (penExtendId && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); finishExtend(); return; }   // 이어그리기: Enter/Esc 완료
   // Ctrl+S = 저장(처음엔 위치 선택, 이후 같은 파일) / Ctrl+Shift+S = 다른 이름으로.

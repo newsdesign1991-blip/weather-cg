@@ -1,0 +1,25 @@
+// Disposable Electron profile only.
+const q=s=>document.querySelector(s),check=(v,m)=>{if(!v)throw new Error(m);};
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+closeTossModal();closeCgSetup();
+const saved=JSON.parse(JSON.stringify(stateForSave()));
+const normalStyle=Object.keys(MAP.styles).find(k=>MAP.styles[k].typhoon&&!MAP.styles[k].compare);
+saved.style=Object.keys(MAP.styles).find(k=>!MAP.styles[k].typhoon);
+const pts=[{lon:130,lat:20,ws:30,tmef:'202610080000',fcst:false},{lon:132,lat:24,ws:30,tmef:'202610090000',fcst:false},{lon:134,lat:28,ws:30,tmef:'202610110000',fcst:true}];
+saved.typhoon=null;
+loadProjectData(saved,null);setStyle(normalStyle);await pause(300);
+check(S.typhoon.iconScale===1.25&&S.typhoon.lineWidth===5,'normal defaults: '+JSON.stringify({icon:S.typhoon.iconScale,line:S.typhoon.lineWidth,defaults: {icon:typhoonStyleDefaults().iconScale,line:typhoonStyleDefaults().lineWidth}}));
+check(q('#typIconScale').value==='1.25'&&q('#typIconScaleV').textContent==='125%'&&q('#typLineWidth').value==='5','normal UI defaults');
+q('#typTrackMode [data-tm="line"]').click();check(S.typhoon.iconScale===1.25&&S.typhoon.lineWidth===5,'line defaults');
+const custom=JSON.parse(JSON.stringify(stateForSave()));custom.typhoon.iconScale=.7;custom.typhoon.lineWidth=3.5;
+loadProjectData(custom,null);await pause(200);check(S.typhoon.iconScale===.7&&S.typhoon.lineWidth===3.5,'custom normal style overwritten');
+const compare=JSON.parse(JSON.stringify(stateForSave()));compare.style=Object.keys(MAP.styles).find(k=>MAP.styles[k].compare);compare.typhoon.compare=[];
+loadProjectData(compare,null);await pause(300);
+const list=[{tno:'1',year:2026,name:'검증 태풍',points:pts}];
+applyPickedTyphoon(list,0,'apihub');
+check(S.typhoon.compare[0].iconScale===1.25&&S.typhoon.compare[0].lineW===5,'comparison defaults');
+check(q('#tycBulkScaleRange').value==='125'&&q('#tycBulkWidthRange').value==='5','comparison slider defaults');
+check(q('[data-cmpiconscale]').validity.valid&&q('[data-cmplinew]').validity.valid,'default input step mismatch');
+applyCompareBulk('iconScale','70');applyCompareBulk('lineW','3.5');applyPickedTyphoon(list,0,'apihub');
+check(S.typhoon.compare.length===1&&S.typhoon.compare[0].iconScale===.7&&S.typhoon.compare[0].lineW===3.5,'custom comparison style overwritten');
+return {ok:true,normal:true,line:true,comparison:true,preservedCustom:true};

@@ -330,7 +330,7 @@ test('결과 카드 문구 — 정상 없음은 초록(오류 아님), 오류는
   assert.equal(ok.tone, 'ok');
   assert.equal(ok.title, '불러오기 완료 — 3묶음');
   assert.equal(ok.meta, '6월 17일 17:00 발표 · 전국');
-  assert.match(ok.lines[0], /날짜를 고르면/);
+  assert.match(ok.lines[0], /날짜를 고른 뒤.*수동으로 색칠/);
   assert.equal(plain(bulResultView({ kind: 'ok', src: 'fetch', n: 1, label: '10일 · 비' })).title, '불러오기 완료 — 10일\u00a0·\u00a0비');   // 항목 이름은 줄바꿈 안 되게
   assert.match(bulResultView({ kind: 'ok', src: 'paste', n: 2, label: 'x' }).title, /^붙여넣은 글에서 찾음/);
   assert.match(bulResultView({ kind: 'ok', src: 'wnd', n: 2, label: 'x' }).title, /^날씨누리 창에서 읽음/);

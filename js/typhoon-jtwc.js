@@ -113,7 +113,8 @@ function jtwcOpenSite() {
   status('JTWC 사이트에서 통보문(.tcw)을 받아 창에 끌어다 놓거나 붙여넣으세요', true);
 }
 function jtwcManual() {
-  if (isTyphoonCompare()) { const t = $('#tycPaste'); if (t) { try { t.focus(); } catch (e) { /* 숨은 칸 */ } } return; }
+  if (typeof closeTyphoonLoad === 'function') closeTyphoonLoad();
+  if (isTyphoonCompare()) { foldReveal($('#tycManual'), $('#tycPaste')); return; }
   foldReveal($('#typManual'), $('#typPaste'));
 }
 // 버튼 이름 — 직접 받을 수 있으면 '불러오기', 아니면 예전처럼 사이트 링크(→). 마크업 기본값은 데스크톱 쪽.
@@ -134,6 +135,8 @@ function jtwcSyncButtons() {
 // 고르기 팝업(토스 카드). 열자마자 띄우고 내용은 상태별로 바꾼다. alive(): 사람이 닫지 않았고 다른 팝업에 밀리지 않았나
 // m.onGone: 사람이 닫을 때 한 번 부른다(받는 중에 닫으면 작업 중 효과를 바로 끄려고 — fetchJtwc)
 function jtwcModal() {
+  const host = typeof typhoonPickerHost === 'function' ? typhoonPickerHost() : null;
+  if (host) return host;
   const st = { closed: false };
   let m = null;
   m = tossModal({
@@ -184,6 +187,8 @@ function jtwcShowFail(m, r, retry) {
 function jtwcFillList(m, rss) {
   const box = m.list;
   box.textContent = '';
+  const multi = isTyphoonCompare() && !!$('#typLoadOv.on'), picked = new Set();
+  const footer = () => jtwcModalFoot(m, [{ label: '선택한 ' + picked.size + '개 담기', pri: true, act: () => { if (picked.size) loadJtwcSelection([...picked], m); } }, { label: '취소', act: () => m.close() }]);
   const near = rss.storms.filter((s) => s.rank === 0), far = rss.storms.filter((s) => s.rank > 0);
   const group = (txt) => { const g = document.createElement('div'); g.className = 'jtwcGroup'; g.textContent = txt; box.append(g); };
   const row = (s) => {
@@ -198,7 +203,11 @@ function jtwcFillList(m, rss) {
     tx.append(nm, meta);
     r.append(id, tx);
     r.title = `${s.id} ${s.name || ''} — 고르면 통보문을 받아 ${isTyphoonCompare() ? '비교에 추가해요' : '지도에 그려요'}`.replace(/\s+/g, ' ');
-    r.onclick = () => { m.close(); loadJtwcStorm(s); };
+    if (multi) r.setAttribute('aria-pressed', 'false');
+    r.onclick = () => {
+      if (multi) { if (picked.has(s)) picked.delete(s); else picked.add(s); r.setAttribute('aria-pressed', String(picked.has(s))); footer(); }
+      else { m.close(); loadJtwcStorm(s); }
+    };
     box.append(r);
   };
   group('서태평양 · 한국 쪽');
@@ -206,6 +215,26 @@ function jtwcFillList(m, rss) {
   else { const e = document.createElement('div'); e.className = 'jtwcNone'; e.textContent = '지금 서태평양에는 활동 중인 태풍이 없어요'; box.append(e); }
   if (far.length) { group('다른 해역'); far.forEach(row); }
   m.note.textContent = '시각은 한국 시각이에요' + (rss.builtKo ? ` · 목록 갱신 ${rss.builtKo}` : '') + ' · 고르면 통보문을 받아 바로 그려요.';
+  if (multi) { m.note.textContent = '함께 비교할 태풍을 여러 개 골라 담으세요.'; footer(); }
+}
+async function loadJtwcSelection(storms, modal) {
+  const request = ++jtwcSeq, state = S, style = curStyle();
+  const valid = () => request === jtwcSeq && state === S && style === curStyle() && isTyphoonCompare() && modal.alive();
+  modal.list.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  jtwcModalFoot(modal, [{ label: '취소', act: () => modal.close() }]);
+  modal.note.textContent = '선택한 ' + storms.length + '개 태풍의 통보문을 받는 중…';
+  try {
+    const results = await Promise.all(storms.map(async (storm) => {
+      try { const r = await jtwcGet(storm.path); return r.ok ? parseJtwcTcw(r.text) || [] : []; } catch (e) { return []; }
+    }));
+    if (!valid()) return;
+    const list = results.flat();
+    if (!list.length) { jtwcShowFail(modal, { err: 'format', what: 'tcw' }, fetchJtwc); return; }
+    modal.close(); applyPickedTyphoon(list, list.map((_, i) => i), 'jtwc');
+    if (S.typhoon) S.typhoon.r15Buf = 150;
+    renderTyphoon(); typArriveFx();
+    status('미해군 태풍 ' + list.length + '개 비교에 담았어요' + (list.length < storms.length ? ' · 일부 자료는 받지 못했어요' : ''), true);
+  } catch (e) { if (valid()) jtwcShowFail(modal, { err: 'format', what: 'tcw' }, fetchJtwc); }
 }
 
 // 버튼 → 고르기 팝업 + 활동 중인 태풍 목록 받기

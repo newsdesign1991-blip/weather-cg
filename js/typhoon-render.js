@@ -216,6 +216,17 @@ function drawCompareLabels(LB) {
   }
 }
 
+// 예측선은 선두 애니 진행도와 무관한 참고선. 현재부터 미래까지, 선택한 날짜 범위만 표시한다.
+function typhoonForecastLinePts(pts) {
+  const nowIdx = typhoonNowIdx(pts);
+  const out = [];
+  pts.forEach((p, idx) => {
+    if (idx < nowIdx || !typhoonIdxInRange(pts, idx)) return;
+    const [x, y] = typhoonXY(p.lon, p.lat);
+    out.push({ x, y, idx });
+  });
+  return out;
+}
 function drawTyphoonTrack(L, pts) {
   const T = S.typhoon;
   const cmpMode = isTyphoonCompare();   // 비교 지도: 굵은 메인·반경·라벨 숨기고 비교 예보선만 대등하게
@@ -224,7 +235,7 @@ function drawTyphoonTrack(L, pts) {
   const lineMode = !cmpMode && T && T.trackMode === 'line';
   let sp = typhoonScreenPts(pts);
   if (T && T.rangeOn) sp = sp.filter((p) => p.head || typhoonIdxInRange(pts, p.idx));   // 표시 날짜 범위 밖 지점 제외
-  if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 현재 이후 예상경로는 제외(진행 중 선두도 현재 위치를 넘지 않게 — 예보로 갔다 튀는 것 방지)
+  if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 실선·움직이는 아이콘은 현재까지만. 미래 점선은 아래에서 별도로 그린다.
   const add = (e) => L.appendChild(e);
   // 독도 — 줌아웃하면 실제로는 안 보이므로 '있는듯 없는듯' 작은 점 하나로 표시(시청자 민감 이슈).
   // 크기는 울릉도 화면 반경의 1/4 정도로 비례, 색은 남한 강조 스트로크색. 남한 강조 끄면 같이 숨김.
@@ -254,7 +265,9 @@ function drawTyphoonTrack(L, pts) {
   if (!cmpMode) {
   if (lineMode) {
     const iconCol = T.iconCol || '#E5231E';
-    if (sp.length > 1) add(_te('path', { d: 'M' + sp.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: T.lineColor || iconCol, 'stroke-width': Math.max(1, +T.lineWidth || 9.5), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    const forecast = typhoonForecastLinePts(pts), forecastW = Math.max(1, +T.lineWidth || 5);
+    if (forecast.length > 1) add(_te('path', { 'data-typ-line-forecast': '1', d: 'M' + forecast.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: T.lineColor || iconCol, 'stroke-width': forecastW, 'stroke-dasharray': `${forecastW * 3.2} ${forecastW * 2.5}`, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    if (sp.length > 1) add(_te('path', { d: 'M' + sp.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: T.lineColor || iconCol, 'stroke-width': Math.max(1, +T.lineWidth || 5), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
     const tip = sp[sp.length - 1];
     if (tip) {
       const srcIdx = Math.min(nowIdx, Math.max(0, Math.floor(tip.idx)));
@@ -278,7 +291,7 @@ function drawTyphoonTrack(L, pts) {
   // 헤드(소수 인덱스)를 idx로 분류 — 과거를 그리는 동안엔 헤드가 pastLine에 들어가 회색 선이 아이콘까지 딱 붙어 따라온다(선이 아이콘을 한 칸씩 뒤따르던 '텐션' 제거).
   const pastLine = sp.filter((p) => p.idx <= nowIdx);
   const futLine = sp.filter((p) => p.idx >= nowIdx);
-  const trackW = Math.max(1, +T.lineWidth || 9.5);
+  const trackW = Math.max(1, +T.lineWidth || 5);
   const pastTrackW = Math.max(1.5, trackW * 0.55);   // 과거 경로는 현재·예상선보다 가늘게 구분
   if (pastLine.length > 1) add(_te('path', { d: 'M' + pastLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: '#96A0AD', 'stroke-width': pastTrackW, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   if (futLine.length > 1) add(_te('path', { d: 'M' + futLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: '#FFFFFF', 'stroke-width': trackW, 'stroke-dasharray': `${trackW * 3.2} ${trackW * 2.5}`, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));

@@ -3,6 +3,7 @@
 
 // ===================== 배선 =====================
 function wire() {
+  wireRegionSearch();
   // 제목 접기는 pointerdown 쪽(끌어서 떼어내기)에서 '안 움직였을 때'만 처리한다.
   // 여기에 onclick 을 또 달면 떼어낸 직후에 접히거나 두 번 토글된다.
   // 사이드바 위치/기본배치 버튼은 사이드바 하단 footer에서 만들고 배선한다(위 footer 생성부).
@@ -247,6 +248,8 @@ function wire() {
   foldWire($('#wrnManual'), 'wcg_wrn_manual_open');
   // 태풍 '자동이 안 될 때 · 수동 붙여넣기'도 같은 부품(기본 접힘). 미해군(JTWC) 불러오기 실패 안내가 이번만 펼친다(js/typhoon-jtwc.js jtwcManual)
   foldWire($('#typManual'), 'wcg_typ_manual_open');
+  foldWire($('#typDetailSettings'), 'wcg_typ_details_open');
+  foldWire($('#tycManual'), 'wcg_tyc_manual_open');
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value, null, 'paste');
   $('#wrnFetch').onclick = () => fetchWrn();   // 인자 없이(=목록 새로 만듦). onclick이 이벤트를 keepSel로 넘기지 않게 감쌈.
   setupWrnColPop();   // '특보 종류별 색' 버튼 → 2분할 팝업(js/warnings-load.js) — 옛 사이드바 색 격자 자리
@@ -358,6 +361,7 @@ function wire() {
   };
   $('#fctApply').onclick = () => applyFct($('#fctPaste').value);
   $('#bulApply').onclick = () => applyBulletin($('#bulPaste').value);
+  foldWire($('#bulManual'), 'wcg_bul_manual_open');
   // 통보문 불러오기·날짜 고르기·통째 붙여넣기·데스크톱 날씨누리 창 읽기 (js/bulletin-load.js)
   $('#bulLoad').onclick = () => fetchBulletin();
   $('#bulPick').onchange = (e) => bulPickFill(e.target.value);

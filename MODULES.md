@@ -148,7 +148,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 |---|---|
 | head 맨 앞 | **웹판 막기**(7장 — 첫 스크립트), 서비스워커 등록, `html.isDesktop` |
 | 그 다음 | **모듈 로드 실패 가드**(7장) |
-| | `default-presets.js` + 배치 슬롯으로 `WCG_DEFAULTS` 교체(`var _per/_mas`), `font-data.js` + `#fontEmbed`, Pretendard preload |
+| | `default-presets.js` + 배치 슬롯으로 `WCG_DEFAULTS` 교체(`var _per/_mas`), `font-data.js` + `#fontEmbed`, Wanted Sans preload(UI 전용·FontNew 내장, CG 출력 SUITE는 그대로) |
 | | `<link rel="stylesheet" href="css/…?v=…">` 14개 |
 | body | 마크업(사이드바·제목줄·모달·SVG 등) |
 | 끝 | 테마(`data-theme`), 데이터 스크립트 10개(`onerror` 대체값), `<script src="js/…?v=…">` 42개 |
@@ -237,6 +237,12 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   결과는 분할 전 `index.html`과 같은 텍스트(줄바꿈 LF)라 예전처럼 함수를 잘라 쓸 수 있다. `index.html`을 `readFileSync`로 직접 읽으면 구조 테스트가 실패한다.
 - 이 `app-source.cjs`는 근무표(work schedule)의 `swap-backend/app-source.cjs`와 **동작이 다르다**(이쪽은 머리 제거·IIFE 재구성·url 역변환까지 하는 정확한 역변환). 서로 복사하지 않는다.
 - 데스크톱 개발판은 hot reload가 없다 — 고친 뒤 창에서 Ctrl+R.
+- 일반·비교 태풍의 `태풍 불러오기 · 선택`은 `typLoadOv` 창(`typhoon-panel.js`): 처음은 출처 선택만, 불러오기를 누르면 오른쪽 목록이 나타나는 큰 2분할 창이다. 현재/과거/해외 출처는 색으로 구분하고 기관 버튼에는 SVG 국기가 붙는다. 과거는 `typHistoryMonth` 연·월 휠로 선택하고 공식 목록의 발생 시각(한국 시각)으로 그 달에 발생한 태풍만 거른다. 이름·발표 시각 수정은 팝업 밖 사이드바 `typDetailSettings` 접이식에 유지한다. 창을 닫거나 출처를 바꾸면 진행 중 선택은 취소한다.
+- 날짜 UI는 `date-picker.js`가 date/month/time/datetime-local 모두 처리하며, boot의 관찰자가 나중에 추가된 칸도 연결한다. datetime-local은 원래 값·change 계약을 유지한 채 날짜/시각 칸으로 표시하고 min/max를 지킨다. 일반 달력은 연월 휠의 `확인 · 일자 선택`으로 일자 달력에 돌아간다. month는 처음부터 연·월 휠만 표시하고 확인하면 YYYY-MM 값을 저장하며 일자 달력은 열지 않는다. 모든 select는 데스크톱 Chromium의 `appearance: base-select`와 공통 CSS로 메뉴까지 앱 테마를 사용한다(기존 값/이벤트/키보드 동작 유지).
+- 태풍 불러오기: JMA·기상청(현재/과거)은 `typhoon-api.js`의 `chooseTyphoonFromList`로 JTWC와 같은 선택 카드를 띄우고 고른 뒤에만 작업에 적용한다. 비교 패널 수동 붙여넣기는 `tycManual` 접이식, 펜·참고 이미지는 보라색 묶음. `tycBulk` 전체 조절은 숨긴 태풍까지 현재 비교 목록의 선택한 스타일 속성만 변경하며, 개별 색상·경로·날짜범위는 유지한다. 추가로 불러온 태풍에는 기존 기본값을 사용한다.
+- 창 시작 크기는 `desktop/window-layout.js`: 마우스가 있는 모니터의 작업 영역 안에 가로형 일반 창으로 가운데 배치(자동 최대화 없음). `desktop/main.js`를 바꾸면 앱을 다시 실행해야 한다. `boot.js`의 `startupUiEnter`는 첫 실행에만 UI를 0.85초 안에 투명도·블러로 순차 표시하며, 입력/모션 줄이기 설정은 효과를 건너뛴다. 모달이 떠 있으면 `modalWindowDrag`가 제목줄 위에서 창 이동을 허용한다.
+- 시군구·서울 지도는 색 팔레트 위의 **지역 이름 검색**으로 여러 구역을 선택하고 칠/지우기 가능(`panels.js`). 서울은 구 전체도 선택한다. 검색 선택 테두리는 임시 편집 표시로, `stripExportUi`에서 제거하며 프로젝트에는 저장하지 않는다.
+- 일반 실행에서 복원할 작업이 없으면 시작 안내와 함께 **장면 설정을 자동으로 연다**(`boot.js`). 저장 작업 불러오기·이어보기는 `loadProjectData`가 설정창을 닫으며, 작업을 복원하는 새로고침에는 자동으로 열지 않는다. 시작 중 자동 둘러보기는 겹쳐 띄우지 않는다(상단 i로 수동 실행 가능).
 - 로컬 웹 미리보기는 `npx serve`(ETag로 매번 재검증)나 Electron을 쓴다. `py -m http.server`는 휴리스틱 캐시로 옛 js를 줄 수 있다. 미리보기 전에 stamp.
 
 ## 9. 배포(GitHub Pages — 저장소 루트가 곧 사이트)

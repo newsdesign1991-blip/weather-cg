@@ -257,7 +257,7 @@ test('영상 저장 폴더 버튼은 타임라인 영상 렌더 묶음 바로 �
 
 test('데스크톱 — 폴더 고르기에서 막히는 사용자 폴더(바탕화면 자체 등)는 허락, 시스템 폴더는 다시 고르기', () => {
   assert.match(mainJs, /session\.defaultSession\.on\('file-system-access-restricted', \(_e, d, cb\) => cb\(fsPickAllowed\(d && d\.path\) \? 'allow' : 'tryAgain'\)\)/);
-  assert.match(mainJs, /const \{ app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog, session \} = require\('electron'\);/);
+  assert.match(mainJs, /const \{ app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog, session, screen \} = require\('electron'\);/);
   const env = { SystemRoot: 'C:\\Windows', ProgramFiles: 'C:\\Program Files', 'ProgramFiles(x86)': 'C:\\Program Files (x86)', ProgramData: 'C:\\ProgramData', APPDATA: 'C:\\Users\\u\\AppData\\Roaming', LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local', SystemDrive: 'C:' };
   const ctx = { path: path.win32, process: { env }, require: (m) => (m === 'os' ? { homedir: () => 'C:\\Users\\u' } : null) };
   vm.createContext(ctx);

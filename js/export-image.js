@@ -170,7 +170,7 @@ function drawExportTextOverlay(cx, keep, W, H) {
 const EXPORT_STRIP = ['#L_sel', '#L_guides', '#L_grips', '#L_insetHits', '#L_guide', '#L_vfPreview', '#brushCursor', '#L_refImg'];
 function stripExportUi(clone) {
   for (const s of EXPORT_STRIP) clone.querySelector(s)?.remove();
-  clone.querySelectorAll('.brushSelHi, .brushLive').forEach((n) => n.remove());   // 브러쉬 라이브 캔버스(드래그 중 전용)도 뺀다
+  clone.querySelectorAll('.brushSelHi, .brushLive, .regionSearchHi').forEach((n) => n.remove());   // 브러쉬·지역 검색 선택 표시는 편집 중에만 보인다
 }
 // 서울: 레이어 분리(mutate)로 존 칠을 비우거나 베이스로 되돌렸으면 한강 위 칠 오버레이(#seoulPaintTop)도 그 존을 따른다
 // (안 그러면 베이스·시도선·브러쉬·경계선 레이어에 모든 칠 색이 처음부터 찍힌다). 칠한 존이 하나도 안 남은 투명 레이어엔 한강도 뺀다.

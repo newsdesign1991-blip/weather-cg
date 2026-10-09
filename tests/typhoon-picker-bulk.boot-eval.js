@@ -1,0 +1,65 @@
+// Isolated boot-check profile; use normal app operations, never the user's saved work.
+const q=s=>document.querySelector(s),check=(v,m)=>{if(!v)throw new Error(m);};
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+closeTossModal();
+closeCgSetup();
+const saved=JSON.parse(JSON.stringify(stateForSave()));
+saved.style=Object.keys(MAP.styles).find(k=>MAP.styles[k].compare);
+check(saved.style,'comparison map missing');
+const pts=[{lon:130,lat:20,ws:30,tmef:'202610080000',fcst:false},{lon:132,lat:24,ws:30,tmef:'202610090000',fcst:false},{lon:134,lat:28,ws:30,tmef:'202610100000',fcst:true}];
+saved.typhoon={...typhoonStyleDefaults(),name:'검증용 태풍',issues:[{tmfc:'202610090000',label:'검증용',points:pts}],sel:0,compare:[
+  {id:'testone',name:'첫 번째 태풍',color:'#F05050',show:1,showIcons:1,iconScale:1,points:pts},
+  {id:'testtwo',name:'두 번째 태풍',color:'#468EFF',show:0,showIcons:0,iconScale:2,points:pts}
+]};
+loadProjectData(saved,null);await pause(500);revealSec('typhoonCompare');
+check(q('#tycManual').classList.contains('closed'),'manual not folded');
+check(q('#tycPen svg')&&q('#tycPen').closest('.tycDrawGroup')===q('#tycRefDrop').closest('.tycDrawGroup'),'drawing group broken');
+q('#tycPen').click();check(q('#tycPen svg')&&q('.tycPenLabel').textContent.includes('그리는 중'),'pen icon lost');cancelPen();
+check(q('#tycBulkScale').value==='','mixed scale not shown');
+check(q('#tycBulkScaleRange').type==='range'&&q('#tycBulkScaleRange').dataset.mixed==='true','mixed slider not shown');
+check(q('[data-tycbulk="showIcons"]').indeterminate,'mixed checkbox not shown');
+const original=JSON.stringify(S.typhoon.compare),count=undoStack.length;
+const change=(selector,value)=>{const n=q(selector);n.value=value;n.dispatchEvent(new Event('change',{bubbles:true}));};
+change('#tycBulkScale','175');
+check(S.typhoon.compare.every(c=>c.iconScale===1.75),'bulk scale not applied');
+check(undoStack.length===count+1,'bulk change is not one undo');
+undo();check(JSON.stringify(S.typhoon.compare)===original,'undo not exact');redo();
+change('#tycBulkWidth','9.5');change('#tycBulkKind','1');
+check(S.typhoon.compare.every(c=>c.lineW===9.5&&c.dotIcon===1),'bulk width/kind not applied');
+check(S.typhoon.compare[0].color==='#F05050'&&S.typhoon.compare[1].show===0,'unrelated fields changed');
+change('[data-cmpsec="testone"] [data-cmpiconscale]','2.2');
+q('[data-cmpsec="testone"] [data-cmpiconscale]').dispatchEvent(new Event('input',{bubbles:true}));
+check(q('#tycBulkScale').value==='','individual edit not reflected in mixed field');
+const list=[{tno:'1',name:'첫 태풍 (JMA)',points:pts},{tno:'2',name:'두 번째 태풍 (JMA)',points:pts}];
+const before=JSON.stringify(stateForSave());
+let pending=chooseTyphoonFromList(list,'일본 기상청(JMA)',()=>true);
+check(q('#tossOv .tossTitle').textContent.includes('일본'),'provider title wrong');
+check(q('.jtwcList').children.length===2,'picker rows missing');
+q('.jtwcList').children[1].click();check(await pending===1,'second storm selection wrong');
+check(JSON.stringify(stateForSave())===before,'picker itself mutates state');
+pending=chooseTyphoonFromList(list,'기상청',()=>true);q('#tossOv .tossX').click();check(await pending===-1,'cancel failed');
+pending=chooseTyphoonFromList(list,'기상청',()=>true);closeTossModal();check(await pending===-1,'replacement leaks pending selection');
+const baked=JSON.parse(JSON.stringify(stateForSave()));loadProjectData(baked,null);await pause(500);
+check(S.typhoon.compare.every(c=>c.lineW===9.5&&c.dotIcon===1),'styles lost on save/load');
+jtwcManual();check(!q('#tycManual').classList.contains('closed'),'manual fallback stays hidden');
+foldSet(q('#tycManual'),false);
+const slide=(id,value)=>{const n=q(id);n.value=value;n.dispatchEvent(new Event('input',{bubbles:true}));};
+const sliderBefore=JSON.stringify(S.typhoon.compare),sliderUndo=undoStack.length;
+slide('#tycBulkScaleRange','70');
+check(S.typhoon.compare.every(c=>c.iconScale===.7)&&q('#tycBulkScale').value==='70','scale slider not live');
+await pause(700);
+slide('#tycBulkScaleRange','85');slide('#tycBulkScaleRange','175');
+check(undoStack.length===sliderUndo+1,'drag creates multiple undo steps');
+q('#tycBulkScaleRange').dispatchEvent(new Event('change',{bubbles:true}));
+undo();check(JSON.stringify(S.typhoon.compare)===sliderBefore,'slider undo not exact');redo();
+slide('#tycBulkWidthRange','3.6');
+check(S.typhoon.compare.every(c=>c.lineW===3.6)&&q('#tycBulkWidth').value==='3.6','width slider not live');
+q('#tycBulkWidthRange').dispatchEvent(new Event('change',{bubbles:true}));
+change('#tycBulkWidth','9.5');change('#tycBulkScale','70');
+check(q('#tycBulkWidthRange').value==='9.5'&&q('#tycBulkScaleRange').value==='70','numeric input does not sync sliders');
+const sliderSaved=JSON.parse(JSON.stringify(stateForSave()));loadProjectData(sliderSaved,null);
+check(q('#tycBulkScaleRange').value==='70'&&q('#tycBulkWidthRange').value==='9.5','saved slider values not restored');
+q('#tycBulk').scrollIntoView({block:'center'});
+await pause(500);
+for(const n of q('#tycBulk').querySelectorAll('input,select')){const a=n.getBoundingClientRect(),b=q('#tycBulk').getBoundingClientRect();check(a.left>=b.left&&a.right<=b.right+1,'bulk controls overflow');}
+return {ok:true,bulkCount:S.typhoon.compare.length,checks:'picker second/cancel/replacement, mixed controls, hidden storm, live sliders, one-gesture undo/redo, numeric sync, save/load, pen, fold, layout'};

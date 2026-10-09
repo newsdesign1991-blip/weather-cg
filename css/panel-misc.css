@@ -1,4 +1,6 @@
 /* [모듈] css/panel-misc.css — 통보문·예보 API 박스, 섹션 안 접이식 묶음(.subFold — 예보 API·특보 수동 붙여넣기), 링크 버튼, 칠한 색 목록·경고 배너, 최근 파일, 이미지 안내 팝업, 마우스 배지, 안내/완료 토스트·체크 모션, 브러쉬 영역 강조 */
+  .animPreviewBtn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+  .animPreviewBtn > svg { width: 17px; height: 17px; flex: 0 0 17px; color: var(--primary); pointer-events: none; }
   /* ===== 통보문 색칠 박스 (배경을 살짝 달리해 눈에 띄게) ===== */
   .bulBox {
     padding: 10px 11px; border-radius: 13px;
@@ -166,4 +168,18 @@
   /* 브러쉬 마스크로 선택된 영역 외곽선 (지도 배율과 무관하게 일정 굵기) */
   /* 브러쉬 영역 선택 강조 — 시도를 '면'으로 파랗게 덮는다(내부 시군 경계는 강조 안 함). */
   .brushSelHi { fill: #4a94ff; fill-opacity: .30; stroke: none; pointer-events: none; }
+  .tycDrawGroup { margin: 10px 0; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, #8b70df 25%, var(--outline-var)); background: color-mix(in srgb, #8b70df 9%, var(--surface)); }
+  #tycPen { display: flex; justify-content: center; align-items: center; gap: 7px; }
+  #tycPen svg { width: 19px; height: 19px; flex: 0 0 19px; }
+  .tycBulkGroup { margin: 12px 0; padding: 12px; border-radius: 14px; border: 1px solid var(--outline-var); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+  .tycBulkGroup .row > input, .tycBulkGroup .row > select { min-width: 0; flex: 1; width: 0; }
+  .tycBulkGroup .row > label { flex: 0 0 80px; }
+  .tycBulkGroup input:indeterminate { opacity: .6; }
+  .tycBulkGroup .tycBulkSlider { display: grid; grid-template-columns: minmax(0, 1fr) 64px 20px; gap: 5px 6px; }
+  .tycBulkGroup .tycBulkSlider > input { width: 100%; box-sizing: border-box; }
+  .tycBulkGroup .tycBulkSlider > input[type=range] { grid-column: 1 / -1; margin: 3px 0 8px; }
+  .tycBulkGroup .tycBulkSlider > input[type=range][data-mixed="true"] { opacity: .5; }
+  .typIconKind { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+  #typIconMode { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; padding: 3px; gap: 3px; border-radius: 12px; background: var(--surface-hi); }
+  #typIconMode button { min-width: 0; padding: 7px 2px; border: 0; border-radius: 9px; font-size: 11px; white-space: nowrap; }
 

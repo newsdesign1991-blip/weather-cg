@@ -111,7 +111,7 @@ test('P1/P4: 라인 모드·선 색/굵기·아이콘 크기는 F5/지도 전환
   assert.equal(T.landFill, '#12325A');   // 색 계열은 여전히 기본값으로 통일
   ctx.S.typhoon = {};
   ctx.applyTyphoonStyle();
-  assert.equal(ctx.S.typhoon.trackMode, 'full'); assert.equal(ctx.S.typhoon.lineWidth, 9.5);
+  assert.equal(ctx.S.typhoon.trackMode, 'full'); assert.equal(ctx.S.typhoon.lineWidth, 5); assert.equal(ctx.S.typhoon.iconScale, 1.25);
 });
 
 test('P1: 라인 모드 전 저장본(배포값 0.7)은 새 아이콘 크기로 보강, 라인 모드 이후 저장본의 값은 보존', () => {
@@ -119,8 +119,8 @@ test('P1: 라인 모드 전 저장본(배포값 0.7)은 새 아이콘 크기로 
   ctx.window.WCG_DEFAULTS = { typhoonStyle: { iconScale: 0.7 } };   // 지금 배포 기본값(lineWidth 없음)
   ctx.S.typhoon = { issues: [{ points: [] }], sel: 0, iconScale: 0.7 };
   ctx.initTyphoonData();
-  assert.equal(ctx.S.typhoon.iconScale, 1.75);
-  assert.equal(ctx.S.typhoon.lineWidth, 9.5);
+  assert.equal(ctx.S.typhoon.iconScale, 1.25);
+  assert.equal(ctx.S.typhoon.lineWidth, 5);
   ctx.S.typhoon = { issues: [{ points: [] }], sel: 0, iconScale: 1.2, lineWidth: 6 };
   ctx.initTyphoonData();
   assert.equal(ctx.S.typhoon.iconScale, 1.2);

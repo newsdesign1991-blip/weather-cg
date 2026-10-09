@@ -40,6 +40,41 @@ function setupDropOpen() {
   });
 }
 
+// 첫 실행에만 UI를 순서대로 드러낸다. CG/S 상태·레이아웃·팝업의 기존 transform은 건드리지 않는다.
+function startupUiEnter() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+  const plan = [];
+  const add = (selector, base, step = 0) => {
+    document.querySelectorAll(selector).forEach((node, i) => {
+      if (!node.getClientRects().length || getComputedStyle(node).visibility === 'hidden') return;
+      plan.push({ node, delay: Math.min(385, base + i * step) });
+    });
+  };
+  add('#titlebar .tbMenus', 0);
+  add('#titlebar .tbRight', 55);
+  add('#appHeader', 90);
+  add('#topbar', 130);
+  add('#panel > .sec:not([style*="display: none"]) > h3', 150, 35);
+  add('#panel > .panelFooter', 310);
+  add('#startOverlay.on .startCard', 180);
+  add('#cgSetupOv.on .cgsHead', 140);
+  add('#cgSetupOv.on .cgsPane', 220, 80);
+  add('#cgSetupOv.on .cgsFoot', 380);
+  const animations = plan.filter(({node}) => typeof node.animate === 'function').map(({node, delay}) =>
+    node.animate([{opacity: 0, filter: 'blur(7px)'}, {opacity: 1, filter: 'blur(0px)'}],
+      {duration: 460, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards'}));
+  const cancel = () => {
+    for (const animation of animations) animation.cancel();
+    window.removeEventListener('pointerdown', cancel, true);
+    window.removeEventListener('keydown', cancel, true);
+  };
+  // 애니메이션을 기다리게 하지 않는다. 첫 클릭/키 입력은 그대로 전달하고 효과만 끝낸다.
+  window.addEventListener('pointerdown', cancel, {capture: true, passive: true});
+  window.addEventListener('keydown', cancel, true);
+  const finished = Promise.allSettled(animations.map(animation => animation.finished)).then(cancel);
+  return {animations, finished, cancel};
+}
+
 buildFrame();
 buildZones();
 buildResBtns();
@@ -54,9 +89,15 @@ buildSwapBtns();
 buildInsetPanel(); // 인셋 입력칸을 먼저 만들어야 syncPanelFromState가 채울 수 있다
 wire();
 dpAttachAll();   // 시스템 날짜·시각 칸(특보·예보 지난 날짜, 과거 태풍) → 근무표식 달력·시각 칸(js/date-picker.js) — 원래 input은 숨긴 채 값 그대로
+// 나중에 생기는 비교 카드·팝업의 날짜 칸도 빠짐없이 같은 입력기로.
+{ const dateInputs = new MutationObserver((records) => {
+  for (const record of records) for (const node of record.addedNodes) {
+    if (node.nodeType === 1 && node.isConnected && (node.matches('input[type=date],input[type=time],input[type=datetime-local]') || node.querySelector('input[type=date],input[type=time],input[type=datetime-local]'))) dpAttachAll(node);
+  }
+}); dateInputs.observe(document.body, { childList: true, subtree: true }); }
 loadLayout();   // wire() 뒤라야 한다 — 창으로 옮겨도 핸들러가 이미 붙어 있어야 안 끊긴다
 setupMenus();   // 추출·프로젝트를 상단 메뉴바 드롭다운으로 (loadLayout 뒤 — 사이드바에서 빼내야 하니)
-setupStartScreen();   // 처음 켰으면 빈 화면 + CG 종류·지도 종류 선택 안내(CG 구성 열기)
+setupStartScreen();   // 시작 화면의 저장 작업 이어보기 배선(장면 설정 자동 열기는 아래 작업 복원 판단 뒤)
 syncPanelFromState();
 markActive();
 updateUndoBtns();
@@ -100,13 +141,16 @@ if (work) {
   flash('하던 작업 이어서 열었습니다');
 } else {
   applyPreset();   // 저장해 둔 기본 배치(있으면)로 베이스 지도만 (showPresetInfo는 안에서 부른다)
-  if (freshOpen || pendingStart) showStartScreen();   // 빈 화면 + 'CG 종류·지도 종류 선택' 안내 (새 접속 또는 '새로 시작' 후)
+  // 새 실행·새로 시작·복원할 작업 없음: 안내 버튼을 한 번 더 누르지 않고 곧바로 장면 설정.
+  // loadProjectData(저장 파일/최근 작업/이어보기)는 이 창을 닫고 불러온 구성을 그대로 쓴다.
+  showStartScreen();
+  openCgSetup();
 }
 
 wireTour();
 setupDropOpen();   // 파일을 창에 끌어다 놓으면 열기
-// 새 창으로 켰고 아직 '다시 보지 않기'를 안 눌렀으면 둘러보기를 자동으로 띄운다(새로고침엔 안 뜸)
-const tourWillOpen = freshOpen && !localStorage.getItem(TOUR_KEY);
+// 처음엔 장면 설정을 먼저 쓴다. 시작 중에는 자동 둘러보기를 겹쳐 띄우지 않는다(상단 i로는 언제든 열 수 있음).
+const tourWillOpen = freshOpen && !startScreenOn() && !localStorage.getItem(TOUR_KEY);
 if (tourWillOpen) setTimeout(() => tourOpen(false), 650);
 // 안 읽은 공지가 있으면 팝업 — 새로고침·새 접속 어느 쪽이든 매번 확인(닫으면 읽음처리돼 다신 안 뜸).
 // 투어가 뜨는 첫 방문이면 투어 뒤에 겹쳐 뜨도록 조금 늦춘다.
@@ -125,3 +169,4 @@ if (window.wcgDesktop && typeof window.wcgDesktop.onCloseAsk === 'function') {
   window.wcgDesktop.onCloseAsk((id) => closeAsk(id));
 }
 document.fonts.ready.then(() => { renderLabels(); renderMtns(); renderSel(); });
+if (freshOpen) startupUiEnter();

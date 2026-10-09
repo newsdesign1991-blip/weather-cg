@@ -42,6 +42,8 @@
     background: var(--tb-act-bg); color: var(--tb-act-fg); box-shadow: inset 0 0 0 1px var(--tb-act-ring);
   }
   #titlebar .tbAction svg { flex: none; width: 15px; height: 15px; display: block; opacity: 1; }
+  /* 첨부 AE 로고의 굵은 Ae 실루엣 — 글꼴 의존 없이 벡터로, 버튼 글자색을 따라간다. */
+  #titlebar #aeSend .aeLogo { width: 18px; height: 18px; }
   #titlebar .tbAction:hover { background: var(--tb-act-hover); }
   #titlebar .tbAction.on, #titlebar .tbAction.pri {
     background: var(--primary); color: #fff; font-weight: 700;
@@ -88,6 +90,13 @@
   html[data-theme="light"] #titlebar .themeToggle .tgThumb { transform: translateX(20px); }
   html.isDesktop .titlebar { -webkit-app-region: drag; }
   html.isDesktop .titlebar button, html.isDesktop .titlebar input { -webkit-app-region: no-drag; }
+  /* 모달의 어두운 막보다 위에 있는 투명 제목줄. 오른쪽 OS 창 버튼 영역은 비워 둔다. */
+  #modalWindowDrag { display: none; }
+  html.isDesktop #modalWindowDrag:not([hidden]) {
+    display: block; position: fixed; top: 0; left: env(titlebar-area-x, 0px);
+    width: env(titlebar-area-width, calc(100vw - 140px)); height: var(--tbH);
+    z-index: 2147483000; background: transparent; -webkit-app-region: drag; user-select: none;
+  }
   /* 드롭다운이 열려 있는 동안엔 제목줄 전체를 끌기 영역에서 뺀다 — 끌기 영역 클릭은 페이지에 안 와서
      빈 곳·확대 비율·아이콘을 눌러도 메뉴가 안 닫히기 때문(윈도 메뉴바처럼 닫히게). 닫히면 다시 창 끌기. */
   html.isDesktop.menuOpen .titlebar { -webkit-app-region: no-drag; }
@@ -116,6 +125,7 @@
     .titlebar .tbRight { gap: 2px; }
     #titlebar .tbAction { padding: 0 7px; gap: 5px; font-size: 12px; }
     #titlebar .tbAction svg { width: 13px; height: 13px; }
+    #titlebar #aeSend .aeLogo { width: 16px; height: 16px; }
     #titlebar .tbScene { padding: 0 7px; gap: 5px; font-size: 12px; }
     #titlebar .tbScene svg { width: 13px; height: 13px; }
   }

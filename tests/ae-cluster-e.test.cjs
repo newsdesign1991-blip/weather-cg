@@ -104,7 +104,7 @@ test('단일 태풍 리그가 라인모드·선 굵기/색·과거아이콘 30%�
   const ty = send.slice(send.indexOf('// 단일 태풍: 리깅'), send.indexOf("name: '태풍 리깅'"));
   assert.match(ty, /const lineMode = T\.trackMode === 'line'/);
   assert.match(ty, /if \(lineMode\) sp = sp\.filter\(\(p\) => p\.idx <= nowIdx\)/);
-  assert.match(ty, /const trackW = Math\.max\(1, \+T\.lineWidth \|\| 9\.5\)/);
+  assert.match(ty, /const trackW = Math\.max\(1, \+T\.lineWidth \|\| 5\)/);
   assert.match(ty, /if \(!lineMode\) for \(const k of \['r70', 'r15', 'r25'\]\)/);
   assert.match(ty, /if \(!lineMode\) for \(const b of labelList\(\)\)/);
   assert.match(ty, /noIcon: tip \? false : !!p\.noIcon/);
@@ -115,7 +115,7 @@ test('단일 태풍 리그가 라인모드·선 굵기/색·과거아이콘 30%�
   assert.match(ty, /pastLineWidth: \+\(Math\.max\(1\.5, trackW \* 0\.55\) \* kk\)\.toFixed\(2\)/);
   assert.match(ty, /pastIconK: 0\.3/);
   // 화면 라인모드 선두 아이콘도 r=17 → iconScreenH(17×배율×2.5×kk) 그대로
-  assert.match(ty, /const iconScreenH = 17 \* \(T\.iconScale == null \? 1 : T\.iconScale\) \* 2\.5 \* kk/);
+  assert.match(ty, /const iconScreenH = 17 \* \(T\.iconScale == null \? 1\.25 : T\.iconScale\) \* 2\.5 \* kk/);
   assert.match(html, /add\(typhoonIconEl\(tip\.x, tip\.y, 17, iconCol/);
   // 화면 drawTyphoonTrack 값과 같은 식
   assert.match(html, /const pastTrackW = Math\.max\(1\.5, trackW \* 0\.55\)/);

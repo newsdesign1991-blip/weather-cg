@@ -50,7 +50,7 @@ test('사이드바 뒤·옆 바탕 = 근무표 같은 단색(--surface, 체커 �
   const stage = css.match(/\n  \.stage \{[^}]*\}/)[0];
   assert.doesNotMatch(stage, /background/);              // 무늬는 공용 규칙 하나만 — 따로 그리면 칸이 어긋난다
   assert.match(stage, /flex: 1; display: flex; align-items: center; justify-content: center;/);   // 중앙 맞춤 그대로
-  assert.match(stage, /padding: 26px 74px; overflow: hidden;/);
+  assert.match(stage, /padding: var\(--toolbar-space, 64px\) 74px 26px; overflow: hidden;/);
 });
 
 test('화면 요소 → 섹션 연결표 (지도 종류별)', () => {

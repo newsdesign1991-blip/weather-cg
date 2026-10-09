@@ -118,7 +118,7 @@ test('baking normalizes VF scale and AE uses scale-aware coordinates', () => {
   assert.match(html, /vfEnter:[\s\S]*dx:\s*vfEnterDist\(\)\s*\*\s*vfScaleValue\(\)\s*\/\s*100/);
 });
 
-test('CG uses local SUITE weights while editor UI uses Pretendard', () => {
+test('CG uses local SUITE weights while editor UI uses Wanted Sans', () => {
   const weights = [
     ['300', 'Light'], ['400', 'Regular'], ['500', 'Medium'],
     ['600', 'SemiBold'], ['700', 'Bold'], ['800', 'ExtraBold'], ['900', 'Heavy'],
@@ -131,13 +131,13 @@ test('CG uses local SUITE weights while editor UI uses Pretendard', () => {
   }
   const bodyRule = html.match(/^\s*body\s*\{[^}]*\}/m)?.[0] || '';
   assert.match(bodyRule, /font-family:\s*var\(--ui-font\)/);
-  assert.match(html, /--ui-font:\s*'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic'/);
-  // Pretendard는 앱에 내장(CDN 안 씀) — 파일과 @font-face가 있어야 한다
-  assert.match(html, /@font-face\s*\{[^}]*font-family:\s*'Pretendard Variable'[^}]*FontNew\/PretendardVariable\.woff2/);
-  assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/gh\/orioncactus\/pretendard/);
-  assert.ok(fs.statSync(path.join(__dirname, '..', 'FontNew/PretendardVariable.woff2')).size > 1e6);
-  // UI 쪽에 Wanted Sans 직접 지정이 남지 않게(비교 이름표 CG 글꼴 선택지 CMP_FONTS는 예외)
-  assert.doesNotMatch(html.replace(/const CMP_FONTS = [^\n]*/, ''), /font(-family)?:[^;}\n]*'Wanted Sans Variable'/);
+  assert.match(html, /--ui-font:\s*'Wanted Sans UI', 'Wanted Sans Variable', 'Wanted Sans', 'Segoe UI', 'Malgun Gothic'/);
+  // Wanted Sans는 앱에 내장(CDN 안 씀) — 파일·라이선스·가변 굵기·preload를 함께 둔다.
+  assert.match(html, /@font-face\s*\{[^}]*font-family:\s*'Wanted Sans UI'[^}]*font-weight: 400 1000;[^}]*FontNew\/WantedSansVariable\.woff2/);
+  assert.match(html, /rel="preload" href="FontNew\/WantedSansVariable\.woff2"/);
+  assert.ok(fs.statSync(path.join(__dirname, '..', 'FontNew/WantedSansVariable.woff2')).size > 1e6);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'FontNew/WantedSans-LICENSE.txt'),'utf8'), /SIL OPEN FONT LICENSE Version 1.1/);
+  assert.doesNotMatch(html, /PretendardVariable\.woff2|font-family:\s*['"]Pretendard/);
   assert.match(html, /'font-family':\s*'"SUITE CG"/);
   assert.doesNotMatch(bodyRule, /font-family:\s*'SUITE CG'/);
 });

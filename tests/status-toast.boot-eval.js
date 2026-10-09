@@ -1,0 +1,11 @@
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+const note=document.querySelector('#status');
+status('미해군(JTWC) 활동 중인 태풍 4개 — 골라 주세요',true);
+if(note.style.opacity!=='1')throw new Error('toast not visible');
+await pause(2800);
+status('새 안내',true);
+await pause(1500);
+if(note.style.opacity!=='1')throw new Error('old timer hides new message');
+await pause(3000);
+if(note.style.opacity!=='0'||Number(getComputedStyle(note).opacity)>.05)throw new Error('toast remains visible');
+return {ok:true,autoHide:true,replacementTimer:true};

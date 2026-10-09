@@ -1,6 +1,6 @@
 /* [모듈] js/typhoon-panel.js — 태풍 패널 UI: 비교 카드, 태풍 패널·밴드, 펜툴, 참고 이미지, wireTyphoonPanel */
 'use strict';
-// 지금 불러온 예보를 '비교 목록'에 스냅샷으로 추가(색 자동 배정). auto=불러오기 자동추가(중복 이름은 갱신, undo/모드 자동켜기 생략).
+// 지금 불러온 예보를 비교에 담는다. 기관·연도·번호·실제/예상 경로가 같으면 스타일을 지키고 지점만 갱신한다.
 function addCompareForecast(auto) {
   if (!S.typhoon) initTyphoonData();
   const pts = curTyphoonPoints();
@@ -9,9 +9,12 @@ function addCompareForecast(auto) {
   const wl = S.typhoon.whichList, ws = S.typhoon.whichSel || 0;
   const nm = (wl && wl[ws] && wl[ws].name) || S.typhoon.name || ('예보 ' + (cmp.length + 1));
   if (!auto) pushUndo();   // 자동추가는 불러오기 쪽에서 이미 pushUndo 함
-  const ex = cmp.find((c) => c.name === nm);   // 같은 이름이면 갱신(재불러오기·중복 방지)
+  const item = wl && wl[ws];
+  const source = S.typhoon.src || 'manual', year = item && item.year || String(pts[0].tmef || '').slice(0, 4);
+  const sourceKey = item && item.tno ? [source, year, item.basin || '', item.td ? 'td' : 'typ', item.tno, item.archive ? 'archive' : 'forecast'].join(':') : '';
+  const ex = cmp.find((c) => sourceKey ? c.sourceKey === sourceKey : !c.sourceKey && c.name === nm);
   if (ex) ex.points = JSON.parse(JSON.stringify(pts));
-  else cmp.push({ id: 'cmp' + (seq++), name: nm, color: CMP_PALETTE[cmp.length % CMP_PALETTE.length], show: 1, showIcons: 1, showName: 0, showLegend: 0, points: JSON.parse(JSON.stringify(pts)) });   // 이름표·범례 기본 꺼짐(원하면 탭에서 켬)
+  else cmp.push({ id: 'cmp' + (seq++), name: nm, sourceKey, source, year, archive: !!(item && item.archive), color: CMP_PALETTE[cmp.length % CMP_PALETTE.length], show: 1, showIcons: 1, showName: 1, showLegend: 0, iconScale: 1.25, lineW: 5, points: JSON.parse(JSON.stringify(pts)) });
   buildCompareSection(); renderTyphoon(); renderLegend();
   status((ex ? '비교 갱신: ' : '비교에 추가: ') + nm + ' (' + cmp.length + '개)', true);
 }
@@ -38,7 +41,7 @@ function compareCardBodyHTML(c, i) {
     + `<label class="swtch"><span>태풍 아이콘</span><input type="checkbox" data-i="${i}" data-cmpicons="1" ${c.showIcons !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>아이콘 대신 작은 원</span><input type="checkbox" data-i="${i}" data-cmpdot="1" ${c.dotIcon ? 'checked' : ''}></label>`
     + `<div class="row" style="gap:6px;margin:2px 0"><label style="flex:0 0 auto;font-size:11px">아이콘 위치</label><select data-i="${i}" data-cmpiconmode="1" style="flex:1;font-size:11px"><option value="even" ${(c.iconMode || 'even') === 'even' ? 'selected' : ''}>등간격(약 10개)</option><option value="all" ${c.iconMode === 'all' ? 'selected' : ''}>실제 날짜별(전부)</option><option value="daily" ${c.iconMode === 'daily' ? 'selected' : ''}>하루에 하나</option></select></div>`
-    + `<div class="row" style="gap:6px;margin:2px 0"><label style="flex:0 0 auto;font-size:11px">선 두께</label><input type="number" data-i="${i}" data-cmplinew="1" step="0.2" min="0.5" max="10" value="${c.lineW || 2.2}" style="flex:0 0 60px"><label style="flex:0 0 auto;font-size:11px">아이콘 크기</label><input type="number" data-i="${i}" data-cmpiconscale="1" step="0.1" min="0.3" max="4" value="${c.iconScale == null ? 1 : c.iconScale}" style="flex:0 0 60px"></div>`
+    + `<div class="row" style="gap:6px;margin:2px 0"><label style="flex:0 0 auto;font-size:11px">선 두께</label><input type="number" data-i="${i}" data-cmplinew="1" step="0.1" min="0.5" max="10" value="${c.lineW || 2.2}" style="flex:0 0 60px"><label style="flex:0 0 auto;font-size:11px">아이콘 크기</label><input type="number" data-i="${i}" data-cmpiconscale="1" step="0.05" min="0.3" max="4" value="${c.iconScale == null ? 1 : c.iconScale}" style="flex:0 0 60px"></div>`
     + `<label class="swtch"><span>반경 표시</span><input type="checkbox" data-i="${i}" data-cmpradius="1" ${c.showRadius ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>이름</span><input type="checkbox" data-i="${i}" data-cmpname2="1" ${c.showName !== 0 ? 'checked' : ''}></label>`
     + `<label class="swtch"><span>범례</span><input type="checkbox" data-i="${i}" data-cmplegend="1" ${c.showLegend !== 0 ? 'checked' : ''}></label>`
@@ -57,8 +60,8 @@ function compareCardBodyHTML(c, i) {
 }
 // 태풍 카드 본문 핸들러 배선(root=그 태풍 섹션 요소, i=인덱스).
 function wireCompareCard(root, cmp, i) {
-  const R = () => renderTyphoon();
-  const RL = () => { renderTyphoon(); renderLegend(); };
+  const R = () => { renderTyphoon(); syncCompareBulk(); };
+  const RL = () => { renderTyphoon(); renderLegend(); syncCompareBulk(); };
   const q = (sel) => root.querySelectorAll(sel);
   q('[data-cmpeye]').forEach((n) => { n.onclick = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.show = c.show ? 0 : 1; buildCompareSection(); RL(); }; });
   q('[data-cmpcol]').forEach((n) => { n.oninput = () => { const c = cmp[i]; if (!c) return; pushUndo('cmpcol'); c.color = n.value.toUpperCase(); const dot = root.querySelector('h3 .cmpDot'); if (dot) dot.style.background = c.color; RL(); }; });
@@ -115,6 +118,54 @@ function buildCompareTyphoonSections() {
   });
 }
 // 비교 지도 상단 컨트롤(가져올 태풍 목록·범례 토글) 갱신 + 태풍별 전용 탭 생성.
+function compareBulkValue(c, key) {
+  if (key === 'iconScale') return c.iconScale == null ? 1 : c.iconScale;
+  if (key === 'lineW') return c.lineW || 2.2;
+  if (key === 'iconMode') return c.iconMode || 'even';
+  if (key === 'dotIcon' || key === 'showRadius') return c[key] ? 1 : 0;
+  return c[key] !== 0 ? 1 : 0;
+}
+function syncCompareBulk() {
+  const box = $('#tycBulk'); if (!box) return;
+  const cmp = (S.typhoon && S.typhoon.compare) || [];
+  const count = $('#tycBulkCount'); if (count) count.textContent = '· ' + cmp.length + '개';
+  box.querySelectorAll('[data-tycbulk]').forEach((n) => {
+    const key = n.dataset.tycbulk, values = cmp.map((c) => compareBulkValue(c, key));
+    const mixed = values.some((v) => v !== values[0]), val = values[0];
+    n.disabled = !cmp.length;
+    n.title = mixed ? '태풍마다 다름 — 변경하면 전체에 적용' : '현재 비교 태풍 전체에 적용';
+    if (n.type === 'checkbox') { n.indeterminate = mixed; n.checked = !mixed && !!val; }
+    else if (n.type === 'range') {
+      n.value = String(val == null ? (key === 'iconScale' ? 100 : 2.2) : (key === 'iconScale' ? Math.round(val * 100) : val));
+      n.dataset.mixed = String(mixed);
+      n.setAttribute('aria-valuetext', mixed ? '태풍마다 다름 — 움직이면 전체에 적용' : n.value + (key === 'iconScale' ? '%' : 'px'));
+    }
+    else { n.value = mixed || !cmp.length ? '' : String(key === 'iconScale' ? Math.round(val * 100) : val); n.placeholder = mixed ? '각각 다름' : '태풍 없음'; }
+  });
+}
+function applyCompareBulk(key, value, opts = {}) {
+  const cmp = (S.typhoon && S.typhoon.compare) || [];
+  if (!isTyphoonCompare() || !cmp.length || value === '') return false;
+  const names = { iconScale: '아이콘 크기', lineW: '선 두께', dotIcon: '아이콘 종류', iconMode: '아이콘 위치', showIcons: '아이콘 표시', showRadius: '반경 표시', showName: '이름 표시', showLegend: '범례 포함' };
+  if (!Object.hasOwn(names, key)) return false;
+  let val = value;
+  if (key === 'iconMode') { if (!['even', 'all', 'daily'].includes(val)) return false; }
+  else {
+    val = Number(value); if (!Number.isFinite(val)) return false;
+    if (key === 'iconScale') val = Math.min(400, Math.max(30, val)) / 100;
+    else if (key === 'lineW') val = Math.min(10, Math.max(0.5, val));
+    else val = val ? 1 : 0;
+  }
+  if (cmp.every((c) => compareBulkValue(c, key) === val)) { syncCompareBulk(); return false; }
+  if (opts.undo !== false) pushUndo();
+  cmp.forEach((c) => { c[key] = val; });
+  if (opts.live) syncCompareBulk(); else buildCompareSection();
+  renderTyphoon(); renderLegend();
+  const msg = cmp.length + '개 태풍 · ' + names[key] + ' 적용됨';
+  const note = $('#tycBulkStatus'); if (note) note.textContent = msg;
+  if (!opts.live) { fxArrive($('#tycBulk')); status(msg, true); }
+  return true;
+}
 function buildCompareSection() {
   if (!isTyphoonCompare()) return;
   if (!S.typhoon) initTyphoonData();
@@ -141,13 +192,15 @@ function buildCompareSection() {
     ? '<p class="hint" style="margin:2px 0;opacity:.7">태풍마다 아래 <b>전용 탭</b>에서 조절해요.</p>'
     : '<p class="hint" style="margin:2px 0;opacity:.6">아직 없음 — 불러오면 아래에 <b>전용 탭</b>이 생겨요.</p>';
   buildCompareTyphoonSections();
+  syncCompareBulk();
+  buildTyphoonBasket();
 }
 
 function buildTyphoonPanel() {
   if (!isTyphoon()) return;
   if (!S.typhoon) initTyphoonData();
   const T = S.typhoon;
-  for (const w of (T.whichList || [])) if (!w.td && w.year) w.name = typhoonDisplayName(w.year, w.tno, false);   // 저장된 이름을 라벨에 항상 반영(파일 로드 후에도)
+  for (const w of (T.whichList || [])) if (!w.td && w.year) w.name = typhoonDisplayName(w.year, w.tno, false, w.kmaName);   // 공식 이름도 작업 파일에 저장
   { const cur = (T.whichList || [])[T.whichSel || 0]; if (cur && !cur.td && cur.year) T.name = cur.name; }
   const which = $('#typWhichSel');
   if (which) {
@@ -161,7 +214,7 @@ function buildTyphoonPanel() {
     const cur = (T.whichList || [])[T.whichSel || 0];
     const ok = !!(cur && !cur.td && cur.year);
     nmeIn.disabled = !ok;
-    nmeIn.value = ok ? typNameGet(cur.year, cur.tno) : '';
+    nmeIn.value = ok ? (typNameGet(cur.year, cur.tno) || cur.kmaName || '') : '';
     nmeIn.placeholder = ok ? '예: 개미 (제' + cur.tno + '호에 저장)' : '기상청 태풍을 불러오면 입력';
   }
   const issueSel = $('#typIssueSel');   // ⚠ 전역 선택배열 sel을 가리지 않게 이름 분리(라벨 체크박스 핸들러가 전역 sel을 씀)
@@ -173,7 +226,7 @@ function buildTyphoonPanel() {
   const info = $('#typInfo'); if (info) info.textContent = T.fromApi ? '' : '지금은 샘플(6호 장미) — 위에서 불러오세요.';
   const trackMode = T.trackMode || 'full';
   document.querySelectorAll('#typTrackMode button').forEach((b) => b.classList.toggle('on', b.dataset.tm === trackMode));
-  { const lw = $('#typLineWidth'), lwV = $('#typLineWidthV'), v = (T.lineWidth == null ? 9.5 : T.lineWidth); if (lw) lw.value = v; if (lwV) lwV.textContent = v + 'px'; }
+  { const lw = $('#typLineWidth'), lwV = $('#typLineWidthV'), v = (T.lineWidth == null ? 5 : T.lineWidth); if (lw) lw.value = v; if (lwV) lwV.textContent = v + 'px'; }
   // 현재 시각 슬라이더 + 라벨 목록
   const pts = curTyphoonPoints();
   const now = $('#typNow'), nowV = $('#typNowV');
@@ -242,7 +295,7 @@ function buildTyphoonPanel() {
   const mode = T.iconMode || 'image';
   document.querySelectorAll('#typIconMode button').forEach((b) => b.classList.toggle('on', b.dataset.im === mode));
   const colRow = $('#typIconColRow'); if (colRow) colRow.style.display = (mode === 'image' || mode === 'dot') ? '' : 'none';   // 색은 이미지·작은원 모드
-  const isc = $('#typIconScale'), iscV = $('#typIconScaleV'); const sv = (T.iconScale == null ? 1 : T.iconScale);
+  const isc = $('#typIconScale'), iscV = $('#typIconScaleV'); const sv = (T.iconScale == null ? 1.25 : T.iconScale);
   if (isc) isc.value = sv; if (iscV) iscV.textContent = Math.round(sv * 100) + '%';
   // 글로우
   const gOn = $('#typGlowOn'); if (gOn) gOn.checked = (T.glowOn == null ? 1 : T.glowOn) ? true : false;
@@ -311,7 +364,7 @@ function buildTyphoonBands() {
 let penMode = false, penPts = [];
 let penEditId = null, penExtendId = null;   // 점 편집 중인 비교 트랙 / 이어그리기 중인 트랙
 const compareById = (id) => ((S.typhoon && S.typhoon.compare) || []).find((c) => c.id === id) || null;
-function updatePenBtn() { const b = $('#tycPen'); if (b) { b.classList.toggle('on', penMode); b.textContent = penMode ? '그리는 중… (Enter 완료 · Esc 취소)' : '펜툴로 경로 그리기'; } }
+function updatePenBtn() { const b = $('#tycPen'); if (b) { b.classList.toggle('on', penMode); const label = b.querySelector('.tycPenLabel'); if (label) label.textContent = penMode ? '그리는 중… (Enter 완료 · Esc 취소)' : '펜툴로 경로 그리기'; } }
 function clearPenPreview() { const g = document.getElementById('penPreview'); if (g) g.remove(); }
 function renderPenPreview() {
   let g = document.getElementById('penPreview'); if (!g) { g = el('g', { id: 'penPreview' }); svg.appendChild(g); }
@@ -333,7 +386,7 @@ function finishPen() {
   if (!S.typhoon) initTyphoonData();
   const cmp = (S.typhoon.compare ||= []);
   pushUndo();
-  cmp.push({ id: 'cmp' + (seq++), name: '수동 경로 ' + (cmp.length + 1), color: CMP_PALETTE[cmp.length % CMP_PALETTE.length], show: 1, showIcons: 1, manual: true,
+  cmp.push({ id: 'cmp' + (seq++), name: '수동 경로 ' + (cmp.length + 1), color: CMP_PALETTE[cmp.length % CMP_PALETTE.length], show: 1, showIcons: 1, iconScale: 1.25, lineW: 5, manual: true,
     points: pts.map((ll) => ({ lon: ll.lon, lat: ll.lat, ws: 30, r15: 0, r25: 0, r70: 0, tmef: '', label: '', fcst: false })) });
   buildCompareSection(); renderTyphoon(); renderLegend();
   status('수동 경로 추가됨 (' + pts.length + '점) — 카드에서 색·이름·아이콘 조절', true);
@@ -463,6 +516,16 @@ function wireImeText(input, apply) {
 }
 // 태풍 비교 지도 패널 핸들러 1회 배선
 function wireCompareSection() {
+  document.querySelectorAll('[data-tycbulk]').forEach((n) => {
+    if (n.type !== 'range') { n.onchange = () => applyCompareBulk(n.dataset.tycbulk, n.type === 'checkbox' ? (n.checked ? 1 : 0) : n.value); return; }
+    let dragCmp = null;
+    n.oninput = () => {
+      const cmp = S.typhoon && S.typhoon.compare;
+      if (applyCompareBulk(n.dataset.tycbulk, n.value, { live: true, undo: dragCmp !== cmp })) dragCmp = cmp;
+    };
+    const finish = () => { if (!dragCmp) return; dragCmp = null; buildCompareSection(); status($('#tycBulkStatus').textContent, true); };
+    n.onchange = finish; n.onpointerup = finish; n.onpointercancel = finish; n.onblur = finish;
+  });
   const f = $('#tycFetch'); if (f) f.onclick = () => { if (typeof fetchTyphoon === 'function') fetchTyphoon(); else status('태풍 API 연동 준비 중', true); };
   const fj = $('#tycFetchJma'); if (fj) fj.onclick = fetchJma;
   const dl = $('#tycJtwcDl'); if (dl) dl.onclick = () => fetchJtwc();   // 미해군(JTWC) — 데스크톱 앱이면 골라서 바로 비교에 추가, 아니면 사이트 열기(js/typhoon-jtwc.js)
@@ -487,7 +550,89 @@ function wireCompareSection() {
   const rRem = $('#tycRefRemove'); if (rRem) rRem.onclick = () => { if (!S.typhoon) return; const a = refImgs(), i = refSelIdx(); if (i < 0) return; pushUndo(); a.splice(i, 1); S.typhoon.refSel = a.length - 1; clearRefImgLayer(); buildCompareSection(); renderRefImg(); };
 }
 // 태풍 사이드바 핸들러 1회 배선
+let typhoonLoadPicker = null;
+function buildTyphoonBasket() {
+  const host = $('#typLoadBasket'); if (!host) return;
+  host.hidden = !isTyphoonCompare(); host.textContent = '';
+  if (host.hidden) return;
+  const cmp = S.typhoon && S.typhoon.compare || [];
+  const title = document.createElement('div'); title.className = 'subhead'; title.textContent = '담은 태풍 ' + cmp.length + '개'; host.append(title);
+  if (!cmp.length) { const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = '위 목록에서 원하는 태풍을 여러 개 골라 담으세요. 다른 기관·과거 태풍도 이어서 추가할 수 있어요.'; host.append(hint); }
+  for (const c of cmp) {
+    const row = document.createElement('div'); row.className = 'typBasketRow';
+    const show = document.createElement('input'); show.type = 'checkbox'; show.checked = c.show !== 0; show.setAttribute('aria-label', c.name + ' 지도에 표시');
+    show.onchange = () => { pushUndo(); c.show = show.checked ? 1 : 0; buildCompareSection(); renderTyphoon(); renderLegend(); };
+    const dot = document.createElement('span'); dot.className = 'typBasketDot'; dot.style.background = c.color;
+    const label = document.createElement('span'); label.className = 'typBasketLabel';
+    const name = document.createElement('b'); name.textContent = c.name;
+    const meta = document.createElement('small'); meta.textContent = [c.year, ({ kma: '기상청', jma: '일본 기상청', jtwc: '미해군' })[c.source] || '직접 추가', c.archive ? '과거 전체 경로' : '발표 자료', (c.points || []).length + '개 지점'].filter(Boolean).join(' · '); label.append(name, meta);
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '빼기'; remove.setAttribute('aria-label', c.name + ' 비교에서 빼기');
+    remove.onclick = () => { pushUndo(); const i = cmp.indexOf(c); if (i >= 0) cmp.splice(i, 1); const a = anim(); a.tracks = a.tracks.filter((t) => !(t.kind === 'typcmp' && t.key === c.id)); buildCompareSection(); renderTyphoon(); renderLegend(); };
+    row.append(show, dot, label, remove); host.append(row);
+  }
+}
+function openTyphoonLoad() {
+  const ov = $('#typLoadOv'); if (!ov) return;
+  const compare = isTyphoonCompare();
+  $('#typLoadTitle').textContent = compare ? '태풍 비교 · 불러와서 담기' : '태풍 불러오기 · 선택';
+  ov.querySelector('.cgsSub').textContent = compare ? '여러 태풍을 골라 담고, 체크한 태풍을 지도에 함께 표시하세요' : '자료를 불러온 뒤 원하는 태풍과 발표 시각을 고르세요';
+  for (const suffix of ['Fetch', 'FetchJma', 'JtwcDl']) { $('#typ' + suffix).hidden = compare; $('#tyc' + suffix).hidden = !compare; }
+  if (typhoonLoadPicker) typhoonLoadPicker.close();
+  ov.classList.remove('has-results'); $('#typLoadResults').hidden = true; $('#typLoadList').textContent = '';
+  const month = $('#typHistoryMonth'); month.max = dpToday().slice(0, 7); if (!month.value) month.value = month.max;
+  buildTyphoonBasket();
+  buildTyphoonPanel();
+  ov.classList.add('on'); ov.setAttribute('aria-hidden', 'false');
+  popFocusIn(ov, ov.querySelector('.cgSetupCard'));
+}
+function closeTyphoonLoad() {
+  const ov = $('#typLoadOv'); if (!ov || !ov.classList.contains('on')) return;
+  ++typhoonPickSeq; ++jtwcSeq;
+  if (typhoonLoadPicker) typhoonLoadPicker.close();
+  dpClose(false);
+  ov.classList.remove('on'); ov.setAttribute('aria-hidden', 'true'); popFocusBack(ov);
+}
+// 일반·비교 모두 공통 목록을 큰 창 오른쪽에 표시한다.
+function typhoonPickerHost() {
+  const ov = $('#typLoadOv'), host = $('#typLoadList');
+  if (!ov || !ov.classList.contains('on') || !host) return null;
+  if (typhoonLoadPicker) typhoonLoadPicker.close();
+  $('#typLoadResults').hidden = false; ov.classList.add('has-results');
+  host.innerHTML = '<div class="typPickerInline"><div class="tossHead"><div><div class="tossTitle"></div><div class="tossSub"></div></div></div><div class="tossBody"><div class="jtwcList" role="list"></div><p class="jtwcNote"></p></div><div class="tossFoot"></div></div>';
+  const root = host.firstElementChild;
+  let closed = false;
+  const m = { ov: root, body: root.querySelector('.tossBody'), foot: root.querySelector('.tossFoot'),
+    list: root.querySelector('.jtwcList'), note: root.querySelector('.jtwcNote'),
+    alive: () => !closed && root.isConnected && ov.classList.contains('on'),
+    close: () => { if (closed) return; closed = true; root.remove(); if (typhoonLoadPicker === m) typhoonLoadPicker = null; if (!host.children.length) host.innerHTML = '<p class="hint">다른 태풍을 불러오거나 선택 완료를 눌러 지도를 확인하세요.</p>'; if (m.onGone) m.onGone(); },
+  };
+  typhoonLoadPicker = m;
+  return m;
+}
+function setupTyphoonLoad() {
+  const ov = $('#typLoadOv'); if (!ov) return;
+  document.body.append(ov);   // 사이드바의 zoom·클립 밖으로 옮김 — 입력 노드는 유지
+  $('#typLoadOpen').onclick = openTyphoonLoad;
+  $('#tycLoadOpen').onclick = openTyphoonLoad;
+  $('#typHistoryFetch').onclick = fetchTyphoonHistory;
+  $('#typHistorySearch').oninput = filterTyphoonHistory;
+  $('#typLoadX').onclick = closeTyphoonLoad; $('#typLoadDone').onclick = closeTyphoonLoad;
+  ov.addEventListener('click', (e) => {
+    if (!e.target.closest('#typFetch, #typFetchJma, #typJtwcDl, #tycFetch, #tycFetchJma, #tycJtwcDl, #typHistoryFetch')) return;
+    ++typhoonPickSeq; ++jtwcSeq;
+    if (typhoonLoadPicker) typhoonLoadPicker.close();
+    $('#typLoadResults').hidden = false; ov.classList.add('has-results');
+    $('#typLoadList').innerHTML = '<p class="hint">불러온 태풍 목록이 여기에 표시됩니다. 조회 안내는 화면 알림에서 확인할 수 있어요.</p>';
+  }, true);   // 다른 출처를 누르면 이전 출처의 늦은 응답·선택은 취소
+  ov.addEventListener('pointerdown', (e) => { if (e.target === ov) closeTyphoonLoad(); });
+  window.addEventListener('keydown', (e) => {
+    if (!ov.classList.contains('on') || _dpNow || $('#tossOv') || document.querySelector('select:open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeTyphoonLoad(); }
+    else if (e.key === 'Tab') popTrapTab(ov.querySelector('.cgSetupCard'), e);
+  });
+}
 function wireTyphoonPanel() {
+  setupTyphoonLoad();
   const T = () => (S.typhoon || (initTyphoonData(), S.typhoon));
   const sel = $('#typIssueSel'); if (sel) sel.onchange = () => { pushUndo(); T().sel = +sel.value; renderTyphoon(); };
   const play = $('#typPlay'); if (play) play.onclick = playTyphoon;

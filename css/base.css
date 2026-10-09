@@ -1,6 +1,7 @@
-/* [모듈] css/base.css — 글꼴(@font-face: Pretendard·SUITE CG), 색 역할·토스 팔레트·팝업 공통 토큰(다크/라이트), html/body·앱 뼈대, 사이드바 바닥·footer, 작은 버튼 */
-  @font-face { font-family: 'Pretendard Variable'; font-style: normal; font-display: swap; font-weight: 45 920; src: url('../FontNew/PretendardVariable.woff2') format('woff2-variations'), url('../FontNew/PretendardVariable.woff2') format('woff2'); }
-  /* CG 출력 전용 글꼴. 편집기 UI는 아래 --ui-font(Pretendard)를 쓴다. */
+/* [모듈] css/base.css — 글꼴(@font-face: Wanted Sans·SUITE CG), 색 역할·토스 팔레트·팝업 공통 토큰(다크/라이트), html/body·앱 뼈대, 사이드바 바닥·footer, 작은 버튼 */
+  /* UI 전용 별칭: font-data.js의 기존 CG 선택지용 Wanted Sans Variable과 섞이지 않게 한다. */
+  @font-face { font-family: 'Wanted Sans UI'; font-style: normal; font-display: swap; font-weight: 400 1000; src: url('../FontNew/WantedSansVariable.woff2') format('woff2-variations'), url('../FontNew/WantedSansVariable.woff2') format('woff2'); }
+  /* CG 출력 전용 글꼴. 편집기 UI는 아래 --ui-font(Wanted Sans)를 쓴다. */
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 300; src: url('../FontNew/SUITE-Light.otf') format('opentype'); }
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 400; src: url('../FontNew/SUITE-Regular.otf') format('opentype'); }
   @font-face { font-family: 'SUITE CG'; font-style: normal; font-display: swap; font-weight: 500; src: url('../FontNew/SUITE-Medium.otf') format('opentype'); }
@@ -140,8 +141,8 @@
 
   /* html까지 overflow:hidden — 어떤 자식이 넘쳐도 문서 자체가 스크롤돼 앱이 위로 밀리지 않게 */
   html, body { height: 100%; margin: 0; overflow: hidden; }
-  /* 편집기 UI 글꼴 — 앱에 넣은 Pretendard. 파일을 못 읽으면 Segoe UI + 맑은 고딕(윈도), 맥은 시스템 글꼴 */
-  :root { --ui-font: 'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif; }
+  /* 편집기 UI 글꼴 — 앱에 넣은 Wanted Sans. 파일을 못 읽으면 Segoe UI + 맑은 고딕(윈도), 맥은 시스템 글꼴 */
+  :root { --ui-font: 'Wanted Sans UI', 'Wanted Sans Variable', 'Wanted Sans', 'Segoe UI', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif; }
   body {
     font-family: var(--ui-font);
     background: var(--surface); color: var(--on-surface);

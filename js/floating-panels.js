@@ -62,10 +62,10 @@ function setDockSide(side) {
   saveLayout();   // 사용자 조작일 때만 저장
 }
 
-// 툴바 좌우 위치. null 이면 기본 = 스테이지(캔버스) 가운데. 내가 끌어 옮기면 그 자리를 기억한다.
+// 툴바 기본(null)은 작업 화면 왼쪽 위 바깥. 내가 끌어 옮기면 그 자리를 기억한다.
 // 스테이지 안에서 절대배치라 스테이지 폭 기준으로 잡는다.
-let toolbarX = null;   // 처음 켰을 때 기본: 가운데 (사이드바 크기가 바뀌어도 다시 가운데로)
-// 툴바 세로 위치. null = 맨 위(제목줄 바로 아래), 'bottom' = 창 아래 끝에 붙음(창 크기가 바뀌어도 아래), 숫자 = 스테이지 기준 px
+let toolbarX = null;
+// null = 작업 화면 위 10px, 'bottom' = 창 아래 끝, 숫자 = 스테이지 기준 px
 let toolbarY = null;
 const TB_SNAP = 14, TB_GAP = 10;   // 붙는 거리(px) · 붙었을 때 띄우는 간격(px)
 // 아래 끝 자리 — 타임라인이 열려 있으면(스테이지 아래 여백이 커짐) 그 위까지
@@ -77,12 +77,14 @@ function applyToolbarPos() {
   const tb = $('#topbar'), st = $('#stage');
   if (!tb || !st) return;
   const max = Math.max(16, st.clientWidth - tb.offsetWidth - 16);
-  // 기본(null): 스테이지 가운데. 내가 안 건드리면 좌우로 치우치지 않고 항상 가운데에 온다.
-  const center = clamp(Math.round((st.clientWidth - tb.offsetWidth) / 2), 16, max);
-  const x = toolbarX == null ? center : clamp(toolbarX, 16, max);
+  const board = document.querySelector('#startOverlay.on .startBoard') || document.querySelector('.fit');
+  const sr = st.getBoundingClientRect(), br = board && board.getBoundingClientRect();
+  const homeX = br ? br.left - sr.left : 74;
+  const homeY = br ? br.top - sr.top - tb.offsetHeight - TB_GAP : TB_GAP;
+  const x = clamp(toolbarX == null ? homeX : toolbarX, 16, max);
   tb.style.left = Math.round(x) + 'px';
   const yMax = toolbarBottomY(st, tb);
-  const y = toolbarY == null ? 0 : toolbarY === 'bottom' ? yMax : clamp(toolbarY, 0, yMax);
+  const y = toolbarY === 'bottom' ? yMax : clamp(toolbarY == null ? homeY : toolbarY, 0, yMax);
   tb.style.top = Math.round(y) + 'px';
 }
 // 끌기 중 붙이기 — 위(제목줄 바로 아래)·아래(창 아래 끝)·작업창(아트보드) 위/아래 바깥, 가로는 작업창 왼끝·오른끝·가운데·스테이지 가운데.
@@ -90,12 +92,12 @@ function applyToolbarPos() {
 function snapToolbar(x, y) {
   const tb = $('#topbar'), st = $('#stage'), fit = document.querySelector('.fit');
   const w = tb.offsetWidth, h = tb.offsetHeight, sr = st.getBoundingClientRect();
-  const xs = [[Math.round((st.clientWidth - w) / 2), null]];
-  const ys = [[0, null], [toolbarBottomY(st, tb), 'bottom']];
+  const xs = [[Math.round((st.clientWidth - w) / 2)]];
+  const ys = [[0], [toolbarBottomY(st, tb), 'bottom']];
   if (fit) {
     const r = fit.getBoundingClientRect(), L = r.left - sr.left, R = r.right - sr.left, T = r.top - sr.top, B = r.bottom - sr.top;
-    xs.push([L], [R - w], [Math.round((L + R - w) / 2)]);
-    ys.push([T - h - TB_GAP], [B + TB_GAP]);
+    xs.push([L, null], [R - w], [Math.round((L + R - w) / 2)]);
+    ys.push([T - h - TB_GAP, null], [B + TB_GAP]);
   }
   const pick = (list, v) => {
     let best = null, d0 = TB_SNAP + 1;
@@ -105,14 +107,14 @@ function snapToolbar(x, y) {
   const sx = pick(xs, x), sy = pick(ys, y);
   return { x: sx ? sx.v : x, y: sy ? sy.v : y };
 }
-// 플로팅 바 모양 판번호 — 2: 메뉴를 맨 위 제목줄로 옮겨 칠하기·브러쉬·이동·되돌리기만 남은 좁은 바.
-// 옛 넓은 바 기준으로 저장된 위치(toolbarX)는 안 맞으니 한 번 버리고 가운데에서 시작한다.
-const TOOLBAR_V = 2;
+// 3: 시작 위치를 아트보드 왼쪽 위 바깥으로. 옛 위치만 한 번 무시하며 패널 배치는 보존한다.
+const TOOLBAR_V = 3;
 // 맨 위 제목줄 높이(px) — 떼어낸 창·둘러보기 카드가 그 위(데스크톱에선 창 끌기 영역)로 올라가지 않게.
 function titleBarH() { const t = $('#titlebar'); return t ? t.offsetHeight : 0; }
 // 창 전체(제목줄 포함)를 덮는 어두운 막들 — [선택자, 막 색('' = 그 요소의 배경색)].
 // 둘러보기는 어두운 막이 .tourSpot 그림자라 배경색이 없어 색을 직접 적는다(.tourSpot box-shadow 바깥색과 같게).
 const TITLEBAR_DIM = [
+  ['#typLoadOv.on', 'var(--pop-ov)'],
   ['#tourWrap.on', 'rgba(6, 8, 12, .76)'],
   ['#tossOv', ''], ['#confirmOverlay.on', ''], ['#slotOverlay.on', ''], ['#bulHelpPop.on', ''], ['#dropHint.on', ''],
   ['#cgSetupOv.on', 'var(--pop-ov)'],   // CG 구성 창 — 막이 서서히 나타나 배경색 대신 최종 색(.cgSetupOv 배경과 같은 변수, 테마마다 다름)을 읽는다
@@ -151,6 +153,8 @@ function syncTitleBarColors() {
   const d = window.wcgDesktop;
   if (!d || typeof d.setTitleBar !== 'function') return;
   const cs = getComputedStyle(document.documentElement), layers = titleBarDimLayers();
+  const dragStrip = $('#modalWindowDrag');
+  if (dragStrip) dragStrip.hidden = !layers.length;
   const color = mixColorLayers(cs.getPropertyValue('--surface').trim(), layers);
   // 막이 떠 있어도 창 버튼 기호는 보이게 — 어두워진 바탕이면 밝은 기호, 밝은 테마의 옅은 막(바탕이 아직 밝음)이면 어두운 기호. 평소엔 제목줄 글자색.
   const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
@@ -574,8 +578,8 @@ function loadLayout() {
   let L = null;
   try { L = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) { /* 깨졌으면 기본 배치 */ }
   if (!L || !Array.isArray(L.docked)) return;
-  if (L.toolbarX !== undefined && L.toolbarV === TOOLBAR_V) toolbarX = L.toolbarX;   // 옛 넓은 바 위치는 버림(가운데)
-  if (L.toolbarV === TOOLBAR_V && (L.toolbarY === 'bottom' || typeof L.toolbarY === 'number')) toolbarY = L.toolbarY;   // 세로 위치(없으면 맨 위)
+  if (L.toolbarX !== undefined && L.toolbarV === TOOLBAR_V) toolbarX = L.toolbarX;
+  if (L.toolbarV === TOOLBAR_V && (L.toolbarY == null || L.toolbarY === 'bottom' || typeof L.toolbarY === 'number')) toolbarY = L.toolbarY;
   if (L.panelZoom) panelZoom = L.panelZoom;
   dockSide = L.dockSide === 'left' ? 'left' : 'right';   // 저장에 없으면(옛 파일) 기본 오른쪽
   applyDockSide();   // 저장 안 함 — 방금 읽은 걸 도로 덮어쓰지 않게 (applyPanelSize도 부른다)
@@ -674,6 +678,7 @@ function showStartScreen() {
   const rb = $('#startResume');
   if (rb) { let has = false; try { const w = localStorage.getItem(WORK_KEY); has = !!(w && JSON.parse(w).map); } catch (e) {} rb.style.display = has ? '' : 'none'; }
   ov.classList.add('on');
+  applyToolbarPos();
 }
 function markStartStep(which) {
   const ov = $('#startOverlay'); if (!ov || !ov.classList.contains('on')) return;

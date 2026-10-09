@@ -125,28 +125,24 @@ R.timeClosed = !document.querySelector('.dpTimePop:not(.closing)');
 // 8) 태풍 '과거 태풍 불러오기' 날짜
 await scene('typhoon');
 revealSec('typhoon'); await sleep(700);
-const det = [...document.querySelectorAll('details.typOther')].find((d) => d.contains($('#typPastDate'))); det.open = true; await sleep(300);
-const tp = $('#typPastDate'), tf = tp._dp.field;
+openTyphoonLoad(); await sleep(300);
+const tp = $('#typHistoryMonth'), tf = tp._dp.field;
 let tpc = 0; tp.addEventListener('change', () => tpc++);
 tf.scrollIntoView({ block: 'center' }); await sleep(300);
 R.typBefore = { value: tp.value, field: tf.textContent };
 tf.click(); await sleep(450);
-$('.dpPop .dpTitle').click(); await sleep(500);
 const ty = $('.dpPop .dpCol[data-k="y"]');
 tap([...ty.querySelectorAll('.dpItem')].find((n) => n.textContent === '2019년')); await sleep(200);
 const tm = $('.dpPop .dpCol[data-k="m"]');
 tap([...tm.querySelectorAll('.dpItem')].find((n) => n.textContent === '9월')); await sleep(200);
-$('.dpPop .dpTitle').click(); await sleep(500);
-$('.dpPop .dpDay[data-d="2019-09-07"]').click(); await sleep(400);
+$('.dpPop .dpWheelDone').click(); await sleep(400);
 R.typ = { value: tp.value, field: tf.textContent, change: tpc, closed: !pop() };
 // 값이 min/max 밖이면(옛 범위값) < 를 한 번 누르면 범위 끝 달로 들어온다(헛돌지 않음) — 잠깐 범위를 붙였다 뗀다
-tp.min = '2019-01-01'; tp.max = '2019-09-30'; tp.value = '2020-05-05';
+tp.min = '2019-01'; tp.max = '2019-09'; tp.value = '2020-05';
 tf.click(); await sleep(450);
-R.outRange = { title0: title(), allOff: $$('.dpPop .dpDay').every((b) => b.disabled), prevOn: !$('.dpPop .dpPrev').disabled };
-$('.dpPop .dpPrev').click(); await sleep(300);
-R.outRange.title1 = title();
+R.outRange = { title: title(), daysHidden: $('.dpPop .dpCal').hidden };
 key(document.activeElement, 'Escape'); await sleep(300);
-tp.removeAttribute('min'); tp.removeAttribute('max'); tp.value = '2019-09-07';
+tp.min = '1977-01'; tp.max = dpToday().slice(0, 7); tp.value = '2019-09'; closeTyphoonLoad();
 
 // 9) 태풍 비교 카드 — 표시 날짜범위(min/max, 해 뺀 짧은 칸). 사이드바 가운데 칸이라 위아래 자리가 없으면 칸 옆(오른쪽)에 뜬다
 const cpts = [{ lon: 137.2, lat: 19.4, tmef: '202408200000', label: 'a' }, { lon: 136.3, lat: 20.6, tmef: '202408250000', label: 'b' }, { lon: 135.0, lat: 22.3, tmef: '202409020000', label: 'c' }];

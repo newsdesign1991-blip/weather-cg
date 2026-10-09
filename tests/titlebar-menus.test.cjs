@@ -108,6 +108,9 @@ test('렌더 3버튼 — 한 묶음(세그먼트, 같은 폭), 아이콘 + 글�
   assert.match(html, /#titlebar \.tbAction \{[^}]*justify-content: center;/);
   const aeSvg = /<button[^>]*id="aeSend"[^>]*>(<svg[\s\S]*?<\/svg>)/.exec(titlebar)[1];
   assert.match(aeSvg, /class="aeLogo"/); assert.match(aeSvg, /<mask id="aeLogoCut">/); assert.match(aeSvg, /fill="currentColor" mask="url\(#aeLogoCut\)"/); assert.match(aeSvg, /aria-hidden="true"/);
+  assert.match(aeSvg, /viewBox="0 0 1280 1248"/);
+  assert.match(aeSvg, /fill="#000" fill-rule="evenodd"/);
+  assert.doesNotMatch(aeSvg, /stroke=|<text\b/, '첨부 로고처럼 굵은 실루엣: 선 문자·설치 글꼴에 의존하지 않는다');
   assert.doesNotMatch(aeSvg, /#00005b|#9999ff/i, '어도비 색 대신 우리 색');
   for (const sel of ['id="exportBtn"', 'id="tlToggle"']) {
     const b = new RegExp(`<button[^>]*${sel}[^>]*>[\\s\\S]*?<\\/button>`).exec(titlebar)[0];

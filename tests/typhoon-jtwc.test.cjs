@@ -61,7 +61,7 @@ class El {
 function makeEnv(o = {}) {
   const calls = { fetch: [], open: [], status: [], fx: [], arrive: [], undo: 0, apply: [], reveal: [], typArrive: 0 };
   const els = {};
-  for (const id of ['typJtwcDl', 'tycJtwcDl', 'typPaste', 'tycPaste', 'typManual']) els['#' + id] = new El(id === 'typPaste' || id === 'tycPaste' ? 'textarea' : 'button');
+  for (const id of ['typJtwcDl', 'tycJtwcDl', 'typPaste', 'tycPaste', 'typManual', 'tycManual']) els['#' + id] = new El(id === 'typPaste' || id === 'tycPaste' ? 'textarea' : 'button');
   const modals = [];
   const ctx = {
     console, Promise, setTimeout, clearTimeout,
@@ -309,8 +309,7 @@ test('실패 — 연결 실패·시간 초과·HTTP 오류·형식 이상은 빨
   await c.ctx.fetchJtwc();
   assert.match(c.cur().list.children[0].textContent, /15초 동안 응답하지 않았어요/);
   c.press(c.cur(), '직접 붙여넣기');
-  assert.equal(c.els['#tycPaste'].focused, 1);
-  assert.equal(c.calls.reveal.length, 0);
+  assert.deepEqual(c.calls.reveal, [[c.els['#tycManual'], c.els['#tycPaste']]]);
   // 받기 함수가 던져도(IPC 오류) 같은 안내
   const t = makeEnv({ answer: () => new Error('IPC 끊김') });
   await t.ctx.fetchJtwc();
@@ -418,7 +417,7 @@ test('마크업·배선 — 두 버튼이 fetchJtwc, 태풍 수동 붙여넣기�
   assert.match(pick('wireCompareSection'), /const dl = \$\('#tycJtwcDl'\); if \(dl\) dl\.onclick = \(\) => fetchJtwc\(\);/);
   assert.doesNotMatch(html.slice(html.indexOf('function wireCompareSection('), html.indexOf('function wireTyphoonPanel(')), /metoc\.navy\.mil/, '사이트 주소는 JTWC_SITE 하나');
   assert.match(html, /<button id="typJtwcDl"[^>]*>미해군\(JTWC\)에서 불러오기<\/button>/);
-  assert.match(html, /<button id="tycJtwcDl"[^>]*>미해군\(JTWC\)<\/button>/);
+  assert.match(html, /<button id="tycJtwcDl"[^>]*>미해군\(JTWC\)에서 불러오기<\/button>/);
   assert.match(html, /<button type="button" class="subhead subFoldHead" id="typManualHead" aria-expanded="false" aria-controls="typManual">자동이 안 될 때 <span>· 수동 붙여넣기<\/span><\/button>\s*<div class="subFold closed" id="typManual">\s*<div class="subFoldInner">/);
   assert.match(pick('wire'), /foldWire\(\$\('#typManual'\), 'wcg_typ_manual_open'\);/);
   // 바깥 글(RSS)은 innerHTML로 넣지 않는다 — innerHTML은 고정 문구(실패 안내 덧말)만

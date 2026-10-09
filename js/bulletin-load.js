@@ -161,7 +161,7 @@ function bulResultView(r) {
     // 항목 이름('10일 · 비')은 줄바꿈으로 갈라지지 않게 붙인다
     const title = `${head} — ${r.n > 1 ? `${r.n}묶음` : String(r.label || '').replace(/ /g, ' ')}`;
     // 여럿이면 고른 항목은 '날짜' 칸이 보여 준다(카드에 적으면 고를 때마다 낡는다)
-    const lines = [r.n > 1 ? '날짜를 고르면 아래 칸에 채워져요.' : '칸에 채웠어요 — ‘통보문으로 색칠’을 누르세요.'];
+    const lines = [r.n > 1 ? '날짜를 고른 뒤 ‘수동으로 색칠’을 펼쳐 내용을 확인하고 색칠하세요.' : '‘수동으로 색칠’을 펼쳐 내용을 확인하고 ‘통보문으로 색칠’을 누르세요.'];
     if (r.snowOnly) lines.push('적설(cm)만 있어요 — 강수량 색 단계로 칠해요.');
     if (r.dropped) lines.push(`묶음에 못 넣은 강수량 줄 ${r.dropped}개가 있어요 — 원문과 칸을 견줘 보세요.`);   // 말없이 빠지는 줄이 없게
     return { tone: 'ok', title, meta, lines, detail: '', actions: [], toast: title };

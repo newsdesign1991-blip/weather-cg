@@ -130,6 +130,8 @@
   #panel {
     margin: 0 0 10px 10px; border-radius: 20px; border: 1px solid transparent;
     background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
+    /* padding-box 그라디언트는 스크롤바 자리를 덮지 않는다. 카드 바탕은 그 자리까지 채운다. */
+    background-color: var(--surface-c);
     box-shadow: var(--shadow-card);
   }
   .app.dockR #panel { margin: 0 10px 10px 0; box-shadow: var(--shadow-card); }
@@ -137,9 +139,11 @@
   .panelResize, .panelResize:hover, .panelResize.on { background: transparent; border-left: 0; }
   .panelResize::after { display: none; }
   /* 스크롤바도 평소엔 숨기고 사이드바에 마우스를 올렸을 때만 얇게 */
-  #panel::-webkit-scrollbar { width: 6px; }
-  #panel::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
-  #panel:hover::-webkit-scrollbar-thumb { background: var(--scrollbar); }
+  #panel::-webkit-scrollbar { width: 12px; }
+  #panel::-webkit-scrollbar-track { background: transparent; margin-block: 20px; }
+  #panel::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  #panel::-webkit-scrollbar-thumb { background-color: transparent; border: 3px solid transparent; background-clip: padding-box; border-radius: 6px; }
+  #panel:hover::-webkit-scrollbar-thumb { background-color: var(--scrollbar); }
 
   /* 항목 안의 작은 구분 머리 */
   .subhead {
@@ -159,7 +163,7 @@
   .row > label { width: 58px; flex: none; color: var(--on-surface-var); }
   .row.wide > label { width: 74px; }
   /* date·time·datetime-local을 빼먹으면 그 칸만 안 줄어들어 패널 밖으로 잘려나간다 */
-  input[type=number], input[type=text], input[type=date], input[type=time],
+  input[type=number], input[type=text], input[type=search], input[type=date], input[type=time],
   input[type=datetime-local], input[type=password], select, textarea {
     flex: 1; min-width: 0; background: var(--surface-field); border: 1px solid var(--outline);
     color: var(--on-surface); border-radius: var(--ri); padding: 6px 9px; font: inherit;   /* 32→28px(약 −12%) */
@@ -243,3 +247,14 @@
   .item .eye::before { width: 14px; height: 14px; }
 
   .pal { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 9px; }
+
+  #regionSearch { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--outline-var); }
+  #regionSearch[hidden] { display: none; }
+  #regionSearch > label { display: block; font-weight: 700; margin-bottom: 8px; }
+  #regionQuery { width: 100%; min-width: 0; box-sizing: border-box; }
+  #regionResults { display: grid; gap: 5px; max-height: 190px; overflow: auto; margin-top: 8px; overscroll-behavior: contain; }
+  #regionResults button { width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; padding: 8px 10px; }
+  #regionResults button[aria-pressed="true"] { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .regionSearchActions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+  #regionPaint { grid-column: 1 / -1; }
+  .regionSearchActions button { min-width: 0; white-space: normal; }

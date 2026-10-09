@@ -36,7 +36,7 @@
   } catch (e) {}
   var dk = true; try { dk = localStorage.getItem('wcg_theme') !== 'light'; } catch (e) {}
   document.addEventListener('DOMContentLoaded', function () { try { window.stop(); } catch (e) {} });   // 미리 받던 css·js(수 MB)도 멈춤
-  document.write('<div id="wcgWebGate" role="alertdialog" aria-modal="true" aria-labelledby="wcgWebGateT" style="position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;background:' + (dk ? '#0f0f0f' : '#eef1f5') + ';font-family:&quot;Pretendard Variable&quot;,&quot;Malgun Gothic&quot;,&quot;Segoe UI&quot;,sans-serif;">'
+  document.write('<div id="wcgWebGate" role="alertdialog" aria-modal="true" aria-labelledby="wcgWebGateT" style="position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;background:' + (dk ? '#0f0f0f' : '#eef1f5') + ';font-family:&quot;Wanted Sans Variable&quot;,&quot;Malgun Gothic&quot;,&quot;Segoe UI&quot;,sans-serif;">'
     + '<div style="width:100%;max-width:420px;border-radius:20px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35);background:' + (dk ? '#1c1c1e' : '#fff') + ';">'
     + '<div id="wcgWebGateT" style="background:#3182f6;color:#fff;padding:18px 22px;font-size:18px;font-weight:700;line-height:1.4;word-break:keep-all;">날씨 CG 메이커는 설치판으로 재배포 예정입니다</div>'
     + '<div style="padding:18px 22px 22px;font-size:14px;line-height:1.65;word-break:keep-all;color:' + (dk ? '#e5e5ea' : '#1f2937') + ';">이제 인터넷 창(웹)에서는 열리지 않아요. 앞으로는 PC에 설치하는 <b>데스크톱 앱</b>으로 씁니다.'
@@ -64,7 +64,7 @@
     if (document.getElementById('wcgModFail')) return;
     var dk = true; try { dk = localStorage.getItem('wcg_theme') !== 'light'; } catch (e) {}
     var d = document.createElement('div'); d.id = 'wcgModFail'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-modal', 'true');
-    d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;-webkit-app-region:no-drag;background:' + (dk ? 'rgba(0,0,0,.72)' : 'rgba(15,23,42,.45)') + ';font-family:"Pretendard Variable","Segoe UI","Malgun Gothic",sans-serif;';
+    d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;-webkit-app-region:no-drag;background:' + (dk ? 'rgba(0,0,0,.72)' : 'rgba(15,23,42,.45)') + ';font-family:"Wanted Sans Variable","Segoe UI","Malgun Gothic",sans-serif;';
     d.innerHTML = '<div style="width:100%;max-width:360px;border-radius:20px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35);background:' + (dk ? '#1c1c1e' : '#fff') + ';">'
       + '<div style="background:#ef4444;color:#fff;padding:16px 20px;font-size:17px;font-weight:700;">앱을 다 불러오지 못했어요</div>'
       + '<div style="padding:18px 20px 20px;font-size:14px;line-height:1.6;word-break:keep-all;color:' + (dk ? '#e5e5ea' : '#1f2937') + ';">일부 파일을 받지 못했거나, 업데이트 직후 옛 파일과 섞였어요.<br>하던 작업이 덮어써지지 않게 불러오기와 자동 저장을 멈췄어요. 새로고침해 주세요.'
@@ -117,21 +117,21 @@
 <script src="font-data.js"></script>
 <style id="fontEmbed"></style>
 <script>try { document.getElementById('fontEmbed').textContent = (window.WANTED_FONT_CSS || '').replace('font-display:block', 'font-display:swap'); } catch (e) {}</script>
-<!-- 편집기 UI 글꼴 Pretendard(무료 OFL, FontNew/Pretendard-LICENSE.txt) — 앱에 직접 넣어 오프라인·첫 실행에도 바로 나온다 -->
-<link rel="preload" href="FontNew/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/base.css?v=93e1dc90">
-<link rel="stylesheet" href="css/sidebar.css?v=75433dcf">
-<link rel="stylesheet" href="css/stage.css?v=3aa470dd">
-<link rel="stylesheet" href="css/titlebar.css?v=2af95c0c">
-<link rel="stylesheet" href="css/start-tour.css?v=36750797">
+<!-- 편집기 UI 글꼴 Wanted Sans(OFL, FontNew/WantedSans-LICENSE.txt) — 앱에 직접 넣어 오프라인·첫 실행에도 바로 나온다 -->
+<link rel="preload" href="FontNew/WantedSansVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/base.css?v=06ae7863">
+<link rel="stylesheet" href="css/sidebar.css?v=46897638">
+<link rel="stylesheet" href="css/stage.css?v=dd33058c">
+<link rel="stylesheet" href="css/titlebar.css?v=84d2c35e">
+<link rel="stylesheet" href="css/start-tour.css?v=87e8f3ff">
 <link rel="stylesheet" href="css/cg-setup.css?v=e88db745">
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
-<link rel="stylesheet" href="css/dialogs.css?v=838ef6ce">
-<link rel="stylesheet" href="css/panel-misc.css?v=9fd0d100">
+<link rel="stylesheet" href="css/dialogs.css?v=5cefe058">
+<link rel="stylesheet" href="css/panel-misc.css?v=4c67cdc4">
 <link rel="stylesheet" href="css/toss-modal.css?v=606aa1e8">
-<link rel="stylesheet" href="css/date-picker.css?v=33913418">
+<link rel="stylesheet" href="css/date-picker.css?v=9a76d0b1">
 <link rel="stylesheet" href="css/busy-fx.css?v=89c40212">
 
 <!-- 맨 위 제목줄 — 데스크톱 앱에선 이 줄이 곧 창 제목표시줄(빈 곳 끌기=창 이동, 오른쪽 끝=윈도 창 버튼).
@@ -154,7 +154,7 @@
     <div class="tbGroup" id="exportGroup">
       <button class="tbMenu tbAction" id="exportBtn" aria-haspopup="dialog" title="이미지로 렌더 — 고른 것을 PNG로 렌더해 폴더에 저장"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm3.5 6.6a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM5.2 18.2h13.6l-4.4-6-3.4 4.4-2.4-3.1z"/></svg><span class="tbLbl">이미지로 렌더</span></button>
       <button id="tlToggle" class="hasIcon tbMenu tbAction" title="영상으로 렌더 — 타임라인 열기/닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm-2.2 6v8l6.4-4z"/></svg><span class="tbLbl">영상으로 렌더</span></button>
-      <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg class="aeLogo" viewBox="0 0 24 24" aria-hidden="true"><mask id="aeLogoCut"><rect width="24" height="24" fill="#fff"/><path fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5.6 16L7.9 8l2.3 8M6.4 13.3h3M13.3 13.4h5.2a2.6 2.6 0 10-.61 1.67"/></mask><rect x="2" y="2.5" width="20" height="19" rx="4.6" fill="currentColor" mask="url(#aeLogoCut)"/></svg><span class="tbLbl">AE로 보내기</span></button>
+      <button id="aeSend" class="hasIcon tbMenu tbAction" style="display:none" title="레이어를 애프터이펙트로 보내 타임라인과 같은 애니메이션을 자동 적용 (로컬·헬퍼 필요, 실험)"><svg class="aeLogo" viewBox="0 0 1280 1248" aria-hidden="true"><mask id="aeLogoCut"><rect width="1280" height="1248" fill="#fff"/><path fill="#000" fill-rule="evenodd" d="M166 880Q155 880 160 868L333 374Q339 357 339 329Q339 321 347 321H480Q487 321 490 330L683 869Q687 878 676 878H568Q560 878 557 869L515 746H316L275 871Q273 880 264 880ZM346 641H482L414 418H412Q393 504 346 641ZM828 698Q836 791 948 791Q1003 791 1055 774Q1059 771 1059 780V859Q1059 867 1052 871Q1001 892 923 892Q821 892 765 832Q708 774 708 671Q708 575 763 512Q818 450 911 450Q1001 450 1048 507Q1096 564 1096 640Q1096 666 1092 691Q1091 698 1083 698Q1038 703 1000 698ZM828 621H967Q977 621 983 617Q986 585 966 563Q946 542 909 542Q843 542 828 621Z"/></mask><rect width="1280" height="1248" rx="220" fill="currentColor" mask="url(#aeLogoCut)"/></svg><span class="tbLbl">AE로 보내기</span></button>
     </div>
     <!-- 프로젝트(저장·불러오기) = 플로피 디스크 아이콘 — 렌더 버튼들 바로 오른쪽. .tbRight 안이라 드롭다운은 버튼 오른쪽 끝에 맞춰 왼쪽으로 펼친다 -->
     <button class="menuBtn tbMenu tbIconMenu" data-menu="proj" title="프로젝트 — 저장·불러오기" aria-label="프로젝트 — 저장·불러오기">
@@ -184,6 +184,9 @@
     </span>
   </div>
 </header>
+
+<!-- 팝업 막 위에서도 제목줄을 잡아 데스크톱 창을 이동. 팝업이 없을 때는 숨겨 메뉴를 그대로 쓴다. -->
+<div id="modalWindowDrag" hidden aria-hidden="true"></div>
 
 <!-- CG 구성 — CG 종류(왼쪽, 파란 기운 판)와 지도 종류(오른쪽, 청록 기운 판)를 한 창에서 고른다.
      둘 다 골라야 '선택 완료'가 켜지고, 눌러야 적용된다(취소·Esc·바깥 클릭 = 아무것도 안 바뀜).
@@ -358,20 +361,29 @@
       <div class="ahLogo">
         <svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true">
           <defs>
-            <linearGradient id="ahBadge" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#4a4a4a"/>
-              <stop offset=".55" stop-color="#151515"/>
-              <stop offset="1" stop-color="#000000"/>
+            <linearGradient id="ahBadge" x1=".2" y1="0" x2=".7" y2="1">
+              <stop offset="0" stop-color="#06D4EB"/>
+              <stop offset=".48" stop-color="#009EF7"/>
+              <stop offset="1" stop-color="#0757F5"/>
             </linearGradient>
             <linearGradient id="ahGlyph" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#ffffff"/>
-              <stop offset="1" stop-color="#b8b8b8"/>
+              <stop offset="0" stop-color="#F4FFFF"/>
+              <stop offset=".46" stop-color="#D0F3FF"/>
+              <stop offset="1" stop-color="#89C8FF"/>
             </linearGradient>
+            <linearGradient id="ahEdge" x1="0" y1="0" x2=".5" y2="1">
+              <stop offset="0" stop-color="#A0FFFF"/>
+              <stop offset=".42" stop-color="#27E9F6"/>
+              <stop offset="1" stop-color="#00C7E9"/>
+            </linearGradient>
+            <filter id="ahDepth" x="-30%" y="-30%" width="160%" height="170%">
+              <feDropShadow dx="0" dy=".65" stdDeviation=".65" flood-color="#0056BF" flood-opacity=".3"/>
+            </filter>
           </defs>
           <rect x="1" y="1" width="38" height="38" rx="11" fill="url(#ahBadge)"/>
-          <rect x="1.5" y="1.5" width="37" height="37" rx="10.5" fill="none" stroke="#ffffff" stroke-opacity=".16"/>
+          <rect x="1.5" y="1.5" width="37" height="37" rx="10.5" fill="none" stroke="url(#ahEdge)" stroke-width=".5"/>
           <circle cx="15.5" cy="15" r="4.6" fill="url(#ahGlyph)"/>
-          <path fill="url(#ahGlyph)" d="M13.5 30a5.4 5.4 0 01-.7-10.76 7.2 7.2 0 0114 1.7A4.8 4.8 0 0126.5 30z"/>
+          <path fill="url(#ahGlyph)" stroke="#E2FBFF" stroke-width=".18" filter="url(#ahDepth)" d="M13.5 30a5.4 5.4 0 01-.7-10.76 7.2 7.2 0 0114 1.7A4.8 4.8 0 0126.5 30z"/>
         </svg>
       </div>
       <div class="ahText">
@@ -383,31 +395,49 @@
     <div class="sec special" data-sec="typhoon">
       <h3>태풍 예상경로</h3>
       <div class="body">
-        <div class="subhead">불러오기 <span>· 기상청 API허브</span></div>
-        <div class="btns" style="margin:4px 0"><button class="pri" id="typFetch" style="flex:1">기상청에서 불러오기</button></div>
-        <details class="typOther" style="margin:4px 0">
-          <summary>과거 태풍 불러오기 (날짜)</summary>
-          <div class="row" style="margin:6px 0 4px"><label>날짜</label><input id="typPastDate" type="date" style="flex:1"></div>
-          <div class="btns" style="margin:4px 0"><button id="typPastFetch" style="flex:1">그 날짜의 태풍 불러오기</button></div>
-          <p class="hint" style="margin:4px 0 0">그 날짜(±2일)의 태풍을 그려요. <b>소멸 직전 날짜</b>가 가장 온전해요.</p>
-        </details>
-        <details class="typOther" style="margin:4px 0">
-          <summary>다른 나라 태풍정보 (JMA · JTWC)</summary>
-          <div class="btns" style="margin:6px 0 4px"><button id="typFetchJma" style="flex:1" title="일본 기상청(JMA) 공개 자료 — 경로·아이콘·반경(予報円·暴風域·強風域)">일본 기상청(JMA)에서 불러오기</button></div>
+        <div class="btns"><button class="pri" id="typLoadOpen" style="flex:1">태풍 불러오기 · 선택</button></div>
+        <div id="typLoadOv" class="cgSetupOv" aria-hidden="true">
+          <div class="cgSetupCard typLoadCard" role="dialog" aria-modal="true" aria-labelledby="typLoadTitle" tabindex="-1">
+            <div class="cgsHead"><div class="cgsHeadTxt"><div id="typLoadTitle" class="cgsTitle">태풍 불러오기 · 선택</div><div class="cgsSub">자료를 불러온 뒤 원하는 태풍과 발표 시각을 고르세요</div></div><button id="typLoadX" class="cgsX" aria-label="닫기">×</button></div>
+            <div class="cgsBody typLoadBody"><section class="typLoadPane typLoadSources">
+        <div class="typLoadSource typSourceCurrent">
+        <div class="subhead">현재 태풍 <span>· 기상청 API허브</span></div>
+        <div class="btns" style="margin:4px 0"><button class="pri" data-country="kr" id="typFetch" style="flex:1">기상청에서 불러오기</button><button class="pri" data-country="kr" id="tycFetch" hidden style="flex:1">기상청에서 불러오기</button></div>
+        </div>
+        <div class="typLoadSource typSourceHistory">
+          <div class="subhead">과거 태풍 불러오기</div>
+          <div class="row"><label for="typHistoryMonth">발생 연·월</label><input id="typHistoryMonth" type="month" min="1977-01" style="flex:1"></div>
+          <div class="btns"><button id="typHistoryFetch" data-country="kr" style="flex:1">이 달에 발생한 태풍 찾기</button></div>
+          <div class="row"><input id="typHistorySearch" type="search" placeholder="이름·영문·번호로 목록 검색" aria-label="과거 태풍 검색" style="flex:1"></div>
+          <p class="hint">선택한 달에 발생한 태풍을 골라 전체 실제 이동 경로를 불러와요.</p>
+        </div>
+        <div class="typLoadSource typSourceOther">
+          <div class="subhead">다른 나라 태풍정보</div>
+          <div class="btns" style="margin:6px 0 4px"><button id="typFetchJma" data-country="jp" style="flex:1" title="일본 기상청(JMA) 공개 자료 — 경로·아이콘·반경(予報円·暴風域·強風域)">일본 기상청(JMA)에서 불러오기</button><button id="tycFetchJma" data-country="jp" hidden style="flex:1">일본 기상청(JMA)에서 불러오기</button></div>
           <!-- 미해군(JTWC) — 데스크톱 앱이면 활동 중인 태풍을 골라 바로 그린다(js/typhoon-jtwc.js fetchJtwc). 직접 받을 수 없으면 jtwcSyncButtons가 이름을 '자료 받기 →'(사이트 열기)로 바꾼다 -->
-          <div class="btns" style="margin:4px 0"><button id="typJtwcDl" style="flex:1" title="미해군 합동태풍경보센터(JTWC)에서 지금 활동 중인 태풍을 골라 바로 그려요">미해군(JTWC)에서 불러오기</button></div>
+          <div class="btns" style="margin:4px 0"><button id="typJtwcDl" data-country="us" style="flex:1" title="미해군 합동태풍경보센터(JTWC)에서 지금 활동 중인 태풍을 골라 바로 그려요">미해군(JTWC)에서 불러오기</button><button id="tycJtwcDl" data-country="us" hidden style="flex:1">미해군(JTWC)에서 불러오기</button></div>
           <p class="hint" style="margin:4px 0 0">JTWC는 활동 중인 태풍을 골라 바로 그려요. 받은 .tcw는 <b>창에 끌어다 놓아도</b> 돼요.</p>
-        </details>
-        <div class="row"><label>태풍</label><select id="typWhichSel" style="flex:1"></select></div>
-        <div class="row"><label>이름</label><input id="typName" type="text" placeholder="예: 개미 (직접 입력)" style="flex:1"></div>
-        <div class="row"><label>발표 시각</label><select id="typIssueSel" style="flex:1"></select></div>
-        <div class="btns" style="margin:6px 0"><button id="typPlay" style="flex:1">애니메이션 확인</button></div>
+        </div>
+        </section><section class="typLoadPane typLoadResults" id="typLoadResults" hidden aria-label="불러온 태풍 목록">
+        <div id="typLoadList" aria-live="polite"></div>
+        <div id="typLoadBasket" hidden></div>
+        </section></div>
+        <div class="cgsFoot"><button id="typLoadDone" class="pri">선택 완료</button></div>
+        </div></div>
+        <div class="btns" style="margin:6px 0"><button id="typPlay" class="animPreviewBtn" style="flex:1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 7.5v9l7-4.5z" fill="currentColor"/></svg><span>애니메이션 확인</span></button></div>
+        <button type="button" class="subhead subFoldHead" aria-expanded="false" aria-controls="typDetailSettings">이름·발표 시각 수정 <span>· 필요할 때</span></button>
+        <div class="subFold closed" id="typDetailSettings"><div class="subFoldInner"><div class="subFoldBox">
+          <div class="row"><label>태풍</label><select id="typWhichSel" style="flex:1"></select></div>
+          <div class="row"><label>이름</label><input id="typName" type="text" placeholder="예: 개미 (직접 입력)" style="flex:1"></div>
+          <div class="row"><label>발표 시각</label><select id="typIssueSel" style="flex:1"></select></div>
+        </div></div></div>
         <div class="subhead">경로 표시 방식</div>
         <div class="fieldGroup">
           <div class="row"><label>모드</label><div class="mode" id="typTrackMode" style="flex:1;display:flex"><button data-tm="full" type="button" style="flex:1">일반 모드</button><button data-tm="line" type="button" style="flex:1">라인 모드</button></div></div>
           <div class="row"><label>라인 색</label><input type="color" id="typLineColor"><input type="text" id="typLineColorHex"></div>
           <div class="row"><label>경로선 두께</label><input type="range" id="typLineWidth" min="1" max="16" step="0.5"><span class="v" id="typLineWidthV"></span></div>
           <p class="hint" style="margin:2px 0 0">두께·아이콘 크기는 <b>일반·라인 모드 모두</b> 적용.</p>
+          <p class="hint" style="margin:4px 0 0">라인 모드: 현재까지 실선, 미래 예측은 점선. 이동 아이콘은 현재 위치에서 멈춰요.</p>
         </div>
         <p class="hint" id="typInfo"></p>
         <p class="hint" style="margin:2px 0">여러 예보 비교는 <b>장면 설정 → 태풍 비교</b>.</p>
@@ -422,10 +452,10 @@
           <textarea id="typPaste" rows="2" placeholder="새 창 JSON 또는 JTWC(.tcw) 내용 붙여넣기"></textarea>
           <div class="btns" style="margin:4px 0 0"><button id="typPasteApply" style="flex:1">붙여넣은 걸로 표시</button></div>
           <p class="hint" style="margin:5px 0 0">.tcw 파일은 <b>창에 끌어다 놓아도</b> 돼요.</p>
+          <div class="btns" style="margin:8px 0 2px"><button id="typAddTD" style="flex:1" title="발생·소멸 TD 실제 좌표를 경로에 붙입니다. 자동 불러오기에서도 붙으며, 다시 누르면 원복합니다.">발생·소멸 열대저압부(TD) 붙이기</button></div>
         </div>
         </div>
         </div>
-        <div class="btns" style="margin:4px 0 2px"><button id="typAddTD" style="flex:1" title="발생(앞)·소멸(뒤) 열대저압부(TD)를 기상청 td_now의 실제 좌표로 앞뒤에 이어붙입니다. 불러오기 때 자동으로도 붙습니다. 한 번 더 누르면 취소(원복).">발생·소멸 열대저압부(TD) 붙이기</button></div>
         <div class="subhead">지난 구간 <span>· 이전은 흑백</span></div>
         <div class="row"><label>현재 시각</label><input type="range" id="typNow" min="0" max="10" step="1"><span class="v" id="typNowV"></span></div>
         <div class="subhead">표시 날짜 범위 <span>· 원하는 기간만</span></div>
@@ -439,7 +469,7 @@
         <div id="typBands"></div>
         <div class="subhead">태풍 아이콘</div>
         <div class="fieldGroup">
-          <div class="row"><label>종류</label><div class="mode" id="typIconMode" style="flex:1;display:flex"><button data-im="image" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">태풍 아이콘</button><button data-im="grade" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">강도 숫자</button><button data-im="dot" type="button" style="flex:1;white-space:nowrap;padding-left:4px;padding-right:4px">작은 원</button></div></div>
+          <div class="typIconKind"><label>종류</label><div class="mode" id="typIconMode"><button data-im="image" type="button">태풍 아이콘</button><button data-im="grade" type="button">강도 숫자</button><button data-im="dot" type="button">작은 원</button></div></div>
           <div class="row"><label>전체 크기</label><input type="range" id="typIconScale" min="0.4" max="2.5" step="0.05"><span class="v" id="typIconScaleV"></span></div>
           <div class="row" id="typIconColRow"><label>색</label><input type="color" id="typIconFill"><input type="text" id="typIconHex"></div>
           <div class="row"><label>글로우</label><label class="chk" style="flex:1"><input type="checkbox" id="typGlowOn">아이콘 뒤 은은한 빛</label></div>
@@ -464,14 +494,16 @@
     <div class="sec special" data-sec="typhoonCompare">
       <h3>태풍 비교</h3>
       <div class="body">
-        <div class="subhead">불러오기 <span>· 목록에 자동 추가</span></div>
-        <div class="btns" style="margin:4px 0"><button class="pri" id="tycFetch" style="flex:1">기상청에서 불러오기</button></div>
-        <div class="btns" style="margin:4px 0"><button id="tycFetchJma" style="flex:1" title="일본 기상청(JMA)">일본 기상청(JMA)</button><button id="tycJtwcDl" style="flex:1" title="미해군(JTWC)에서 활동 중인 태풍을 골라 비교에 추가">미해군(JTWC)</button></div>
-        <div class="row"><label>가져올 태풍</label><select id="tycWhichSel" style="flex:1"></select></div>
+        <div class="subhead">불러오기 <span>· 태풍을 골라 추가</span></div>
+        <div class="btns"><button class="pri" id="tycLoadOpen" style="flex:1">태풍 불러오기 · 비교에 담기</button></div>
+        <button type="button" class="subhead subFoldHead" aria-expanded="false" aria-controls="tycManual">자동이 안 될 때 <span>· 수동 붙여넣기</span></button>
+        <div class="subFold closed" id="tycManual"><div class="subFoldInner"><div class="subFoldBox">
+        <div class="row"><label>최근 불러온 목록</label><select id="tycWhichSel" style="flex:1"></select></div>
         <textarea id="tycPaste" rows="2" placeholder="JTWC 통보문(.tcw) 붙여넣기 / 창에 파일 끌어다 놓기"></textarea>
         <div class="btns" style="margin:4px 0"><button id="tycPasteApply" style="flex:1">붙여넣은 걸로 추가</button><button id="tycAdd" style="flex:0 0 auto" title="지금 불러온 예보를 비교에 추가">현재 예보 추가</button></div>
-        <div class="btns" style="margin:4px 0"><button id="tycPen" style="flex:1" title="지도를 클릭해 점을 찍어 태풍 경로를 직접 그립니다. Enter=완료, Esc=취소">펜툴로 경로 그리기</button></div>
-        <div class="fieldGroup" style="margin:6px 0">
+        </div></div></div>
+        <div class="tycDrawGroup">
+        <div class="btns" style="margin:0 0 10px"><button id="tycPen" style="flex:1" title="지도를 클릭해 점을 찍어 태풍 경로를 직접 그립니다. Enter=완료, Esc=취소"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5-10 10-7 2 2-7L15 4Zm-9 10 4 4M14 5l5 5M3 21l4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="tycPenLabel">펜툴로 경로 그리기</span></button></div>
           <div class="subhead" style="margin-top:0">참고 이미지 <span>· 대고 그리기</span></div>
           <div id="tycRefDrop" style="border:1px dashed var(--outline-var);border-radius:9px;padding:12px 8px;text-align:center;font-size:12px;cursor:pointer;color:var(--on-surface-var)">이미지를 <b>끌어다 놓거나</b> 눌러서 불러오기 <span style="opacity:.6">(최대 5)</span></div>
           <input type="file" id="tycRefFile" accept="image/*" style="display:none">
@@ -484,9 +516,22 @@
           </div>
         </div>
         <label class="chk" style="margin:6px 0;gap:6px"><input type="checkbox" id="tycLegend">범례 표시</label>
+        <div id="tycBulk" class="tycBulkGroup">
+          <div class="subhead" style="margin-top:0">전체 태풍 한 번에 조절 <span id="tycBulkCount"></span></div>
+          <p class="hint">숨긴 태풍도 포함 · 바꾼 항목만 적용 · 색상과 경로는 유지</p>
+          <div class="row tycBulkSlider"><label for="tycBulkScaleRange">아이콘 크기</label><input id="tycBulkScale" data-tycbulk="iconScale" type="number" min="30" max="400" step="1" aria-label="전체 태풍 아이콘 크기 (%)"><span class="v">%</span><input id="tycBulkScaleRange" data-tycbulk="iconScale" type="range" min="30" max="400" step="1" aria-label="전체 태풍 아이콘 크기 슬라이더 (%)"></div>
+          <div class="row tycBulkSlider"><label for="tycBulkWidthRange">선 두께</label><input id="tycBulkWidth" data-tycbulk="lineW" type="number" min="0.5" max="10" step="0.1" aria-label="전체 태풍 선 두께 (px)"><span class="v">px</span><input id="tycBulkWidthRange" data-tycbulk="lineW" type="range" min="0.5" max="10" step="0.1" aria-label="전체 태풍 선 두께 슬라이더 (px)"></div>
+          <div class="row"><label for="tycBulkKind">아이콘 종류</label><select id="tycBulkKind" data-tycbulk="dotIcon"><option value="">각각 다름</option><option value="0">태풍 모양</option><option value="1">작은 원</option></select></div>
+          <div class="row"><label for="tycBulkMode">아이콘 위치</label><select id="tycBulkMode" data-tycbulk="iconMode"><option value="">각각 다름</option><option value="even">등간격(약 10개)</option><option value="all">실제 날짜별(전부)</option><option value="daily">하루에 하나</option></select></div>
+          <label class="swtch"><span>태풍 아이콘 표시</span><input type="checkbox" data-tycbulk="showIcons"></label>
+          <label class="swtch"><span>반경 표시</span><input type="checkbox" data-tycbulk="showRadius"></label>
+          <label class="swtch"><span>이름 표시</span><input type="checkbox" data-tycbulk="showName"></label>
+          <label class="swtch"><span>태풍별 범례 포함</span><input type="checkbox" data-tycbulk="showLegend"></label>
+          <p id="tycBulkStatus" class="hint" role="status" aria-live="polite"></p>
+        </div>
         <div class="subhead">비교 예보 <span>· 태풍마다 설정</span></div>
         <div id="tycList"></div>
-        <div class="btns" style="margin:8px 0 4px"><button id="tycPlay" style="flex:1">애니메이션 확인</button></div>
+        <div class="btns" style="margin:8px 0 4px"><button id="tycPlay" class="animPreviewBtn" style="flex:1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 7.5v9l7-4.5z" fill="currentColor"/></svg><span>애니메이션 확인</span></button></div>
         <p class="hint" style="margin:2px 0">선 이름은 <b>끌어서</b> 옮기고 <b>더블클릭</b>으로 고쳐요.</p>
       </div>
     </div>
@@ -550,6 +595,11 @@
           <div class="btns" style="margin:0"><button class="pri" id="bulLoad" style="flex:1" title="기상청 최신 단기예보 통보문의 예상 강수량을 날짜별로 가져와요">통보문 불러오기</button></div>
           <div class="wrnRes" id="bulResult" role="status" aria-live="polite" hidden></div>
           <div class="row" id="bulPickRow" style="display:none;margin:8px 0 0"><label>날짜</label><select id="bulPick" style="flex:1" title="가져올 날짜 — 고르면 아래 칸에 채워져요"></select></div>
+        </div>
+        <button type="button" class="subhead subFoldHead" id="bulManualHead" aria-expanded="false" aria-controls="bulManual">수동으로 색칠 <span>· 통보문 붙여넣기</span></button>
+        <div class="subFold closed" id="bulManual">
+        <div class="subFoldInner">
+        <div class="subFoldBox">
           <p class="hint" style="margin:10px 0 6px">직접 붙여넣어도 돼요 — 페이지 통째로도.</p>
           <div class="btns" style="margin:0 0 8px">
             <a class="btn linkBtn" id="bulOpen" href="https://www.weather.go.kr/w/forecast/overall/short-term.do" target="_blank" rel="noopener" title="기상청 단기예보 페이지 열기 — 거기서 통보문을 복사하세요">단기예보 열기<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h5v2H7v10h10v-3h2v5H5z"/></svg></a>
@@ -561,9 +611,11 @@
             <label class="chk"><input type="checkbox" id="bulSoft">부드러운 경계 (아사모사)</label>
           </div>
           <div class="btns" style="margin-bottom:2px"><button class="pri" id="bulApply">통보문으로 색칠</button></div>
-          <p class="hint" id="bulInfo" style="margin-bottom:0"></p>
-          <div class="bulList" id="bulList"></div>
         </div>
+        </div>
+        </div>
+        <p class="hint" id="bulInfo" style="margin-bottom:0"></p>
+        <div class="bulList" id="bulList"></div>
 
         <!-- 기상청 예보 API로 색칠 (성격이 다른 메뉴 — 배경색으로 구분). 잘 안 써서 기본 접힘 —
              제목 줄(#fctFoldHead)을 누르면 펼침/접힘, 펼침 상태는 localStorage 'wcg_fct_api_open'(wire()에서 foldWire로 배선 — 접이식 묶음 공용) -->
@@ -656,6 +708,17 @@
     <div class="sec" data-sec="pal">
       <h3>색 팔레트</h3>
       <div class="body">
+        <div id="regionSearch" hidden>
+          <label for="regionQuery">지역 이름 검색</label>
+          <input id="regionQuery" type="search" placeholder="예: 수원, 강남구, 사직동" autocomplete="off">
+          <div id="regionResults" aria-label="지역 검색 결과"></div>
+          <div id="regionSearchInfo" class="hint" role="status" aria-live="polite"></div>
+          <div class="regionSearchActions">
+            <button id="regionPaint" type="button" disabled>선택 색으로 칠하기</button>
+            <button id="regionErase" type="button" disabled>색 지우기</button>
+            <button id="regionClear" type="button" disabled>선택 해제</button>
+          </div>
+        </div>
         <div class="curcol"><div class="chip" id="curChip"></div><input type="text" id="curHex" style="background:none;border:none;padding:0;font:inherit"></div>
         <div class="palRamp" id="pal"></div>
         <div class="ramplab"><span>빨강</span><span>파랑</span><span>초록</span><span>노랑</span><span>무채색</span></div>
@@ -1362,42 +1425,42 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/core.js?v=6a1fd82d"></script>
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
-<script src="js/map-build.js?v=13856c4c"></script>
-<script src="js/map-render.js?v=81f50098"></script>
+<script src="js/map-build.js?v=43790db2"></script>
+<script src="js/map-render.js?v=1ebc2c09"></script>
 <script src="js/vf-legend.js?v=06464ea1"></script>
 <script src="js/labels-mountains.js?v=84a9ae7a"></script>
-<script src="js/typhoon-core.js?v=499ee16c"></script>
-<script src="js/typhoon-render.js?v=689a1c77"></script>
-<script src="js/typhoon-panel.js?v=97c592c4"></script>
-<script src="js/typhoon-api.js?v=e7d25fdf"></script>
-<script src="js/typhoon-jtwc.js?v=6e4f030c"></script>
-<script src="js/panels.js?v=2a053688"></script>
-<script src="js/view-camera.js?v=2bda1a60"></script>
+<script src="js/typhoon-core.js?v=668f2a5c"></script>
+<script src="js/typhoon-render.js?v=7d87abb8"></script>
+<script src="js/typhoon-panel.js?v=23977af3"></script>
+<script src="js/typhoon-api.js?v=9578633e"></script>
+<script src="js/typhoon-jtwc.js?v=cde1c8b2"></script>
+<script src="js/panels.js?v=b36d4e08"></script>
+<script src="js/view-camera.js?v=31608106"></script>
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
-<script src="js/pointer-drag.js?v=144d339d"></script>
+<script src="js/pointer-drag.js?v=aa99387f"></script>
 <script src="js/warnings.js?v=c48fe730"></script>
 <script src="js/warnings-apply.js?v=17215aba"></script>
 <script src="js/bulletin.js?v=d72e065a"></script>
-<script src="js/bulletin-load.js?v=bebef3be"></script>
+<script src="js/bulletin-load.js?v=1508c73b"></script>
 <script src="js/forecast-panel.js?v=40d42aed"></script>
 <script src="js/warnings-load.js?v=04ed43bd"></script>
 <script src="js/presets.js?v=31abe4c7"></script>
-<script src="js/cg-setup.js?v=df117938"></script>
+<script src="js/cg-setup.js?v=a202a4f5"></script>
 <script src="js/modals-notices.js?v=fd41c6a3"></script>
-<script src="js/date-picker.js?v=4c826b74"></script>
+<script src="js/date-picker.js?v=98c0a274"></script>
 <script src="js/busy-fx.js?v=05f4b1c5"></script>
 <script src="js/preset-slots.js?v=e9877c0a"></script>
-<script src="js/export-image.js?v=9c69190f"></script>
+<script src="js/export-image.js?v=10c7f5d5"></script>
 <script src="js/export-video.js?v=c03f0d29"></script>
 <script src="js/export-blobs.js?v=29750eaf"></script>
-<script src="js/ae-export.js?v=5889930b"></script>
+<script src="js/ae-export.js?v=243b19cd"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=a8413164"></script>
-<script src="js/wiring.js?v=c340e860"></script>
+<script src="js/wiring.js?v=1a1a7ec4"></script>
 <script src="js/anim.js?v=3f7ec170"></script>
 <script src="js/timeline-plan.js?v=5b2480af"></script>
 <script src="js/timeline-ui.js?v=8c3c0a46"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
-<script src="js/floating-panels.js?v=3fe17ffd"></script>
+<script src="js/floating-panels.js?v=fcca2c85"></script>
 <script src="js/tour.js?v=2738fa27"></script>
-<script src="js/boot.js?v=07cdcc67"></script>
+<script src="js/boot.js?v=e52bdfc0"></script>

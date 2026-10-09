@@ -514,16 +514,16 @@ async function sendToAE() {
         // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
         const T = S.typhoon, pts = curTyphoonPoints(), nowIdx = typhoonNowIdx(pts);
         // 리깅 좌표는 위의 kx/ky/kk(출력해상도 배율)로 스케일한다(SX/SY) — 여기서 다시 곱하지 않는다.
-        const lineMode = T.trackMode === 'line';   // 라인 모드: 화면 drawTyphoonTrack처럼 현재까지 단색선 + 선두 아이콘만
+        const lineMode = T.trackMode === 'line';   // 현재까지 단색선·선두 아이콘 리깅, 미래 점선은 정적 참고선으로 배경에 보존
         let sp = typhoonScreenPts(pts).filter((p) => !p.head && typhoonIdxInRange(pts, p.idx));   // '표시 날짜 범위'만 내보냄
-        if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 현재 이후 예상경로 제외(화면과 동일)
+        if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 움직이는 리깅만 현재에서 멈춤. 미래 점선은 아래 배경에 남긴다.
         const iconCol = T.iconCol || '#E5231E';
-        const trackW = Math.max(1, +T.lineWidth || 9.5);   // 화면 경로선 굵기(라인=단색선, 일반=현재~예상 점선)
+        const trackW = Math.max(1, +T.lineWidth || 5);   // 화면 경로선 굵기(라인=단색선, 일반=현재~예상 점선)
         // 지명표시(원+이름표)는 정적이라 배경에 그대로 구워 넣는다 — 태풍 트랙/라벨만 제거(리깅이 재구성), place 요소는 보존.
         const bl = rigBleed();
         const bg = addFile(await svgBlob((c) => {
           for (const id of ['#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove();
-          for (const id of ['#L_typhoon', '#L_typhoonLabels']) { const ly = c.querySelector(id); if (ly) [...ly.children].forEach((ch) => { if (!ch.hasAttribute('data-place-dot') && !ch.hasAttribute('data-place-label') && !ch.hasAttribute('data-place-leader')) ch.remove(); }); }
+          for (const id of ['#L_typhoon', '#L_typhoonLabels']) { const ly = c.querySelector(id); if (ly) [...ly.children].forEach((ch) => { if (!ch.hasAttribute('data-place-dot') && !ch.hasAttribute('data-place-label') && !ch.hasAttribute('data-place-leader') && !(lineMode && ch.hasAttribute('data-typ-line-forecast'))) ch.remove(); }); }
         }, false, bleedOpt(bl)));
         const icC = await aeIconBlob(iconCol, false, false), icG = await aeIconBlob(iconCol, true, false);
         const icTC = await aeIconBlob(iconCol, false, true), icTG = await aeIconBlob(iconCol, true, true);
@@ -550,7 +550,7 @@ async function sendToAE() {
         // 라인 모드는 경로 라벨 숨김(화면과 동일) → labels=[]
         if (!lineMode) for (const b of labelList()) { if (b.off) continue; const p = idxXY[b.idx]; if (!p) continue; const e = _lab[b.id]; labels.push({ idx: b.idx, px: SX(p.x), py: SY(p.y), txt: aeArrow(b.txt || (pts[b.idx] && pts[b.idx].label) || ''), title: aeArrow((b.title || '')), bx: SX(b.x), by: SY(b.y), bw: (b._w || 120) * kk, bh: (b._h || 60) * kk, size: Math.round((b.size || 40) * labK() * kk), track: Math.round(((b.track == null ? -1 : b.track) / (b.size || 40)) * 1000), weight: b.w || 600, col: b.txtCol || '#FFFFFF', fill: b.fill || '#0C295F', fillOp: (b.fillOp == null ? 1 : b.fillOp), stroke: b.stroke || '#3F6BD8', strokeW: (b.strokeW || 0) * labK() * kk, radius: (b.radius || 14) * labK() * kk, revStart: e ? +e.s : (_tt ? null : 0), revLen: e ? Math.max(0.05, +e.e - +e.s) : (_tt ? null : f1) }); }   // 라벨 막대 시작·길이 그대로(화면 renderAnimFrame과 같은 최소 0.05초)
         // 화면상 현재 아이콘 높이(px, 출력해상도 스케일) — AE 스케일 계산용. 라인 모드 선두도 화면에서 typhoonIconEl(…,17,…)이라 같은 값.
-        const iconScreenH = 17 * (T.iconScale == null ? 1 : T.iconScale) * 2.5 * kk;
+        const iconScreenH = 17 * (T.iconScale == null ? 1.25 : T.iconScale) * 2.5 * kk;
         const lineCol = T.lineColor || iconCol;
         // 진행 곡선(새 헬퍼) — 화면 renderAnimFrameBody: 진행(지점 단위) = easeInOutC((t−ps)/(pe−ps)) × (보낸 지점 수−1). 트랙 없으면 정적(처음부터 전부)
         const prog = _tt ? { start: +(+_tt.ps).toFixed(4), end: +(+_tt.ps + Math.max(0.001, +_tt.pe - +_tt.ps)).toFixed(4), curve: 'ioc' } : { start: 0, end: 0, curve: 'ioc' };

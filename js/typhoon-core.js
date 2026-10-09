@@ -72,8 +72,8 @@ function _camUnprojectRaw(sx, sy) {
 
 // 태풍 데이터 시드(샘플: 6호 '장미'). 실제 연동 시 기상청 API가 issues를 채운다.
 const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'satdark', nowIdx: null, labelSel: null,
-  trackMode: 'full', lineColor: '#E5231E', lineWidth: 9.5,
-  iconMode: 'image', iconScale: 1.75,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 175%)
+  trackMode: 'full', lineColor: '#E5231E', lineWidth: 5,
+  iconMode: 'image', iconScale: 1.25,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 125%)
   glowOn: 1, glowStr: 0.5, glowCol: '',   // 아이콘 글로우: 켜기 / 강도(0~1) / 색('' 이면 아이콘색 따라감)
   sidoShow: 1, sidoCol: '', sidoW: 0.8, sidoOp: 0.55,   // 남한 시도 구분선: 켜기 / 색('' 이면 강조 선색 따라감) / 굵기 / 투명도
   gridShow: 1, gridCol: '#7FA8CC', gridW: 0.4, gridOp: 0.12,   // 경위도 격자선(바다): 켜기 / 색 / 굵기 / 투명도(아주 살짝)
@@ -139,7 +139,7 @@ function typhoonStyleDefaults() {
   const baked = (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {};
   const out = Object.assign({}, TYPHOON_DEFAULTS, baked);
   // 라인 모드가 생기기 전 배포 기본값에는 이 키들이 없다. 그 경우 새 라인 기본 크기를 우선한다.
-  if (baked.lineWidth == null) { out.iconScale = 1.75; out.lineColor = '#E5231E'; out.lineWidth = 9.5; }
+  if (baked.lineWidth == null) { out.iconScale = TYPHOON_DEFAULTS.iconScale; out.lineColor = '#E5231E'; out.lineWidth = TYPHOON_DEFAULTS.lineWidth; }
   return out;
 }
 const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'bands', 'iconMode', 'iconScale', 'trackMode', 'lineColor', 'lineWidth', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
@@ -320,7 +320,7 @@ const typhoonNowIdx = (pts) => clamp(S.typhoon && S.typhoon.nowIdx != null ? S.t
 // td=true(열대저압부, 17m/s 미만)면 아이콘 대신 '그냥 점'. r = 반지름 기준. ws = 최대풍속(등급 판정용).
 function typhoonIconEl(x, y, r, color, td, past, ws, forceImage, ex) {
   const T = S.typhoon || {};
-  const scale = (T.iconScale == null ? 1 : +T.iconScale) || 1;
+  const scale = (T.iconScale == null ? 1.25 : +T.iconScale) || 1.25;
   r = r * scale;
   const g = _te('g', { transform: `translate(${x} ${y})` });
   if (!past && (T.glowOn == null ? 1 : T.glowOn)) g.setAttribute('filter', 'url(#typhoonIconGlow)');   // 현재/미래 아이콘에 살짝 글로우

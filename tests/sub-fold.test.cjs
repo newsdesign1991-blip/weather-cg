@@ -37,7 +37,7 @@ const FOLD_FNS = ['foldHeadOf', 'foldIsOpen', 'foldSet', 'foldWire', 'foldReveal
 
 test('마크업 — 특보 수동 붙여넣기는 기본 접힘(예보 API 묶음과 같은 부품), 특보 색 지우기는 접힘 밖', () => {
   // 제목 줄 = 버튼(키보드로 열 수 있게) · 기본 접힘 · aria-controls로 묶음과 짝
-  for (const [head, fold] of [['wrnManualHead', 'wrnManual'], ['fctFoldHead', 'fctFold'], ['typManualHead', 'typManual']]) {
+  for (const [head, fold] of [['wrnManualHead', 'wrnManual'], ['fctFoldHead', 'fctFold'], ['typManualHead', 'typManual'], ['bulManualHead', 'bulManual']]) {
     const h = tagOf(head);
     assert.match(h, /^<button type="button" class="subhead subFoldHead"/, head);
     assert.match(h, /aria-expanded="false"/, head);
@@ -53,6 +53,9 @@ test('마크업 — 특보 수동 붙여넣기는 기본 접힘(예보 API 묶�
   const typ = divOuter('typManual');
   for (const id of ['typOpen', 'typPaste', 'typPasteApply']) assert.match(typ, new RegExp(`id="${id}"`), `${id}는 접힌 묶음 안`);
   assert.match(typ, /<div class="subFoldBox">/);
+  const bul = divOuter('bulManual');
+  for (const id of ['bulOpen', 'bulHelpBtn', 'bulPaste', 'bulLabels', 'bulSoft', 'bulApply']) assert.match(bul, new RegExp(`id="${id}"`));
+  for (const id of ['bulLoad', 'bulResult', 'bulPick', 'bulInfo', 'bulList']) assert.doesNotMatch(bul, new RegExp(`id="${id}"`));
   assert.doesNotMatch(html, /<div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기<\/div>/);
   assert.match(html, /<button class="pri" id="wrnFetch"[^>]*>기상청에서 불러오기<\/button><button id="wrnClear"[^>]*>특보 색 지우기<\/button>/);
   // 결과 카드는 묶음 위(실패 카드 바로 아래에서 펼쳐진다), 특보 목록은 묶음 아래
@@ -189,6 +192,7 @@ test('배선 — 두 묶음 모두 공용 foldWire(키 따로), 실패 카드의
   const wire = fnSrc('wire');
   assert.match(wire, /foldWire\(\$\('#wrnManual'\), 'wcg_wrn_manual_open'\);/);
   assert.match(wire, /foldWire\(\$\('#fctFold'\), 'wcg_fct_api_open'\);/);
+  assert.match(wire, /foldWire\(\$\('#bulManual'\), 'wcg_bul_manual_open'\);/);
   assert.match(wire, /foldWire\(\$\('#typManual'\), 'wcg_typ_manual_open'\);/);
   // 미해군(JTWC) 실패 안내의 직접 붙여넣기·사이트 열기 = 태풍 묶음을 이번만 펼침(비교 지도는 비교 쪽 붙여넣기 칸)
   assert.match(fnSrc('jtwcManual'), /foldReveal\(\$\('#typManual'\), \$\('#typPaste'\)\);/);

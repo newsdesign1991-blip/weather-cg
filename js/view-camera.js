@@ -11,6 +11,8 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 function sizeFit() {
   if (!fit) return;
   const st = $('#stage'); if (!st) return;
+  const bar = $('#topbar');
+  st.style.setProperty('--toolbar-space', Math.max(26, (bar ? bar.offsetHeight : 44) + 20) + 'px');
   const cs = getComputedStyle(st);
   const availW = st.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
   const availH = st.clientHeight - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0);
@@ -21,11 +23,15 @@ function sizeFit() {
   if (h > availH) { h = availH; w = h * ar; }
   fit.style.width = w.toFixed(2) + 'px'; _fitCssW = w;   // 틸트 캔버스 CSS 보정·GL 그리기 크기용(레이아웃 다시 안 읽게)
   fit.style.height = h.toFixed(2) + 'px'; _fitCssH = h;
+  const startBoard = document.querySelector('.startBoard');
+  if (startBoard) { startBoard.style.width = w.toFixed(2) + 'px'; startBoard.style.height = h.toFixed(2) + 'px'; }
+  applyToolbarPos();
 }
 function applyView() {
   brushViewRev++;   // 화면 확대·이동이 바뀌면 칠하는 중 화면→지도 좌표 변환을 다시 구하게
   sizeFit();
   fit.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.z})`;
+  applyToolbarPos();
   $('#zoomV').textContent = Math.round(view.z * 100) + '%';
   applyTilt();
 }

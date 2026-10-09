@@ -107,6 +107,7 @@ function buildFrame() {
 
 // 지도 종류가 바뀌면 조각만 갈아끼운다 (뼈대는 그대로)
 function buildZones() {
+  if (typeof regionSearchReset === 'function') regionSearchReset();
   brushZonesChanged();   // 지도 종류 바뀌면 존 id가 달라져 선택 초기화(+브러쉬 클립·bbox 캐시 비움)
   zoneEls.clear();
   gMain.textContent = '';

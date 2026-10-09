@@ -112,13 +112,50 @@ function dpFire(input) {
 
 function dpAttachAll(root) {
   root = root || document;
-  root.querySelectorAll('input[type=date]').forEach((n) => dpAttach(n));
-  root.querySelectorAll('input[type=time]').forEach((n) => dpTimeAttach(n));
+  const each = (selector, attach) => {
+    if (root.matches && root.matches(selector)) attach(root);
+    root.querySelectorAll(selector).forEach((n) => attach(n));
+  };
+  each('input[type=datetime-local]', dpDateTimeAttach);
+  each('input[type=date]', dpAttach);
+  each('input[type=month]', dpAttach);
+  each('input[type=time]', dpTimeAttach);
+}
+
+// datetime-local 계약은 유지하고 날짜·시각 입력만 나눈다(저장 파일·기존 onchange 그대로).
+function dpDateTimeAttach(input) {
+  if (!input || input.type !== 'datetime-local') return null;
+  if (input._dpdt) { input._dpdt.sync(); return input._dpdt; }
+  const box = document.createElement('span'); box.className = 'dpDateTime';
+  const date = document.createElement('input'), time = document.createElement('input');
+  date.type = 'date'; time.type = 'time'; time.step = input.step || '60';
+  box.append(date, time); input.after(box); input.classList.add('dpSrc'); input.tabIndex = -1;
+  dpAttach(date); dpTimeAttach(time);
+  const sync = () => {
+    date.min = (input.min || '').slice(0, 10); date.max = (input.max || '').slice(0, 10);
+    date.disabled = time.disabled = input.disabled || input.readOnly;
+    date.value = input.value.slice(0, 10); time.value = input.value.slice(11, 16);
+    date._dp.sync(); time._dpt.sync();
+  };
+  const setRaw = dpWatchValue(input, sync);
+  const commit = (e) => {
+    e.stopPropagation(); if (!date.value) return;
+    let value = date.value + 'T' + (time.value || '00:00');
+    if (input.min && value < input.min) value = input.min;
+    if (input.max && value > input.max) value = input.max;
+    if (value === input.value) return;
+    setRaw(value); sync(); dpFire(input);
+  };
+  date.addEventListener('change', commit); time.addEventListener('change', commit);
+  input.addEventListener('change', sync);
+  new MutationObserver(sync).observe(input, { attributes: true, attributeFilter: ['min', 'max', 'disabled', 'readonly'] });
+  input._dpdt = { box, date, time, sync }; sync();
+  return input._dpdt;
 }
 
 // ===== 날짜 칸 =====
 function dpAttach(input, o) {
-  if (!input || input.type !== 'date') return null;
+  if (!input || !['date', 'month'].includes(input.type)) return null;
   if (input._dp) { input._dp.sync(); return input._dp; }
   o = o || {};
   const f = document.createElement('button');
@@ -130,12 +167,13 @@ function dpAttach(input, o) {
   input.after(f);
   const tx = f.firstChild;
   const sync = () => {
-    const v = input.value, ok = dpValid(v);
+    const monthOnly = input.type === 'month', v = input.value, ok = dpValid(monthOnly ? v + '-01' : v);
     // 요일은 따로(칸이 좁으면 css 컨테이너 질의로 요일만 숨긴다 — 날짜가 '…'로 잘리지 않게)
-    if (ok) { const s = dpFmtField(v, o.short), k = s.lastIndexOf(' ('); tx.innerHTML = ''; const a = document.createElement('span'), b = document.createElement('span'); a.textContent = s.slice(0, k); b.className = 'dpFtW'; b.textContent = s.slice(k); tx.append(a, b); }
+    if (monthOnly) tx.textContent = ok ? `${+v.slice(0, 4)}년 ${+v.slice(5, 7)}월` : '연·월 선택';
+    else if (ok) { const s = dpFmtField(v, o.short), k = s.lastIndexOf(' ('); tx.innerHTML = ''; const a = document.createElement('span'), b = document.createElement('span'); a.textContent = s.slice(0, k); b.className = 'dpFtW'; b.textContent = s.slice(k); tx.append(a, b); }
     else tx.textContent = '날짜 선택';
     f.classList.toggle('empty', !ok);
-    f.setAttribute('aria-label', ok ? `${+v.slice(0, 4)}년 ${dpFmtLong(v)} — 날짜 바꾸기` : '날짜 고르기');
+    f.setAttribute('aria-label', monthOnly ? tx.textContent + ' — 연·월 고르기' : ok ? `${+v.slice(0, 4)}년 ${dpFmtLong(v)} — 날짜 바꾸기` : '날짜 고르기');
     f.disabled = input.disabled;
     if (_dpNow && _dpNow.input === input) _dpNow.refresh();
   };
@@ -153,6 +191,8 @@ function dpAttach(input, o) {
     set(v) { if (v === input.value) return false; setRaw(v); sync(); dpFire(input); return true; },
   };
   input._dp = api; sync();
+  input.addEventListener('change', sync);
+  new MutationObserver(sync).observe(input, { attributes: true, attributeFilter: ['min', 'max', 'disabled', 'readonly'] });
   return api;
 }
 
@@ -260,9 +300,11 @@ function dpMorph(st, outEl, inEl, swap) {
 function dpOpenCal(input) {
   const api = input._dp; if (!api || api.field.disabled) return;
   const f = api.field;
-  const L0 = () => dpLimits(input.min, input.max, input.value, dpToday());
+  const monthOnly = input.type === 'month';
+  const asDay = (v) => monthOnly && v ? v + '-01' : v;
+  const L0 = () => dpLimits(asDay(input.min), asDay(input.max), asDay(input.value), dpToday());
   let L = L0();
-  const v0 = input.value, base = dpValid(v0) ? v0 : dpClamp(dpToday(), L);
+  const v0 = asDay(input.value), base = dpValid(v0) ? v0 : dpClamp(dpToday(), L);
   const week = DP_W.split('').map((w, i) => `<span${i === 0 ? ' class="sun"' : i === 6 ? ' class="sat"' : ''}>${w}</span>`).join('');
   const st = dpPopup('date', input, f, 'dpCalPop',
     '<div class="dpCard" tabindex="-1">'
@@ -271,13 +313,13 @@ function dpOpenCal(input) {
     + `<div class="dpNav"><button type="button" class="dpPrev" aria-label="이전 달">${dpChev(-1)}</button><button type="button" class="dpNext" aria-label="다음 달">${dpChev(1)}</button></div></div>`
     + `<div class="dpBody"><div class="dpCal"><div class="dpWeek" aria-hidden="true">${week}</div><div class="dpGrid" role="group"></div></div>`
     + '<div class="dpWheel" hidden><div class="dpBand" aria-hidden="true"></div><div class="dpCol" data-k="y" tabindex="0" role="listbox" aria-label="연도"></div><div class="dpCol" data-k="m" tabindex="0" role="listbox" aria-label="월"></div></div></div>'
-    + '<div class="dpFoot"><span class="dpSel"></span><button type="button" class="dpTodayBtn">오늘</button></div>'
+    + '<div class="dpFoot"><span class="dpSel"></span><button type="button" class="dpWheelDone" hidden>확인 · 일자 선택</button><button type="button" class="dpTodayBtn">오늘</button></div>'
     + '</div>', '날짜 고르기');
   const { pop, card } = st, q = (s) => pop.querySelector(s);
   const title = q('.dpTitle'), titleTx = q('.dpTitleTx'), prev = q('.dpPrev'), next = q('.dpNext'), grid = q('.dpGrid');
   const calEl = q('.dpCal'), whEl = q('.dpWheel'), sel = q('.dpSel'), todayBtn = q('.dpTodayBtn');
   st.y = +base.slice(0, 4); st.m = +base.slice(5, 7); st.wheel = false;
-  const setTitle = () => { titleTx.textContent = `${st.y}년 ${st.m}월`; };
+  const setTitle = () => { titleTx.textContent = `${st.y}년 ${st.m}월`; if (monthOnly) sel.textContent = '발생 연·월 선택'; };
   // 달력 그리기 — fk = 그린 뒤 포커스('d:YYYY-MM-DD' | 'prev' | 'next'), slide = 달 넘김 방향(살짝 밀려 들어옴)
   const renderCal = (fk, slide) => {
     L = L0();
@@ -340,6 +382,7 @@ function dpOpenCal(input) {
   const toggleWheel = (want, kb) => {
     if (want === st.wheel) return;
     st.wheel = want;
+    q('.dpWheelDone').hidden = !want; todayBtn.hidden = want;
     card.classList.toggle('wheelOn', want);
     title.setAttribute('aria-expanded', String(want));
     title.title = want ? '이 달의 달력으로' : '연·월 고르기';
@@ -352,7 +395,12 @@ function dpOpenCal(input) {
   st.onEsc = () => dpClose(true);
   st.onClose = () => { if (st.morph) st.morph(); if (st.colY) st.colY.stop(); if (st.colM) st.colM.stop(); };
 
-  title.addEventListener('click', (e) => toggleWheel(!st.wheel, e.detail === 0));
+  const confirmWheel = () => {
+    if (monthOnly) { if (!dpMonthOk(st.y, st.m, L0())) return; api.set(`${st.y}-${dpPad(st.m)}`); dpClose(true); }
+    else { toggleWheel(false); title.focus({ preventScroll: true }); }
+  };
+  title.addEventListener('click', (e) => { if (!monthOnly) toggleWheel(!st.wheel, e.detail === 0); });
+  q('.dpWheelDone').addEventListener('click', confirmWheel);
   prev.addEventListener('click', () => nav(-1, document.activeElement === prev ? 'prev' : ''));
   next.addEventListener('click', () => nav(1, document.activeElement === next ? 'next' : ''));
   todayBtn.addEventListener('click', () => pick(dpToday()));
@@ -375,9 +423,15 @@ function dpOpenCal(input) {
   // 휠에서 Enter = 그 연·월의 달력으로. Tab은 카드 안에서만 돈다(팝업 공통 popTrapTab)
   pop.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') { popTrapTab(card, e); return; }
-    if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('dpCol')) { e.preventDefault(); toggleWheel(false); try { title.focus({ preventScroll: true }); } catch (err) {} }
+    if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('dpCol')) { e.preventDefault(); confirmWheel(); }
   });
-  renderCal('d:' + (dpValid(v0) ? v0 : ''));
+  if (monthOnly) {
+    st.wheel = true; card.classList.add('wheelOn'); calEl.hidden = true; whEl.hidden = false;
+    q('.dpNav').hidden = true; todayBtn.hidden = true; title.disabled = true;
+    title.setAttribute('aria-expanded', 'true'); q('.dpTitleChev').hidden = true;
+    q('.dpWheelDone').hidden = false; q('.dpWheelDone').textContent = '이 연·월 선택';
+    pop.setAttribute('aria-label', '발생 연·월 고르기'); buildWheel(); dpPlace(pop, f);
+  } else renderCal('d:' + (dpValid(v0) ? v0 : ''));
   if (!pop.contains(document.activeElement)) try { card.focus({ preventScroll: true }); } catch (e) {}
   return st;
 }
@@ -525,7 +579,7 @@ function dpTimeAttach(input, o) {
     if (_dpNow && _dpNow.input === input) _dpNow.refresh();
   };
   // 코드가 값을 바꿈(특보를 못 불러와 시각을 되돌림 등) — 치는 중이 아니면(칸에 있어도 고친 게 없으면) 바로 보여 준다
-  const sync = () => { if (!dirty || !box.contains(document.activeElement)) show(input.value); else if (_dpNow && _dpNow.input === input) _dpNow.refresh(); };
+  const sync = () => { H.disabled = M.disabled = input.disabled || input.readOnly; if (!dirty || !box.contains(document.activeElement)) show(input.value); else if (_dpNow && _dpNow.input === input) _dpNow.refresh(); };
   const setRaw = dpWatchValue(input, sync);
   const commit = (final) => {
     clearTimeout(t);

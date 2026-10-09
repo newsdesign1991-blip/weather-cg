@@ -213,7 +213,8 @@ function setupCgSetup() {
 }
 
 // 평소엔 비어 있고, 알릴 게 있을 때만 잠깐 떴다가 사라진다.
-// hold=true면 다음 알림이 올 때까지 남긴다 (추출 중 같은 진행 표시용)
+// hold=true인 기존 안내도 4초 뒤 숨긴다. 오류/주의는 읽을 시간을 더 주고 6초 뒤 숨긴다.
+// 진행률이 갱신되면 타이머가 다시 시작된다. 본문은 유지(뒤 작업의 상태 비교용).
 // tone: 'ok'(초록 점) | 'warn'(주황 점, 확인 필요) | 'err'(빨간 점) — 정상/오류를 글자만이 아니라 색으로도 구분. 안 주면 예전과 똑같다.
 let statusT = 0;
 function status(m, hold, tone) {
@@ -222,7 +223,7 @@ function status(m, hold, tone) {
   if (m && (tone === 'ok' || tone === 'warn' || tone === 'err')) n.dataset.tone = tone; else delete n.dataset.tone;
   n.style.opacity = m ? '1' : '0';
   clearTimeout(statusT);
-  if (m && !hold) statusT = setTimeout(() => { n.style.opacity = '0'; }, 2600);
+  if (m) statusT = setTimeout(() => { n.style.opacity = '0'; }, tone === 'err' || tone === 'warn' ? 6000 : hold ? 4000 : 2600);
 }
 // 중요한 안내 — 화면 중앙 위에서 빨간색으로 한 번 반짝
 function flash(m) {

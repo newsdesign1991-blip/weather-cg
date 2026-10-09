@@ -43,6 +43,112 @@ function markActive() {
 }
 const saveCustom = () => localStorage.setItem('wcg_custom', JSON.stringify(customCols));
 
+// 검색 선택은 편집 도우미일 뿐: 프로젝트 상태·자동 저장·추출에는 넣지 않는다.
+const regionSearchSelected = new Set();
+function regionSearchEntries(zones, seoul) {
+  const entries = zones.map(z => ({name: [z.sido, z.gu, z.zone].filter((v, i, a) => v && a.indexOf(v) === i).join(' '), ids: [z.id]}));
+  if (seoul) {
+    const groups = new Map();
+    for (const z of zones) if (z.gu) {
+      if (!groups.has(z.gu)) groups.set(z.gu, []);
+      groups.get(z.gu).push(z.id);
+    }
+    for (const [gu, ids] of groups) entries.push({name: '서울 ' + gu + ' 전체', ids});
+  }
+  return entries;
+}
+function regionSearchMatches(entries, query) {
+  const norm = v => v.normalize('NFKC').toLowerCase().replace(/[\s·.,/\-]/g, '');
+  const needle = norm(query);
+  if (!needle) return [];
+  return entries.filter(e => norm(e.name).includes(needle)).sort((a, b) => b.ids.length - a.ids.length || a.name.localeCompare(b.name, 'ko'));
+}
+function regionSearchReset() {
+  regionSearchSelected.clear();
+  document.querySelectorAll('.regionSearchHi').forEach(n => n.remove());
+  if ($('#regionQuery')) $('#regionQuery').value = '';
+  regionSearchRender();
+}
+function regionSearchRender() {
+  const box = $('#regionSearch');
+  if (!box) return;
+  box.hidden = S.style !== 'sgg' && !isSeoul();
+  const results = $('#regionResults');
+  results.replaceChildren();
+  const matches = box.hidden ? [] : regionSearchMatches(regionSearchEntries(curZones(), isSeoul()), $('#regionQuery').value);
+  for (const entry of matches.slice(0, 50)) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    const picked = entry.ids.every(id => regionSearchSelected.has(id));
+    const partial = !picked && entry.ids.some(id => regionSearchSelected.has(id));
+    button.textContent = (picked ? '✓ ' : partial ? '− ' : '＋ ') + entry.name;
+    button.setAttribute('aria-pressed', String(picked));
+    button.onclick = () => {
+      for (const id of entry.ids) if (picked) regionSearchSelected.delete(id); else regionSearchSelected.add(id);
+      const scroll = results.scrollTop;
+      regionSearchHighlight();
+      regionSearchRender();
+      results.scrollTop = scroll;
+      const next = Array.from(results.children).find(n => n.dataset.regionName === entry.name);
+      next?.focus({preventScroll: true});
+    };
+    button.dataset.regionName = entry.name;
+    results.append(button);
+  }
+  const count = regionSearchSelected.size;
+  const searched = $('#regionQuery').value.trim();
+  $('#regionSearchInfo').textContent = (count ? count + '개 지역 선택됨 · ' : '') +
+    (!searched ? '지역 이름을 입력하세요. 여러 지역을 함께 선택할 수 있어요.' : !matches.length ? '검색 결과가 없습니다.' : matches.length > 50 ? '상위 50개 표시 · 지역 이름을 더 입력하세요.' : '결과를 누르면 지도에서 선택됩니다.');
+  for (const id of ['regionPaint', 'regionErase', 'regionClear']) $('#' + id).disabled = !count;
+}
+function regionSearchHighlight() {
+  document.querySelectorAll('.regionSearchHi').forEach(n => n.remove());
+  for (const id of regionSearchSelected) for (const {el: node} of zoneEls.get(id) || []) {
+    const group = el('g', {class: 'regionSearchHi', 'pointer-events': 'none'});
+    for (const [color, width] of [['#FFFFFF', 5], ['#3182F6', 2.5]]) {
+      group.append(el('path', {d: node.getAttribute('d'), fill: 'none', stroke: color, 'stroke-width': width, 'vector-effect': 'non-scaling-stroke'}));
+    }
+    (isSeoul() ? $('#seoulPaintTop') : node.parentNode).append(group);
+  }
+}
+function regionSearchPaint(erase) {
+  if (S.style !== 'sgg' && !isSeoul()) return;
+  const nodes = Array.from(regionSearchSelected, id => zoneEls.get(id)?.[0]?.el).filter(Boolean);
+  if (!nodes.length) return;
+  animStop(); animOff();
+  pushUndo();
+  for (const node of nodes) paint(node, erase);
+  renderFills();
+  if (!erase) regionSearchSelected.clear();
+  regionSearchHighlight();
+  const scroll = $('#regionResults').scrollTop;
+  regionSearchRender();
+  $('#regionResults').scrollTop = scroll;
+  flash(nodes.length + '개 지역 ' + (erase ? '색 지움' : '색칠 완료'));
+}
+function wireRegionSearch() {
+  $('#regionQuery').oninput = regionSearchRender;
+  $('#regionQuery').onkeydown = e => {
+    if (e.isComposing) return;
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      e.preventDefault(); $('#regionResults button')?.focus();
+    }
+  };
+  $('#regionResults').onkeydown = e => {
+    // 결과 버튼의 Space/화살표를 지도 이동·영상 재생 단축키로 보내지 않는다.
+    if (![' ', 'Enter', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    e.stopPropagation();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      (e.key === 'ArrowDown' ? e.target.nextElementSibling : e.target.previousElementSibling)?.focus();
+    }
+  };
+  $('#regionPaint').onclick = () => regionSearchPaint(false);
+  $('#regionErase').onclick = () => regionSearchPaint(true);
+  $('#regionClear').onclick = () => { regionSearchSelected.clear(); regionSearchHighlight(); regionSearchRender(); };
+  regionSearchRender();
+}
+
 // 도서 박스 입력칸은 사이드바에서 뺐다(이동 모드로 충분). 항목이 없으면 조용히 넘어간다.
 function buildInsetPanel() {
   const b = $('#insetBody');
