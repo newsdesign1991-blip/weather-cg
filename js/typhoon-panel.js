@@ -592,30 +592,35 @@ function closeTyphoonLoad() {
   dpClose(false);
   ov.classList.remove('on'); ov.setAttribute('aria-hidden', 'true'); popFocusBack(ov);
 }
-// 오른쪽 결과 판을 연다(2분할). 처음 열 때만 창이 부드럽게 넓어진다 — 카드 폭·왼쪽 판 폭은 이전 크기에서 새 크기로,
+// 오른쪽 결과 판을 연다(2분할). 처음 열 때만 창이 부드럽게 넓어진다 — 카드 폭·높이·왼쪽 판 폭은 이전 크기에서 새 크기로,
 // 오른쪽 판은 0에서 자라며 흐림(blur)·투명에서 또렷해진다(Web Animations — 끝나면 원래 CSS 그대로). 좁은 창(위아래로 쌓임)·움직임 줄이기는 바로.
+// 부르기 전에 오른쪽 판 내용을 먼저 채워 둘 것(최종 크기를 재므로). 오른쪽 판은 펼치는 동안 '최종 폭'으로 고정 —
+// 0px 칸에서 글자가 한 자씩 줄바꿈돼 판이 엄청 길어지면 카드 높이가 튀고(세로 가운데 정렬이라 창이 위아래로 탁) 그랬다.
 function typLoadShowResults(ov) {
   const res = $('#typLoadResults');
   if (ov.classList.contains('has-results')) { res.hidden = false; return; }
   const card = ov.querySelector('.typLoadCard'), body = ov.querySelector('.typLoadBody'), left = ov.querySelector('.typLoadSources');
-  const w0 = card.getBoundingClientRect().width, l0 = left.getBoundingClientRect().width;
+  const w0 = card.offsetWidth, h0 = card.offsetHeight, l0 = left.getBoundingClientRect().width;
   res.hidden = false; ov.classList.add('has-results');
   if (matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(max-width: 850px)').matches || !card.animate) return;
-  const w1 = card.getBoundingClientRect().width, cs = getComputedStyle(body), cols1 = cs.gridTemplateColumns, gap1 = cs.columnGap;
+  const w1 = card.offsetWidth, h1 = card.offsetHeight, cs = getComputedStyle(body), cols1 = cs.gridTemplateColumns, gap1 = cs.columnGap, resW = res.offsetWidth;
   if (cols1.split(' ').length !== 2) return;
   const o = { duration: 560, easing: 'cubic-bezier(0.34, 0, 0.15, 1)' };   // 앱 공통 이징(easeOut)
-  card.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }], o);
+  res.style.width = resW + 'px';   // 펼치는 동안 최종 폭 고정(칸보다 넓은 부분은 카드가 잘라 냄)
+  const a = card.animate([{ width: w0 + 'px', height: h0 + 'px', overflow: 'hidden' }, { width: w1 + 'px', height: h1 + 'px', overflow: 'hidden' }], o);
   body.animate([{ gridTemplateColumns: `${l0}px 0px`, columnGap: '0px' }, { gridTemplateColumns: cols1, columnGap: gap1 }], o);
-  res.animate([{ opacity: 0, filter: 'blur(14px)', transform: 'scale(.96)', overflow: 'hidden' }, { opacity: 1, filter: 'blur(0)', transform: 'none', overflow: 'hidden' }],
+  res.animate([{ opacity: 0, filter: 'blur(14px)', transform: 'scale(.96)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }],
     { duration: 620, delay: 90, easing: 'cubic-bezier(0.34, 0, 0.15, 1)', fill: 'backwards' });
+  const done = () => { res.style.width = ''; };
+  a.finished.then(done, done);
 }
 // 일반·비교 모두 공통 목록을 큰 창 오른쪽에 표시한다.
 function typhoonPickerHost() {
   const ov = $('#typLoadOv'), host = $('#typLoadList');
   if (!ov || !ov.classList.contains('on') || !host) return null;
   if (typhoonLoadPicker) typhoonLoadPicker.close();
-  typLoadShowResults(ov);
   host.innerHTML = '<div class="typPickerInline"><div class="tossHead"><div><div class="tossTitle"></div><div class="tossSub"></div></div></div><div class="tossBody"><div class="jtwcList" role="list"></div><p class="jtwcNote"></p></div><div class="tossFoot"></div></div>';
+  typLoadShowResults(ov);   // 내용을 먼저 채운 뒤 펼친다(최종 크기를 재므로)
   const root = host.firstElementChild;
   let closed = false;
   const m = { ov: root, body: root.querySelector('.tossBody'), foot: root.querySelector('.tossFoot'),
@@ -638,8 +643,8 @@ function setupTyphoonLoad() {
     if (!e.target.closest('#typFetch, #typFetchJma, #typJtwcDl, #tycFetch, #tycFetchJma, #tycJtwcDl, #typHistoryFetch')) return;
     ++typhoonPickSeq; ++jtwcSeq;
     if (typhoonLoadPicker) typhoonLoadPicker.close();
-    typLoadShowResults(ov);
     $('#typLoadList').innerHTML = '<p class="hint">불러온 태풍 목록이 여기에 표시됩니다. 조회 안내는 화면 알림에서 확인할 수 있어요.</p>';
+    typLoadShowResults(ov);   // 내용을 먼저 채운 뒤 펼친다
   }, true);   // 다른 출처를 누르면 이전 출처의 늦은 응답·선택은 취소
   ov.addEventListener('pointerdown', (e) => { if (e.target === ov) closeTyphoonLoad(); });
   window.addEventListener('keydown', (e) => {
