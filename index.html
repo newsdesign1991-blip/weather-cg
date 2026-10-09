@@ -128,7 +128,7 @@
 <link rel="stylesheet" href="css/export-dialog.css?v=820f4f5c">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
-<link rel="stylesheet" href="css/dialogs.css?v=cde9e594">
+<link rel="stylesheet" href="css/dialogs.css?v=7882d9b9">
 <link rel="stylesheet" href="css/panel-misc.css?v=4c67cdc4">
 <link rel="stylesheet" href="css/toss-modal.css?v=606aa1e8">
 <link rel="stylesheet" href="css/date-picker.css?v=9a76d0b1">
@@ -425,12 +425,12 @@
         <div class="cgsFoot"><button id="typLoadDone" class="pri">선택 완료</button></div>
         </div></div>
         <div class="btns" style="margin:6px 0"><button id="typPlay" class="animPreviewBtn" style="flex:1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 7.5v9l7-4.5z" fill="currentColor"/></svg><span>애니메이션 확인</span></button></div>
-        <button type="button" class="subhead subFoldHead" aria-expanded="false" aria-controls="typDetailSettings">이름·발표 시각 수정 <span>· 필요할 때</span></button>
-        <div class="subFold closed" id="typDetailSettings"><div class="subFoldInner"><div class="subFoldBox">
+        <!-- 태풍·이름·발표 시각 칸 — 사이드바에선 뺐다(사용자 요청 10-09: 큰 '태풍 불러오기 · 선택' 창에서 고른다). 코드가 값을 읽고 쓰므로 숨긴 채 둔다 -->
+        <div id="typDetailSettings" hidden>
           <div class="row"><label>태풍</label><select id="typWhichSel" style="flex:1"></select></div>
           <div class="row"><label>이름</label><input id="typName" type="text" placeholder="예: 개미 (직접 입력)" style="flex:1"></div>
           <div class="row"><label>발표 시각</label><select id="typIssueSel" style="flex:1"></select></div>
-        </div></div></div>
+        </div>
         <div class="subhead">경로 표시 방식</div>
         <div class="fieldGroup">
           <div class="row"><label>모드</label><div class="mode" id="typTrackMode" style="flex:1;display:flex"><button data-tm="full" type="button" style="flex:1">일반 모드</button><button data-tm="line" type="button" style="flex:1">라인 모드</button></div></div>
@@ -1456,7 +1456,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/ae-export.js?v=243b19cd"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=a8413164"></script>
-<script src="js/wiring.js?v=1a1a7ec4"></script>
+<script src="js/wiring.js?v=a22def0c"></script>
 <script src="js/anim.js?v=3f7ec170"></script>
 <script src="js/timeline-plan.js?v=5b2480af"></script>
 <script src="js/timeline-ui.js?v=8c3c0a46"></script>

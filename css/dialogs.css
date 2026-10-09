@@ -56,39 +56,39 @@
      서태평양(한국 쪽) 묶음이 먼저, 다른 해역은 아래(칩을 회색으로). 없음·실패는 같은 자리에 안내 상자(.jtwcMsg — 결과 카드 색 규칙) */
   .jtwcList { display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
   #typLoadOv { z-index: 125; }
-  .typLoadCard { width: min(780px, 100%); }
-  #typLoadOv.has-results .typLoadCard { width: min(1280px, 100%); }
-  .typLoadBody { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px; }
-  #typLoadOv.has-results .typLoadBody { grid-template-columns: minmax(340px, .9fr) minmax(380px, 1.1fr); }
-  .typLoadPane { min-width: 0; padding: 20px; border: 1px solid var(--outline-var); border-radius: 18px; background: var(--surface); }
-  .typLoadSources { display: grid; gap: 16px; padding: 0; border: 0; background: none; align-content: start; }
+  .typLoadCard { width: min(680px, 100%); }   /* 10-09 사용자: 전체적으로 조금 작게(약 88%) */
+  #typLoadOv.has-results .typLoadCard { width: min(1120px, 100%); }
+  .typLoadBody { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px; }
+  #typLoadOv.has-results .typLoadBody { grid-template-columns: minmax(300px, .9fr) minmax(340px, 1.1fr); }
+  .typLoadPane { min-width: 0; padding: 16px; border: 1px solid var(--outline-var); border-radius: 16px; background: var(--surface); }
+  .typLoadSources { display: grid; gap: 14px; padding: 0; border: 0; background: none; align-content: start; }
   .typLoadResults { background: var(--cgs-map-bg); border-color: var(--cgs-map-line); }
   .typLoadPane .subhead:first-child { margin-top: 0; padding-top: 0; border: 0; }
-  .typLoadSource { padding: 20px; border: 1px solid color-mix(in srgb, var(--typ-source) 28%, var(--outline-var)); border-radius: 16px; background: color-mix(in srgb, var(--typ-source) 8%, var(--surface)); }
+  .typLoadSource { padding: 16px; border: 1px solid color-mix(in srgb, var(--typ-source) 28%, var(--outline-var)); border-radius: 16px; background: color-mix(in srgb, var(--typ-source) 8%, var(--surface)); }
   .typSourceCurrent { --typ-source: #3182f6; }
   .typSourceHistory { --typ-source: #a076de; }
   .typSourceOther { --typ-source: #d69b3f; }
-  #typLoadOv .cgsTitle { font-size: 22px; }
-  #typLoadOv .cgsSub, #typLoadOv .hint, #typLoadOv .jtwcNote, #typLoadOv .jtwcMeta, #typLoadOv .tossSub, #typLoadOv .typBasketLabel small { font-size: 14px; line-height: 1.6; }
-  #typLoadOv .subhead { font-size: 16px; margin: 0 0 12px; padding: 0; border: 0; }
-  #typLoadOv .subhead span { font-size: 13px; }
-  #typLoadOv button, #typLoadOv input, #typLoadOv select, #typLoadOv label { font-size: 16px; }
-  #typLoadOv .tossTitle { font-size: 21px; }
-  #typLoadOv .jtwcName { font-size: 19px; }
-  #typLoadOv .jtwcId { font-size: 18px; }
-  #typLoadOv .jtwcRow { min-height: 82px; padding: 18px; }
-  #typLoadOv .cgsHead { padding: 20px 24px; }
-  #typLoadOv .cgsFoot { padding: 16px 24px; }
-  #typLoadOv .cgsFoot button, #typLoadOv .tossFoot button { min-height: 44px; padding: 10px 20px; }
-  #typLoadOv input:not(.dpSrc), #typLoadOv .dpField { min-height: 44px; box-sizing: border-box; }
+  #typLoadOv .cgsTitle { font-size: 19px; }
+  #typLoadOv .cgsSub, #typLoadOv .hint, #typLoadOv .jtwcNote, #typLoadOv .jtwcMeta, #typLoadOv .tossSub, #typLoadOv .typBasketLabel small { font-size: 12.5px; line-height: 1.55; }
+  #typLoadOv .subhead { font-size: 14px; margin: 0 0 10px; padding: 0; border: 0; }
+  #typLoadOv .subhead span { font-size: 12px; }
+  #typLoadOv button, #typLoadOv input, #typLoadOv select, #typLoadOv label { font-size: 14px; }
+  #typLoadOv .tossTitle { font-size: 18px; }
+  #typLoadOv .jtwcName { font-size: 16.5px; }
+  #typLoadOv .jtwcId { font-size: 15.5px; }
+  #typLoadOv .jtwcRow { min-height: 70px; padding: 14px 40px 14px 14px; }
+  #typLoadOv .cgsHead { padding: 16px 20px; }
+  #typLoadOv .cgsFoot { padding: 14px 20px; }
+  #typLoadOv .cgsFoot button, #typLoadOv .tossFoot button { min-height: 40px; padding: 9px 18px; }
+  #typLoadOv input:not(.dpSrc), #typLoadOv .dpField { min-height: 40px; box-sizing: border-box; }
   .typLoadPane .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
-  .typLoadPane .row > label { flex: 0 0 90px; }
+  .typLoadPane .row > label { flex: 0 0 80px; }
   .typLoadPane .row > input, .typLoadPane .row > select { min-width: 0; }
-  .typLoadPane .btns button { min-height: 48px; }
+  .typLoadPane .btns button { min-height: 42px; }
   #typLoadOv [hidden] { display: none !important; }
   #typLoadList .jtwcList { max-height: min(460px, 48vh); overflow-y: auto; padding: 4px; }
-  #typLoadBasket { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--cgs-map-line); }
-  #typLoadOv [data-country] { background-image: var(--typ-flag); background-repeat: no-repeat; background-position: 16px center; background-size: 27px 18px; padding-left: 55px; text-align: left; }
+  #typLoadBasket { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--cgs-map-line); }
+  #typLoadOv [data-country] { background-image: var(--typ-flag); background-repeat: no-repeat; background-position: 14px center; background-size: 24px 16px; padding-left: 48px; text-align: left; }
   #typLoadOv button.pri[data-country] { background-color: var(--primary); }
   #typLoadOv [data-country="jp"] { --typ-flag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'%3E%3Cpath fill='white' d='M0 0h60v40H0z'/%3E%3Ccircle fill='%23bc002d' cx='30' cy='20' r='12'/%3E%3C/svg%3E"); }
   #typLoadOv [data-country="us"] { --typ-flag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'%3E%3Cpath fill='white' d='M0 0h60v40H0z'/%3E%3Cpath stroke='%23b22234' stroke-width='3.08' d='M0 1.54h60M0 7.7h60M0 13.85h60M0 20h60M0 26.15h60M0 32.3h60M0 38.46h60'/%3E%3Cpath fill='%233c3b6e' d='M0 0h26v21.54H0z'/%3E%3Cg fill='white'%3E%3Cpath d='M4 3h1v1H4zM9 3h1v1H9zM14 3h1v1h-1zM19 3h1v1h-1zM23 3h1v1h-1zM6 7h1v1H6zM11 7h1v1h-1zM16 7h1v1h-1zM21 7h1v1h-1zM4 11h1v1H4zM9 11h1v1H9zM14 11h1v1h-1zM19 11h1v1h-1zM23 11h1v1h-1zM6 15h1v1H6zM11 15h1v1h-1zM16 15h1v1h-1zM21 15h1v1h-1zM4 19h1v1H4zM9 19h1v1H9zM14 19h1v1h-1zM19 19h1v1h-1zM23 19h1v1h-1z'/%3E%3C/g%3E%3C/svg%3E"); }

@@ -248,7 +248,7 @@ function wire() {
   foldWire($('#wrnManual'), 'wcg_wrn_manual_open');
   // 태풍 '자동이 안 될 때 · 수동 붙여넣기'도 같은 부품(기본 접힘). 미해군(JTWC) 불러오기 실패 안내가 이번만 펼친다(js/typhoon-jtwc.js jtwcManual)
   foldWire($('#typManual'), 'wcg_typ_manual_open');
-  foldWire($('#typDetailSettings'), 'wcg_typ_details_open');
+  // (태풍 '이름·발표 시각 수정' 접기는 뺐다 — 칸은 숨김, 고르기는 '태풍 불러오기 · 선택' 창)
   foldWire($('#tycManual'), 'wcg_tyc_manual_open');
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value, null, 'paste');
   $('#wrnFetch').onclick = () => fetchWrn();   // 인자 없이(=목록 새로 만듦). onclick이 이벤트를 keepSel로 넘기지 않게 감쌈.
