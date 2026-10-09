@@ -7,6 +7,9 @@ let lastTag = '', lastT = -1e9;
 // 카메라 미리보기 중엔 S.map이 카메라 뷰로 덮여 있다 — 되돌리기 기록엔 작업 뷰를 넣는다(stateForSave, anim.js)
 const snap = () => JSON.parse(JSON.stringify(typeof stateForSave === 'function' ? stateForSave() : S));
 
+// 작업 바뀜 번호 — 되돌리기 기록이 쌓이거나(pushUndo) 되돌리기·다시 실행으로 상태가 바뀔 때 오른다.
+// 닫기 전 '저장하지 않은 변경' 판정(js/project-io.js workDirty)이 저장·불러오기 때 번호와 비교한다.
+let _workRev = 0;
 // tag를 주면 600ms 안의 같은 조작(슬라이더 드래그 등)은 한 번으로 묶는다. tag가 없으면 항상 기록.
 function pushUndo(tag) {
   const t = performance.now();
@@ -15,6 +18,7 @@ function pushUndo(tag) {
   undoStack.push(snap());
   if (undoStack.length > 80) undoStack.shift();
   redoStack.length = 0;
+  _workRev++;
   updateUndoBtns();
 }
 // 지도 내용 리비전 — 틸트 미리보기 캔버스가 칠·태풍·되돌리기 같은 '내용' 변경도 다시 굽게 서명에 넣는다
@@ -50,8 +54,8 @@ function applyState(next) {
 // 불러온 파일 B를 옛 작업 A로 묻지 않고 덮어쓰지 않게.
 const _undoFileMark = new WeakMap();
 function markUndoFileSwap(before, after) { const top = undoStack[undoStack.length - 1]; if (top) _undoFileMark.set(top, { before, after }); }
-function undo() { if (!undoStack.length) return; const cur = snap(), prev = undoStack.pop(), m = _undoFileMark.get(prev); if (m) { _undoFileMark.set(cur, m); projFileHandle = m.before; } redoStack.push(cur); applyState(prev); status('되돌림'); }
-function redo() { if (!redoStack.length) return; const cur = snap(), next = redoStack.pop(), m = _undoFileMark.get(next); if (m) { _undoFileMark.set(cur, m); projFileHandle = m.after; } undoStack.push(cur); applyState(next); status('다시 실행'); }
+function undo() { if (!undoStack.length) return; const cur = snap(), prev = undoStack.pop(), m = _undoFileMark.get(prev); if (m) { _undoFileMark.set(cur, m); projFileHandle = m.before; } redoStack.push(cur); _workRev++; applyState(prev); status('되돌림'); }
+function redo() { if (!redoStack.length) return; const cur = snap(), next = redoStack.pop(), m = _undoFileMark.get(next); if (m) { _undoFileMark.set(cur, m); projFileHandle = m.after; } undoStack.push(cur); _workRev++; applyState(next); status('다시 실행'); }
 function updateUndoBtns() { $('#undo').disabled = !undoStack.length; $('#redo').disabled = !redoStack.length; }
 
 // ===================== SVG 구성 =====================

@@ -76,7 +76,7 @@ const MAP = {
     { file: 'export-blobs.js', start: 'const ALL_LAYERS = [', desc: '추출 핵심: 레이어 목록(ALL_LAYERS)·SVG→PNG blob(svgBlob·keepLayers)·미리보기, 프로젝트 파일 PNG 메타(pngEmbed·pngExtract·readProjectFile), 이미지로 추출 항목·장 목록·굽기(EXPORT_TARGETS·exportPlan·exportBake)' },
     { file: 'ae-export.js', start: '// ===== After Effects 자동 임포트', desc: 'After Effects 보내기(레이어 분해 blob·sendToAE), download' },
     { file: 'export-dialog.js', start: 'const EXPORT_ICON = {', desc: "'이미지로 추출' 팝업(CG 구성 모양: 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 저장(폴더 고르기 → 오늘날짜_날씨CG메이커 폴더 → 카드 이름 그대로 PNG, 폴더 고르기를 못 쓰면 ZIP)" },
-    { file: 'project-io.js', start: '// ===== 설정 옮기기', desc: '설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기(bakeDefaults)' },
+    { file: 'project-io.js', start: '// ===== 설정 옮기기', desc: '설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기(bakeDefaults), 저장 안 한 변경 판정·닫기 전 묻기(workDirty·closeAsk — 데스크톱)' },
     { file: 'wiring.js', start: '// ===================== 배선 =====================', desc: '버튼·입력 배선 wire()(한 함수) + 사이드바 그룹·아이콘 구성(로드 때 실행, refreshToolGroup)' },
     { file: 'anim.js', start: '// ===================== 영상 (타임라인)', desc: '영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙, 블라인드, renderAnimFrame, 재생/정지/탐색' },
     { file: 'timeline-plan.js', start: '// ===================== 시간 도우미(프레임 단위)', desc: '타임라인 레이어 계획(tlLayerPlan: 화면·AE 공용), 시간 도우미(프레임·타임코드), 막대 끌기 계산' },

@@ -1,4 +1,4 @@
-/* [모듈] js/project-io.js — 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기(bakeDefaults) */
+/* [모듈] js/project-io.js — 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기(bakeDefaults), 저장 안 한 변경 판정·닫기 전 묻기(workDirty·closeAsk — 데스크톱) */
 'use strict';
 
 // ===== 설정 옮기기 — 웹판 ↔ 데스크톱 앱 ↔ 다른 PC =====
@@ -88,16 +88,20 @@ async function saveBlobAs(blob, suggestedName, type) {
 let projFileHandle = null;
 // 작업 중·도착 효과(js/busy-fx.js) 대상 — 프로젝트 메뉴 섹션·제목줄 프로젝트(플로피) 버튼 + 누른 버튼
 const projFx = (btn) => [fxSec('proj'), '#titlebar [data-menu=proj]', btn];
+// 반환: 저장했으면 true(취소면 false) — 닫기 전 묻기의 [저장]이 이것으로 닫을지 정한다
 async function saveProject(saveAs) {
   // 미리보기 그림 굽기·파일 쓰기 동안 흐름(Ctrl+S로 불러도 제목줄 플로피에 보인다). 실패·취소도 finally에서 끈다
   const fx = projFx('#save'); let saved = false;
   fxBusy(fx, true);
   try { saved = await saveProjectRun(saveAs); }
   finally { fxBusy(fx, false); if (saved) fxArrive(['#titlebar [data-menu=proj]', '#save']); }
+  return saved;
 }
 // 반환: 저장했으면 true(취소면 false)
 async function saveProjectRun(saveAs) {
-  const snap = JSON.parse(JSON.stringify(stateForSave()));   // 카메라 미리보기 중이어도 작업 뷰로 저장(B5)
+  // 카메라 미리보기 중이어도 작업 뷰로 저장(B5). 쓰는 동안(그림 굽기 등) 바뀐 것은 '저장 안 한 변경'으로 남게 지금 번호·내용을 기준으로
+  const rev0 = _workRev, json0 = JSON.stringify(stateForSave());
+  const snap = JSON.parse(json0);
   // 그림(PNG)에 작업 데이터를 심어 저장 — 탐색기 미리보기 + 다시 불러오기 둘 다 되는 한 파일.
   // 이름을 '날씨CG_날짜.wcg.png'로 해서 일반 사진 PNG와 헷갈리지 않게 한다(확장자는 .png라 썸네일은 그대로).
   const day = (() => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`; })();
@@ -109,7 +113,7 @@ async function saveProjectRun(saveAs) {
     blob = new Blob([JSON.stringify(snap, null, 1)], { type: 'application/json' });
     suggested = `날씨CG_${day}.json`; types = [{ description: '날씨 CG 프로젝트', accept: { 'application/json': ['.json'] } }];
   }
-  if (!window.showSaveFilePicker) { download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)'); return true; }
+  if (!window.showSaveFilePicker) { download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)'); workMarkSaved(json0, rev0); return true; }
   try {
     if (saveAs || !projFileHandle) {
       projFileHandle = await window.showSaveFilePicker({ suggestedName: (projFileHandle && projFileHandle.name) || suggested, types });
@@ -117,11 +121,13 @@ async function saveProjectRun(saveAs) {
     const w = await projFileHandle.createWritable(); await w.write(blob); await w.close();
     addRecent(projFileHandle.name, projFileHandle, snap);   // 최근 파일에 기록
     status('저장됨: ' + projFileHandle.name);
+    workMarkSaved(json0, rev0);
     return true;
   } catch (e) {
     if (e.name === 'AbortError') return false;   // 사용자가 취소
     projFileHandle = null;                 // file:// 등 피커 미지원 → 다운로드 폴더로
     download(blob, suggested); addRecent(suggested, null, snap); status('저장됨 (다운로드 폴더)');
+    workMarkSaved(json0, rev0);
     return true;
   }
 }
@@ -305,6 +311,7 @@ function loadProjectData(data, handle) {
   if (ov && ov.classList.contains('on')) { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); }
   localStorage.removeItem('wcg_pending_start');   // 프로젝트를 열었으면 '선택 화면 대기' 해제
   closeCgSetup();   // CG 구성 창이 떠 있었으면(파일 끌어다 놓기 등) 고르던 건 버리고 닫는다 — 불러온 작업의 구성이 이긴다
+  workMarkClean();   // 연 그대로는 '저장 안 한 변경' 없음(직전 작업 이어보기도 같다)
 }
 
 // 불러오기 (사이드바 버튼·시작화면 버튼 공용). 새 형식(PNG, 데이터 내장)·옛 형식(JSON) 둘 다 연다.
@@ -341,6 +348,106 @@ async function openProject() {
     finally { fxBusy(fx, false); if (opened) fxArrive('#titlebar [data-menu=proj]'); }
   };
   i.click();
+}
+
+// ===== 저장하지 않은 변경 · 닫기 전 묻기(데스크톱) =====
+// '변경 있음' = 마지막 프로젝트 저장·불러오기·새로 시작(시작 화면을 마친 때) 뒤로 작업 바뀜 번호(_workRev — pushUndo·되돌리기·다시 실행)가
+// 올랐고, 지금 작업(stateForSave — 파일에 쓰는 그대로)의 서명이 그때와 다를 때. 번호로 '손댄 적 없음'을 먼저 거르고(나중에 채워지는
+// 기본값 등은 변경으로 안 친다), 손댔으면 내용을 비교한다 — 되돌리기로 원래대로 돌아왔거나 취소한 편집이면 변경 없음.
+// 자동 저장(localStorage wcg_work)은 저장으로 치지 않는다(파일 저장 기준). 시작 화면이 떠 있으면 늘 변경 없음.
+let _savedRev = 0, _savedSig = '';
+// 작업 JSON 서명(길이 + FNV-1a 32비트) — 저장 시점 내용을 통째로 들고 있지 않게
+function workSig(json) {
+  let h = 2166136261;
+  for (let i = 0; i < json.length; i++) { h ^= json.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return json.length + ':' + (h >>> 0).toString(16);
+}
+// 기준 잡기 — json: 그때 작업(stateForSave) JSON, rev: 그때 바뀜 번호
+function workMarkSaved(json, rev) {
+  _savedSig = workSig(json); _savedRev = rev;
+  lastTag = '';   // 저장 직후 같은 슬라이더를 이어 끌어도(600ms 묶음) 새 기록 = 번호가 오르게
+}
+function workMarkClean() { workMarkSaved(JSON.stringify(stateForSave()), _workRev); }
+// 손댔으면 지금 작업 서명, 아니면 ''(시작 화면·번호 그대로)
+function workCurSig() { return startScreenOn() || _workRev === _savedRev ? '' : workSig(JSON.stringify(stateForSave())); }
+function workDirty() { const s = workCurSig(); return !!s && s !== _savedSig; }
+// 새로고침(Ctrl+R·설정 가져오기 등)해도 '변경 있음'을 이어받는다(sessionStorage — 이 창에서만). beforeunload(boot.js)에서 적고,
+// 부팅(workMarkBoot)에서 이어서 연 작업이 그 작업 그대로면(자동 저장 내용 서명이 같으면) 저장 기준만 옛것으로 되살린다.
+const WORK_UNSAVED_KEY = 'wcg_unsaved';
+function workUnsavedKeep() {
+  try {
+    const s = workCurSig();
+    if (s && s !== _savedSig) sessionStorage.setItem(WORK_UNSAVED_KEY, JSON.stringify({ work: s, saved: _savedSig }));
+    else sessionStorage.removeItem(WORK_UNSAVED_KEY);
+  } catch (e) { /* 저장소를 못 쓰면 이어받지 않는다 */ }
+}
+function workMarkBoot(resumed) {
+  workMarkClean();
+  let k = null;
+  try { k = JSON.parse(sessionStorage.getItem(WORK_UNSAVED_KEY) || 'null'); sessionStorage.removeItem(WORK_UNSAVED_KEY); } catch (e) { k = null; }
+  if (resumed && k && typeof k.work === 'string' && k.work === workSig(lastWork)) { _savedSig = String(k.saved || ''); _savedRev = -1; }
+}
+
+// 메인(desktop/close-guard.js)이 창 닫기(X·Alt+F4·작업표시줄)를 막고 물으면(preload onCloseAsk → 여기) 곧바로 답한다:
+// 물을 것 없으면 'close', 팝업을 띄우면 'wait'(메인이 시간 제한을 끄고 기다린다) → 사용자가 고르면 'close'(저장함·저장 안 함) | 'stay'(취소).
+// 렌더(영상·AE 보내기) 중이면 변경이 없어도 묻는다(끄면 렌더가 멈춘다). 떠 있는데 또 물으면 그 팝업 그대로 'wait'(팝업 하나).
+// reply(act, 번호)는 시험에서 바꿔 끼운다 — 실제 창을 닫지 않고 흐름을 본다(tests/close-ask.boot-eval.js).
+let _closePop = null;   // { id, reply, ov, saving } — 떠 있는(또는 [저장] 중인) 닫기 물음 하나
+function closeBusyWhat() {
+  if (_exportingFrames) return 'render';
+  const ae = $('#aeSend'); if (ae && ae.disabled) return 'ae';   // 보내는 중 + AE 여는 중(재전송 잠금)
+  return '';
+}
+const CLOSE_BUSY = {
+  render: { title: '영상을 렌더하는 중이에요', line: '지금 끄면 렌더가 멈춰 영상 파일이 끝까지 만들어지지 않아요.' },
+  ae: { title: 'AE로 보내는 중이에요', line: '지금 끄면 After Effects로 보내기가 끊길 수 있어요.' },
+};
+function closeAnswer(act) { const p = _closePop; _closePop = null; if (p) p.reply(act, p.id); }
+function closeAsk(id, reply) {
+  if (typeof reply !== 'function') reply = (act, n) => { try { window.wcgDesktop.closeReply(n, act); } catch (e) {} };
+  const p = _closePop;
+  if (p && (p.saving || (p.ov && p.ov.isConnected))) { p.id = id; p.reply = reply; reply('wait', id); return; }   // 이미 묻는 중 — 그 팝업 하나로
+  _closePop = null;   // 다른 토스 팝업에 밀려 사라진 물음은 버리고 새로 묻는다(메인이 끝없이 기다리지 않게)
+  let dirty = true, busy = '';
+  try { dirty = workDirty(); busy = closeBusyWhat(); } catch (e) { dirty = true; }   // 판정이 깨지면 묻는 쪽으로
+  if (!dirty && !busy) { reply('close', id); return; }
+  if (dirty) saveWork();   // 자동 저장을 지금 내용으로 — 실패했으면(공간 부족) 다음에 이어서 열 수 없다고 알린다
+  const B = CLOSE_BUSY[busy];
+  const body = dirty
+    ? '<p>저장하지 않고 끄면 지금 작업은 파일로 남지 않아요.</p>'
+      + (_failedWork ? '<p class="closeAskNote">자동 저장 공간이 부족해 다음에 켤 때 이어서 열 수도 없어요.</p>'
+        : '<p class="closeAskNote">다음에 켤 때 시작 화면의 ‘직전 작업 이어보기’로 한 번 더 열 수는 있지만, 새 작업을 시작하면 사라져요.</p>')
+      + (B ? `<p class="closeAskBusy">${B.line}</p>` : '')
+    : `<p>${B.line}</p>`;
+  let decided = false;
+  const m = tossModal({
+    title: dirty ? '저장하지 않은 변경이 있어요' : B.title, tone: 'blue',
+    bodyHTML: body,
+    footHTML: dirty
+      ? '<button class="tossBtn ghost closeAskDiscard" data-discard>저장 안 함</button><button class="tossBtn ghost" data-cancel>취소</button><button class="tossBtn pri" data-save>저장</button>'
+      : '<button class="tossBtn ghost closeAskDiscard" data-discard>끄기</button><button class="tossBtn pri" data-cancel>취소</button>',
+    onClose: () => { if (!decided) { decided = true; closeAnswer('stay'); } },   // Esc·바깥 클릭·X = 취소
+  });
+  m.card.classList.add('closeAsk');
+  const q = { id, reply, ov: m.ov, saving: false };
+  _closePop = q;
+  const decide = (act) => { if (decided) return; decided = true; m.close(); closeAnswer(act); };
+  m.foot.querySelector('[data-discard]').onclick = () => decide('close');
+  m.foot.querySelector('[data-cancel]').onclick = () => decide('stay');
+  const sv = m.foot.querySelector('[data-save]');
+  if (sv) {
+    // [저장] = 프로젝트 저장 그대로(처음이면 저장 위치 고르기). 저장했으면 닫고, 고르기 취소·실패면 닫지 않는다.
+    sv.onclick = async () => {
+      if (decided) return;
+      decided = true; q.saving = true; m.close();
+      let ok = false;
+      try { ok = await saveProject(false); } catch (e) { ok = false; }
+      if (!ok) status('저장하지 않아 앱을 닫지 않았어요', true);
+      if (_closePop === q) closeAnswer(ok ? 'close' : 'stay');
+    };
+  }
+  popFocusIn(m.ov, sv || m.foot.querySelector('[data-cancel]'), m.ov._opener);   // Enter = 주 버튼(저장 / 렌더 중이면 취소)
+  reply('wait', id);
 }
 
 // 스포이드 — 커서 아래 색을 집는다. 브러쉬 그림이 있으면 그 픽셀 색, 없으면 그 존의 칠 색.

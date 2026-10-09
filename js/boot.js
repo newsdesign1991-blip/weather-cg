@@ -116,4 +116,11 @@ setTimeout(checkHelperFreshOnBoot, tourWillOpen ? 2400 : 1300);
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
 setInterval(() => { if (!brushStroke) saveWork(); if (typeof tlCheckRows === 'function') tlCheckRows(); }, 1500);   // 브러쉬 드래그 중엔 건너뛴다(손 떼면 저장). 타임라인은 행 구성만 확인(가속 미리보기는 건드리지 않음)
 window.addEventListener('beforeunload', saveWork);
+// 닫기 전 묻기(데스크톱 — js/project-io.js): 지금 상태가 '저장 안 한 변경 없음' 기준(새로고침 전 변경은 이어받음).
+// 창을 닫으려 하면 메인이 묻고(preload onCloseAsk) closeAsk가 답한다. 웹판·옛 데스크톱(onCloseAsk 없음)은 아무것도 안 한다.
+if (window.wcgDesktop && typeof window.wcgDesktop.onCloseAsk === 'function') {
+  workMarkBoot(!!work);
+  window.addEventListener('beforeunload', workUnsavedKeep);   // 자동 저장(saveWork) 뒤에 — 새로고침해도 '변경 있음'을 이어받게
+  window.wcgDesktop.onCloseAsk((id) => closeAsk(id));
+}
 document.fonts.ready.then(() => { renderLabels(); renderMtns(); renderSel(); });

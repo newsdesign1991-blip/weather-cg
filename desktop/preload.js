@@ -4,6 +4,15 @@ const { contextBridge, ipcRenderer } = require('electron');
 let helper = { url: null, kind: null, ver: 0 };
 try { helper = ipcRenderer.sendSync('wcg:helper') || helper; } catch (e) {}
 
+// 창 닫기 전 묻기(main.js·desktop/close-guard.js) — 메인이 닫기를 막고 물으면 웹앱이 건 콜백(onCloseAsk)을 부른다.
+// 웹앱이 아직 안 걸었으면(부팅 전·로드 실패 안내 화면) 물을 작업이 없으니 바로 'close' — 메인의 시간 제한(5초)을 기다리지 않게.
+let closeAskCb = null;
+const closeReply = (id, act) => { try { ipcRenderer.send('wcg:close-reply', { id: Math.floor(+id) || 0, act: String(act || '') }); } catch (e) {} };
+ipcRenderer.on('wcg:close-ask', (_e, id) => {
+  if (!closeAskCb) { closeReply(id, 'close'); return; }
+  try { closeAskCb(id); } catch (err) { closeReply(id, 'close'); }   // 웹앱 쪽이 던지면 막지 않고 닫는다(작업은 자동 저장돼 있다)
+});
+
 contextBridge.exposeInMainWorld('wcgDesktop', {
   isDesktop: true,
   helperUrl: helper.url,       // 내장 헬퍼면 http://127.0.0.1:3721
@@ -22,4 +31,7 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
   // 미해군(JTWC) 자료 받기 — 'rss/jtwc.rss' 또는 'products/wp2726.tcw'(RSS의 전체 주소도 됨). 그 밖 주소는 메인이 거절한다(desktop/jtwc.js).
   // 돌려주는 것: { ok: true, status, url, text } 또는 { ok: false, err: 'denied'|'timeout'|'too-big'|'http'|'net', status?, detail? }
   jtwcFetch: (p) => ipcRenderer.invoke('wcg:jtwc-fetch', String(p || '')),
+  // 창 닫기 전 묻기 — cb(번호)는 곧바로 closeReply(번호, 'close'|'wait')로, 팝업에서 고르면 closeReply(번호, 'close'|'stay')로 답한다(한 번만 건다)
+  onCloseAsk: (cb) => { closeAskCb = typeof cb === 'function' ? cb : null; },
+  closeReply: (id, act) => closeReply(id, act),
 });

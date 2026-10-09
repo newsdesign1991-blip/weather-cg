@@ -680,7 +680,8 @@ function markStartStep(which) {
   if (which === 'style') startStyleDone = true;
   ov.querySelector(`.startStep[data-step="${which}"]`)?.classList.add('done');
   if (startResDone && startStyleDone) {
-    setTimeout(() => { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); localStorage.removeItem('wcg_pending_start'); saveWork(); }, 260);
+    // 시작 화면을 마친 빈 지도 = 새로 시작 — '저장 안 한 변경' 기준도 여기서(고른 CG 종류·지도 종류만으로는 끌 때 안 묻는다)
+    setTimeout(() => { ov.classList.remove('on'); localStorage.setItem('wcg_started', '1'); localStorage.removeItem('wcg_pending_start'); saveWork(); workMarkClean(); }, 260);
   }
 }
 function setupStartScreen() {

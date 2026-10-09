@@ -165,6 +165,7 @@ function createWindow() {
   win.once('ready-to-show', () => { if (TEST_MODE) return; win.maximize(); win.show(); });   // 점검 모드는 화면에 안 띄움
   win.on('page-title-updated', (e) => e.preventDefault());   // 작업표시줄·Alt+Tab 창 이름은 늘 '날씨 CG' (웹 <title>로 안 바뀌게)
   win.on('closed', () => { if (wnuri && !wnuri.isDestroyed()) wnuri.destroy(); });   // 날씨누리 창이 남아 앱이 안 꺼지는 일 없게
+  wireCloseGuard(win);   // 닫기 전 '저장하지 않은 변경' 묻기(아래)
   // 외부 링크(기상청·JTWC 등)는 기본 브라우저로
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) { shell.openExternal(url); return { action: 'deny' }; }
@@ -278,6 +279,27 @@ ipcMain.handle('wcg:jtwc-fetch', (e, p) => {
   if (!jtwcCallerOk(e)) return { ok: false, err: 'denied', detail: 'sender' };
   const ses = jtwcSession();
   return jtwcFetch(String(p || ''), { fetch: (u, init) => ses.fetch(u, init) });
+});
+
+// ---------- 닫기 전 묻기(저장하지 않은 변경·렌더 중) ----------
+// 메인 창 닫기(X·Alt+F4·작업표시줄 닫기·앱 종료)는 막고 웹앱에 묻는다. 무엇을 물을지·팝업은 웹앱(js/project-io.js closeAsk),
+// 순서와 안전장치(웹앱이 5초 안에 답이 없으면 그냥 닫기, 팝업 하나)는 desktop/close-guard.js.
+const { createCloseGuard } = require('./close-guard');
+let closeGuard = null;
+function wireCloseGuard(w) {
+  const guard = createCloseGuard({
+    ask: (id) => { if (!w.isDestroyed()) w.webContents.send('wcg:close-ask', id); },
+    close: () => { if (!w.isDestroyed()) w.close(); },        // 다시 close 를 거친다(이번엔 통과) — 웹앱 beforeunload 자동 저장이 돈다
+    destroy: () => { if (!w.isDestroyed()) w.destroy(); },    // 웹앱이 답하지 않음(멈춤) — 기다리지 않고 닫는다
+  });
+  closeGuard = guard;
+  w.on('close', (e) => { if (guard.onClose()) e.preventDefault(); });
+  w.on('session-end', () => guard.release());   // 윈도 종료·다시 시작·로그오프 — 막지 않는다(작업은 1.5초마다 자동 저장돼 있다)
+}
+// 웹앱 답 — 메인 창(웹앱)만
+ipcMain.on('wcg:close-reply', (e, d) => {
+  if (!closeGuard || !win || win.isDestroyed() || !e.sender || e.sender.id !== win.webContents.id) return;
+  closeGuard.onReply(d && d.id, d && d.act);
 });
 
 // 보기 동작 — 메뉴(단축키 표시)와 위의 키 입력 처리가 같은 함수를 쓴다.

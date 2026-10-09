@@ -274,7 +274,8 @@ test('카메라 미리보기 중 저장·되돌리기 스냅샷 = 작업 뷰(B5)
   assert.equal(o.labels, S.labels);
   assert.match(html, /const snap = \(\) => JSON\.parse\(JSON\.stringify\(typeof stateForSave === 'function' \? stateForSave\(\) : S\)\)/);
   assert.match(fnSrc('saveWork'), /JSON\.stringify\(stateForSave\(\)\)/);
-  assert.match(fnSrc('saveProjectRun'), /JSON\.parse\(JSON\.stringify\(stateForSave\(\)\)\)/);   // saveProject는 작업 중 효과로 감싸고 본문은 saveProjectRun
+  // saveProject는 작업 중 효과로 감싸고 본문은 saveProjectRun — 쓰는 JSON(json0)은 닫기 전 묻기의 저장 기준(workMarkSaved)도 된다
+  assert.match(fnSrc('saveProjectRun'), /json0 = JSON\.stringify\(stateForSave\(\)\);\s*const snap = JSON\.parse\(json0\);/);
 });
 test('자동 구성 다시 — 손본 트랙 수를 센다(B13): 계획과 같으면 0, 시작·길이·태풍 키가 다르면 센다', () => {
   const S = sggS(); const c = planCtx(S);
