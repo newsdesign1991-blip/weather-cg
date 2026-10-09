@@ -1,7 +1,7 @@
 # 날씨 CG 메이커 — 모듈 지도 (먼저 읽을 것)
 
 이 앱은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** `index.html`은 뼈대(head·마크업·데이터 스크립트)와 태그뿐이고,
-로직은 `js/*.js`(43개), 스타일은 `css/*.css`(15개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍, 드롭다운 `dropdown` 한 쌍을 더했다).
+로직은 `js/*.js`(45개), 스타일은 `css/*.css`(16개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍, 드롭다운 `dropdown` 한 쌍, 데이터 지도 `data-maps`·`data-load`·`css/data-maps.css`를 더했다).
 
 - Claude·GPT 등 AI 공용 안내는 [`AGENTS.md`](AGENTS.md). 이 문서는 그 자세한 판이다.
 - 함수 찾기: `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`
@@ -12,10 +12,10 @@
 ## 1. 구조
 
 ```
-index.html          뼈대: head 인라인(웹판 막기·서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 15개
-                    + 마크업 + 테마 + 데이터 스크립트 12개 + <script src="js/…"> 43개(맨 끝)
-js/                 앱 로직 43개 — 아래 표 순서가 곧 로드 순서
-css/                스타일 15개 — 아래 표 순서가 곧 덮어쓰기 우선순위
+index.html          뼈대: head 인라인(웹판 막기·서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 16개
+                    + 마크업 + 테마 + 데이터 스크립트 13개 + <script src="js/…"> 45개(맨 끝)
+js/                 앱 로직 45개 — 아래 표 순서가 곧 로드 순서
+css/                스타일 16개 — 아래 표 순서가 곧 덮어쓰기 우선순위
 *.js (루트)          데이터 스크립트(지도·글꼴·이미지·배치 — window.X = … 꼴, 앱 로직 아님)
 FontNew/            글꼴 파일(css/base.css의 @font-face가 ../FontNew/ 로 가리킴)
 sw.js               서비스워커(웹판 설치·오프라인, network-first)
@@ -47,7 +47,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 5. **같은 이름 함수를 두 파일에 만들지 않는다.** 최상위 `let/const/class` 이름도 파일 사이에 겹치면 뒤 파일 전체가 SyntaxError로 안 돈다.
    최상위 `var`는 쓰지 않는다.
 6. **예약 이름 금지**: `window document location top self parent frames opener NaN Infinity undefined globalThis`(브라우저 고정 전역),
-   `wcgDesktop`(데스크톱 preload), `_per _mas`(head 인라인 var), 데이터 전역 12개(`WCG_DEFAULTS KOREA_MAP …` — 데이터는
+   `wcgDesktop`(데스크톱 preload), `_per _mas`(head 인라인 var), 데이터 전역 13개(`WCG_DEFAULTS KOREA_MAP REGION_MAP …` — 데이터는
    `const X = window.X …` 꼴로만 읽는다). window 내장(`name open close print fetch …`)을 가리는 새 최상위 이름도 금지.
    예외는 옛날부터 있던 `function status`(window.status를 대체 — 앱 안에서 window.status를 안 씀) 하나.
 7. **최상위 리스너 등록문을 다른 파일로 옮기지 않는다.** 같은 대상·같은 이벤트(svg pointerdown, window keydown 등)는
@@ -71,10 +71,10 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 
 | # | 파일 | 줄 | 담당 | 대표 함수·이름 |
 |---|---|---|---|---|
-| 1 | `js/core.js` | 192 | 공통 도우미, 색 팔레트, 기본 상태 `DEFAULTS`·`S`, 선택 도우미, MAP/IMG 데이터 보정, 지도 종류 판별 | `$` `el` `tip` `svgNS` `RAMPS` `DEFAULTS` `S` `isTyphoon` `isSeoul` `curStyle` `fills` `bumpSeq` |
+| 1 | `js/core.js` | 192 | 공통 도우미, 색 팔레트, 기본 상태 `DEFAULTS`·`S`, 선택 도우미, MAP/IMG 데이터 보정(시군 세분·태풍·서울·**데이터 지도 등록** — 생활기상·미세먼지 농도 = 시군구, 미세먼지 예보 = 예보 권역 19, `region-map-data.js`), 지도 종류 판별 | `$` `el` `tip` `svgNS` `RAMPS` `DEFAULTS` `S` `isTyphoon` `isSeoul` `curStyle` `fills` `bumpSeq` |
 | 2 | `js/brush.js` | 581 | 브러쉬 덧칠 엔진: 공간 캐시·색 런 캔버스·증분 적용·되돌리기 조각, `<image>` 반영, PNG 인코딩 워커 | `brushApply` `brushRevert` `brushReconcile` `brushSyncImgs` `brushEncode` `brushPublish` `brushFinalize` |
 | 3 | `js/brush-ui.js` | 228 | 브러쉬 화면·입력: 라이브 캔버스·스포이드, 시도 영역 선택, 칠하기 드래그, 좌표 변환 | `renderBrush` `brushLiveOf` `toggleBrushRegion` `startBrush` `projLL` `xyToLonLat` `insetBBox` |
-| 4 | `js/map-build.js` | 409 | 실행 취소(+ 작업 바뀜 번호 `_workRev` — 닫기 전 묻기 판정용), SVG 뼈대 구성, 지도 스타일 전환, CG 종류/배경 버튼 | `pushUndo` `undo` `redo` `applyState` `svg` `buildFrame` `buildZones` `setStyle` `_workRev` |
+| 4 | `js/map-build.js` | 409 | 실행 취소(+ 작업 바뀜 번호 `_workRev` — 닫기 전 묻기 판정용), SVG 뼈대 구성, 지도 스타일 전환, CG 종류/배경 버튼, **지도 종류 카드 = 데이터별**(10-10 — `MAP_CARDS` 9장·카드 안 구분 칩·칠하는 구분 이름/구역 수), 사이드바 데이터 섹션 숨김(`secModeHidden`), **지금 칠하는 구분** 배지·구분 줄(`syncMapUnit`) | `pushUndo` `undo` `redo` `applyState` `svg` `buildFrame` `buildZones` `setStyle` `_workRev` `MAP_CARDS` `cardOf` `mapUnitOf` `syncMapUnit` |
 | 5 | `js/map-render.js` | 409 | 지도 렌더: 위치·잠금, 예보지도 연결, Mapbox 타일·위성, 인셋, 칠, 경계선, 바다, 배경 | `renderMapTransform` `wireMapPos` `renderFills` `renderBg` |
 | 6 | `js/vf-legend.js` | 386 | VF 막대·배율, 그림자, 제목 텍스트, 범례(특보·태풍 범례 목록) | `renderVfBar` `renderTexts` `renderLegend` |
 | 7 | `js/labels-mountains.js` | 445 | 수치 라벨, 칠한 색 계열 바꾸기·자동 라벨, 산 표시, 선택 상자, **renderAll** | `newLabel` `renderLabels` `swapRamp` `autoLabels` `renderMtns` `renderSel` `renderAll` |
@@ -93,27 +93,29 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 20 | `js/bulletin-load.js` | 371 | **통보문 불러오기**(헬퍼 /api/kma로 날씨누리 단기예보 페이지 — 인증키 안 씀)·데스크톱 날씨누리 창 읽기, 원문에서 '예상 강수량' 날짜 묶음 나누기·고르기·결과 카드, 통째 붙여넣기 | `fetchBulletin` `bulReadPage` `bulSplitGroups` `bulPickItems` `bulResultView` `showBulResult` `bulOnPaste` `bulFromWnuri` |
 | 21 | `js/forecast-panel.js` | 206 | 예보 적용·고르기·목록, 작업 런타임 초기화, 예보 종류 버튼 | `applyFct` `buildFctList` `resetWorkRuntime` `setFctKind` |
 | 22 | `js/warnings-load.js` | 120 | **특보 '기상청에서 불러오기'**(헬퍼 /api/kma 경유)·결과 카드, **특보 종류별 색**(10-09 — 사이드바 색 격자를 버튼 하나로: 버튼 점 `buildWrnCols` + 2분할 팝업 `#wrnColOv` — 왼쪽 특보 종류(S.wrnColors 키 순서 = 위가 우선), 오른쪽 고른 특보의 단계(예비특보·주의보·경보·중대경보)마다 큰 색 칸·#hex·지도 조각. 저장은 옛 격자·들어온 특보 목록과 같은 자리: 주의보·경보 = `S.wrnColors`, 그 밖 단계 = `S.wrnLevelColors`) | `fetchWrn` `showWrnResult` `wrnRefreshResult` `buildWrnCols` `openWrnColPop` `closeWrnColPop` `wrnColPopIsOpen` `setupWrnColPop` `wrnColSet` |
-| 23 | `js/presets.js` | 266 | 해상도별 배치 프리셋, **작업 자동 저장**, 배포 기본값 갱신 | `savePreset` `saveWork` `loadWork` `applyPreset` |
-| 24 | `js/cg-setup.js` | 297 | 해상도·CG 구성 창(화면 이름 **장면 설정**, 10-09 바꿈 — 코드·주석은 옛 이름), **상태 표시**, 출력 폴더(IndexedDB) | `RES` `openCgSetup` `status` `flash` `flashDone` `prepareOutput` |
-| 25 | `js/modals-notices.js` | 354 | **팝업 공통**(닫힘 애니메이션·포커스), **토스 카드 모달**, 공지사항, 내보내기 진행 마스크, 확인/입력 모달 | `popAnimClose` `popFocusIn` `tossModal` `checkNoticeOnBoot` `showExportMask` `tossConfirm` `tossPrompt` |
-| 26 | `js/dropdown.js` | 352 | **드롭다운**(10-09 — 공용 부품): 시스템 `<select>`를 숨기고(값·옵션·change 계약 그대로 — `select.value`·`selectedIndex` 접근자를 덧씌우고 옵션은 MutationObserver로 따라감: 추가·삭제·글자·disabled·hidden·optgroup, select의 disabled·hidden·style.display·title) 옆에 버튼형 칸(고른 항목 + 꺾쇠, 칸 폭 = 가장 긴 항목) + **토스 카드 목록 팝오버**(칸 아래·자리 없으면 위·둘 다 모자라면 넓은 쪽에 높이를 줄여, position: fixed·칸의 배율 zoom, 고른 항목 파란 글자·체크, 올리면 옅은 바탕, 앱 스크롤바, 열 때 고른 항목이 가운데). 키: 칸에서 Enter·Space·↑↓ = 열기 / ↑↓·Home·End·PageUp·PageDown·Enter·Space·Esc·Tab·글자로 찾기, 바깥 누르기 = 닫기, 포커스는 칸(aria-activedescendant). 붙이기: boot.js `ddAttachAll()` + 관찰자, 태풍 비교 카드는 `wireCompareCard`에서 | `ddAttach` `ddAttachAll` `ddClose` `_ddNow` `ddItems` `ddStep` `ddFind` `ddPlace` `ddLabel` |
-| 27 | `js/date-picker.js` | 578 | **날짜 고르기**(10-09): 시스템 날짜·시각 칸(`<input type=date>`·`type=time`)을 숨기고(값·change 계약 그대로 — `input.value` 접근자를 덧씌워 코드가 바꿔도 칸이 따라감) 근무표식 **아이폰 달력 팝오버**(칸 아래·자리 없으면 위, position: fixed·사이드바 배율, 바깥·Esc 닫기, 화살표·PageUp/Down(Shift = 한 해)·Enter) + 제목을 누르면 **iOS식 연·월 휠**(scroll-snap·가운데 띠·위아래 흐림, 마우스 휠·끌기·누르기·키, 블러+스케일 모핑) + **시각 직접 입력**(근무표 ndTime — '시 : 분', ↑↓·휠, 분 = step 단위, 자주 쓰는 시각 팝오버). 지난 날짜용 — 오늘 이후·min/max 밖은 흐리게. 붙이기: boot.js `dpAttachAll()`, 태풍 비교 카드는 `wireCompareCard`에서 | `dpAttach` `dpTimeAttach` `dpAttachAll` `dpClose` `dpMonthCells` `dpLimits` `dpYearItems` `dpMonthItems` `dpTimeNorm` |
-| 28 | `js/busy-fx.js` | 163 | **작업 중·도착 효과**(뉴스 플레이어 검수 로딩 효과): 섹션·상자에 흐르는 그라디언트, 버튼 진행(흐름+비활성)·제목줄 버튼 색 띠·진행 막대, 결과 목록 자리 빛 훑는 막대, 섹션 머리만 옅은 띠(뒤에서 도는 확인 — h3), 도착(머리 빛·행 떠오름). 겹친 작업은 센다(켤 때·끌 때 같은 배열 = 한 작업 — 안전 해제 뒤 늦은 끄기가 새 작업을 안 끈다), `fxRun`은 실패해도 끈다 | `fxBusy` `fxRun` `fxArrive` `fxProgress` `fxSec` `fxHead` `fxRows` `fxClear` |
-| 29 | `js/preset-slots.js` | 251 | 배치 지정하기(완전 기본/개인 슬롯, 구운 배치 파일) | `openPresetSlots` `buildCurrentPresets` |
-| 30 | `js/export-image.js` | 314 | 이미지 추출 공통: 출력 글꼴 임베드, 카메라 레이어, 텍스트 오버레이, 3D 틸트 워프 | `suiteFontCss` `svgToImage` `drawExportFrame` |
-| 31 | `js/export-video.js` | 410 | 정확 MP4·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더 | `bakeMp4` `pingHelper` `checkHelperFreshOnBoot` `wnsHelperOffNotice` `wnsRender` |
-| 32 | `js/export-blobs.js` | 198 | **추출 핵심**: 레이어 목록·SVG→PNG blob, 미리보기, 프로젝트 파일 PNG 메타(읽기), 내보내기 대상 | `ALL_LAYERS` `svgBlob` `keepLayers` `pngEmbed` `readProjectFile` `exportBlobs` |
-| 33 | `js/ae-export.js` | 572 | After Effects 보내기(타임라인 = AE — 헬퍼 20261008: 앱 이징 곡선을 AE 키 영향값으로·태풍/비교 진행 곡선·블라인드·일반/비교 지도 카메라(이동/고정 레이어 나눔·블리드)·방향·지시선 셰이프·옮기지 않은 비교 이름표 따라가기(nameLabel.follow)), 다운로드 | `sendToAE` `aeEaseOf` `aeCamSpec` `aeBleedBox` `aeLeaderSpec` `aeBlindMtnSpan` `download` |
-| 34 | `js/export-dialog.js` | 378 | **이미지로 추출 팝업**(CG 구성 모양 — 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 **저장**(폴더 고르기(지난번 폴더 'imgDir') → `오늘날짜_날씨CG메이커` 폴더 → 카드 이름 그대로 PNG, 같은 이름이면 덮어쓰기/번호/취소(같은 이름 '폴더'는 그 장만 번호), 폴더 고르기를 못 쓰면 ZIP, 취소·권한 거절은 까닭 + [ZIP으로 받기] — 말없이 ZIP 안 받음), 정지 화면에서 굽기 | `openExport` `renderExport` `withStaticFrame` `exportFolderName` `setupExportDialog` `EXPORT_ICON` `exErrText` |
-| 35 | `js/project-io.js` | 325 | 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기, **저장 안 한 변경 판정·닫기 전 묻기**(데스크톱 — 10장) | `exportSettings` `importSettings` `saveProject` `bakeDefaults` `workDirty` `workMarkClean` `closeAsk` |
-| 36 | `js/wiring.js` | 778 | 버튼·입력 배선 `wire()`(함수 하나) + 사이드바 그룹 정리(로드 때 실행) | `wire` `refreshToolGroup` |
-| 37 | `js/anim.js` | 640 | 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙(계획·적용), renderAnimFrame(정확 경로 + 재생 중 가속 경로 — 틸트 그림은 지도 내용이 바뀐 프레임만 다시 굽기: animMapKey), 재생/정지/탐색, 저장용 상태 | `cubicBezier` `renderAnimFrame` `animFastOn` `animPlay` `animStop` `stateForSave` `autoTrackPlan` |
-| 38 | `js/timeline-plan.js` | 230 | 타임라인 레이어 계획(화면·AE 공용 목록·순서·이름·타이밍), 시간 도우미(프레임·타임코드·입력 해석), 막대 끌기 계산, 스냅 대상 | `tlLayerPlan` `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` `tlDragCalc` `tlSnapTargets` |
-| 39 | `js/timeline-ui.js` | 560 | 타임라인 화면(AE식 레이어 열·아이콘·막대·키·눈금자·CTI·내비게이터), 그리기 스케줄러(rAF 하나), 열기·높이·미리보기, 카메라 키 팝오버. 내용 변경 알림 `tlContentChanged`(renderAll·renderFills — 가속 미리보기를 걷고 다시 그림) / 1.5초 행 점검 `tlCheckRows`(boot.js — 가속은 그대로) | `buildTimeline` `tlSync` `tlInvalidate` `tlFrame` `tlSetT` `tlSetOpen` `tlContentChanged` `tlCheckRows` `openCamKeyPopover` `TL_ICONS` |
-| 40 | `js/timeline-input.js` | 420 | 타임라인 조작: 막대·키 끌기(프레임·스냅·다중 선택), 스크럽·줌·스크롤, 이름 열 숫자 끌기·키 내비게이터, 키보드 단축키·패널 포커스, Alt 카메라 자동 키 | `tlWire` `tlKeydown` `tlOwnsKeys` `tlCamKeyAt` `tlCamAutoKey` |
-| 41 | `js/floating-panels.js` | 670 | 떼어낸 창, 패널 크기, 레이아웃, **제목줄 메뉴(추출·프로젝트·설정(렌치))**, 시작 화면 | `popOut` `dockSec` `loadLayout` `setupMenus` `setupStartScreen` `showStartScreen` |
-| 42 | `js/tour.js` | 200 | 둘러보기(온보딩 투어) | `tourOpen` `tourGo` `wireTour` |
-| 43 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
+| 23 | `js/data-maps.js` | 330 | **공공데이터포털 자료 공통**(10-10 — 생활기상·미세먼지): 주소·오퍼레이션·응답 이름 설정 한 곳(`DATA_API` — ✓ 실키 확인/? 확인 필요 표시), 인증키(`dataKey` — API 설정 칸, localStorage `wcg_datakey`, Encoding 키면 한 번 풂)·키 가리기(`dataMask` — 카드·알림·콘솔 전), 요청(`dataGet` — 헬퍼 `/api/kma`), 응답 판정(`dataReadBody` — JSON resultCode·XML returnReasonCode·게이트웨이 글자·HTML → ok/nodata/keyBad/denied/quota/tps/noService/param/server/format)·헬퍼 실패(`dataHttpFail`), 동시 요청(`dataPool` — 동시 4·간격 60ms·초당 한도 재시도·치명 오류면 멈춤), 색 단계표(`DATA_SCALES` — 자외선·대기정체·PM10·PM2.5·예보 등급, 바꾼 색 `S.dataColors`), 범례 자동 항목(`dataLegendItems`·`autoLegendItems` — 범례·타임라인·AE 칠 레이어 이름), 결과 카드(`dataResultView`·`showDataResult` — 특보 카드 규칙), 단계 목록(색 칸 = 단계 색 바꾸기·이름 = 칠할 색 집기), 수치 라벨(`dataMakeLabels`)·지도별 라벨 맡기기(`dataLabelsSwap` — setStyle) | `DATA_API` `dataKey` `dataMask` `dataGet` `dataReadBody` `dataPool` `DATA_SCALES` `dataLegendItems` `autoLegendItems` `showDataResult` `dataLabelsSwap` |
+| 24 | `js/data-load.js` | 560 | **데이터 지도 불러오기**(10-10): 생활기상(`fetchLife` — 발표 시각 찾기(06·18시 후보)·시군구 230건(옛 코드 차례로)·시각 고르기(다시 받지 않음)·못 받은 곳만 다시), 미세먼지 농도(`fetchDust` — 시도 17건 → `dustMatch`(시도+이름·districtCode·옛 이름 평균)·PM10↔PM2.5는 다시 칠하기만), 미세먼지 예보(`fetchDustFcst` — 조회일·종류(PM10·PM25·O3) → `dfcParse`(발표·예보일)·`dfcGrades`(권역 이름 별칭)·발표/예보일 고르기), 칠은 들어온 구분 그대로 자기 지도에만(지도가 바뀌었으면 안 칠함), 패널 배선(`setupDataPanels` — boot.js)·동기화(`syncDataPanels` — updateAutoPaintSecs 끝) | `fetchLife` `fetchDust` `fetchDustFcst` `lifeBaseTimes` `lifeParseItem` `lifeSlots` `dustMatch` `dfcParse` `dfcGrades` `setupDataPanels` `syncDataPanels` |
+| 25 | `js/presets.js` | 266 | 해상도별 배치 프리셋, **작업 자동 저장**, 배포 기본값 갱신 | `savePreset` `saveWork` `loadWork` `applyPreset` |
+| 26 | `js/cg-setup.js` | 297 | 해상도·CG 구성 창(화면 이름 **장면 설정**, 10-09 바꿈 — 코드·주석은 옛 이름), **상태 표시**, 출력 폴더(IndexedDB) | `RES` `openCgSetup` `status` `flash` `flashDone` `prepareOutput` |
+| 27 | `js/modals-notices.js` | 354 | **팝업 공통**(닫힘 애니메이션·포커스), **토스 카드 모달**, 공지사항, 내보내기 진행 마스크, 확인/입력 모달 | `popAnimClose` `popFocusIn` `tossModal` `checkNoticeOnBoot` `showExportMask` `tossConfirm` `tossPrompt` |
+| 28 | `js/dropdown.js` | 352 | **드롭다운**(10-09 — 공용 부품): 시스템 `<select>`를 숨기고(값·옵션·change 계약 그대로 — `select.value`·`selectedIndex` 접근자를 덧씌우고 옵션은 MutationObserver로 따라감: 추가·삭제·글자·disabled·hidden·optgroup, select의 disabled·hidden·style.display·title) 옆에 버튼형 칸(고른 항목 + 꺾쇠, 칸 폭 = 가장 긴 항목) + **토스 카드 목록 팝오버**(칸 아래·자리 없으면 위·둘 다 모자라면 넓은 쪽에 높이를 줄여, position: fixed·칸의 배율 zoom, 고른 항목 파란 글자·체크, 올리면 옅은 바탕, 앱 스크롤바, 열 때 고른 항목이 가운데). 키: 칸에서 Enter·Space·↑↓ = 열기 / ↑↓·Home·End·PageUp·PageDown·Enter·Space·Esc·Tab·글자로 찾기, 바깥 누르기 = 닫기, 포커스는 칸(aria-activedescendant). 붙이기: boot.js `ddAttachAll()` + 관찰자, 태풍 비교 카드는 `wireCompareCard`에서 | `ddAttach` `ddAttachAll` `ddClose` `_ddNow` `ddItems` `ddStep` `ddFind` `ddPlace` `ddLabel` |
+| 29 | `js/date-picker.js` | 578 | **날짜 고르기**(10-09): 시스템 날짜·시각 칸(`<input type=date>`·`type=time`)을 숨기고(값·change 계약 그대로 — `input.value` 접근자를 덧씌워 코드가 바꿔도 칸이 따라감) 근무표식 **아이폰 달력 팝오버**(칸 아래·자리 없으면 위, position: fixed·사이드바 배율, 바깥·Esc 닫기, 화살표·PageUp/Down(Shift = 한 해)·Enter) + 제목을 누르면 **iOS식 연·월 휠**(scroll-snap·가운데 띠·위아래 흐림, 마우스 휠·끌기·누르기·키, 블러+스케일 모핑) + **시각 직접 입력**(근무표 ndTime — '시 : 분', ↑↓·휠, 분 = step 단위, 자주 쓰는 시각 팝오버). 지난 날짜용 — 오늘 이후·min/max 밖은 흐리게. 붙이기: boot.js `dpAttachAll()`, 태풍 비교 카드는 `wireCompareCard`에서 | `dpAttach` `dpTimeAttach` `dpAttachAll` `dpClose` `dpMonthCells` `dpLimits` `dpYearItems` `dpMonthItems` `dpTimeNorm` |
+| 30 | `js/busy-fx.js` | 163 | **작업 중·도착 효과**(뉴스 플레이어 검수 로딩 효과): 섹션·상자에 흐르는 그라디언트, 버튼 진행(흐름+비활성)·제목줄 버튼 색 띠·진행 막대, 결과 목록 자리 빛 훑는 막대, 섹션 머리만 옅은 띠(뒤에서 도는 확인 — h3), 도착(머리 빛·행 떠오름). 겹친 작업은 센다(켤 때·끌 때 같은 배열 = 한 작업 — 안전 해제 뒤 늦은 끄기가 새 작업을 안 끈다), `fxRun`은 실패해도 끈다 | `fxBusy` `fxRun` `fxArrive` `fxProgress` `fxSec` `fxHead` `fxRows` `fxClear` |
+| 31 | `js/preset-slots.js` | 251 | 배치 지정하기(완전 기본/개인 슬롯, 구운 배치 파일) | `openPresetSlots` `buildCurrentPresets` |
+| 32 | `js/export-image.js` | 314 | 이미지 추출 공통: 출력 글꼴 임베드, 카메라 레이어, 텍스트 오버레이, 3D 틸트 워프 | `suiteFontCss` `svgToImage` `drawExportFrame` |
+| 33 | `js/export-video.js` | 410 | 정확 MP4·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더 | `bakeMp4` `pingHelper` `checkHelperFreshOnBoot` `wnsHelperOffNotice` `wnsRender` |
+| 34 | `js/export-blobs.js` | 198 | **추출 핵심**: 레이어 목록·SVG→PNG blob, 미리보기, 프로젝트 파일 PNG 메타(읽기), 내보내기 대상 | `ALL_LAYERS` `svgBlob` `keepLayers` `pngEmbed` `readProjectFile` `exportBlobs` |
+| 35 | `js/ae-export.js` | 572 | After Effects 보내기(타임라인 = AE — 헬퍼 20261008: 앱 이징 곡선을 AE 키 영향값으로·태풍/비교 진행 곡선·블라인드·일반/비교 지도 카메라(이동/고정 레이어 나눔·블리드)·방향·지시선 셰이프·옮기지 않은 비교 이름표 따라가기(nameLabel.follow)), 다운로드 | `sendToAE` `aeEaseOf` `aeCamSpec` `aeBleedBox` `aeLeaderSpec` `aeBlindMtnSpan` `download` |
+| 36 | `js/export-dialog.js` | 378 | **이미지로 추출 팝업**(CG 구성 모양 — 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 **저장**(폴더 고르기(지난번 폴더 'imgDir') → `오늘날짜_날씨CG메이커` 폴더 → 카드 이름 그대로 PNG, 같은 이름이면 덮어쓰기/번호/취소(같은 이름 '폴더'는 그 장만 번호), 폴더 고르기를 못 쓰면 ZIP, 취소·권한 거절은 까닭 + [ZIP으로 받기] — 말없이 ZIP 안 받음), 정지 화면에서 굽기 | `openExport` `renderExport` `withStaticFrame` `exportFolderName` `setupExportDialog` `EXPORT_ICON` `exErrText` |
+| 37 | `js/project-io.js` | 325 | 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기, **저장 안 한 변경 판정·닫기 전 묻기**(데스크톱 — 10장) | `exportSettings` `importSettings` `saveProject` `bakeDefaults` `workDirty` `workMarkClean` `closeAsk` |
+| 38 | `js/wiring.js` | 778 | 버튼·입력 배선 `wire()`(함수 하나) + 사이드바 그룹 정리(로드 때 실행) | `wire` `refreshToolGroup` |
+| 39 | `js/anim.js` | 640 | 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙(계획·적용), renderAnimFrame(정확 경로 + 재생 중 가속 경로 — 틸트 그림은 지도 내용이 바뀐 프레임만 다시 굽기: animMapKey), 재생/정지/탐색, 저장용 상태 | `cubicBezier` `renderAnimFrame` `animFastOn` `animPlay` `animStop` `stateForSave` `autoTrackPlan` |
+| 40 | `js/timeline-plan.js` | 230 | 타임라인 레이어 계획(화면·AE 공용 목록·순서·이름·타이밍), 시간 도우미(프레임·타임코드·입력 해석), 막대 끌기 계산, 스냅 대상 | `tlLayerPlan` `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` `tlDragCalc` `tlSnapTargets` |
+| 41 | `js/timeline-ui.js` | 560 | 타임라인 화면(AE식 레이어 열·아이콘·막대·키·눈금자·CTI·내비게이터), 그리기 스케줄러(rAF 하나), 열기·높이·미리보기, 카메라 키 팝오버. 내용 변경 알림 `tlContentChanged`(renderAll·renderFills — 가속 미리보기를 걷고 다시 그림) / 1.5초 행 점검 `tlCheckRows`(boot.js — 가속은 그대로) | `buildTimeline` `tlSync` `tlInvalidate` `tlFrame` `tlSetT` `tlSetOpen` `tlContentChanged` `tlCheckRows` `openCamKeyPopover` `TL_ICONS` |
+| 42 | `js/timeline-input.js` | 420 | 타임라인 조작: 막대·키 끌기(프레임·스냅·다중 선택), 스크럽·줌·스크롤, 이름 열 숫자 끌기·키 내비게이터, 키보드 단축키·패널 포커스, Alt 카메라 자동 키 | `tlWire` `tlKeydown` `tlOwnsKeys` `tlCamKeyAt` `tlCamAutoKey` |
+| 43 | `js/floating-panels.js` | 670 | 떼어낸 창, 패널 크기, 레이아웃, **제목줄 메뉴(추출·프로젝트·설정(렌치))**, 시작 화면 | `popOut` `dockSec` `loadLayout` `setupMenus` `setupStartScreen` `showStartScreen` |
+| 44 | `js/tour.js` | 200 | 둘러보기(온보딩 투어) | `tourOpen` `tourGo` `wireTour` |
+| 45 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
 
 경계 조정(2026-10-08, 코드 무변경 — 이어 붙인 텍스트는 그대로): 처음 분할의 `cg-setup.js` 뒤쪽(팝업 닫힘 애니메이션·토스 카드 모달)을
 `notices.js` 앞에 붙여 `modals-notices.js`로, `export-video.js`의 `ALL_LAYERS`부터 끝을 `export-blobs.js`로, `forecast-panel.js`의
@@ -136,10 +138,11 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 9 | `css/timeline.css` | 190 | 타임라인(AE식 — 전용 토큰 어두운/밝은, 레이어 열·막대·키·CTI·눈금자·내비게이터), 도구 줄 오른쪽(저장 폴더 + 영상 렌더 묶음 `.tlRender` — MP4·PNG 시퀀스·MXF·알파 MOV 한 세그먼트, 초기화, 닫기 자리 — 닫기 모양은 toss-modal.css 공통 유리 원), 무대 줄이기, 추출 진행 바, 영상 추출 집중 모드, 카메라 키 팝오버 |
 | 10 | `css/dialogs.css` | 171 | 인증키 안내, 특보 불러오기 결과 카드, 특보 종류별 색(사이드바 버튼·2분할 팝업 — 장면 설정 창 클래스 재사용 + `wrnCol*`), 알림 색 점, API 설정 창, 확인 모달, 배치 지정하기 모달 |
 | 11 | `css/panel-misc.css` | 141 | 통보문·예보 박스, 섹션 안 접이식 묶음(`.subFold*` — 예보 API·특보 수동 붙여넣기), 링크 버튼, 칠한 색 목록·경고, 최근 파일, 이미지 안내 팝업, 마우스 배지, 토스트, 브러쉬 영역 강조 |
-| 12 | `css/toss-modal.css` | 158 | 토스 카드 모달, 공지, 접이식 묶음, 렌더 가리개, 참고 이미지 드롭, 토글 스위치, 지도 배경 버튼, 브러쉬 원·가이드 |
-| 13 | `css/dropdown.css` | 67 | 드롭다운(`js/dropdown.js`) — 칸(입력칸·날짜 칸과 같은 높이·테두리, 꺾쇠 — 열리면 위로·파랑, 숨겨 겹친 항목 글자로 폭), 자리별 크기(타임라인 도구 줄 28px·비교 일괄 줄), 목록 팝오버(반사 테두리 카드·팝오버 그림자, 체크·올림 바탕·고른 줄 파랑, optgroup 제목, 앱 스크롤바). 색 = 공통 토큰 + `--dp-acc`(두 테마) |
-| 14 | `css/date-picker.css` | 132 | 날짜 고르기(`js/date-picker.js`) — 날짜 칸·달력 팝오버(근무표 nd-cal 모양: 반사 테두리 카드·파란 < >·요일 색·오늘 테두리·고른 날 파란 원·'오늘' 알약)·연월 휠(scroll-snap·가운데 띠·mask 흐림)·시각 칸·자주 쓰는 시각. 색 토큰 `--dp-*`는 base.css(두 테마) |
-| 15 | `css/busy-fx.css` | 119 | 작업 중·도착 효과(`js/busy-fx.js`)의 모양·움직임 — 흐름(transform만, 호스트 `overflow: clip`), 버튼 띠·진행 막대, 자리표시 막대, 도착 빛, 렌더 가리개 흐름, 움직임 줄이기. **맨 뒤**(다른 규칙을 덮어야 한다) |
+| 12 | `css/data-maps.css` | 28 | 데이터 지도 섹션(생활기상·미세먼지 — js/data-load.js): 고르기 세그먼트(`.dataSeg` — 사이드바 `.mode`), 단계 목록(`.dataSteps` — 색 칸·이름과 범위·칠한 수), 예보 개황 세 줄, API 설정의 공공데이터포털 키 묶음(`.apiSep`·`.apiSvc`, 창이 길어지면 스크롤) |
+| 13 | `css/toss-modal.css` | 158 | 토스 카드 모달, 공지, 접이식 묶음, 렌더 가리개, 참고 이미지 드롭, 토글 스위치, 지도 배경 버튼, 브러쉬 원·가이드 |
+| 14 | `css/dropdown.css` | 67 | 드롭다운(`js/dropdown.js`) — 칸(입력칸·날짜 칸과 같은 높이·테두리, 꺾쇠 — 열리면 위로·파랑, 숨겨 겹친 항목 글자로 폭), 자리별 크기(타임라인 도구 줄 28px·비교 일괄 줄), 목록 팝오버(반사 테두리 카드·팝오버 그림자, 체크·올림 바탕·고른 줄 파랑, optgroup 제목, 앱 스크롤바). 색 = 공통 토큰 + `--dp-acc`(두 테마) |
+| 15 | `css/date-picker.css` | 132 | 날짜 고르기(`js/date-picker.js`) — 날짜 칸·달력 팝오버(근무표 nd-cal 모양: 반사 테두리 카드·파란 < >·요일 색·오늘 테두리·고른 날 파란 원·'오늘' 알약)·연월 휠(scroll-snap·가운데 띠·mask 흐림)·시각 칸·자주 쓰는 시각. 색 토큰 `--dp-*`는 base.css(두 테마) |
+| 16 | `css/busy-fx.css` | 119 | 작업 중·도착 효과(`js/busy-fx.js`)의 모양·움직임 — 흐름(transform만, 호스트 `overflow: clip`), 버튼 띠·진행 막대, 자리표시 막대, 도착 빛, 렌더 가리개 흐름, 움직임 줄이기. **맨 뒤**(다른 규칙을 덮어야 한다) |
 
 - css 안 상대 url은 **css/ 폴더 기준**이다(`url('../FontNew/…')`). js 안 경로(`fetch('FontNew/…')` 등)는 **문서 기준**이라 그대로다.
 - `index.html`의 `<style id="fontEmbed">`(head, 글꼴 데이터 주입)와 SVG 안 `<style id="fontStyle">`(추출 때 JS가 채움)은 **옮기지 않는다.**
@@ -151,9 +154,9 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | head 맨 앞 | **웹판 막기**(7장 — 첫 스크립트), 서비스워커 등록, `html.isDesktop` |
 | 그 다음 | **모듈 로드 실패 가드**(7장) |
 | | `default-presets.js` + 배치 슬롯으로 `WCG_DEFAULTS` 교체(`var _per/_mas`), `font-data.js` + `#fontEmbed`, Wanted Sans preload(UI 전용·FontNew 내장, CG 출력 SUITE는 그대로) |
-| | `<link rel="stylesheet" href="css/…?v=…">` 15개 |
+| | `<link rel="stylesheet" href="css/…?v=…">` 16개 |
 | body | 마크업(사이드바·제목줄·모달·SVG 등) |
-| 끝 | 테마(`data-theme`), 데이터 스크립트 10개(`onerror` 대체값), `<script src="js/…?v=…">` 43개 |
+| 끝 | 테마(`data-theme`), 데이터 스크립트 11개(`onerror` 대체값 — 지도 `map-data.js`·`seoul-map-data.js`·`region-map-data.js`(데이터 지도, 10-10)·태풍·지명·예보·이미지), `<script src="js/…?v=…">` 45개 |
 
 ## 6. 공용 도우미 위치
 
@@ -161,10 +164,13 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 |---|---|
 | `$` `el` `tip` `svgNS` `DEFAULTS` `S` `curStyle` `isTyphoon` | `core.js` |
 | `pushUndo` `undo` `redo` `svg` `buildFrame` `setStyle` | `map-build.js` |
+| `MAP_CARDS`(지도 종류 카드 = 데이터별 — 카드 ↔ 구분 키 ↔ 사이드바 섹션) `cardOf(st)`(구분 키가 든 카드) `cardStyleFor` `cardLabelOf` `mapUnitOf(st)`(칠하는 구분 이름) `mapUnitCount` `mapUnitText` `syncMapUnit`(배지·구분 줄) | `map-build.js` |
 | `renderAll` `renderLabels` `renderMtns` `renderSel` | `labels-mountains.js` |
 | `select` `refreshPanel` `syncPanelFromState` `revealSec` | `panels.js` |
 | `foldWire`(접이식 묶음 배선 — 기본 접힘·상태 기억) `foldReveal`(이번만 펼치고 보이게 스크롤·포커스) `foldSet` `foldIsOpen` (마크업·모양은 파일 안 주석, css `.subFold*`) | `panels.js` |
-| `apiKey` `apiUrl` | `warnings-apply.js` |
+| `apiKey` `apiUrl` `apiPop(on, which)`(which = `'data'`면 공공데이터포털 키 칸) `syncKeyWarn` | `warnings-apply.js` |
+| `DATA_API`(주소·오퍼레이션·응답 이름 한 곳) `dataKey` `dataMask` `dataUrl` `dataGet` `dataReadBody` `dataPool` `DATA_SCALES` `dataStep` `dataColOf` `dataLegendItems` `autoLegendItems`(범례 자동 항목 — 데이터 지도면 칠한 단계, 아니면 특보) `showDataResult` `dataMakeLabels` `dataLabelsSwap` `dataResetRuntime` | `data-maps.js` |
+| `fetchLife` `fetchDust` `fetchDustFcst` `setupDataPanels` `syncDataPanels` `dataAreas` | `data-load.js` |
 | `saveWork` `loadWork` `applyPreset` | `presets.js` |
 | `status` `flash` `flashDone` `prepareOutput` `RES` | `cg-setup.js` |
 | `popAnimClose` `popFocusIn` `tossModal` `tossConfirm` `tossPrompt` `showExportMask` | `modals-notices.js` |
@@ -210,6 +216,35 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   저장된 작업(localStorage)은 지우지 않는다(쓰기만 막음). 닫기 없음. 기록은 `window.__wcgWebBlocked`. 판정 `wcgGateOf`·막힌 화면은 `tests/web-gate.test.cjs`.
   다시 웹으로 열려면 이 스크립트를 지운다(push·배포는 사람이 설치판 배포 때).
 
+## 7-1. 지도 종류 = 데이터별 카드 (2026-10-10)
+
+- **`S.style`은 지금처럼 지도 도형 키**(sgg·sido·warn·warnsea·seoul·typhoon·typhoonCompare + 새 life·dust·dustFcst). **카드는 `MAP_CARDS`**(js/map-build.js)가 도형 키를 묶는다 —
+  카드 하나 = 키 하나, 예상 강수·적설만 키 둘(시군 sgg·시도 sido — 장면 설정 카드 아래 '칠하는 구분' 줄의 칩, 아트보드 배지, 사이드바 구분 줄 세그먼트로 전환). `cardOf(S.style)`로 늘 카드를 안다(새 상태 필드 없음).
+  옛 작업·프로젝트·배치 키의 `S.style`은 그대로 유효(옮기기 0줄). 새 지도 3개는 인셋을 써서 배치 그룹 = `common`.
+- **들어오는 구분 그대로 칠한다**: 데이터 섹션(wrn·fct·life·dust·dustFcst)은 자기 지도에서만 보인다(`secModeHidden`) — 다른 구분 지도로 옮겨 칠하지 않는다.
+  카드를 고르면 그 섹션이 사이드바 맨 위에 펼쳐진다(`autoSecFor` = 카드의 `sec`). 데이터 섹션은 `SEC_ORDER` 맨 앞 — 그 전에 저장된 사이드바 배치(`wcg_layout`에 `secV` 없음)는 데이터 섹션만 새 자리로(`loadLayout`).
+- 생활기상(life)·미세먼지 농도(dust)는 **같은 시군구 도형**(기초자치단체 230 — 일반구는 시로)을 쓰되 키가 달라 칠·브러쉬가 따로 저장된다. 미세먼지 예보(dustFcst) = 예보 권역 19.
+- 도형 데이터 `region-map-data.js`(`window.REGION_MAP`)는 **생성기로 굽는다**: `node tools/build-data-maps.cjs --src=<원본 data 폴더(저장소 밖 WeatherCG/data — main-simplified.json·islands-detail.json)>`
+  (`--split-gu` = 일반구 따로 256곳). 행정동을 공유 변 지우기로 합치고, 투영은 `map-data.js`의 proj 그대로(시도군 지도와 1:1). 같은 입력이면 같은 바이트. 권역 명단은 `js/bulletin.js` KMA_TERMS와 같다(테스트가 비교).
+  파일을 못 읽으면(onerror → null) 세 카드가 안 보이고 저장값은 `normStyle`이 시도군으로.
+- 지금 칠하는 구분 표시: 아트보드 오른쪽 위 배지(`#fctMapBtn` — 옛 전국/서울 버튼 자리, 태풍 지도에선 숨김) + 사이드바 데이터 섹션 첫 줄(`[data-map-unit]`). 둘 다 `syncMapUnit`.
+- **데이터 불러오기**(10-10 2단계 — `js/data-maps.js` 공통·`js/data-load.js` 불러오기): 생활기상 = 기상청 생활기상지수 4.0(`LivingWthrIdxServiceV5` — 자외선 `getUVIdxV5`·대기정체 `getAirDiffusionIdxV5`, 시군구 areaNo 230건),
+  미세먼지 농도 = 에어코리아 대기오염통계 현황(`ArpltnStatsSvc/getCtprvnMesureSidoLIst` — 시도 17건, cityName = 시군구 그대로), 미세먼지 예보 = 에어코리아 대기오염정보(`ArpltnInforInqireSvc/getMinuDustFrcstDspth` — informGrade 권역 등급).
+  주소·이름은 `DATA_API` 한 곳(✓ 실키 확인·? 확인 필요 주석). 요청은 헬퍼 `/api/kma`(헬퍼 수정 없음). 인증키 = API 설정의 '공공데이터포털 인증키'(localStorage `wcg_datakey`, 기본 키 없음 — 공개 저장소).
+  자료·고른 옵션은 `S.dataByStyle[지도]`(작업·자동 저장·프로젝트·되돌리기에 S 통째로 따라감), 바꾼 단계 색 `S.dataColors`. 시각·품목·발표·예보일은 다시 받지 않고 다시 칠한다.
+  불러오는 중 지도를 옮겼다 돌아오거나 작업을 편집·되돌리기·불러오기·초기화했으면 늦은 응답은 칠하지 않는다(`dataSeq` + `_workRev`). 키 변경·색 지우기도 진행 중 요청을 무효화한다.
+  자료 라벨(`b.data = 지도`)은 지도를 바꾸면 `S.dataByStyle[지도].labelsAway`에 맡겨 두고 돌아오면 되돌린다(`dataLabelsSwap` + `setStyle`의 `renderLabels` — DOM도 즉시 갱신).
+  라벨 표시만 바꿀 때는 수동으로 보정한 지도 색을 다시 칠하지 않는다. 주요 도시 라벨은 18곳, 예보 권역 라벨은 19곳이다.
+  생활기상은 응답의 areaNo·date·code를 확인한다. 새 구역 코드에 값이 없으면 대응하는 옛 구역을 모두 조회하고 시각별 유효 값의 평균을 쓴다(결과 카드에 표시). 없는 값은 0으로 칠하지 않으며 재조회 가능하도록 실패는 캐시하지 않는다.
+  에어코리아는 `dataGetPages`로 끝 페이지까지 받는다(반복 페이지·중간 실패는 완성 자료로 취급하지 않음). 농도는 시군구별 최신 시각을 택하고, 고른 품목에 값이 없는 곳은 비워 두고 안내한다.
+  예보 기본 발표 선택은 '예보일별 최신 발표'다. 새 발표가 일부 날짜만 담아도 다른 날짜를 잃지 않으며 각 예보일의 실제 발표 시각을 표시한다. 개별 발표 선택도 가능하다.
+  범례: 데이터 지도에서도 범례 섹션이 보이고(이름 '자료 범례'), 자동 항목 = 칠한 단계(`autoLegendItems` — 타임라인·AE 칠 레이어 이름도 '나쁨'·'높음').
+  시험: `tests/data-maps.test.cjs`(판정·키 가림·파서·맞추기·단계·동시 요청·페이지·발표별 자료), `tests/bulletin-snow.test.cjs`(단위별 색·제목).
+  `tests/fixtures/datamaps/`는 응답 형식에 맞춘 합성 자료이며 실시간 관측 원문이 아니다. `WCG_BOOT_CHECK=1`이면 `tests/data-load.boot.test.cjs` → `data-load.boot-eval.js`가 가짜 fetch로 실제 앱의 세 자료 흐름·오류·키 없음·지도 전환·되돌리기·저장 왕복·PNG/AE 스펙·적설을 점검한다. 실제 API 가용성/측정값과 Adobe AE 실행 확인을 대신하지 않는다.
+  단계 기준 확인: [기상청 생활기상지수](https://data.kma.go.kr/data/lwi/lwiRltmList.do), 예보 권역 경계 확인: [에어코리아 예보 권역 안내](https://airkorea.or.kr/web/board/5/1171/?pMENU_NO=144). 서비스 발행 지연·일부 개편 지역 코드·DAILY 평균 기간의 정확한 의미는 `DATA_API`의 확인 필요 주석을 유지한다.
+- **예상 적설**(카드 3 보강 — `js/bulletin.js`): 통보문 줄의 단위(cm·mm)를 읽어 적설(cm)은 눈 색 단계(`SNOW_SCALE` — 하양~하늘~보라), 강수(mm)는 비 색 단계에서 따로(`bulColorPlan`).
+  눈이면 강원 산지 표현(강원북부산지 등)도 기준표 시군에 칠하고(같은 시군은 값이 큰 쪽, 산▲은 그대로), 제목·단위 글자가 '예상 적설량'·'단위 : cm'(그 모양 글자만 — `bulTitleTexts`). 다음 불러오기 땐 `S.bulKind`로 처음 고를 묶음(적설)을 정한다.
+
 ## 8. 테스트 · 도구
 
 - 특보 지난 날짜(`warnings-load.js`): 수동 시간 칸 없이 날짜의 실제 발표 목록(`wrn_met_data`, 통보완료만·중복 제거)을 먼저 보여준다. 시각을 선택하면 `wrn_now_data(fe=e)`로 그때의 발효 현황을 새로 받아 색칠한다(전날부터 유지된 특보 포함). 목록만 조회하거나 실패한 경우 지도는 그대로다. 새 발표가 없는 날도 별도 표시한 일말 현황을 고를 수 있다. 날짜·요청을 빠르게 바꾸면 이전 응답은 버린다.
@@ -227,6 +262,9 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `WCG_BOOT_CHECK=1 node --test tests/tilt-gl.boot.test.cjs` | **틸트 미리보기 WebGL** 실제 앱 점검: GL(밉맵)로 그리는지, 타임라인을 열면 틸트 그림을 미리 굽는지, 진입 프레임부터 기울인 지도(빈 지도 없음), 회전만 바뀌는 재생은 다시 안 굽는지, 컨텍스트를 잃으면 CSS·되찾으면 GL, 영상 프레임도 GL. 가짜 DOM·가짜 WebGL 단위 검사(폴백·게이트·다시 굽기 조건·투영식·메시 이음매·GPU 리셋 — 2D 그림 버퍼를 잃으면 평면 지도·되찾으면 다시 굽기, 늦은 타일·작업 바꿈, 타임라인 닫으면 텍스처 반납)는 `tests/tilt-gl.test.cjs`. 진짜 GPU 리셋은 CDP `Browser.crashGpuProcess`로만 재현된다(점검 스크립트에서) |
 | `WCG_BOOT_CHECK=1 node --test tests/date-picker.test.cjs` | **날짜 고르기**(js/date-picker.js): 날짜 계산(달 칸 6줄·윤년·말일·요일·오늘 이후 막기·연월 휠 목록·10분 시각)은 늘 돌고, 켜면 실제 앱에서 특보 지난 날짜 → 달력 → 휠 2019년 3월 → 15일(`#wrnDate.value`·기존 onchange → `wrnWhen`), 키·Esc·바깥 닫기, 시각 칸, 태풍 과거 날짜를 눌러 본다 |
 | `WCG_BOOT_CHECK=1 node --test tests/dropdown.test.cjs` | **드롭다운**(js/dropdown.js): 순수 도우미(항목 줄·optgroup·막힌 줄 건너뛰기·글자로 찾기·자리)와 값 계약(가짜 select — value·selectedIndex 접근자)·붙이는 자리·css 토큰은 늘 돌고, 켜면 실제 앱에서 모든 select가 숨고 칸이 붙었는지, 통보문 날짜(#bulPick)·타임라인 fps(#tlFps)·비교 카드 글꼴(다시 그린 카드)·토스 모달 안 select를 열기·키·고르기(input·change 1번씩·기존 리스너)·Esc·바깥 닫기, 코드가 값·옵션·disabled·숨김을 바꾸면 칸이 따라가는지 |
+| `WCG_BOOT_CHECK=1 node --test tests/map-cards.test.cjs` | **지도 종류 = 데이터별 카드**(10-10): 카드 9장 순서·이름·이모지 없음, 모든 지도 키가 카드 하나에, 칠하는 구분 이름·구역 수, 카드를 고를 때의 구분(작업 중 시도 유지·시작 화면은 시군), 데이터 섹션 = 자기 지도에서만, 배치 그룹, 옛 저장값 7종·데이터 지도 파일 없을 때. 켜면 실제 앱: 3열·구분 줄·시도 칩·서울 카드·데이터 섹션 맨 위·배지 팝오버·사이드바 세그먼트·칠 따로·이미지 추출·AE 스펙·옛 작업·옛 사이드바 배치 |
+| `WCG_BOOT_CHECK=1 node --test tests/data-maps.test.cjs` | **데이터 불러오기**(10-10 2단계): 응답 판정표(픽스처 — 정상·자료 없음·키 등록 안 됨·활용신청 안 함·한도·오퍼레이션 다름·Unauthorized·점검 HTML), 키 가리기·Encoding 키 풀기, 발표 시각 후보 경계, 자외선(h0)·대기정체(h3부터) 읽기·시각 고르기, 동시 요청(4개·초당 한도 재시도·치명 오류 멈춤), 단계 경계값, 시군구 맞추기(옛 이름 평균·districtCode·'-' 빼기·모르는 이름), 예보 발표·예보일·권역 별칭·통합 이름, 범례 순서, 적설 색·제목·처음 고를 묶음. 켜면 실제 앱(가짜 fetch): 세 자료 칠·범례·결과 카드·라벨·오류마다 칠 그대로·키 없음·지도 바뀜·되돌리기·저장 왕복·이미지/AE 스펙·적설 원문 |
+| `node --test tests/data-maps-geometry.test.cjs` | **데이터 지도 도형**(`region-map-data.js`): 시군구 230·코드·인셋·시도군 지도와 같은 자리, 예보 권역 19·명단 = 통보문 용어. `WCG_DATA_DIR=<원본 data 폴더>`면 생성기를 다시 돌려 바이트 비교 |
 | `node --test tests/ae-timeline-spec.test.cjs` | **타임라인 = AE 1:1**: 실제 `sendToAE`(vm)가 보내는 `/api/ae` 스펙과 헬퍼 JSX(`desktop/wns/ae-jsx.js`)를 AE 흉내로 실행한 키·이징·부모·효과를 무작위 작업 수백 개의 타임라인 값(트랙·태풍 키·카메라 키·길이)과 비교 — 헬퍼 20261008(새)·20261007(옛) 두 번. AE 보내기를 고치면 꼭 돌린다 |
 | `node --test tests/ae-ease-match.test.cjs` | **AE 키·표현식 = 화면 함수**: 헬퍼 JSX를 AE 흉내(`desktop/test/ae-model.cjs` — AE 시간 베지어·부모 보정·표현식 vm 실행)로 프레임마다 계산해 앱 실제 함수(easeOut·easeVf·camAt·typhoonScreenPts·typhoonBandInto·typhoonLabelProg·compareScreenPts·typhoonLeaderGeom·블라인드 덮임 식)와 비교. 끝에 항목별 최대 오차 표 |
 | `node --test desktop/test/golden-legacy.test.cjs` | 옛 앱 스펙 골든 137개가 헬퍼 확장 뒤에도 바이트까지 같다(sha256 — F1 카메라 6개만 의도한 변경) |
@@ -248,7 +286,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 - 날짜 UI는 `date-picker.js`가 date/month/time/datetime-local 모두 처리하며, boot의 관찰자가 나중에 추가된 칸도 연결한다. datetime-local은 원래 값·change 계약을 유지한 채 날짜/시각 칸으로 표시하고 min/max를 지킨다. 일반 달력은 연월 휠의 `확인 · 일자 선택`으로 일자 달력에 돌아간다. month는 처음부터 연·월 휠만 표시하고 확인하면 YYYY-MM 값을 저장하며 일자 달력은 열지 않는다. 모든 select는 `js/dropdown.js`의 공용 드롭다운(버튼형 칸 + 토스 카드 목록)으로 보인다 — 원래 select는 숨긴 채 값·옵션·change의 원천(10-09, 옛 `appearance: base-select` 방식은 걷어냄). boot의 같은 관찰자가 나중에 생긴 select도 붙인다.
 - 태풍 불러오기: JMA·기상청(현재/과거)은 `typhoon-api.js`의 `chooseTyphoonFromList`로 JTWC와 같은 선택 카드를 띄우고 고른 뒤에만 작업에 적용한다. 비교 패널 수동 붙여넣기는 `tycManual` 접이식, 펜·참고 이미지는 보라색 묶음. `tycBulk` 전체 조절은 숨긴 태풍까지 현재 비교 목록의 선택한 스타일 속성만 변경하며, 개별 색상·경로·날짜범위는 유지한다. 추가로 불러온 태풍에는 기존 기본값을 사용한다.
 - 창 시작 크기는 `desktop/window-layout.js`: 마우스가 있는 모니터의 작업 영역 안에 가로형 일반 창으로 가운데 배치(자동 최대화 없음). `desktop/main.js`를 바꾸면 앱을 다시 실행해야 한다. `boot.js`의 `startupUiEnter`는 첫 실행에만 UI를 0.85초 안에 투명도·블러로 순차 표시하며, 입력/모션 줄이기 설정은 효과를 건너뛴다. 모달이 떠 있으면 `modalWindowDrag`가 제목줄 위에서 창 이동을 허용한다.
-- 시군구·서울 지도는 색 팔레트 위의 **지역 이름 검색**으로 여러 구역을 선택하고 칠/지우기 가능(`panels.js`). 서울은 구 전체도 선택한다. 검색 선택 테두리는 임시 편집 표시로, `stripExportUi`에서 제거하며 프로젝트에는 저장하지 않는다.
+- 시군(예상 강수·적설)·서울·시군구(생활기상·미세먼지 농도) 지도 — 도형의 `search` 깃발(js/core.js) — 는 색 팔레트 위의 **지역 이름 검색**으로 여러 구역을 선택하고 칠/지우기 가능(`panels.js`). 서울은 구 전체도 선택한다. 검색 선택 테두리는 임시 편집 표시로, `stripExportUi`에서 제거하며 프로젝트에는 저장하지 않는다.
 - 일반 실행에서 복원할 작업이 없으면 시작 안내와 함께 **장면 설정을 자동으로 연다**(`boot.js`). 저장 작업 불러오기·이어보기는 `loadProjectData`가 설정창을 닫으며, 작업을 복원하는 새로고침에는 자동으로 열지 않는다. 시작 중 자동 둘러보기는 겹쳐 띄우지 않는다(상단 i로 수동 실행 가능).
 - 로컬 웹 미리보기는 `npx serve`(ETag로 매번 재검증)나 Electron을 쓴다. `py -m http.server`는 휴리스틱 캐시로 옛 js를 줄 수 있다. 미리보기 전에 stamp.
 

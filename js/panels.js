@@ -72,7 +72,7 @@ function regionSearchReset() {
 function regionSearchRender() {
   const box = $('#regionSearch');
   if (!box) return;
-  box.hidden = S.style !== 'sgg' && !isSeoul();
+  box.hidden = !curStyle().search;   // 지역 이름 검색을 쓰는 지도(시군·서울·시군구 — core.js search 깃발)
   const results = $('#regionResults');
   results.replaceChildren();
   const matches = box.hidden ? [] : regionSearchMatches(regionSearchEntries(curZones(), isSeoul()), $('#regionQuery').value);
@@ -112,7 +112,7 @@ function regionSearchHighlight() {
   }
 }
 function regionSearchPaint(erase) {
-  if (S.style !== 'sgg' && !isSeoul()) return;
+  if (!curStyle().search) return;
   const nodes = Array.from(regionSearchSelected, id => zoneEls.get(id)?.[0]?.el).filter(Boolean);
   if (!nodes.length) return;
   animStop(); animOff();
@@ -650,7 +650,7 @@ function syncEyes() {
   $('#seaCol').value = S.seaCol; $('#seaColHex').value = S.seaCol;
   $('#seaBase').value = S.seaBase; $('#seaBaseHex').value = S.seaBase;
   // 지도 종류에 따라 이 선이 무슨 구역의 선인지 이름이 달라진다
-  const kind = { sgg: '시군', sido: '시도', warn: '특보구역', warnsea: '특보구역' }[S.style] || '구역';
+  const kind = mapUnitOf(S.style);   // 칠하는 구분 이름(시군·시도·특보구역·동·시군구·예보 권역)
   $('#realLab').textContent = kind + ' 구역선 (칠 안쪽)';
   $('#sggLab').textContent = kind + ' 칠바깥용';
 }

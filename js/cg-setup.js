@@ -93,7 +93,7 @@ function cgsStacked() { return window.matchMedia('(max-width: 900px)').matches; 
 function syncCgSetup() {
   markResBtns(); markStyleBtns();
   const rl = pendingRes && RES[pendingRes] ? RES[pendingRes].label : '';
-  const sl = pendingStyle && MAP.styles[pendingStyle] ? MAP.styles[pendingStyle].label : '';
+  const sl = pendingStyle && MAP.styles[pendingStyle] ? cardLabelOf(pendingStyle) : '';   // 카드 이름(+ 칠하는 구분 — 예상 강수·적설 · 시도)
   const ok = !!(rl && sl);
   const done = $('#cgsDone'); if (done) done.disabled = !ok;
   const pick = (id, txt) => { const el = $(id); if (!el) return; el.textContent = txt || '고르세요'; el.classList.toggle('on', !!txt); };
@@ -152,10 +152,10 @@ function applyCgSetup() {
   closeCgSetup();
   setTimeout(openAutoSec, 360);   // 창이 닫힌 뒤 — 가장 먼저 쓰는 자동 기능 섹션을 펼쳐 둔다(사용자 요청 10-09)
 }
-// 이 지도에서 가장 먼저 쓰는 자동 기능 섹션 — 태풍 비교·태풍(불러오기), 특보(기상특보 자동 색칠), 시도·시군(기상예보 자동 색칠). 없으면 null(서울 등)
+// 이 지도에서 가장 먼저 쓰는 자동 기능 섹션 = 그 카드의 데이터 섹션(MAP_CARDS.sec — 특보·통보문/예보·생활기상·미세먼지·태풍 불러오기). 없으면 null(서울 등)
 function autoSecFor() {
-  for (const s of ['typhoonCompare', 'typhoon', 'wrn', 'fct']) if (!secModeHidden(s)) return s;
-  return null;
+  const c = cardOf();
+  return c && c.sec && !secModeHidden(c.sec) ? c.sec : null;
 }
 function openAutoSec() { const s = autoSecFor(); if (s) revealSec(s); }
 // 좁은 창(위아래로 쌓임)에서 한쪽 판을 고르면 아직 안 고른 다른 판을 본문 스크롤로 화면 안에 올려 준다(반대 순서도 같게).

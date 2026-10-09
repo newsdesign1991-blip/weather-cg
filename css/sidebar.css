@@ -248,6 +248,23 @@
 
   .pal { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 9px; }
 
+  /* 칠하는 구분 줄 — 데이터 섹션 첫 줄(js/map-build.js mapUnitRowFill). '칠하는 구분 · 시군구 230곳', 예상 강수·적설은 [시군 | 시도] 세그먼트(누르면 그 구분 지도로) */
+  .mapUnitRow { display: flex; align-items: center; gap: 6px; min-height: 32px; margin: 0 0 12px; padding: 4px 4px 4px 11px; border-radius: 10px; background: var(--tag-bg); font-size: 11.5px; line-height: 1.4; color: var(--on-surface-var); }
+  .mapUnitRow:empty { display: none; }
+  .mapUnitLab { flex: none; font-weight: 600; }
+  .mapUnitLab::after { content: ''; display: inline-block; width: 3px; height: 3px; margin: 0 0 3px 7px; border-radius: 50%; background: currentColor; opacity: .7; vertical-align: middle; }
+  .mapUnitRow b { color: var(--on-surface); font-weight: 800; }
+  .mapUnitN { font-weight: 600; }
+  .mapUnitSeg { margin-left: auto; flex: none; }
+  .mapUnitSeg button { height: 24px; min-height: 0; padding: 0 12px; font-size: 11.5px; font-weight: 700; }
+  .mapUnitRow + .subhead { margin-top: 0; padding-top: 0; border-top: none; }
+  /* 데이터 섹션 빈 상태(뼈대 — 생활기상·미세먼지 불러오기가 붙기 전). 예보 API 상자(.fctBox)와 같은 결 */
+  .dataEmpty { padding: 10px 12px; border-radius: 13px; background: var(--surface); border: 1px solid var(--outline-var); font-size: 12px; line-height: 1.55; color: var(--on-surface-var); word-break: keep-all; }
+  :root[data-theme="light"] .dataEmpty { background: var(--surface-c); }
+  .dataEmpty b { display: block; margin-bottom: 2px; font-size: 12.5px; font-weight: 800; color: var(--on-surface); }
+  .dataEmpty p { margin: 0; }
+  .dataEmpty .dataSoon { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--outline-var); font-size: 11.5px; }
+
   #regionSearch { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--outline-var); }
   #regionSearch[hidden] { display: none; }
   #regionSearch > label { display: block; font-weight: 700; margin-bottom: 8px; }

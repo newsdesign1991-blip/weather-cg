@@ -1,0 +1,81 @@
+{
+ "_note": "문서·실키 확인 형식(2026-10-09) 기준 예시 — 값은 지어낸 것. 실키로 받은 원문으로 바꿀 때 인증키·주소는 넣지 말 것",
+ "response": {
+  "body": {
+   "totalCount": 5,
+   "items": [
+    {
+     "sidoName": "광주",
+     "cityName": "동구",
+     "cityNameEng": "Gwangju-0",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "57",
+     "pm25Value": "42",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "81"
+    },
+    {
+     "sidoName": "광주",
+     "cityName": "서구",
+     "cityNameEng": "Gwangju-1",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "38",
+     "pm25Value": "16",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "77"
+    },
+    {
+     "sidoName": "광주",
+     "cityName": "남구",
+     "cityNameEng": "Gwangju-2",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "10",
+     "pm25Value": "21",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "87"
+    },
+    {
+     "sidoName": "광주",
+     "cityName": "북구",
+     "cityNameEng": "Gwangju-3",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "102",
+     "pm25Value": "30",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "62"
+    },
+    {
+     "sidoName": "광주",
+     "cityName": "광산구",
+     "cityNameEng": "Gwangju-4",
+     "dataTime": "2026-10-09 23:00",
+     "pm10Value": "71",
+     "pm25Value": "19",
+     "o3Value": "0.021",
+     "no2Value": "0.018",
+     "coValue": "0.4",
+     "so2Value": "0.003",
+     "khaiValue": "58"
+    }
+   ],
+   "pageNo": 1,
+   "numOfRows": 100
+  },
+  "header": {
+   "resultMsg": "NORMAL_CODE",
+   "resultCode": "00"
+  }
+ }
+}

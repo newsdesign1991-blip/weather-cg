@@ -175,8 +175,8 @@ function syncSeoulPaintTop() {
   }
 }
 
-// 자동 색칠 사이드바 표시: 기상특보 색칠은 특보용 지도(특보구역·특보+해상)에서만,
-// 기상예보 색칠은 예보용 지도(시도군·시도)에서만 — 그 지도에서만 실제로 쓰므로 헷갈리지 않게 숨긴다.
+// 자동 색칠 사이드바 표시: 데이터마다 자기 지도에서만 — 기상특보는 특보용 지도(특보구역·특보+해상), 기상예보·통보문은
+// 예보용 지도(시군·시도), 생활기상·미세먼지 농도·미세먼지 예보는 각자의 지도(life·dust·dustFcst)에서만. 다른 구분으로 옮겨 칠하지 않는다.
 // 지도 종류에 따라 숨길 카드인가 — updateAutoPaintSecs·renderSea와 창 닫기·도킹·기본 배치가 같은 기준을 쓴다.
 function secModeHidden(s) {
   const isWarn = S.style === 'warn' || S.style === 'warnsea';
@@ -185,7 +185,8 @@ function secModeHidden(s) {
   switch (s) {
     case 'wrn': return !isWarn;
     case 'fct': return !isFct;
-    case 'legend': return !((isWarn || isTy) && !isTyCmp);   // 범례 탭: 특보용·단일 태풍. 비교 지도에선 숨김(각 태풍 탭 안에 범례 토글)
+    case 'life': case 'dust': case 'dustFcst': return S.style !== s;   // 데이터 지도 섹션 = 그 지도에서만
+    case 'legend': return !((isWarn || isTy || !!curStyle().data) && !isTyCmp);   // 범례 탭: 특보용·단일 태풍·데이터 지도(칠한 단계). 비교 지도에선 숨김(각 태풍 탭 안에 범례 토글)
     case 'label': return isTyCmp;                             // 기본 수치라벨 탭: 비교 지도에선 숨김(각 태풍 탭 안에 수치라벨)
     case 'typhoon': case 'typhoonPlaces': return !(isTy && !isTyCmp);   // 단일 태풍 메뉴·지명표시는 단일 태풍 지도에서만
     case 'typhoonCompare': return !isTyCmp;
@@ -206,7 +207,7 @@ function updateAutoPaintSecs() {
   const isTyCmp = isTyphoonCompare();
   // 카드 노드만(.sec) — 창 탭(.wintab)도 data-sec를 가져서 그냥 [data-sec]로 찾으면 탭을 집는다
   const secEl = (s) => document.querySelector(`.sec[data-sec="${s}"]`);
-  for (const s of ['wrn', 'fct', 'legend', 'label', 'typhoon', 'typhoonPlaces', 'typhoonCompare']) { const n = secEl(s); if (n) n.style.display = secDisplay(s, n); }
+  for (const s of ['wrn', 'fct', 'life', 'dust', 'dustFcst', 'legend', 'label', 'typhoon', 'typhoonPlaces', 'typhoonCompare']) { const n = secEl(s); if (n) n.style.display = secDisplay(s, n); }
   if (!isTyCmp) { const panel = document.querySelector('#panel'); if (panel) panel.querySelectorAll('.sec[data-cmpsec]').forEach((n) => n.remove()); if (typeof clearRefImgLayer === 'function') clearRefImgLayer(); }   // 비교 지도 벗어나면 동적 태풍 탭·참고이미지 제거
   { const n = secEl('mtn'); if (n) n.style.display = secDisplay('mtn', n); }
   // 지도 위치·수치 라벨 섹션: 태풍이면 한국용 감추고 태풍용 컨트롤을 보인다 (컨트롤 자체를 옮겨 담았다)
@@ -217,15 +218,73 @@ function updateAutoPaintSecs() {
   if (isTy) { buildTyphoonPanel(); buildTyphoonLegendList(); }
   if (isTy && !isTyCmp) buildTyphoonPlacesPanel();   // 지명표시 목록/입력 배선
   if (isTyCmp) buildCompareSection();
-  if (typeof syncFctMapBtn === 'function') syncFctMapBtn();   // 시도군↔서울 지도종류 아이콘 버튼 표시/틴트
+  syncMapUnit();   // 아트보드 '지금 구분' 배지·사이드바 구분 줄
+  if (typeof syncDataPanels === 'function') syncDataPanels();   // 데이터 섹션(생활기상·미세먼지)·범례 이름을 지금 지도·자료에 맞춤(js/data-load.js)
 }
-// 아트보드의 '지도 종류'(전국/서울) 아이콘 버튼 — 시도군(sgg)·서울(seoul) 지도일 때만 표시.
-function syncFctMapBtn() {
-  const btn = $('#fctMapBtn'); if (!btn) return;
-  const show = S.style === 'sgg' || S.style === 'seoul';
-  btn.style.display = show ? '' : 'none';
-  btn.classList.toggle('sat', S.style === 'seoul');   // 서울일 때 초록 틴트(basemap 버튼과 동일 상태색)
-  if (!show) { const p = $('#fctMapPop'); if (p) p.style.display = 'none'; }
+// '지금 칠하는 구분' 표시 — 아트보드 오른쪽 위 배지(#fctMapBtn 재용도 — 옛 전국/서울 버튼 자리)와 사이드바 데이터 섹션 첫 줄([data-map-unit]).
+// 태풍 지도엔 구역 칠하기가 없어 배지를 숨긴다(같은 자리에 지도 배경 버튼). 이미지·영상·AE 출력엔 안 나온다(SVG 밖 HTML).
+function syncMapUnit() {
+  const st = S.style, ty = isTyphoon(), c = cardOf(st);
+  const btn = $('#fctMapBtn');
+  if (btn) {
+    btn.style.display = ty ? 'none' : '';
+    btn.classList.remove('sat');
+    const ic = btn.querySelector('.unitIc'), tx = btn.querySelector('.unitTxt');
+    const key = c ? c.id : '';
+    if (ic && ic.dataset.k !== key) { ic.innerHTML = cgsIconSvg(key); ic.dataset.k = key; }   // 정적 아이콘 문자열(카드 아이콘과 같은 것)
+    if (tx) tx.textContent = mapUnitOf(st);
+    const t = '칠하는 구분 — ' + (mapUnitText(st) || mapUnitOf(st)) + (c && c.styles.length > 1 ? ' · 눌러서 바꾸기' : '');
+    btn.title = t; btn.setAttribute('aria-label', t);
+    if (ty) { const p = $('#fctMapPop'); if (p) p.style.display = 'none'; }
+  }
+  document.querySelectorAll('[data-map-unit]').forEach((row) => mapUnitRowFill(row, st));
+}
+// 사이드바 구분 줄 하나 채우기: '칠하는 구분 · 시군구 230곳'. 예상 강수·적설 지도면 [시군 | 시도] 세그먼트(누르면 그 구분 지도로).
+function mapUnitRowFill(row, st) {
+  if (row.dataset.st === st) return;   // 같은 지도면 그대로(패널 동기화마다 다시 만들면 세그먼트 포커스가 날아간다)
+  row.dataset.st = st;
+  const c = cardOf(st);
+  row.textContent = '';
+  const lab = document.createElement('span'); lab.className = 'mapUnitLab'; lab.textContent = '칠하는 구분';
+  row.append(lab);
+  if (c && c.styles.length > 1) {
+    const seg = document.createElement('div'); seg.className = 'mode mapUnitSeg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', '칠하는 구분');
+    for (const k of c.styles) {
+      if (!MAP.styles[k]) continue;
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.style = k;
+      b.textContent = mapUnitOf(k);
+      b.title = mapUnitText(k) + ' — 이 구분 지도로 바꿔요';
+      const on = k === st; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.onclick = () => { if (S.style !== k) setStyle(k); };
+      seg.append(b);
+    }
+    row.append(seg);
+  } else {
+    const v = document.createElement('b'); v.textContent = mapUnitOf(st);
+    const n = document.createElement('span'); n.className = 'mapUnitN'; n.textContent = mapUnitCount(st);
+    row.append(v, n);
+  }
+}
+// 배지 팝오버 채우기 — 예상 강수·적설은 [시군 173곳]·[시도 16곳] 고르기, 그 밖은 지금 구분 한 줄 + 장면 설정 안내.
+function mapUnitPopFill(pop) {
+  const st = S.style, c = cardOf(st);
+  pop.textContent = '';
+  const head = document.createElement('div'); head.className = 'bmHead'; head.textContent = '칠하는 구분' + (c ? ' · ' + c.label : '');
+  pop.append(head);
+  const opts = c && c.styles.length > 1 ? c.styles.filter((k) => MAP.styles[k]) : [st];
+  for (const k of opts) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'bmOpt';
+    if (opts.length > 1) b.dataset.style = k; else { b.disabled = true; b.classList.add('bmInfo'); }
+    b.classList.toggle('on', k === st);
+    const nm = document.createElement('span'); nm.className = 'bmUnitNm'; nm.textContent = mapUnitOf(k);
+    const n = document.createElement('small'); n.textContent = mapUnitCount(k);
+    b.append(nm, n);
+    pop.append(b);
+  }
+  const hint = document.createElement('p'); hint.className = 'bmMbxHint';
+  hint.textContent = '자료마다 들어오는 구분 그대로 칠해요. 다른 자료는 장면 설정에서 지도 카드를 바꿔요.';
+  const go = document.createElement('button'); go.type = 'button'; go.className = 'bmApply'; go.dataset.act = 'setup'; go.textContent = '장면 설정 열기';
+  pop.append(hint, go);
 }
 
 // VF 화면 기본 크기: 라벨 92% · 산 70%. 내가 직접 저장한 배치가 없을 때만 강제한다
@@ -250,7 +309,9 @@ function setStyle(name) {
   const before = presetKey();
   const after = presetKey(S.res, name);
   const enteringTyphoon = isTyphoon(name) && !isTyphoon(S.style);
+  const prevStyle = S.style;
   S.style = name;
+  if (typeof dataLabelsSwap === 'function') dataLabelsSwap(prevStyle, name);   // 자료 라벨은 자기 지도에만(떠나는 지도 것은 맡겨 두고, 들어가는 지도 것은 되돌림 — js/data-maps.js)
   if (isTyphoon(name)) { initTyphoonData(); applyTyphoonStyle(); (S.legend ||= {}).on = (MAP.styles[name] && MAP.styles[name].compare) ? 0 : 1; }   // 단일 태풍은 범례 기본 표시, 비교 지도는 기본 숨김(토글로 켬)
   updateAutoPaintSecs();
   buildZones();
@@ -280,31 +341,95 @@ function setStyle(name) {
     if (name === 'seoul') setSeoulDefaultView();     // 서울 첫 진입 — 서울이 화면에 꽉 차게
     applyVfDefaults();   // VF면 라벨·산 기본크기(92%·70%)
     renderAll();
-    status(`${MAP.styles[name].label} — 이 배치는 아직 저장 안 됨`);
+    status(`${cardLabelOf(name)} — 이 배치는 아직 저장 안 됨`);
     return;
   }
   // 태풍인데 저장된 배치가 한국 축척(넓은 지도가 아님)이면 광역 기본배치로 강제 + 다시 그린다
   if (enteringTyphoon && S.map.s > 0.5) { setTyphoonDefaultView(); renderAll(); }
   if (applyVfDefaults()) { syncPanelFromState(); renderAll(); }   // 배치 적용 뒤에도 VF면 기본크기 강제(배포 프리셋의 옛 라벨/산 크기 덮어쓰기)
   renderSea();
-  status(MAP.styles[name].label);
+  renderLabels();   // 같은 배치 그룹 안에서도 자료 라벨이 바뀐다(생활기상 ↔ 농도 ↔ 예보). 이전 DOM을 남기지 않는다.
+  status(cardLabelOf(name));   // 카드 이름(+ 칠하는 구분)
   // 읽어둔 예보가 있으면 새 지도 단위에 맞춰 다시 칠한다.
   // (시도군 <-> 시도는 칠하는 단위가 달라서 그대로 두면 새 지도가 텅 빈다)
   // 단 그 지도가 비어 있거나 마지막 칠이 예보였을 때만 — 통보문·손칠·불러온 작업의 칠은 덮지 않는다.
   if (fctRows.length && (name === 'sgg' || name === 'sido') && fctOwnsFills(name)) paintFct();
 }
 function markStyleBtns() {
-  // 서울 지도는 시도군 지도의 변형(목록엔 숨김) — 고른 게 서울이면 '시도군 구분' 카드를 켜 보인다
-  const shown = (pendingStyle && isSeoul(pendingStyle)) ? 'sgg' : pendingStyle;   // (isSeoul(null)은 지금 지도를 보므로 null 먼저 거른다)
-  document.querySelectorAll('#styleBtns button').forEach((b) => {
-    const on = b.dataset.style === shown;
+  // 카드 = 데이터별(MAP_CARDS). 고른 구분(도형)이 든 카드를 켜고 그 카드의 data-style을 고른 구분으로(예상 강수·적설: 시군 sgg ↔ 시도 sido).
+  // 안 고른 카드는 첫 구분으로 되돌린다 — 그래서 [data-style="sido"]는 (시도를 고르기 전엔) 구분 줄의 시도 칩을 가리킨다.
+  const pc = pendingStyle ? cardOf(pendingStyle) : null;   // (cardOf(null)은 지금 지도를 보므로 null 먼저 거른다)
+  document.querySelectorAll('#styleBtns .cgsCard').forEach((b) => {
+    const c = MAP_CARDS.find((x) => x.id === b.dataset.card);
+    const on = !!(pc && c && pc.id === c.id);
+    if (c) b.dataset.style = on ? pendingStyle : c.styles[0];
     b.classList.toggle('choicePending', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
+  syncCgsUnitRow();
+  syncStyleUse();   // 카드의 구분이 바뀌면(시군 ↔ 시도) 정확도 설명도 다시
 }
-// 어느 지도가 무엇에 쓰는 것인지. 이름만으론 특보용/예보용 구분이 안 된다.
-const STYLE_USE = { sgg: '날씨 예보용', sido: '날씨 예보용', warn: '기상특보용', warnsea: '기상특보용', typhoon: '태풍 예상경로', typhoonCompare: '여러 기관 예보선 겹쳐 비교' };
-// CG 구성 창의 선택 카드 아이콘(24x24, 선 아이콘). 없는 키는 겹친 지도 아이콘.
+// 장면 설정 '지도 종류' 카드 = 데이터별(10-10 — 자료마다 들어오는 구분 그대로 칠한다).
+// styles[0] = 카드를 처음 고를 때의 구분(도형 키 = S.style), 나머지는 카드 안 전환(칠하는 구분 — 예상 강수·적설의 시군/시도).
+// sec = 카드를 고르면 펼칠 사이드바 섹션(없으면 null). 도형 데이터가 없는 카드(예: region-map-data.js 로드 실패)는 안 보인다.
+// 옛 저장값의 S.style(sgg·sido·warn·warnsea·seoul·typhoon·typhoonCompare)은 그대로 이 표의 카드 하나에 속한다(옮기기 없음).
+const MAP_CARDS = [
+  { id: 'warn', styles: ['warn'], label: '특보', sub: '특보구역 · 기상특보', sec: 'wrn' },
+  { id: 'warnsea', styles: ['warnsea'], label: '특보 + 해상', sub: '특보구역 + 바다 · 풍랑 포함', sec: 'wrn' },
+  { id: 'rain', styles: ['sgg', 'sido'], label: '예상 강수·적설', sub: '시군 · 통보문 지역 그대로', subs: { sido: '시도 · 시도 단위로 칠하기' }, sec: 'fct' },
+  { id: 'life', styles: ['life'], label: '생활기상', sub: '시군구 · 자외선·대기정체', sec: 'life' },
+  { id: 'dust', styles: ['dust'], label: '미세먼지 농도', sub: '시군구 평균 · 실시간', sec: 'dust' },
+  { id: 'dustFcst', styles: ['dustFcst'], label: '미세먼지 예보', sub: '예보 권역 19 · 오늘~모레', sec: 'dustFcst' },
+  { id: 'seoul', styles: ['seoul'], label: '서울', sub: '구·동 · 손으로 칠하기', sec: null },
+  { id: 'typhoon', styles: ['typhoon'], label: '태풍', sub: '태풍 예상경로', sec: 'typhoon' },
+  { id: 'typhoonCompare', styles: ['typhoonCompare'], label: '태풍 비교', sub: '여러 기관 예보선 겹쳐 비교', sec: 'typhoonCompare' },
+];
+const mapCards = () => MAP_CARDS.filter((c) => c.styles.some((s) => MAP.styles[s]));
+// 이 구분(도형 키)이 든 카드 — 인자 없으면 지금 지도
+const cardOf = (st) => MAP_CARDS.find((c) => c.styles.includes(st || S.style)) || null;
+// 카드를 누를 때 고를 구분: 장면 설정에서 이미 이 카드 안 구분을 골라 뒀으면(시도 칩) 그대로, 작업 중 지금 지도가 이 카드 안이면 그 구분 그대로,
+// 아니면(시작 화면 포함) 카드의 첫 구분 — 시작 화면에선 지난 작업의 시도를 물려받지 않는다.
+function cardStyleFor(c) {
+  if (pendingStyle && c.styles.includes(pendingStyle)) return pendingStyle;
+  if (!startScreenOn() && c.styles.includes(S.style) && MAP.styles[S.style]) return S.style;
+  return c.styles.find((s) => MAP.styles[s]) || c.styles[0];
+}
+// 장면 설정 요약·고른 것 표시용 이름 — 카드 이름 + (카드 안 구분이 둘 이상이면) ' · 시군'/' · 시도'
+function cardLabelOf(st) {
+  const c = cardOf(st); if (!c) return (MAP.styles[st] && MAP.styles[st].label) || '';
+  return c.label + (c.styles.filter((s) => MAP.styles[s]).length > 1 ? ' · ' + mapUnitOf(st) : '');
+}
+// 칠하는 구분 이름(배지·장면 설정·사이드바·구역선 이름 공용). 도형에 unit이 있으면 그것.
+const MAP_UNIT = { sgg: '시군', sido: '시도', warn: '특보구역', warnsea: '특보구역', seoul: '동', life: '시군구', dust: '시군구', dustFcst: '예보 권역' };
+const mapUnitOf = (st) => { const k = st || S.style; return (MAP.styles[k] && MAP.styles[k].unit) || MAP_UNIT[k] || '구역'; };
+// 구역 수 — '230곳', 특보 + 해상은 '235곳 + 바다 44곳', 구역 칠하기가 없는 지도(태풍)는 ''. 개수는 하드코딩하지 않는다(인셋 조각의 같은 id는 하나로).
+const _mapUnitN = new Map();
+function mapUnitCount(st) {
+  const k = st || S.style, v = MAP.styles[k];
+  if (!v || !v.zones || !v.zones.length) return '';
+  if (!_mapUnitN.has(k)) _mapUnitN.set(k, new Set(v.zones.map((z) => z.id)).size + '곳' + (v.sea && MAP.sea && MAP.sea.length ? ` + 바다 ${new Set(MAP.sea.map((z) => z.id)).size}곳` : ''));
+  return _mapUnitN.get(k);
+}
+const mapUnitText = (st) => { const n = mapUnitCount(st); return n ? mapUnitOf(st) + ' ' + n : ''; };
+// 장면 설정 카드 아래 '칠하는 구분' 줄 — 고른 카드의 구분·구역 수, 예상 강수·적설이면 [시군 | 시도] 칩
+function syncCgsUnitRow() {
+  const val = $('#cgsUnitVal'); if (!val) return;
+  const pc = pendingStyle ? cardOf(pendingStyle) : null;
+  val.textContent = '';
+  if (!pc || !MAP.styles[pendingStyle]) val.textContent = '카드를 고르면 칠하는 구분이 여기 나와요';
+  else if (!mapUnitCount(pendingStyle)) val.textContent = isTyphoonCompare(pendingStyle) ? '구역 없이 여러 예보선을 겹쳐 그려요' : '구역 없이 태풍 경로를 그려요';
+  else {
+    const b = document.createElement('b'); b.textContent = mapUnitOf(pendingStyle);
+    val.append(b, document.createTextNode(' ' + mapUnitCount(pendingStyle)));
+  }
+  document.querySelectorAll('#cgsUnitRow .cgsUnitChip').forEach((ch) => {
+    ch.hidden = !(pc && ch.dataset.card === pc.id);
+    const on = ch.dataset.style === pendingStyle;
+    ch.classList.toggle('on', on); ch.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const chips = $('#cgsUnitChips'); if (chips) chips.hidden = !(pc && pc.styles.filter((s) => MAP.styles[s]).length > 1);
+}
+// CG 구성 창의 선택 카드 아이콘(24x24, 선 아이콘). 없는 키는 겹친 지도 아이콘. 지도 카드는 카드 id(MAP_CARDS)로 찾는다.
 const CGS_ICON = {
   '2158x1214': '<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M9 20.5h6M12 16.5v4"/><circle cx="12" cy="10.2" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="10.2" r="4.2" opacity=".55"/>',
   '1920x1080': '<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M9 20.5h6M12 16.5v4"/>',
@@ -314,6 +439,16 @@ const CGS_ICON = {
   sido: '<path d="M3.5 6.2l5.3-2.2 6.4 2.2 5.3-2.2v13.8l-5.3 2.2-6.4-2.2-5.3 2.2z"/><path d="M8.8 4v13.8M15.2 6.2V20"/>',
   warn: '<path d="M12 3.6l9.2 16H2.8z" stroke-linejoin="round"/><path d="M12 10v4.2M12 16.8v.3" stroke-width="2.2"/>',
   warnsea: '<path d="M12 2.8l7 12.1H5z" stroke-linejoin="round"/><path d="M12 7.6v3.4M12 12.8v.2" stroke-width="2.1"/><path d="M2.5 19.2c1.6 0 1.6-1.3 3.2-1.3s1.6 1.3 3.2 1.3 1.6-1.3 3.1-1.3 1.6 1.3 3.2 1.3 1.6-1.3 3.2-1.3 1.6 1.3 3.1 1.3"/>',
+  // 예상 강수·적설 = 빗방울 + 눈송이
+  rain: '<path d="M8.6 3.4C6.2 6.6 4.8 8.8 4.8 10.6a3.8 3.8 0 007.6 0c0-1.8-1.4-4-3.8-7.2z" stroke-linejoin="round"/><path d="M17 11.5v9M13.1 13.7l7.8 4.6M13.1 18.3l7.8-4.6"/>',
+  // 생활기상 = 해(자외선)
+  life: '<circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.3M12 19.1v2.3M2.6 12h2.3M19.1 12h2.3M5.4 5.4l1.6 1.6M17 17l1.6 1.6M5.4 18.6L7 17M17 7l1.6-1.6"/>',
+  // 미세먼지 농도 = 흩어진 먼지 알갱이(채움 점)
+  dust: '<circle cx="7" cy="8" r="1.7" fill="currentColor" stroke="none"/><circle cx="14.6" cy="6.4" r="2.3" fill="currentColor" stroke="none"/><circle cx="18" cy="13.4" r="1.5" fill="currentColor" stroke="none"/><circle cx="9.6" cy="14.6" r="2.7" fill="currentColor" stroke="none"/><circle cx="15.4" cy="19.2" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18.4" r="1.1" fill="currentColor" stroke="none"/>',
+  // 미세먼지 예보 = 달력 + 먼지 점
+  dustFcst: '<rect x="3.5" y="5" width="17" height="15" rx="2.6"/><path d="M3.5 9.6h17M8 3v4M16 3v4"/><circle cx="9" cy="14.6" r="1.4" fill="currentColor" stroke="none"/><circle cx="14.6" cy="13.6" r="1.8" fill="currentColor" stroke="none"/><circle cx="12.2" cy="17.4" r="1.1" fill="currentColor" stroke="none"/>',
+  // 서울 = 구 경계 윤곽 + 한강
+  seoul: '<path d="M4 9.2l4.2-4 5 1.1 4-2 3 4.2-1 5.6 1.8 3.8-5 2-5-1.1-4 1-3-4z" stroke-linejoin="round"/><path d="M3.6 13.6c2.4-1 4.6 1 7-.2s4.9-1.5 9.8.2"/>',
   // 태풍 = 지도에 그리는 우리 태풍 아이콘(typhoon-icon.js 일러스트, 304×440) 모양을 그대로 옮긴 채운 도형 — 색은 다른 카드 아이콘처럼 글자색(currentColor), 눈은 뚫림
   typhoon: `<path fill="currentColor" stroke="none" fill-rule="evenodd" transform="translate(6.2 2.6) scale(0.0425)" d="${'M245 13C228 32 205 62 210 95C265 125 300 180 290 245C278 340 190 410 58 427C76 408 99 378 94 345C39 315 4 260 14 195C26 100 114 30 245 13ZM232 220A80 80 0 1 0 72 220A80 80 0 1 0 232 220Z'}"/>`,
   // 태풍 비교 = 같은 아이콘 두 개(뒤 것은 옅게)
@@ -382,39 +517,55 @@ function markBgBtns() {
 function buildStyleBtns() {
   const w = $('#styleBtns');
   w.textContent = '';
-  for (const [k, v] of Object.entries(MAP.styles)) {
-    if (v.hidden) continue;   // 서울 지도 등 — 아트보드의 지도종류 아이콘 버튼으로만 진입
-    const b = cgsCardBtn(k, v.label, '', 'styleUse');   // 설명(용도·정확도)은 syncStyleUse가 채운다
-    b.dataset.style = k;
+  for (const c of mapCards()) {
+    const b = cgsCardBtn(c.id, c.label, c.sub, 'styleUse');   // 이름 + 한 줄 설명(무슨 자료 · 어떤 구분) — 예보를 읽어 뒀으면 syncStyleUse가 정확도로 바꾼다
+    b.dataset.card = c.id;
+    b.dataset.style = c.styles[0];   // 카드의 지금 구분(markStyleBtns가 고른 구분으로 바꾼다)
     b.onclick = () => {
+      const k = cardStyleFor(c);   // 작업 중 지금 지도가 이 카드 안이면 그 구분 그대로(예: 시도), 시작 화면이면 카드의 첫 구분
       pendingStyle = k;
-      // 작업 중 지금 서울 지도면 '시도군 구분'을 눌러도 서울 그대로(전국/서울 전환은 아트보드 지도 아이콘 몫).
-      // 시작 화면(새로 시작)에선 지난 작업의 서울을 물려받지 않는다 — 시도군 구분 = 전국 지도로 시작.
-      if (k === 'sgg' && isSeoul(S.style) && !startScreenOn()) pendingStyle = S.style;
       syncCgSetup();
       cgsShowOtherPane('style');
     };
     w.append(b);
   }
-  const note = $('#cgsStyleNote'); if (note) note.style.display = MAP.styles.seoul ? '' : 'none';   // 서울 지도 데이터가 있을 때만 안내
+  // 그리드 맨 끝 한 줄 — '칠하는 구분 · 시군 173곳' + 카드 안 전환 칩(예상 강수·적설: 시군 | 시도). 칩도 #styleBtns 안이라 [data-style="sido"]로 고를 수 있다.
+  const row = document.createElement('div'); row.className = 'cgsUnitRow'; row.id = 'cgsUnitRow';
+  const lab = document.createElement('span'); lab.className = 'cgsUnitLab'; lab.textContent = '칠하는 구분';
+  const val = document.createElement('span'); val.className = 'cgsUnitVal'; val.id = 'cgsUnitVal';
+  const chips = document.createElement('span'); chips.className = 'cgsUnitChips'; chips.id = 'cgsUnitChips';
+  chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', '칠하는 구분');
+  for (const c of mapCards()) for (const k of c.styles.filter((s) => MAP.styles[s])) {
+    if (c.styles.filter((s) => MAP.styles[s]).length < 2) break;
+    const ch = document.createElement('button'); ch.type = 'button'; ch.className = 'cgsUnitChip';
+    ch.dataset.card = c.id; ch.dataset.style = k; ch.textContent = mapUnitOf(k); ch.title = mapUnitText(k);
+    ch.onclick = () => { pendingStyle = k; syncCgSetup(); cgsShowOtherPane('style'); };
+    chips.append(ch);
+  }
+  row.append(lab, val, chips);
+  w.append(row);
   markStyleBtns();
   syncStyleUse();
 }
 
-// 버튼 밑 설명. 예보를 읽어둔 상태면 '이 지도가 더 정확한가'를 알려준다.
+// 카드 밑 설명 = 무슨 자료 · 어떤 구분. 예상 강수·적설 카드는 예보(API)를 읽어 둔 상태면 '고른 구분(시군·시도)에 칠하면 정확한가'를 알려준다.
 function syncStyleUse() {
-  for (const b of document.querySelectorAll('#styleBtns button')) {
-    const k = b.dataset.style;
+  for (const b of document.querySelectorAll('#styleBtns .cgsCard')) {
+    const c = MAP_CARDS.find((x) => x.id === b.dataset.card);
     const s = b.querySelector('.styleUse');
-    if (!s) continue;
-    const acc = fctRows.length ? styleAccuracy(k) : null;
-    const seoulNow = k === 'sgg' && isSeoul(S.style) && !startScreenOn();   // 지금 서울 지도(시도군의 변형)로 작업 중(시작 화면이면 아님)
+    if (!c || !s) continue;
+    const acc = fctRows.length && c.styles.length > 1 ? styleAccuracy(b.dataset.style) : null;
     if (acc) {
       s.textContent = (acc[1] ? '✓ ' : '') + acc[0];
       s.style.opacity = acc[1] ? '1' : '.8';
     } else {
-      s.textContent = seoulNow ? '날씨 예보용 · 지금 서울 지도' : (STYLE_USE[k] || '');
+      s.textContent = (c.subs && c.subs[b.dataset.style]) || c.sub;   // 카드 안 구분을 바꾸면(시도) 설명도 그 구분으로
       s.style.opacity = '';
     }
+  }
+  // 칩 풍선 도움말 — 구역 수(+ 예보를 읽어 뒀으면 정확도)
+  for (const ch of document.querySelectorAll('#styleBtns .cgsUnitChip')) {
+    const acc = fctRows.length ? styleAccuracy(ch.dataset.style) : null;
+    ch.title = mapUnitText(ch.dataset.style) + (acc ? ' · ' + acc[0] : '');
   }
 }

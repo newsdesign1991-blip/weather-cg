@@ -65,7 +65,7 @@ function tlLegendNames() {
   try { if (S.style === 'warn' || S.style === 'warnsea') for (const d of aeWarningFillDefs()) put(d.col, d.name.replace(/_/g, ' ')); } catch (e) {}
   const g = S.legend || {};
   const auto = g.auto == null ? 1 : g.auto;
-  try { for (const it of (isTyphoon() ? [] : (auto ? wrnLegendItems() : (g.items || [])))) if (it) put(it.col, it.txt); } catch (e) {}
+  try { for (const it of (isTyphoon() ? [] : (auto ? autoLegendItems() : (g.items || [])))) if (it) put(it.col, it.txt); } catch (e) {}   // 데이터 지도 = 단계 이름('나쁨'·'높음')
   return out;
 }
 function tlLayerPlan(opt) {

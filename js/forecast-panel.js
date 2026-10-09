@@ -182,6 +182,7 @@ function resetWorkRuntime() {
   { const fi = $('#fctInfo'); if (fi) fi.textContent = FCT_KINDS[fctKind].hint; }
   bulSpecs = []; renderBulList(); setBulInfo('', []);
   bulResetPick(true);   // 통보문 '날짜' 고르기·결과 카드도 비우고 진행 중인 불러오기는 버린다(붙여넣기 칸 글은 그대로)
+  dataResetRuntime(true);   // 생활기상·미세먼지 요청·임시 조회조건 초기화(저장된 자료·조건은 syncDataPanels에서 복원)
   syncStyleUse();
 }
 

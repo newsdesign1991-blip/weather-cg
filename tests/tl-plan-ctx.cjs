@@ -27,6 +27,7 @@ function planCtx(S, opt = {}) {
   S.anim.cam ||= { keys: [] };
   const ctx = {
     S, Math, JSON, Object, Array, String, Number, Set, Map, isFinite, console,
+    MAP: { styles: { life: { data: true }, dust: { data: true }, dustFcst: { data: true } } },
     seq: 1000, tlHeadT: 0, _camSavedMap: null,
     aeHelperExt: () => (opt.ver == null ? true : opt.ver >= 20261008),
     anim: () => S.anim,
@@ -37,6 +38,7 @@ function planCtx(S, opt = {}) {
     brushStrokes: () => ((S.brushByStyle ||= {})[S.style] ||= []),
     aeWarningFillDefs: () => opt.warnDefs || [],
     wrnLegendItems: () => opt.legend || [],
+    autoLegendItems: () => opt.legend || [],   // 범례 자동 항목(js/data-maps.js — 데이터 지도면 칠한 단계, 아니면 특보 목록)
     typhoonLineMode: () => !!(S.typhoon && S.typhoon.trackMode === 'line' && S.style !== 'typhoonCompare'),
     curTyphoonPoints: () => ((S.typhoon && S.typhoon.issues && S.typhoon.issues[0] && S.typhoon.issues[0].points) || []),
     labelList: () => (S.style === 'typhoon' || S.style === 'typhoonCompare' ? ((S.typhoon ||= {}).labels ||= []) : S.labels),
@@ -105,7 +107,7 @@ function aeCtx(S, opt = {}) {
     compareVisibleIdxMap: (c) => Object.fromEntries((c.points || ctx.curTyphoonPoints()).map((_, i) => [i, i])),
   });
   if (opt.real) {   // 태풍 투영 = 앱 실제 함수(지도 데이터의 메르카토르 투영) — 키·표현식 = 화면 함수 비교용
-    ctx.MAP = { proj: MAP_PROJ }; ctx.typhoonProg = null;
+    ctx.MAP.proj = MAP_PROJ; ctx.typhoonProg = null;
     delete ctx.typhoonScreenPts; delete ctx.compareScreenPts;
     vm.runInContext(['TYPHOON_R_EARTH', 'typhoonKmToUnit', 'lerp'].map(constSrc).join('\n') + '\n' + ['projLL', 'typhoonXY', 'typhoonScreenPts', 'compareScreenPts'].map(fnSrc).join('\n'), ctx);
   }

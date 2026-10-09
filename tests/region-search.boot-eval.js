@@ -48,5 +48,11 @@ search('수원')[0].click();
 const rect=q('#regionSearch').getBoundingClientRect(),parent=q('#regionSearch').parentNode.getBoundingClientRect();
 check(rect.right<=parent.right+1,'search UI overflows sidebar');
 check(getComputedStyle(q('#regionQuery')).backgroundColor===getComputedStyle(q('#curHex')).backgroundColor,'search input ignores app theme');
+// 데이터 지도(시군구 — 생활기상·미세먼지 농도)도 검색: 일반구는 시 하나로, 2026 인천 새 구 이름
+setStyle('life');check(!q('#regionSearch').hidden,'life search hidden');
+const lifeSuwon=search('수원');check(lifeSuwon.length===1&&lifeSuwon[0].textContent.includes('경기 수원시'),'life Suwon not one city: '+lifeSuwon.map(b=>b.textContent).join('|'));
+check(search('제물포구').length===1,'life new Incheon gu missing');
+setStyle('dustFcst');check(q('#regionSearch').hidden,'dust forecast regions should not show search');
+setStyle('sgg');
 await pause(500);
 return {ok:true,selectedRegions:regionSearchSelected.size,seoulDongCount:ids.length};

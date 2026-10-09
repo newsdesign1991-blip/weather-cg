@@ -120,6 +120,8 @@ const RAIN_SCALE = [
   [40, '#0C46DC'], [60, '#1740C0'], [80, '#1B3AA0'], [120, '#1E3480'],
 ];
 function rainColor(mm) { let c = RAIN_SCALE[0][1]; for (const [t, h] of RAIN_SCALE) if (mm >= t) c = h; return c; }
+// 예상 적설(cm) 색 — 하양~하늘~보라 8단계(10-10). 적설 묶음(cm)은 이 램프, 강수(mm)는 RAIN 램프에서 각자 구간 순위로 보간한다(bulColorPlan).
+const SNOW_SCALE = ['#F4F8FF', '#DCEBFB', '#B9D7F5', '#93BFEE', '#7FA2E6', '#8A86DC', '#7A62C8', '#5E3FA8'];
 
 // ── 기상청 예보용어(장소표현) 매핑 — kma_place_terms.json 내장 ──
 // '중부내륙·북부내륙·산지·해안'처럼 방향만으론 애매한 표현을, 기상청이 정한 '정확한 시군 목록'으로 칠하기 위한 기준표.
@@ -289,6 +291,8 @@ function parseBulletin(txt) {
       part = carry + part; carry = '';
       const c = part.indexOf(':');
       let valStr = part.slice(c + 1);
+      // 단위 — 적설(cm)·강수(mm)를 따로 칠한다(bulColorPlan). 안 적혀 있으면 null(문서 종류를 따른다)
+      const unit = /cm|㎝|센티/i.test(valStr) ? 'cm' : /mm|㎜|밀리|미리/i.test(valStr) ? 'mm' : null;
       // 조각 앞머리의 (날짜/권역) 도 벗긴다. 예: "/ (22일) 대구.경북남부내륙" → "대구.경북남부내륙"
       // (안 벗기면 '대구'가 '(22일)대구'로 붙어 도 인식 실패 → 대구를 못 찾는다.)
       const regionStr = part.slice(0, c).trim().replace(/^\([^)]*\)\s*/, '');
@@ -302,7 +306,7 @@ function parseBulletin(txt) {
       let baseG = null;
       if (tokens.length && nums.length) {
         const labelTxt = nums.length > 1 ? `${Math.min(...nums)}~${Math.max(...nums)}` : `${nums[0]}`;
-        groups.push(baseG = { tokens, max: Math.max(...nums), labelTxt, regionText: regionStr });
+        groups.push(baseG = { tokens, max: Math.max(...nums), labelTxt, regionText: regionStr, unit });
       }
       // 많은 곳 → 별도 그룹. 본 구간보다 뒤에 push 해서(우선순위 높게), max 를 크게 줘서 램프에서 가장 진한 색.
       if (many) {
@@ -322,17 +326,62 @@ function parseBulletin(txt) {
           const tk = bulTokens(cand, ctx);
           if (tk.length && tk.every(known)) { mreg = cand; mtok = tk; break; }
         }
-        if (mtok.length && mnum > 0) groups.push({ tokens: mtok, max: mnum + 0.5, labelTxt: `${many[3]}⬆`, regionText: `${mreg} ${many[3]}⬆`, many: true });
+        if (mtok.length && mnum > 0) groups.push({ tokens: mtok, max: mnum + 0.5, labelTxt: `${many[3]}⬆`, regionText: `${mreg} ${many[3]}⬆`, many: true, unit });
         else if (baseG && mnum > 0) baseG.regionText += ` (많은 곳 ${many[3]}⬆)`;   // 자리를 몰라 덧칠은 안 하지만 색 목록엔 적어 둔다
       }
     }
   }
   // 같은 지역이 여러 줄(날짜별 등)이면 큰 값 하나만 남긴다 — 경로마다(기준표/방향/시도) 이기는 줄이 달라지고
   // 진 쪽 색은 칠한 곳 없이 목록에만 남아 라벨이 사라졌다.
-  const keyOf = (g) => (g.many ? 'M|' : 'B|') + g.tokens.map((tk) => tk.island ? 'I:' + tk.island : `${tk.province || ''}:${termNorm(tk.dir || '')}:${tk.exclude || ''}`).sort().join(',');
+  const keyOf = (g) => (g.many ? 'M|' : 'B|') + (g.unit === 'cm' ? 'cm|' : '') + g.tokens.map((tk) => tk.island ? 'I:' + tk.island : `${tk.province || ''}:${termNorm(tk.dir || '')}:${tk.exclude || ''}`).sort().join(',');
   const best = new Map();
   for (const g of groups) { const k = keyOf(g), b = best.get(k); if (!b || g.max > b.max) best.set(k, g); }
   return groups.filter((g) => best.get(keyOf(g)) === g);
+}
+
+// 통보문 머리로 본 종류 — '예상 적설 및 강수량(' 또는 적설·강수 머리가 함께 = mix, '예상 적설(' = snow, 그 밖 = rain
+function bulDocKind(txt) {
+  const t = String(txt || '');
+  const mix = /예상\s*적설\s*및\s*강수량/.test(t);
+  const rest = t.replace(/예상\s*적설\s*및\s*강수량/g, '');
+  const snow = /예상\s*적설/.test(rest), rain = /예상\s*강수량/.test(rest);
+  if (mix || (snow && rain)) return 'mix';
+  return snow ? 'snow' : 'rain';
+}
+// 색 정하기(순수 — 테스트 대상): 값 구간(labelTxt)마다 서로 다른 색. 단위가 cm 인 묶음은 SNOW 램프, mm 는 RAIN 램프에서 각자 순위로 보간
+// (같은 '5~10'이라도 cm·mm면 다른 색). 단위가 안 적힌 묶음은 문서 종류를 따른다(snow → cm, 그 밖 → mm).
+// 반환 { colOf: { 'cm|5~10': '#…' }, keyOf(g), unitOf(g), ranges:[{ key, labelTxt, max, unit }](낮은 → 높은), kind:'rain'|'snow'|'mix' }
+function bulColorPlan(groups, docKind) {
+  const unitOf = (g) => g.unit || (docKind === 'snow' ? 'cm' : 'mm');
+  const keyOf = (g) => unitOf(g) + '|' + g.labelTxt;
+  const ranges = [];
+  for (const g of groups) { const key = keyOf(g); if (!ranges.some((r) => r.key === key)) ranges.push({ key, labelTxt: g.labelTxt, max: g.max, unit: unitOf(g) }); }
+  ranges.sort((a, b) => a.max - b.max);
+  const rgb = (h) => { const v = parseInt(String(h).slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+  const lerp = (a, b, t) => { const A = rgb(a), B = rgb(b); return '#' + [0, 1, 2].map((k) => Math.round(A[k] + (B[k] - A[k]) * t).toString(16).padStart(2, '0')).join('').toUpperCase(); };
+  const rampAt = (R, t) => { if (t <= 0) return R[0]; if (t >= 1) return R[R.length - 1]; const p = t * (R.length - 1), i = Math.floor(p); return lerp(R[i], R[i + 1], p - i); };
+  const colOf = {};
+  for (const u of ['mm', 'cm']) {
+    const rs = ranges.filter((r) => r.unit === u);
+    const R = u === 'cm' ? SNOW_SCALE : RAIN_SCALE.map((x) => x[1]);
+    rs.forEach((r, i) => { colOf[r.key] = rampAt(R, rs.length <= 1 ? 1 : i / (rs.length - 1)); });
+  }
+  const units = new Set(ranges.map((r) => r.unit));
+  return { colOf, keyOf, unitOf, ranges, kind: units.has('cm') ? (units.has('mm') ? 'mix' : 'snow') : 'rain' };
+}
+// 제목·단위 글자 자동(10-10) — 눈이면 '예상 적설량'·'단위 : cm'(섞임 '예상 적설·강수량'·'단위 : cm·mm'), 비로 돌아오면 '예상 강수량'·'단위 : mm'.
+// 글자 전체가 이 모양일 때만 바꾼다(사용자가 고친 제목은 안 건드림). 바꿨으면 true.
+function bulTitleTexts(kind) {
+  const title = kind === 'snow' ? '예상 적설량' : kind === 'mix' ? '예상 적설·강수량' : '예상 강수량';
+  const unit = kind === 'snow' ? '단위 : cm' : kind === 'mix' ? '단위 : cm·mm' : '단위 : mm';
+  let changed = false;
+  for (const t of S.texts || []) {
+    if (!t || t.off) continue;
+    const s = String(t.txt || '').trim();
+    if (/^예상\s*(강수량|적설량?|적설\s*·\s*강수량)$/.test(s)) { if (s !== title) { t.txt = title; delete t.runs; changed = true; } }
+    else if (/^단위\s*:\s*(mm|cm|cm\s*·\s*mm)$/i.test(s)) { if (s !== unit) { t.txt = unit; delete t.runs; changed = true; } }
+  }
+  return changed;
 }
 
 // 한 도의 시군들을 방향 스펙에 나눠 담는다 — 각 시군을 '가장 잘 맞는 방향'에 배정(중심 좌표 기준).
@@ -388,17 +437,12 @@ function applyBulletin(txt) {
   if (S.style !== st) setStyle(st);   // 지도 종류 맞추고 존을 렌더(중심 좌표 계산에 필요)
 
   // 값 범위(예 '30~100')마다 서로 다른 색을 준다 — 이게 있어야 각 강수 구간이 '구분'된다.
-  // 같은 범위는 같은 색. 약한 비 -> 진한 비 순으로 램프에서 뽑는다.
-  const ranges = [];
-  for (const g of groups) if (!ranges.some((r) => r.labelTxt === g.labelTxt)) ranges.push({ labelTxt: g.labelTxt, max: g.max });
-  ranges.sort((a, b) => a.max - b.max);
-  // 구간마다 '서로 다른' 색. 구간 수가 램프색(8)보다 많아도 겹치지 않게 램프를 보간해서 뽑는다.
-  // (예전엔 반올림으로 두 구간이 같은 색이 돼 전북=경북중북부처럼 섞여 보였다.)
-  const RAMP = RAIN_SCALE.map((x) => x[1]);
-  const lerp = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return '#' + [0, 1, 2].map((k) => Math.round(A[k] + (B[k] - A[k]) * t).toString(16).padStart(2, '0')).join('').toUpperCase(); };
-  const rampAt = (t) => { if (t <= 0) return RAMP[0]; if (t >= 1) return RAMP[RAMP.length - 1]; const p = t * (RAMP.length - 1), i = Math.floor(p); return lerp(RAMP[i], RAMP[i + 1], p - i); };
-  const colOf = {};
-  ranges.forEach((r, i) => { colOf[r.labelTxt] = rampAt(ranges.length <= 1 ? 1 : i / (ranges.length - 1)); });
+  // 같은 범위는 같은 색. 약한 비 -> 진한 비 순으로 램프에서 뽑는다. 구간 수가 램프색(8)보다 많아도 겹치지 않게 보간한다
+  // (예전엔 반올림으로 두 구간이 같은 색이 돼 전북=경북중북부처럼 섞여 보였다).
+  // 적설(cm)은 눈 램프(SNOW_SCALE — 하양~하늘~보라)에서 따로(10-10) — bulColorPlan. 색 열쇠 = '단위|구간'(ck).
+  const plan = bulColorPlan(groups, bulDocKind(txt));
+  const colOf = plan.colOf, ck = plan.keyOf, ranges = plan.ranges;
+  const sanjiSnow = [];   // 눈(cm)일 때 강원 산지 표현 → 그 시군에도 칠한다(아래)
 
   const sidoName = (p) => (st === 'sido' && p === '광주' ? '전남' : p);   // 시도 지도엔 광주 조각 없음(전남 통합)
   const provSpecs = {};   // 시도 -> [{dir, col, gi}]
@@ -406,7 +450,7 @@ function applyBulletin(txt) {
   const regionSpecs = []; // 권역(도 접두 없는) 기준표 매핑 — {names:Set, col, gi, raw}
   const unknown = [];
   groups.forEach((g, gi) => {
-    const col = colOf[g.labelTxt];
+    const col = colOf[ck(g)];
     for (const tk of g.tokens) {
       if (tk.island) { islandSpecs.push({ island: tk.island, col, gi }); continue; }
       if (!tk.province) {
@@ -416,7 +460,12 @@ function applyBulletin(txt) {
         else if (tk.dir) unknown.push(tk.dir);
         continue;
       }
-      if (tk.province === '강원' && (tk.dir || '').includes('산지')) continue;   // 강원 '산지' 계열(산지/북부산지/강원산지 등)은 시군을 안 칠하고 산(▲)만 만든다(kma_place_terms에서 산지 분류는 전부 산 표시). 방위 표현(영서/영동 등)만 시군 색칠.
+      // 강원 '산지' 계열(산지/북부산지/강원산지 등) — 비는 시군을 안 칠하고 산(▲)만 만든다(kma_place_terms에서 산지 분류는 전부 산 표시). 방위 표현(영서/영동 등)만 시군 색칠.
+      // 눈(cm)은 산지 적설이 방송 그림의 핵심이라 기준표 시군(강원북부산지 → 속초·인제·고성·양양·양구)에도 칠한다(10-10 — 아래 sanjiSnow, 산▲도 그대로 만든다).
+      if (tk.province === '강원' && (tk.dir || '').includes('산지')) {
+        if (st === 'sgg' && plan.unitOf(g) === 'cm') sanjiSnow.push({ names: termSiguns('강원' + tk.dir) || termSiguns('강원산지'), col, gi, raw: tk.dir });
+        continue;
+      }
       const arr = (provSpecs[sidoName(tk.province)] ||= []);
       const ex = tk.exclude || '';
       // 같은 도·같은 표현이 다른 줄에도 있으면(일부만 겹치는 줄) 큰 값 하나만 — 경로마다 이기는 줄이 달라지지 않게.
@@ -433,7 +482,8 @@ function applyBulletin(txt) {
   // 나중에 다른(확실한) 스펙이 덧칠하면 빼서, 마지막에 칠한 성격을 따르게 한다.
   const softZones = new Set();
   const isVague = (raw) => /내륙|해안|산지/.test(raw || '');
-  const put = (id, col, gi, soft) => { F[id] = col; groupZones[gi].push(id); if (soft) softZones.add(id); else softZones.delete(id); };
+  const zoneMax = {};   // 구역 → 칠한 값(구간 최댓값) — 눈 산지 덧칠은 더 큰 값일 때만
+  const put = (id, col, gi, soft) => { F[id] = col; zoneMax[id] = groups[gi].max; groupZones[gi].push(id); if (soft) softZones.add(id); else softZones.delete(id); };
   const sidoOf = (id) => (st === 'sido' ? id : id.split('/')[0]);
   const zonesByProv = {};
   for (const id of zoneEls.keys()) (zonesByProv[sidoOf(id)] ||= []).push(id);
@@ -538,6 +588,17 @@ function applyBulletin(txt) {
     for (const id of zoneEls.keys()) if (st !== 'sido' && (id.split('/')[1] || '').startsWith(isp.island)) put(id, isp.col, isp.gi, false);
   }
 
+  // 눈(cm) 강원 산지 → 기준표 시군에 칠한다. 같은 시군을 다른 표현이 이미 칠했으면 값이 더 큰 쪽(산지 적설이 보통 더 많다). 산지 = 애매한 표현 → 부드러운 경계 대상.
+  for (const s of sanjiSnow) {
+    if (!s.names || !s.names.length) continue;
+    const ns = new Set(s.names);
+    for (const id of (zonesByProv['강원'] || [])) {
+      if (!ns.has(zoneBase(id.split('/')[1] || ''))) continue;
+      if (F[id] && (zoneMax[id] || 0) >= groups[s.gi].max) continue;
+      put(id, s.col, s.gi, true);
+    }
+  }
+
   // '산지'(예: 강원내륙.산지) → 태백산맥 산 표시. 산은 강원 좌표라 '강원' 산지만(제주도산지·경북북동산지는 아님).
   // 칠할 시군이 없어도 강원 산지가 있으면 산만 만들고 끝낸다(강원산지만 있는 통보문).
   const sanji = groups.find((g) => g.tokens.some((tk) => tk.province === '강원' && (tk.dir || '').includes('산지')));
@@ -561,7 +622,7 @@ function applyBulletin(txt) {
     const base = MTN_PRESETS.find((p) => p.label === '강원');
     const anchors = (ov && Array.isArray(ov.anchors) && ov.anchors.length) ? ov.anchors : (base ? base.anchors : []);
     const size = (ov && ov.size) || (base ? base.size : 90);
-    const mcol = colOf[sanji.labelTxt] || '#FFFFFF';
+    const mcol = colOf[ck(sanji)] || '#FFFFFF';
     for (const anc of anchors) {
       const m = newMtn({ anchor: JSON.parse(JSON.stringify(anc)), size, col: mcol, bul: 1 });
       const a = mtnAnchorXY(m); m.x = a.x; m.y = a.y;
@@ -577,14 +638,15 @@ function applyBulletin(txt) {
   if ($('#bulLabels').checked) {
     // 숫자 라벨만 만든다. 윗줄(지역명)은 자동으로 안 넣는다 — 필요하면 '수치 라벨' 탭에서 직접 추가.
     for (const rg of ranges) {
-      const col = (colOf[rg.labelTxt] || '').toUpperCase();
+      const col = (colOf[rg.key] || '').toUpperCase();
       let wx = 0, wy = 0, area = 0;
       for (const [id, arr] of zoneEls) {
         if ((F[id] || '').toUpperCase() !== col) continue;
         for (const { el: e } of arr) { const r = zoneRectRoot(e); const a = Math.max((r.x1 - r.x0) * (r.y1 - r.y0), 1); wx += ((r.x0 + r.x1) / 2) * a; wy += ((r.y0 + r.y1) / 2) * a; area += a; }
       }
       if (!area) continue;
-      S.labels.push(newLabel({ txt: rg.labelTxt, x: Math.round(wx / area), y: Math.round(wy / area), fill: colOf[rg.labelTxt], bul: 1 }));
+      // 적설·강수가 섞이면 숫자에 단위를 붙인다('5~10cm') — 같은 숫자라도 무엇인지 보이게
+      S.labels.push(newLabel({ txt: rg.labelTxt + (plan.kind === 'mix' ? rg.unit : ''), x: Math.round(wx / area), y: Math.round(wy / area), fill: colOf[rg.key], bul: 1 }));
       madeLabels++;
     }
   }
@@ -592,7 +654,7 @@ function applyBulletin(txt) {
 
   // 통보문 머리글의 날짜(예: '예상 강수량(18~19일)')를 제목의 날짜 칸('내일~모레' 자리)에 넣는다.
   let date = null;
-  const dm = txt.match(/강수량\s*\(([^)]+)\)/);
+  const dm = txt.match(/(?:강수량|적설)\s*\(([^)]+)\)/);
   if (dm && /일/.test(dm[1])) date = dm[1].replace(/\s+/g, '');
   else { const d2 = txt.match(/\(\s*(\d{1,2}\s*[~∼\-]?\s*\d{0,2}\s*일)\s*\)/); if (d2) date = d2[1].replace(/\s+/g, ''); }
   if (date) {
@@ -600,12 +662,15 @@ function applyBulletin(txt) {
     const t = S.texts.find((x) => !x.off && dateRe.test(x.txt || ''));
     if (t && t.txt !== date) { t.txt = date; renderTexts(); }
   }
+  // 제목·단위 — 눈이면 '예상 적설량'·'단위 : cm', 비로 돌아오면 '예상 강수량'·'단위 : mm'(그 모양 글자만). 다음 불러오기 때 처음 고를 묶음도 이 종류로.
+  if (bulTitleTexts(plan.kind)) renderTexts();
+  S.bulKind = plan.kind === 'rain' ? 'rain' : 'snow';
 
   // 색 목록(그룹별). 같은 색은 renderBulList가 한 줄로 묶는다.
-  bulSpecs = groups.map((g) => ({ regionText: g.regionText, col: colOf[g.labelTxt], labelTxt: g.labelTxt }));
+  bulSpecs = groups.map((g) => ({ regionText: g.regionText, col: colOf[ck(g)], labelTxt: g.labelTxt + (plan.kind === 'rain' ? '' : plan.unitOf(g)) }));
   renderBulList();
 
-  const parts = [`${Object.keys(F).length}개 ${st === 'sido' ? '시도' : '시군'} 칠함`, `${ranges.length}색 구분`];
+  const parts = [`${Object.keys(F).length}개 ${st === 'sido' ? '시도' : '시군'} 칠함`, `${ranges.length}색 구분` + (plan.kind === 'snow' ? '(적설 눈 색)' : plan.kind === 'mix' ? '(적설 cm·강수 mm)' : '')];
   if (madeLabels) parts.push(`라벨 ${madeLabels}개`);
   if (madeMtns) parts.push(`산 ${madeMtns}개`);
   const miss = [...new Set(unknown)];

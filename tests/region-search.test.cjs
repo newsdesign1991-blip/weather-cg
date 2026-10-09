@@ -47,7 +47,7 @@ test('painting clears search selection after filling, without resetting query or
   const calls = [];
   const results = {scrollTop:90};
   const sandbox = vm.createContext({
-    S:{style:'sgg'}, isSeoul:()=>false, regionSearchSelected:selected,
+    S:{style:'sgg'}, isSeoul:()=>false, curStyle:()=>({search:1}), regionSearchSelected:selected,
     zoneEls:new Map([['a',[{el:'a'}]],['b',[{el:'b'}]]]),
     $:()=>results, animStop:()=>{}, animOff:()=>{},
     pushUndo:()=>calls.push('undo'),

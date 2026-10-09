@@ -19,17 +19,12 @@
     const ovOn = () => $('#cgSetupOv') && $('#cgSetupOv').classList.contains('on');
     if (!ovOn()) { if ($('#startOverlay').classList.contains('on') && $('#startSetup')) $('#startSetup').click(); else $('#cgSetupBtn').click(); }
     await sleep(500);
-    const st = style === 'seoul' ? 'sgg' : style;
-    const rb = $(`#resBtns [data-res="${res}"]`), sb = $(`#styleBtns [data-style="${st}"]`);
+    // 서울은 10-10부터 장면 설정의 '서울' 카드(data-style="seoul") — 예전엔 시도군 카드 + 아트보드 전국/서울 버튼
+    const rb = $(`#resBtns [data-res="${res}"]`), sb = $(`#styleBtns [data-style="${style}"]`);
     if (rb) rb.click(); if (sb) sb.click();
     await sleep(80);
     if ($('#cgsDone') && !$('#cgsDone').disabled) $('#cgsDone').click(); else if ($('#cgsX')) $('#cgsX').click();
     await sleep(1200);
-    if (style === 'seoul') {
-      $('#fctMapBtn').click(); await sleep(200);
-      const o = document.querySelector('#fctMapPop .bmOpt[data-mt="seoul"]'); if (o) o.click();
-      await sleep(1200);
-    }
     await H.closePopups();
     await sleep(1800);   // 자동저장(1.5초) 기다림
     const w = H.work();

@@ -2,10 +2,13 @@
 
 이 앱(날씨 CG 메이커)은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** 먼저 [`MODULES.md`](MODULES.md)를 읽을 것.
 
-- 로직은 `js/*.js`(43개), 스타일은 `css/*.css`(15개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
+- 로직은 `js/*.js`(45개), 스타일은 `css/*.css`(16개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
   `index.html`에서 함수 본문을 찾지 말고 `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`로 찾는다.
 - `<script>`/`<link>` 태그 순서 변경, `defer`/`async`/`type="module"` 추가 금지. 순서 = 로드 순서 = 덮어쓰기 우선순위.
   기존 파일의 순서는 바꾸지 않는다(테스트가 고정 목록과 비교한다). 새 파일은 사이에 끼워 넣기만 하고, 그때 MODULES.md 표에 행을 하나 넣는다.
+- **지도 종류**: `S.style` = 지도 도형 키, 장면 설정 카드 = `MAP_CARDS`(js/map-build.js — 데이터별, `cardOf(S.style)`). 데이터 섹션은 자기 지도에서만(`secModeHidden`) — 다른 구분으로 옮겨 칠하지 않는다(MODULES.md 7-1).
+  공공데이터포털 자료(생활기상·미세먼지)의 주소·오퍼레이션·응답 이름은 `js/data-maps.js`의 `DATA_API` 한 곳에만(키는 사용자 PC localStorage `wcg_datakey` — 저장소·로그에 넣지 말 것).
+  데이터 지도 도형 `region-map-data.js`는 손으로 고치지 말고 `node tools/build-data-maps.cjs --src=<원본 data 폴더>`로 다시 굽는다.
 - **같은 이름 함수를 두 파일에 만들지 말 것.** 최상위 `let/const/class`·`var`도 파일 사이에 겹치면 안 된다. 예약 이름(`top` `location` `window` `document` `wcgDesktop` `_per` `_mas` 등)·window 내장 이름도 금지.
 - 각 js 파일 머리 2줄(`/* [모듈] js/이름.js — 설명 */` + `'use strict';`)과 css 머리 1줄을 지우지 않는다.
 - **호이스팅은 파일을 넘지 못한다.** 로드 때 바로 실행되는 새 최상위 코드(리스너 등록·즉시 실행·`const x = f()`·`typeof f`)와

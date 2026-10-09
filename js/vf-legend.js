@@ -242,7 +242,7 @@ function vfExpandedLegend() {
   if (!ty && (!b || !b.on)) return null;         // 특보: 제목 바가 있어야 그 아래로 확장. 태풍: 제목바 없어도 3+면 확장.
   const auto = g.auto == null ? 1 : g.auto;
   // 태풍 범례는 항상 15/25/70 3항목 → many(가로 확장) 배치를 쓴다.
-  const items = (ty ? typhoonLegendItems() : (auto ? wrnLegendItems() : (g.items || []))).filter((it) => it && (it.txt || it.col));
+  const items = (ty ? typhoonLegendItems() : (auto ? autoLegendItems() : (g.items || []))).filter((it) => it && (it.txt || it.col));
   if (items.length < 3) return null;                       // 3개 이상일 때만
   // 3개 이상 전용 배치(many) — 사용자가 끌기·핸들로 조정하고 저장한다. 없으면 기본값 생성.
   if (!g.many) g.many = { x: b && b.on ? Math.round(b.x + 20) : Math.round((g.x || 150)), y: b && b.on ? Math.round(b.y + b.h + 8) : Math.round((g.y || 560)),
@@ -279,7 +279,7 @@ function renderLegend() {
   // 자동: 특보 목록에서 눈 켠 것만 색·이름으로 자동 표시. 수동: 내가 만든 항목.
   // 태풍 지도에선 15/25m/s·70% 반경 항목을 특보 범례와 같은 스타일로 보여준다.
   const auto = g.auto == null ? 1 : g.auto;
-  const src = isTyphoon() ? typhoonLegendItems() : (auto ? wrnLegendItems() : (g.items || []));
+  const src = isTyphoon() ? typhoonLegendItems() : (auto ? autoLegendItems() : (g.items || []));   // 자동 = 특보 목록, 데이터 지도면 칠한 단계(js/data-maps.js)
   const items = src.filter((it) => it && (it.txt || it.col));
   if (!items.length) return;
   const av = vfExpandedLegend();       // VF 범례 3+ → 별도 배치(many) 사용
