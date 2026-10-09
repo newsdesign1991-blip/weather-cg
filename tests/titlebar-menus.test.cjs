@@ -132,7 +132,8 @@ test('플로팅 바엔 손잡이 + 칠하기·브러쉬·이동(아이콘 + 글�
   for (const id of ['tbGrip', 'mPaint', 'mBrush', 'mMove']) assert.match(topbar, new RegExp(`id="${id}"`));
   for (const id of ['mPaint', 'mBrush', 'mMove']) assert.match(topbar, new RegExp(`<button id="${id}"[^>]*><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor"`), id + ' 아이콘');
   assert.doesNotMatch(topbar, /menuBtn|id="(undo|redo|tlToggle|aeSend|zoomV|theme|tourBtn|noticeBtn|helperBtn)"/);
-  assert.match(html, /\.topbar \{[^}]*padding: 0; z-index: 10; overflow: hidden;/);
+  assert.match(html, /\.topbar \{[^}]*padding: 4px; z-index: 10;/);
+  assert.match(html, /\.topbar \.mode \{ display: grid; grid-template-columns: repeat\(3, 1fr\);/, '세 버튼 같은 폭');
 });
 
 test('옮긴 요소는 하나씩만 있다(복제 금지)', () => {

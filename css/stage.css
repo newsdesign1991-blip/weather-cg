@@ -111,19 +111,23 @@
     flex-wrap: wrap; row-gap: 6px;   /* 자리가 부족하면 버튼을 잘라 접지 말고 아래 줄로 흘린다 */
     /* 근무표 카드처럼 흰 카드 + 반사 테두리 + 부드러운 그림자로 바탕 위에 뜬다 */
     background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box; border: 1px solid transparent;
-    border-radius: 14px; padding: 0; z-index: 10; overflow: hidden; align-items: stretch;   /* 버튼이 바를 꽉 채운다(안쪽 여백 0 — 바 모서리로 잘림) */
+    border-radius: 14px; padding: 4px; z-index: 10;   /* 안쪽 4px 고르게 — 바 반경 14 = 버튼 반경 10 + 4 라 모서리가 나란하다 */
     box-shadow: var(--shadow-card); max-width: calc(100% - 32px);
   }
   /* 상단바 버튼 글자는 절대 줄바꿈하지 않는다 — 사이드바를 키워 좁아져도 '영상으로 추/출'처럼 안 쪼개지게 */
   .topbar button { white-space: nowrap; flex: none; }
   .topbar .sep { width: 1px; height: 18px; background: var(--outline-var); }
-  /* 모드 묶음(칠하기·브러쉬·이동) — 바 높이를 꽉 채우는 세그먼트, 아이콘 + 글자. 묶음 테두리 없이 바 테두리가 곧 외곽 */
-  .topbar .mode { border: 0; border-radius: 0; align-self: stretch; }
-  .topbar .mode button { height: 38px; padding: 0 15px; display: inline-flex; align-items: center; gap: 6px; background: none; font-weight: 600; }
+  /* 모드 묶음(칠하기·브러쉬·이동) — iOS 세그먼트처럼: 세 버튼 같은 폭(grid 1fr), 묶음 테두리 없이 바를 채우고, 고른 것만 파란 알약(반경 10) */
+  .topbar .mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; border: 0; border-radius: 0; overflow: visible; }
+  .topbar .mode button { height: 34px; min-width: 84px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: 10px; background: none; box-shadow: none; color: var(--on-surface); font-weight: 600; transition: background .15s, color .15s; }
   .topbar .mode button:hover:not(.on) { background: var(--state-hover); }
-  .topbar .mode button.on { background: var(--accent-grad, var(--primary)); color: var(--on-primary); }
+  .topbar .mode button.on { background: var(--accent-grad, var(--primary)); color: var(--on-primary); box-shadow: 0 3px 10px -4px rgba(49,130,246,.6); }
   .topbar .mode button svg { width: 15px; height: 15px; flex: none; display: block; }
-  .topbar .tbGrip { width: 18px; border-radius: 0; background-position: 7px 13px; }
+  /* 손잡이 — 점 2열 × 3줄만 가운데(내용 칸에만 무늬: padding + background-clip), 올리면 진해짐 */
+  .topbar .tbGrip { width: 14px; height: 34px; align-self: center; padding: 9px 2px; border-radius: 8px; margin: 0 2px 0 1px;
+    background: radial-gradient(circle, var(--on-surface-var) 1.05px, transparent 1.6px) 50% 50% / 5px 5px content-box; opacity: .55; }
+  .topbar .tbGrip:hover { opacity: 1; background-color: transparent; }
   /* 툴바를 좌우로 끌어 옮기는 손잡이 */
   .tbGrip {
     width: 14px; align-self: stretch; flex: none; cursor: grab; border-radius: 6px;
