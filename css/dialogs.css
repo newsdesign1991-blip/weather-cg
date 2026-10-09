@@ -56,8 +56,8 @@
      서태평양(한국 쪽) 묶음이 먼저, 다른 해역은 아래(칩을 회색으로). 없음·실패는 같은 자리에 안내 상자(.jtwcMsg — 결과 카드 색 규칙) */
   .jtwcList { display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
   #typLoadOv { z-index: 125; }
-  .typLoadCard { width: min(680px, 100%); }   /* 10-09 사용자: 전체적으로 조금 작게(약 88%) */
-  #typLoadOv.has-results .typLoadCard { width: min(1120px, 100%); }
+  .typLoadCard { width: min(540px, 100%); }   /* 10-10 사용자: 가로가 쓸데없이 길다 → 680→540 (2분할은 아래 960) */
+  #typLoadOv.has-results .typLoadCard { width: min(960px, 100%); }
   .typLoadBody { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px; }
   #typLoadOv.has-results .typLoadBody { grid-template-columns: minmax(300px, .9fr) minmax(340px, 1.1fr); }
   .typLoadPane { min-width: 0; padding: 16px; border: 1px solid var(--outline-var); border-radius: 16px; background: var(--surface); }
