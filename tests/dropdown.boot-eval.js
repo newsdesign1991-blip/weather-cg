@@ -1,5 +1,5 @@
 // boot-check --eval 용 본문(async 함수 본문, return 으로 결과). tests/dropdown.test.cjs 가 WCG_BOOT_CHECK=1 일 때 돌린다(일회용 점검 프로필 — 사용자 작업 아님).
-// 드롭다운(js/dropdown.js) 실제 흐름: 모든 select가 숨고 옆에 칸이 붙었는가 → 타임라인 fps(#tlFps — 도구 줄, 목록이 위로)·통보문 날짜(#bulPick — 사이드바 배율)·
+// 드롭다운(js/dropdown.js) 실제 흐름: 모든 select가 숨고 옆에 칸이 붙었는가 → 타임라인 fps(#tlFps — 도구 줄, 목록이 위로)·사이드바 시험 select(배율)·
 // 태풍 비교 카드 이름표 글꼴(다시 그린 카드)·토스 모달 안 select(optgroup·막힌 항목·겹침)에서 열기·키·고르기(input·change 1번씩 → 기존 리스너)·Esc·바깥 닫기,
 // 코드가 value·selectedIndex·옵션·disabled·숨김을 바꾸면 칸이 따라가는가.
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -79,16 +79,26 @@ try {
   fps.value = fps0; fps.dispatchEvent(new Event('change', { bubbles: true }));
   $('#tlClose').click(); await sleep(300);
 
-  // 2) 통보문 날짜(#bulPick) — 예보 지도(시군구)의 사이드바: 배율(zoom)을 카드가 따르고, 칸 아래로 열림. 고르면 기존 리스너(bulPickFill)가 붙여넣기 칸을 채움
+  // 2) 사이드바 드롭다운 시험용 칸 — 통보문은 펼친 목록으로 바뀌었으므로 같은 자리에 시험 select를 둔다.
   await scene('sgg');
   revealSec('fct'); await sleep(700);
+  const probeRow = document.createElement('div'); probeRow.className = 'row';
+  const probe = document.createElement('select'); probe.id = 'ddSidebarProbe'; probe.style.flex = '1';
+  probeRow.append(probe); $('#bulResult').after(probeRow);
+  const fillProbe = (gs) => {
+    probe.textContent = '';
+    bulPickItems(gs).forEach((it, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = it.label; o.dataset.text = bulGroupText(it.groups); probe.append(o); });
+    probe.value = '0'; probeRow.style.display = '';
+    $('#bulPaste').value = probe.selectedOptions[0].dataset.text;
+  };
+  probe.onchange = () => { $('#bulPaste').value = probe.selectedOptions[0].dataset.text; };
   const groups = [
     { kind: 'rain', when: '10일', body: ['서울.인천.경기: 5~10mm'] },
     { kind: 'shower', when: '10일', body: ['강원영서: 5~20mm'] },
     { kind: 'rain', when: '11일 오전', body: ['충청권: 10~40mm'] },
   ];
-  bulFillPick(groups); await sleep(150);
-  const bp = $('#bulPick'), bf = bp._dd.field, bpEv = counter(bp);
+  fillProbe(groups); await sleep(150);
+  const bp = probe, bf = bp._dd.field, bpEv = counter(bp);
   settle(); bf.scrollIntoView({ block: 'center', behavior: 'instant' }); await sleep(400); settle();
   R.bulStart = { field: cur(bp), opts: bp.options.length, shown: !bf.hidden && bf.getClientRects().length > 0, paste: $('#bulPaste').value.split('\n')[0] };
   bf.click(); await sleep(300);
@@ -109,7 +119,7 @@ try {
   R.bulClose = { esc: escR, outside: outR, toggle: !pop(), change: bpEv.change };
   // 옵션 다시 채우기(MutationObserver) — 다른 통보문 → 글자·폭 갱신, 열린 채 바뀌어도 목록이 따라감
   bf.click(); await sleep(250);
-  bulFillPick([{ kind: 'rain', when: '12일', body: ['제주도: 5~10mm'] }, { kind: 'snow', when: '13일', body: ['강원산지: 1~5cm'] }]); await sleep(120);
+  fillProbe([{ kind: 'rain', when: '12일', body: ['제주도: 5~10mm'] }, { kind: 'snow', when: '13일', body: ['강원산지: 1~5cm'] }]); await sleep(120);
   R.bulRefill = { field: cur(bp), rows: rows().map((r) => r.textContent), stillOpen: !!pop() };
   key(bf, 'Escape'); await sleep(200);
   // 막기·숨기기 — select.disabled / style.display / 줄 숨김
@@ -118,8 +128,9 @@ try {
   bp.disabled = false; bp.style.display = 'none'; await sleep(60);
   const hid = bf.hidden && !bf.getClientRects().length;
   bp.style.display = ''; await sleep(60);
-  bulResetPick(); await sleep(80);
-  R.bulState = { dis, hid, back: !bf.hidden, reset: { rowHidden: $('#bulPickRow').style.display === 'none', field: cur(bp), visible: bf.getClientRects().length > 0 } };
+  probe.textContent = ''; probeRow.style.display = 'none'; await sleep(80);
+  R.bulState = { dis, hid, back: !bf.hidden, reset: { rowHidden: probeRow.style.display === 'none', field: cur(bp), visible: bf.getClientRects().length > 0 } };
+  probeRow.remove();
 
   // 3) 토스 모달 안 select(나중에 생긴 칸 — boot 관찰자) — optgroup 제목·막힌 항목 건너뛰기·모달 위 겹침, Esc는 목록만 닫음
   tossModal({ title: '드롭다운 점검', bodyHTML: '<div class="row"><label for="ddProbe">고르기</label><select id="ddProbe"><optgroup label="첫 묶음"><option value="a">하나</option><option value="b" disabled>둘</option></optgroup><optgroup label="둘째 묶음"><option value="c">셋</option><option value="d">넷</option></optgroup></select></div>' });

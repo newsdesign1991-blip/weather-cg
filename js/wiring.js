@@ -301,9 +301,9 @@ function wire() {
   $('#fctApply').onclick = () => applyFct($('#fctPaste').value);
   $('#bulApply').onclick = () => applyBulletin($('#bulPaste').value);
   foldWire($('#bulManual'), 'wcg_bul_manual_open');
-  // 통보문 불러오기·날짜 고르기·통째 붙여넣기·데스크톱 날씨누리 창 읽기 (js/bulletin-load.js)
+  // 통보문 불러오기·묶음 선택 후 바로 칠하기·통째 붙여넣기·데스크톱 날씨누리 창 읽기
   $('#bulLoad').onclick = () => fetchBulletin();
-  $('#bulPick').onchange = (e) => bulPickFill(e.target.value);
+  $('#bulPaintPick').onclick = bulPaintPick;
   $('#bulPaste').onpaste = bulOnPaste;
   if (bulHasWnd()) {   // 데스크톱(새 판): '단기예보 열기'를 앱 안 창으로 — 뜰 때마다 통보문을 읽어 온다
     const a = $('#bulOpen');

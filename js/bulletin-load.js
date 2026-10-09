@@ -160,10 +160,9 @@ function bulResultView(r) {
     const head = r.src === 'paste' ? '붙여넣은 글에서 찾음' : r.src === 'wnd' ? '날씨누리 창에서 읽음' : '불러오기 완료';
     // 항목 이름('10일 · 비')은 줄바꿈으로 갈라지지 않게 붙인다
     const title = `${head} — ${r.n > 1 ? `${r.n}묶음` : String(r.label || '').replace(/ /g, ' ')}`;
-    // 여럿이면 고른 항목은 '날짜' 칸이 보여 준다(카드에 적으면 고를 때마다 낡는다)
-    const lines = [r.n > 1 ? '날짜를 고른 뒤 ‘수동으로 색칠’을 펼쳐 내용을 확인하고 색칠하세요.' : '‘수동으로 색칠’을 펼쳐 내용을 확인하고 ‘통보문으로 색칠’을 누르세요.'];
+    const lines = ['아래 목록에서 묶음을 고르고 ‘선택한 묶음 칠하기’를 누르세요.'];
     if (r.snowOnly) lines.push('적설(cm)만 있어요 — 눈 색 단계로 칠하고 제목을 ‘예상 적설량’으로 바꿔요.');
-    else if (r.snowN) lines.push(`적설 묶음 ${r.snowN}개 — 날짜 칸에서 ‘적설’을 고르면 눈 색으로 칠해요.`);
+    else if (r.snowN) lines.push(`적설 묶음 ${r.snowN}개 — 목록에서 ‘적설’을 고르면 눈 색으로 칠해요.`);
     if (r.dropped) lines.push(`묶음에 못 넣은 강수량 줄 ${r.dropped}개가 있어요 — 원문과 칸을 견줘 보세요.`);   // 말없이 빠지는 줄이 없게
     return { tone: 'ok', title, meta, lines, detail: '', actions: [], toast: title };
   }
@@ -201,7 +200,8 @@ function bulResultView(r) {
 }
 
 // ===================== 통보문 불러오기 — 화면 =====================
-let bulPickList = [];   // '날짜' 고르기 항목(bulPickItems) — 고르면 그 묶음 글을 붙여넣기 칸에 채운다
+let bulPickList = [];   // 원문 순서의 묶음 + 같은 날 비·소나기 합치기 항목
+let bulPickIndex = -1;  // 자동 칠하기는 선택한 원문 묶음을 사용(수동 입력 칸과 분리)
 let bulFetchSeq = 0;    // 불러오기 차례 번호 — 겹치면 마지막 것만(붙여넣기·창 읽기도 올려서 늦게 온 불러오기가 덮지 않게)
 let bulWaitWnd = false; // 결과 카드가 날씨누리 창을 기다리는 중 — 창을 그냥 닫으면 카드를 치운다
 let bulFilled = '';     // 고르기로 붙여넣기 칸에 마지막으로 채운 글 — 칸이 아직 이 글이면(손대지 않음) '없음'을 받았을 때 비운다
@@ -249,35 +249,53 @@ function bulFxOff() { if (bulLoadFx) { fxBusy(bulLoadFx, false); bulLoadFx = nul
 // 오류(칸·지도 그대로)에는 부르지 않는다.
 function bulArriveFx(filled) {
   const row = $('#bulPickRow');
-  fxArrive([fxSec('fct'), $('#bulResult'), filled && row && row.style.display !== 'none' ? row : null, filled ? $('#bulPaste') : null]);
+  fxArrive([fxSec('fct'), $('#bulResult'), filled && row && row.style.display !== 'none' ? row : null]);
 }
 
-// 고르기 채우기 — 항목이 둘 이상이면 '날짜' 줄을 보이고, 처음 항목(적설 아닌 첫 묶음)을 칸에 채운다. 채운 항목을 돌려준다.
+// 한 묶음이어도 목록·칠하기를 보여 준다. 선택만으로 지도를 바꾸지는 않는다.
 function bulFillPick(groups) {
   bulPickList = bulPickItems(groups);
+  bulPickIndex = -1;
   const sel = $('#bulPick'), row = $('#bulPickRow');
   sel.textContent = '';
   bulPickList.forEach((it, i) => {
-    const o = document.createElement('option');
-    o.value = String(i); o.textContent = it.label + (it.n ? ` · 지역 ${it.n}곳` : '');
-    sel.append(o);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'bulChoice'; b.setAttribute('aria-pressed', 'false');
+    const label = document.createElement('span');
+    label.className = 'bulChoiceName'; label.textContent = it.label;
+    const detail = document.createElement('span');
+    detail.className = 'bulChoiceMeta'; detail.textContent = it.n ? `지역 ${it.n}곳` : '지역 정보 확인';
+    b.append(label, detail);
+    b.onclick = () => bulPickFill(i);
+    sel.append(b);
   });
   const d = bulPickDefault(bulPickList, S.bulKind);
-  sel.value = String(d);
-  row.style.display = bulPickList.length > 1 ? '' : 'none';
+  row.style.display = bulPickList.length ? '' : 'none';
+  $('#bulPaintPick').disabled = !bulPickList.length;
   bulPickFill(d);
   return bulPickList[d];
 }
-// 고른 항목의 글을 붙여넣기 칸에 넣는다(미리보기 — 칠하기는 '통보문으로 색칠'). 고쳐서 칠할 수 있게 칸은 그대로 편집 가능.
+// 원문은 수동 수정할 수도 있게 칸에 복사하되, 자동 칠하기는 그 칸의 편집 여부에 영향받지 않는다.
 function bulPickFill(i) {
-  const it = bulPickList[+i]; if (!it) return;
+  const it = bulPickList[+i]; if (!Number.isInteger(+i) || !it) return;
+  bulPickIndex = +i;
+  Array.from($('#bulPick').children).forEach((b, k) => b.setAttribute('aria-pressed', String(k === bulPickIndex)));
+  $('#bulPaintPick').disabled = false;
+  $('#bulPaintPick').title = `${it.label} 칠하기`;
   $('#bulPaste').value = bulFilled = bulGroupText(it.groups);
+}
+function bulPaintPick() {
+  const it = bulPickList[bulPickIndex]; if (!it) return;
+  applyBulletin(bulGroupText(it.groups));
+  fxArrive(['#bulPaintPick']);
 }
 // 고르기 비우기(다른 작업을 열 때·묶음이 없는 통보문을 받았을 때). card=true면 결과 카드도 치우고 진행 중인 불러오기를 버린다.
 function bulResetPick(card) {
   bulPickList = [];
+  bulPickIndex = -1;
   const sel = $('#bulPick'); if (sel) sel.textContent = '';
   const row = $('#bulPickRow'); if (row) row.style.display = 'none';
+  const apply = $('#bulPaintPick'); if (apply) { apply.disabled = true; apply.title = ''; }
   if (card) { bulFetchSeq++; showBulResult(null); }
 }
 // 판정(bulReadPage) → 화면. 묶음이 있으면 고르기·칸 채우기, 없음·오류면 카드만(오류일 땐 칸·고르기를 그대로 둔다).

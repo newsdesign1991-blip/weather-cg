@@ -129,7 +129,7 @@
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
 <link rel="stylesheet" href="css/dialogs.css?v=7882d9b9">
-<link rel="stylesheet" href="css/panel-misc.css?v=4c67cdc4">
+<link rel="stylesheet" href="css/panel-misc.css?v=df9eac86">
 <link rel="stylesheet" href="css/data-maps.css?v=11a3cd7a">
 <link rel="stylesheet" href="css/toss-modal.css?v=140bb66f">
 <link rel="stylesheet" href="css/dropdown.css?v=fba3cc7e">
@@ -600,7 +600,15 @@
         <div class="bulBox">
           <div class="btns" style="margin:0"><button class="pri" id="bulLoad" style="flex:1" title="기상청 최신 단기예보 통보문의 예상 강수량을 날짜별로 가져와요">통보문 불러오기</button></div>
           <div class="wrnRes" id="bulResult" role="status" aria-live="polite" hidden></div>
-          <div class="row" id="bulPickRow" style="display:none;margin:8px 0 0"><label>날짜</label><select id="bulPick" style="flex:1" title="가져올 날짜 — 고르면 아래 칸에 채워져요"></select></div>
+          <div id="bulPickRow" style="display:none">
+            <div class="subhead">색칠할 묶음 선택</div>
+            <div class="bulChoices" id="bulPick" role="group" aria-label="통보문 묶음"></div>
+            <button type="button" class="pri bulPaintPick" id="bulPaintPick" disabled>선택한 묶음 칠하기</button>
+          </div>
+        </div>
+        <div class="bulOptions">
+          <label class="chk"><input type="checkbox" id="bulLabels" checked><span>숫자 라벨도 만들기 <span style="opacity:.6">(지역명은 수치 라벨에서)</span></span></label>
+          <label class="chk"><input type="checkbox" id="bulSoft">부드러운 경계 (아사모사)</label>
         </div>
         <button type="button" class="subhead subFoldHead" id="bulManualHead" aria-expanded="false" aria-controls="bulManual">수동으로 색칠 <span>· 통보문 붙여넣기</span></button>
         <div class="subFold closed" id="bulManual">
@@ -612,10 +620,6 @@
             <button type="button" id="bulHelpBtn" title="통보문에서 복사할 부분을 그림으로 보기">복사할 부분 보기</button>
           </div>
           <textarea id="bulPaste" rows="5" placeholder="- (수도권, 16일) 경기남서부: 5mm 안팎&#10;- (충청권) 대전.세종.충남, 충북: 20~60mm&#10;- (전라권) 전북, 광주.전남: 30~80mm&#10;..."></textarea>
-          <div class="btns" style="margin:6px 0; flex-direction:column; align-items:stretch; gap:5px">
-            <label class="chk"><input type="checkbox" id="bulLabels" checked><span>숫자 라벨도 만들기 <span style="opacity:.6">(지역명은 수치 라벨에서)</span></span></label>
-            <label class="chk"><input type="checkbox" id="bulSoft">부드러운 경계 (아사모사)</label>
-          </div>
           <div class="btns" style="margin-bottom:2px"><button class="pri" id="bulApply">통보문으로 색칠</button></div>
         </div>
         </div>
@@ -1542,7 +1546,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/warnings.js?v=c48fe730"></script>
 <script src="js/warnings-apply.js?v=580d7788"></script>
 <script src="js/bulletin.js?v=24dd3e7b"></script>
-<script src="js/bulletin-load.js?v=8a74ec98"></script>
+<script src="js/bulletin-load.js?v=c51ec200"></script>
 <script src="js/forecast-panel.js?v=2b7687d6"></script>
 <script src="js/warnings-load.js?v=85869e98"></script>
 <script src="js/data-maps.js?v=004fb23c"></script>
@@ -1560,7 +1564,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/ae-export.js?v=e88d4304"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=a8413164"></script>
-<script src="js/wiring.js?v=1d9def53"></script>
+<script src="js/wiring.js?v=1b1fd6f1"></script>
 <script src="js/anim.js?v=3f7ec170"></script>
 <script src="js/timeline-plan.js?v=d051c4b7"></script>
 <script src="js/timeline-ui.js?v=8c3c0a46"></script>

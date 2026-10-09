@@ -2,8 +2,8 @@
 const q=s=>document.querySelector(s), check=(v,m)=>{if(!v)throw new Error(m);};
 closeTossModal(); closeCgSetup(); revealSec('fct');
 check(q('#bulManual').classList.contains('closed'),'manual section must start collapsed');
-for(const id of ['bulLoad','bulResult','bulPick','bulInfo','bulList'])check(!q('#'+id).closest('#bulManual'),id+' must stay outside manual');
-for(const id of ['bulOpen','bulHelpBtn','bulPaste','bulLabels','bulSoft','bulApply'])check(q('#'+id).closest('#bulManual'),id+' must be manual');
+for(const id of ['bulLoad','bulResult','bulPick','bulPaintPick','bulLabels','bulSoft','bulInfo','bulList'])check(!q('#'+id).closest('#bulManual'),id+' must stay outside manual');
+for(const id of ['bulOpen','bulHelpBtn','bulPaste','bulApply'])check(q('#'+id).closest('#bulManual'),id+' must be manual');
 q('#bulManualHead').click();check(q('#bulManualHead').getAttribute('aria-expanded')==='true','cannot open manual');
 q('#bulPaste').value='- (수도권) 서울: 5~10mm';
 q('#bulManualHead').click();check(q('#bulManual').classList.contains('closed'),'cannot close manual');

@@ -330,7 +330,8 @@ test('결과 카드 문구 — 정상 없음은 초록(오류 아님), 오류는
   assert.equal(ok.tone, 'ok');
   assert.equal(ok.title, '불러오기 완료 — 3묶음');
   assert.equal(ok.meta, '6월 17일 17:00 발표 · 전국');
-  assert.match(ok.lines[0], /날짜를 고른 뒤.*수동으로 색칠/);
+  assert.match(ok.lines[0], /목록에서 묶음을 고르고.*선택한 묶음 칠하기/);
+  assert.doesNotMatch(ok.lines.join(' '), /수동으로/);
   assert.equal(plain(bulResultView({ kind: 'ok', src: 'fetch', n: 1, label: '10일 · 비' })).title, '불러오기 완료 — 10일\u00a0·\u00a0비');   // 항목 이름은 줄바꿈 안 되게
   assert.match(bulResultView({ kind: 'ok', src: 'paste', n: 2, label: 'x' }).title, /^붙여넣은 글에서 찾음/);
   assert.match(bulResultView({ kind: 'ok', src: 'wnd', n: 2, label: 'x' }).title, /^날씨누리 창에서 읽음/);
@@ -367,11 +368,13 @@ test('결과 카드 문구 — 정상 없음은 초록(오류 아님), 오류는
 test('화면 배선 — 불러오기 버튼·날짜 고르기·결과 카드·붙여넣기·데스크톱 창', () => {
   assert.match(html, /<button class="pri" id="bulLoad"[^>]*>통보문 불러오기<\/button>/);
   assert.match(html, /<div class="wrnRes" id="bulResult" role="status" aria-live="polite" hidden><\/div>/);
-  assert.match(html, /id="bulPickRow" style="display:none[^"]*"><label>날짜<\/label><select id="bulPick"/);
+  assert.match(html, /id="bulPick" role="group" aria-label="통보문 묶음"/);
+  assert.doesNotMatch(html, /<select[^>]*id="bulPick"/);
+  assert.match(html, /id="bulPaintPick" disabled>선택한 묶음 칠하기/);
   assert.match(html, /<a class="btn linkBtn" id="bulOpen" href="https:\/\/www\.weather\.go\.kr\/w\/forecast\/overall\/short-term\.do"/);
   const wire = sliceBetween('function wire() {', '\n}\n');
   assert.match(wire, /\$\('#bulLoad'\)\.onclick = \(\) => fetchBulletin\(\);/);
-  assert.match(wire, /\$\('#bulPick'\)\.onchange = \(e\) => bulPickFill\(e\.target\.value\);/);
+  assert.match(wire, /\$\('#bulPaintPick'\)\.onclick = bulPaintPick;/);
   assert.match(wire, /\$\('#bulPaste'\)\.onpaste = bulOnPaste;/);
   assert.match(wire, /window\.wcgDesktop\.onWnuri\(bulFromWnuri\)/);
   // 불러오기 주소: weather.go.kr 먼저, 허용 목록 밖(400)이면 kma.go.kr(302 경유)
@@ -380,6 +383,43 @@ test('화면 배선 — 불러오기 버튼·날짜 고르기·결과 카드·�
   assert.match(html, /const BUL_PAGE_VIA = 'https:\/\/www\.kma\.go\.kr\/w\/forecast\/overall\/short-term\.do';/);
   // 다른 작업을 열면 고르기·카드도 비운다
   assert.match(sliceBetween('function resetWorkRuntime() {', '\n}\n'), /bulResetPick\(true\);/);
+});
+
+test('펼친 묶음 목록 — 순서·단일 선택·자동 칠하기와 수동 입력 분리·비우기', () => {
+  const elem = () => ({ children: [], attrs: {}, style: {}, value: '', disabled: false,
+    set textContent(v) { this.text = v; this.children = []; }, get textContent() { return this.text || ''; },
+    append(...nodes) { this.children.push(...nodes); }, setAttribute(k, v) { this.attrs[k] = v; } });
+  const dom = Object.fromEntries(['bulPick', 'bulPickRow', 'bulPaste', 'bulPaintPick'].map(id => ['#' + id, elem()]));
+  const painted = [], c = { ...ctx(), S: { bulKind: 'rain' }, document: { createElement: elem },
+    $: id => dom[id], applyBulletin: txt => painted.push(txt), fxArrive() {}, showBulResult() {} };
+  vm.createContext(c);
+  vm.runInContext('let bulPickList = [], bulPickIndex = -1, bulFilled = "", bulFetchSeq = 0;\n' +
+    ['bulFillPick', 'bulPickFill', 'bulPaintPick', 'bulResetPick'].map(n => sliceBetween('function ' + n + '(', '\n}\n') + '\n}').join('\n'), c);
+  const gs = [{ kind: 'rain', when: '10일', body: ['서울: 5~10mm'] }, { kind: 'rain', when: '11일', body: ['제주도: 20~40mm'] }];
+  c.bulFillPick(gs);
+  const buttons = dom['#bulPick'].children;
+  assert.deepEqual(buttons.map(b => b.children[0].textContent), ['10일 · 비', '11일 · 비']);
+  assert.deepEqual(buttons.map(b => b.attrs['aria-pressed']), ['true', 'false']);
+  buttons[1].onclick();
+  assert.deepEqual(buttons.map(b => b.attrs['aria-pressed']), ['false', 'true']);
+  assert.equal(painted.length, 0, '고르기만 하면 칠하지 않음');
+  dom['#bulPaste'].value = '사용자가 직접 수정한 글';
+  c.bulPaintPick();
+  assert.match(painted[0], /제주도: 20~40mm/);
+  assert.doesNotMatch(painted[0], /직접 수정|서울/);
+  c.bulFillPick(gs.slice(0, 1));
+  assert.equal(dom['#bulPickRow'].style.display, '', '한 묶음도 바로 칠하기 제공');
+  assert.equal(dom['#bulPaintPick'].disabled, false);
+  c.bulPickFill(9); c.bulPaintPick();
+  assert.match(painted[1], /서울: 5~10mm/, '잘못된 번호는 기존 선택 유지');
+  c.bulResetPick(); c.bulPaintPick();
+  assert.equal(painted.length, 2);
+  assert.equal(dom['#bulPick'].children.length, 0);
+  assert.equal(dom['#bulPaintPick'].disabled, true);
+  assert.equal(dom['#bulPickRow'].style.display, 'none');
+  c.S.bulKind = 'snow';
+  c.bulFillPick([...gs, {kind: 'snow', when: '12일', body: ['강원산지: 3~8cm']}]);
+  assert.deepEqual(dom['#bulPick'].children.map(b => b.attrs['aria-pressed']), ['false', 'false', 'true']);
 });
 
 test('데스크톱 날씨누리 창 — 메인 창만 열 수 있고, 날씨누리·기상청 https 안에서만, 권한·내려받기 막음', () => {

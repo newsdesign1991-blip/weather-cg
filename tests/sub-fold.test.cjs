@@ -54,8 +54,8 @@ test('마크업 — 특보 수동 붙여넣기는 기본 접힘(예보 API 묶�
   for (const id of ['typOpen', 'typPaste', 'typPasteApply']) assert.match(typ, new RegExp(`id="${id}"`), `${id}는 접힌 묶음 안`);
   assert.match(typ, /<div class="subFoldBox">/);
   const bul = divOuter('bulManual');
-  for (const id of ['bulOpen', 'bulHelpBtn', 'bulPaste', 'bulLabels', 'bulSoft', 'bulApply']) assert.match(bul, new RegExp(`id="${id}"`));
-  for (const id of ['bulLoad', 'bulResult', 'bulPick', 'bulInfo', 'bulList']) assert.doesNotMatch(bul, new RegExp(`id="${id}"`));
+  for (const id of ['bulOpen', 'bulHelpBtn', 'bulPaste', 'bulApply']) assert.match(bul, new RegExp(`id="${id}"`));
+  for (const id of ['bulLoad', 'bulResult', 'bulPick', 'bulPaintPick', 'bulLabels', 'bulSoft', 'bulInfo', 'bulList']) assert.doesNotMatch(bul, new RegExp(`id="${id}"`));
   assert.doesNotMatch(html, /<div class="subhead" style="margin-top:0">자동이 안 될 때 · 수동 붙여넣기<\/div>/);
   assert.match(html, /<button class="pri" id="wrnFetch"[^>]*>기상청에서 불러오기<\/button><button id="wrnClear"[^>]*>특보 색 지우기<\/button>/);
   // 결과 카드는 묶음 위(실패 카드 바로 아래에서 펼쳐진다), 특보 목록은 묶음 아래

@@ -8,6 +8,25 @@
     border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--outline-var));
   }
   .bulBox .hint code { background: var(--surface); }
+  .bulChoices { display: grid; gap: 7px; }
+  .bulChoices .bulChoice {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; width: 100%; min-width: 0;
+    padding: 10px 12px; text-align: left; white-space: normal; height: auto;
+    background: var(--surface-c); color: var(--on-surface); border: 1px solid var(--outline-var);
+    border-radius: 10px; box-shadow: none; transition: background .15s, border-color .15s;
+  }
+  .bulChoices .bulChoice:hover { background: var(--btn-hover); border-color: var(--primary); }
+  .bulChoices .bulChoice[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--primary) 15%, var(--surface-c));
+    border-color: var(--primary); color: var(--on-surface); box-shadow: inset 0 0 0 1px var(--primary);
+  }
+  .bulChoice::after { content: ''; grid-column: 2; grid-row: 1 / 3; align-self: center; width: 17px; height: 17px; border: 1.5px solid var(--outline); border-radius: 50%; }
+  .bulChoice[aria-pressed="true"]::after { content: '✓'; background: var(--primary); border-color: var(--primary); color: var(--on-primary); text-align: center; font-size: 12px; line-height: 15px; }
+  .bulChoiceName { font-weight: 700; overflow-wrap: anywhere; }
+  .bulChoiceMeta { grid-column: 1; color: var(--on-surface-var); font-size: 11px; font-weight: 400; }
+  .bulChoice:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .bulPaintPick { width: 100%; margin-top: 10px; }
+  .bulOptions { display: grid; gap: 6px; margin: 12px 0; }
   /* 기상청 예보 API 박스 — 통보문(파랑 계열)과 성격이 다름을 배경색으로 확실히 구분(예보 전용색).
      접이식 묶음 안 상자(.subFoldBox — 특보 '자동이 안 될 때')도 같은 모양 */
   .fctBox, .subFoldBox {
