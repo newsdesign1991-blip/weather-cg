@@ -119,6 +119,17 @@
     --pop-x-bg: rgba(255,255,255,.55); --pop-x-line: rgba(255,255,255,.65); --pop-x-hover: rgba(255,255,255,.92);
     --pop-muted: #64748b; --pop-label: #3182f6;
   }
+  /* ===== 날짜 고르기(js/date-picker.js) — 근무표 nd-cal 달력 색: 강조 파랑 2단(고른 날 원), 일=빨강·토=파랑 글자, 휠 가운데 띠 ===== */
+  :root, :root[data-theme="dark"] {
+    --dp-acc: #4c93ff; --dp-acc2: #2f6fe0;
+    --dp-sun: #ff7b7b; --dp-sat: #6aa8ff;
+    --dp-band: rgba(255,255,255,.09);
+  }
+  :root[data-theme="light"] {
+    --dp-acc: #3182f6; --dp-acc2: #2f6fe0;
+    --dp-sun: #e5484d; --dp-sat: #3b82f6;
+    --dp-band: rgba(15,23,42,.06);
+  }
   /* 열기·닫기 움직임 — 근무표 ndModalFade/ndModalPop(.32·.46초) · 닫힘 ndModalPopOut(.34초)과 같은 값 */
   @keyframes popOvIn { from { opacity: 0; } }
   @keyframes popOvOut { to { opacity: 0; } }

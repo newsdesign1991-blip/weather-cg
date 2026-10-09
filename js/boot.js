@@ -53,6 +53,7 @@ buildPalette();
 buildSwapBtns();
 buildInsetPanel(); // 인셋 입력칸을 먼저 만들어야 syncPanelFromState가 채울 수 있다
 wire();
+dpAttachAll();   // 시스템 날짜·시각 칸(특보·예보 지난 날짜, 과거 태풍) → 근무표식 달력·시각 칸(js/date-picker.js) — 원래 input은 숨긴 채 값 그대로
 loadLayout();   // wire() 뒤라야 한다 — 창으로 옮겨도 핸들러가 이미 붙어 있어야 안 끊긴다
 setupMenus();   // 추출·프로젝트를 상단 메뉴바 드롭다운으로 (loadLayout 뒤 — 사이드바에서 빼내야 하니)
 setupStartScreen();   // 처음 켰으면 빈 화면 + CG 종류·지도 종류 선택 안내(CG 구성 열기)

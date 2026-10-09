@@ -1,0 +1,133 @@
+/* [모듈] css/date-picker.css — 날짜 고르기(js/date-picker.js): 날짜 칸·근무표식 아이폰 달력 팝오버·iOS식 연월 휠(scroll-snap)·시각 직접 입력·자주 쓰는 시각 */
+  /* ===== 날짜 고르기 — 근무표 nd-cal 달력을 사이드바 칸 + 팝오버로 =====
+     원래 <input type=date|time>은 숨기고(.dpSrc) 옆의 우리 칸이 그 값을 읽고 쓴다. 색은 base.css 토큰(--dp-* 두 테마)과 공통 토큰만.
+     팝오버는 몸통에 붙는 position: fixed(사이드바 밖으로 넘쳐도 보임) — 카드(.dpCard)가 칸의 배율(사이드바 zoom)을 따른다. */
+  .dpSrc { display: none !important; }
+  /* 날짜 칸 — 입력칸과 같은 높이·테두리, 글자 + 오른쪽 달력 아이콘 */
+  .dpField {
+    flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 5px; container-type: inline-size;
+    padding: 6px 7px 6px 8px; border: 1px solid var(--outline); border-radius: var(--ri);
+    background: var(--surface-field); color: var(--on-surface); font: inherit; font-weight: 600;
+    font-variant-numeric: tabular-nums; letter-spacing: -.01em; text-align: left; cursor: pointer;
+  }
+  .dpField:hover { background: var(--surface-field); border-color: color-mix(in srgb, var(--dp-acc) 55%, var(--outline)); }
+  .dpField.on, .dpField:focus-visible { outline: none; border-color: var(--dp-acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dp-acc) 16%, transparent); }
+  .dpFieldTx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dpField.empty .dpFieldTx { color: var(--on-surface-var); font-weight: 500; }
+  .dpFieldIco { flex: none; width: 14px; height: 14px; color: var(--dp-acc); }
+  @container (max-width: 116px) { .dpFtW { display: none; } }   /* 좁으면 요일만 숨김(날짜는 그대로) */
+  .dpField:disabled { opacity: .45; cursor: default; }
+
+  /* ===== 팝오버 카드 — 반사 테두리 둥근 카드(드롭다운과 같은 그림자) ===== */
+  .dpPop { position: fixed; left: 0; top: 0; z-index: 65; transform-origin: top left; }
+  .dpPop.up { transform-origin: bottom left; }
+  .dpPop.closing { pointer-events: none; }
+  .dpCard {
+    width: 276px; padding: 12px 12px 10px; box-sizing: border-box; outline: none;
+    border: 1px solid transparent; border-radius: 20px;
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box;
+    box-shadow: var(--pop-drop-shadow); color: var(--on-surface);
+    font-family: var(--ui-font); font-size: 12px; letter-spacing: -.01em; user-select: none;
+  }
+  .dpCard button { font-family: inherit; min-height: 0; margin: 0; box-shadow: none; }
+  .dpHead { display: flex; align-items: center; justify-content: space-between; margin: 0 0 4px; }
+  /* 제목 'YYYY년 M월 >' — 누르면 꺾쇠가 아래로 돌고 글자가 파랑(휠이 열림) */
+  .dpCard .dpTitle {
+    display: inline-flex; align-items: center; gap: 3px; padding: 5px 6px 5px 8px; border: 0; border-radius: 10px;
+    background: none; font-size: 16px; font-weight: 800; letter-spacing: -.02em; color: var(--on-surface); cursor: pointer;
+    transition: color .2s;
+  }
+  .dpTitleChev { width: 15px; height: 15px; color: var(--dp-acc); transition: transform .3s cubic-bezier(.22,1,.36,1); }
+  .dpCard.wheelOn .dpTitle { color: var(--dp-acc); }
+  .dpCard.wheelOn .dpTitleChev { transform: rotate(90deg); }
+  .dpNav { display: flex; gap: 2px; transition: opacity .2s, visibility 0s; }
+  .dpCard.wheelOn .dpNav { opacity: 0; visibility: hidden; transition: opacity .2s, visibility 0s linear .2s; }   /* 휠일 때 < > 는 숨김(Tab도 안 감) */
+  .dpCard .dpNav button {
+    display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0;
+    border: 0; border-radius: 50%; background: none; color: var(--dp-acc); cursor: pointer;
+  }
+  .dpCard .dpNav button:disabled { color: var(--on-surface-var); opacity: .35; cursor: default; }
+  /* 몸통 = 달력(요일 26 + 6줄) 높이 고정 — 휠도 같은 자리(7줄)라 바꿔도 카드가 들썩이지 않는다 */
+  .dpBody { position: relative; height: 252px; }
+  .dpCal[hidden], .dpWheel[hidden] { display: none; }
+  .dpWeek, .dpGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); justify-items: center; }
+  .dpWeek { height: 26px; align-items: center; }
+  .dpWeek span { font-size: 11.5px; font-weight: 700; color: var(--on-surface-var); }
+  .dpWeek .sun, .dpCard .dpDay.sun { color: var(--dp-sun); }
+  .dpWeek .sat, .dpCard .dpDay.sat { color: var(--dp-sat); }
+  .dpGrid { grid-template-rows: repeat(6, 36px); row-gap: 2px; }
+  .dpCard .dpDay {
+    width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: none;
+    font-size: 14.5px; font-weight: 500; color: var(--on-surface); font-variant-numeric: tabular-nums; cursor: pointer;
+    transition: background .12s, transform .12s;
+  }
+  .dpCard .dpDay.is-today { box-shadow: inset 0 0 0 1.5px var(--dp-acc); font-weight: 800; }
+  .dpCard .dpDay.is-sel { background: linear-gradient(135deg, var(--dp-acc), var(--dp-acc2)); color: var(--on-primary); font-weight: 800; box-shadow: 0 5px 12px -5px var(--dp-acc); }
+  .dpCard .dpDay:disabled { color: var(--on-surface-var); opacity: .32; cursor: default; }
+  .dpCard .dpDay:not(:disabled):active { transform: scale(.92); }
+  .dpCard :is(.dpDay, .dpNav button, .dpTitle, .dpTodayBtn):focus-visible { outline: 2px solid var(--dp-acc); outline-offset: 2px; }
+  @media (hover: hover) {
+    .dpCard .dpDay:not(:disabled):not(.is-sel):hover { background: color-mix(in srgb, var(--dp-acc) 11%, transparent); }
+    .dpCard :is(.dpNav button, .dpTitle):not(:disabled):hover { background: color-mix(in srgb, var(--dp-acc) 9%, transparent); }
+  }
+  /* 아래 줄 — 고른 날 'M월 D일 (요일)'(파랑) + '오늘' 알약 */
+  .dpFoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 8px 2px 0 4px; border-top: 1px solid var(--outline-var); }
+  .dpSel { font-size: 13px; font-weight: 800; color: var(--dp-acc); }
+  .dpSel.empty { font-weight: 600; color: var(--on-surface-var); }
+  .dpCard .dpTodayBtn {
+    padding: 5px 13px; border: 1px solid var(--outline-var); border-radius: 999px; background: var(--surface-hi);
+    font-size: 12px; font-weight: 700; color: var(--on-surface); cursor: pointer;
+  }
+  .dpCard .dpTodayBtn:hover:not(:disabled) { background: var(--btn-hover); }
+
+  /* ===== iOS식 연·월 휠 — 두 열(해·달), 가운데 줄 강조 띠, 위아래로 흐려짐(mask), scroll-snap으로 가운데에 딱 멈춤 ===== */
+  .dpWheel {
+    position: absolute; inset: 0; display: grid; grid-template-columns: 1.3fr 1fr; gap: 4px; padding: 0 8px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 30%, black 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, black 30%, black 70%, transparent 100%);
+  }
+  .dpBand { position: absolute; left: 4px; right: 4px; top: calc(50% - 18px); height: 36px; border-radius: 10px; background: var(--dp-band); pointer-events: none; }
+  .dpCol {
+    position: relative; height: 252px; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory;
+    scrollbar-width: none; outline: none; cursor: grab; touch-action: pan-y;
+  }
+  .dpCol::-webkit-scrollbar { display: none; }
+  .dpCol.drag { scroll-snap-type: none; cursor: grabbing; }   /* 끄는 동안은 손을 따라 매끈하게(놓으면 가운데로 맞춤) */
+  .dpPadRow { height: 108px; }   /* (252 − 36) / 2 — 첫·끝 줄도 가운데에 온다 */
+  .dpItem {
+    height: 36px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center;
+    font-size: 17px; font-weight: 600; color: var(--on-surface); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+    backface-visibility: hidden; will-change: transform, opacity;
+  }
+  .dpItem.on { font-weight: 800; }
+  .dpItem.dis { color: var(--on-surface-var); }
+  .dpCol:focus-visible .dpItem.on { color: var(--dp-acc); }
+
+  /* ===== 시각 칸 — '시 : 분' 두 칸 직접 입력(근무표 ndTime 결, 사이드바 크기) ===== */
+  .dpTime {
+    flex: none; display: inline-flex; align-items: center; gap: 1px; padding: 5px 5px;
+    border: 1px solid var(--outline); border-radius: var(--ri); background: var(--surface-field); cursor: text;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .dpTime.on { border-color: var(--dp-acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dp-acc) 16%, transparent); }
+  .dpTime input.dpTH, .dpTime input.dpTM {
+    flex: none; width: 18px; height: 17px; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 4px;
+    background: transparent; box-shadow: none; outline: none; text-align: center;
+    font: inherit; font-size: 12.5px; font-weight: 800; color: var(--on-surface); font-variant-numeric: tabular-nums; caret-color: var(--dp-acc);
+  }
+  .dpTime input.dpTH:focus, .dpTime input.dpTM:focus { border: 0; box-shadow: none; background: color-mix(in srgb, var(--dp-acc) 14%, transparent); }
+  .dpTime input::placeholder { color: var(--on-surface-var); opacity: .6; font-weight: 600; }
+  .dpTColon { font-size: 12.5px; font-weight: 800; color: var(--on-surface-var); padding-bottom: 1px; }
+  /* 자주 쓰는 시각 — 칸 아래 작은 카드: '오전 9시' 읽기 + 알약 4×2 */
+  .dpCard.dpTCard { width: 214px; padding: 10px 10px 11px; border-radius: 16px; }
+  .dpTHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 3px 8px; }
+  .dpTAmpm { font-size: 13px; font-weight: 800; color: var(--dp-acc); }
+  .dpTHint { font-size: 10.5px; color: var(--on-surface-var); white-space: nowrap; }
+  .dpTChips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .dpCard .dpTChip {
+    padding: 6px 0; border: 1px solid var(--outline-var); border-radius: 999px; background: var(--surface-hi);
+    font-size: 11.5px; font-weight: 700; color: var(--on-surface); font-variant-numeric: tabular-nums; cursor: pointer;
+  }
+  .dpCard .dpTChip.on { border-color: var(--dp-acc); background: color-mix(in srgb, var(--dp-acc) 12%, transparent); color: var(--dp-acc); }
+  @media (hover: hover) { .dpCard .dpTChip:not(.on):hover { background: var(--btn-hover); } }
+  @media (prefers-reduced-motion: reduce) { .dpCard .dpDay, .dpTitleChev, .dpNav, .dpCard .dpTitle, .dpTime { transition: none; } }
