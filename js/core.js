@@ -156,9 +156,9 @@ const IMG = window.CG_IMAGES || {};
 // 태풍 지도 종류 — 광역(일본·중국·필리핀) 배경 + 태풍 예상경로 오버레이. 구역 색칠이 없으므로 zones는 빈 배열.
 // (typhoon-map-data.js가 있을 때만 '지도 종류'에 버튼이 뜬다)
 if (window.TYPHOON_MAP && MAP.styles && !MAP.styles.typhoon) {
-  MAP.styles.typhoon = { label: '태풍 (베타)', zones: [], sidoLines: {}, noInsets: true, sea: false, typhoon: true };
+  MAP.styles.typhoon = { label: '태풍', zones: [], sidoLines: {}, noInsets: true, sea: false, typhoon: true };   // (10-09 '베타' 뗌)
   // 태풍 비교 — 같은 광역 배경/카메라/추출을 쓰되, 여러 기관 예보선을 대등하게 겹쳐 비교하는 별도 지도.
-  MAP.styles.typhoonCompare = { label: '태풍 비교 (베타)', zones: [], sidoLines: {}, noInsets: true, sea: false, typhoon: true, compare: true };
+  MAP.styles.typhoonCompare = { label: '태풍 비교', zones: [], sidoLines: {}, noInsets: true, sea: false, typhoon: true, compare: true };
 }
 const isTyphoon = (st) => !!(MAP.styles[st || S.style] && MAP.styles[st || S.style].typhoon);
 // 태풍 '비교' 지도인지 — 태풍 지도 렌더 인프라를 공유하되 비교 전용 UI/렌더로 분기.

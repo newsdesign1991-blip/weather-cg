@@ -318,6 +318,12 @@ const CGS_ICON = {
   typhoonCompare: '<path d="M10 4.6c3.6 0 6 1.7 6 4 0 1.6-1.3 2.7-2.9 2.7M10 17.4c-3.6 0-6-1.7-6-4 0-1.6 1.3-2.7 2.9-2.7"/><circle cx="10" cy="11" r="2.1"/><path d="M15.5 15.5c2.2.2 4.2 1.2 4.2 2.6s-1.6 2.3-3.6 2.3" opacity=".7"/>',
 };
 function cgsIconSvg(k) {
+  // 태풍·태풍 비교 = 지도에 그리는 우리 태풍 아이콘(typhoon-icon.js 일러스트) 그대로. 비교는 두 개를 겹친다(뒤 것은 파랑으로 물들임 — css/cg-setup.css)
+  const IC = window.TYPHOON_ICON;
+  if ((k === 'typhoon' || k === 'typhoonCompare') && IC && IC.img) {
+    const img = (c) => `<img class="cgsTyIcon${c ? ' ' + c : ''}" src="${IC.img}" alt="" draggable="false">`;
+    return k === 'typhoon' ? img('') : `<span class="cgsTyPair" aria-hidden="true">${img('b')}${img('a')}</span>`;
+  }
   const d = CGS_ICON[k] || '<path d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16.5l9 5 9-5"/>';
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${d}</svg>`;
 }

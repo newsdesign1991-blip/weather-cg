@@ -154,6 +154,8 @@
   .mtnHit { pointer-events: none; }
   .movemode .mtnHit { pointer-events: all; }
   .insetGrip circle { fill: #3b82f6; stroke: #fff; stroke-width: 2; cursor: nwse-resize; }
+  /* 크기 조절 핸들(인셋·지도·범례·VF 제목 바·VF 전체)은 이동 모드에서만 보인다(10-09 사용자: 칠하기·브러쉬 중엔 숨김) */
+  #cg:not(.movemode) .insetGrip { display: none; }
   .insetGrip:hover circle { fill: #60a5fa; }
   .insetGrip .gripArrow { stroke: #fff; stroke-width: 1.6; fill: none; pointer-events: none; }
   .drag { cursor: move; }
