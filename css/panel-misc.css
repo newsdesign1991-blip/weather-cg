@@ -115,10 +115,14 @@
   /* 마우스 옆 꼬다리 배지 (선택/브러쉬 모드) — 힌트 알약과 같은 디자인 */
   .brushTag {
     position: fixed; z-index: 40; pointer-events: none; display: none; white-space: nowrap;
-    padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: -.01em;
-    background: color-mix(in srgb, var(--surface-c) 88%, transparent); border: 1px solid var(--outline-var);
-    color: var(--on-surface); box-shadow: 0 2px 8px var(--shade); backdrop-filter: blur(4px);
+    padding: 4px 10px 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: -.01em;
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box; border: 1px solid transparent;
+    color: var(--on-surface); box-shadow: var(--shadow-card);
   }
+  /* 배지 앞 작은 색 점 — 브러쉬 파랑 · 지우개 빨강 · 선택(Shift) 회색 */
+  .brushTag::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--primary); }
+  .brushTag[data-mode="erase"]::before { background: var(--danger); }
+  .brushTag[data-mode="select"]::before { background: var(--on-surface-var); }
   /* 중요한 안내 — 화면 중앙에서 살짝 위에 크게 한 번 나타났다 사라진다 */
   #flashMsg {
     position: fixed; top: 44%; left: 50%; transform: translate(-50%, -50%);

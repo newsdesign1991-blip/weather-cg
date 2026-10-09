@@ -97,8 +97,9 @@ svg.addEventListener('pointerover', (e) => {
 });
 window.addEventListener('pointerup', () => { painting = false; });
 // 브러쉬 커서: 칠하기=붓 모양+크기 원+'브러쉬 모드', SHIFT=손 모양+'선택 모드' (마우스 옆 꼬다리 배지)
-const _brushSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><path d="M16 3l5 5-8 8-5-5z" fill="#4a94ff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 11l5 5-2 1c-2.2 1.1-5.5 2.2-6.5 1.2S3.9 13.1 5 11l1-1z" fill="#fff" stroke="#4a94ff" stroke-width="1"/></svg>`;
-const BRUSH_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(_brushSvg)}") 4 22, crosshair`;
+// 마우스 커서 = 가운데 작은 점(흰 점 + 어두운 테두리 — 어떤 바탕에서도 보임). 붓 크기는 #brushCursor 원이 보여 준다(포토샵식)
+const _brushSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.4" fill="#fff" stroke="rgba(0,0,0,.6)" stroke-width="1"/></svg>`;
+const BRUSH_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(_brushSvg)}") 8 8, crosshair`;
 let brushLastPt = null, brushWasPaint = false, swooshStart = 0, swooshRAF = 0;
 function hideBrushCursor() { $('#brushCursor').style.display = 'none'; $('#brushTag').style.display = 'none'; svg.style.cursor = ''; brushWasPaint = false; cancelAnimationFrame(swooshRAF); swooshRAF = 0; }
 // 커서 원이 시계방향으로 슈욱 그려지며 나타난다 (내가 준 스피드 그래프 = easeOut). 12시부터 시계방향.
@@ -134,7 +135,7 @@ function updateBrushCursor(cx, cy, shiftKey) {
     // 12시부터 시계방향으로 그려지게 회전 (원 stroke 시작점이 3시라 -90°)
     cur.setAttribute('cx', u.x); cur.setAttribute('cy', u.y); cur.setAttribute('r', S.brush.size);
     cur.setAttribute('transform', `rotate(-90 ${u.x} ${u.y})`);
-    cur.setAttribute('stroke', brushErase ? '#ff5a5a' : '#4a94ff');
+    cur.classList.toggle('erase', !!brushErase);   // 지우개면 안쪽 틴트가 빨강(css/toss-modal.css #brushCursor)
     cur.setAttribute('stroke-dasharray', (2 * Math.PI * S.brush.size).toFixed(1));   // 항상 켜둠(제거 안 함)
     if (!swooshRAF) cur.setAttribute('stroke-dashoffset', '0');                       // 슈욱 중 아니면 꽉 찬 원
     cur.style.display = '';
@@ -142,6 +143,7 @@ function updateBrushCursor(cx, cy, shiftKey) {
   }
   brushWasPaint = nowPaint;
   tag.textContent = shiftKey ? '선택 모드' : (brushErase ? '지우개 모드' : '브러쉬 모드');
+  tag.dataset.mode = shiftKey ? 'select' : (brushErase ? 'erase' : 'brush');   // 배지 앞 색 점(css/panel-misc.css .brushTag)
   tag.style.left = (cx + 18) + 'px'; tag.style.top = (cy + 16) + 'px'; tag.style.display = 'block';
 }
 svg.addEventListener('pointermove', (e) => { brushLastPt = { x: e.clientX, y: e.clientY }; updateBrushCursor(e.clientX, e.clientY, e.shiftKey); });
