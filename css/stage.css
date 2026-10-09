@@ -59,16 +59,9 @@
     /* 캔버스 밖 핸들이 들어갈 여백 */
     padding: 26px 74px; overflow: hidden;
   }
-  /* 작업 영역 바탕(체커 무늬) — 작업 영역뿐 아니라 앱 바닥(.app) 전체에 깔아 플로팅 사이드바 뒤·옆까지 한 장으로 잇는다.
-     셋 다 background-attachment: fixed(창 기준)라 어느 요소가 그리든 무늬 칸이 딱 맞물려 경계가 안 보인다.
-     레이아웃(캔버스 중앙 맞춤·.stage 크기)은 그대로 — 바탕만 이어진다. */
-  .app, .stage, .startOverlay {
-    background-color: var(--stage);
-    background-image: linear-gradient(45deg, var(--stage-check) 25%, transparent 25%), linear-gradient(-45deg, var(--stage-check) 25%, transparent 25%),
-                      linear-gradient(45deg, transparent 75%, var(--stage-check) 75%), linear-gradient(-45deg, transparent 75%, var(--stage-check) 75%);
-    background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0;
-    background-attachment: fixed;
-  }
+  /* 작업 영역 바탕 — 근무표처럼 옅은 회청색 단색(밝은 #f1f4f8 / 어두운 #0f0f0f = --surface, 근무표 --bg 와 같은 값).
+     (예전 체커 무늬 대신) 앱 바닥(.app) 전체에 깔아 플로팅 사이드바·툴바(흰 카드)가 그 위에 떠 보이게 한다. */
+  .app, .stage, .startOverlay { background: var(--surface); }
   .fit {
     aspect-ratio: 1920 / 1080; max-width: 100%; max-height: 100%;
     box-shadow: 0 8px 40px var(--shade);
@@ -116,9 +109,10 @@
   .topbar {
     position: absolute; top: 12px; left: 16px; display: flex; gap: 8px; align-items: center;
     flex-wrap: wrap; row-gap: 6px;   /* 자리가 부족하면 버튼을 잘라 접지 말고 아래 줄로 흘린다 */
-    background: color-mix(in srgb, var(--surface-c) 92%, transparent); border: 1px solid var(--outline-var);
-    border-radius: 12px; padding: 6px 9px 6px 5px; backdrop-filter: blur(6px); z-index: 10;
-    box-shadow: 0 2px 10px var(--shade); max-width: calc(100% - 32px);
+    /* 근무표 카드처럼 흰 카드 + 반사 테두리 + 부드러운 그림자로 바탕 위에 뜬다 */
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box; border: 1px solid transparent;
+    border-radius: 14px; padding: 6px 9px 6px 5px; z-index: 10;
+    box-shadow: var(--shadow-card); max-width: calc(100% - 32px);
   }
   /* 상단바 버튼 글자는 절대 줄바꿈하지 않는다 — 사이드바를 키워 좁아져도 '영상으로 추/출'처럼 안 쪼개지게 */
   .topbar button { white-space: nowrap; flex: none; }

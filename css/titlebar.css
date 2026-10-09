@@ -127,9 +127,9 @@
   .ctrlHint {
     position: absolute; left: 16px; bottom: 16px; z-index: 9; pointer-events: none;
     display: flex; align-items: center; gap: 8px;
-    background: color-mix(in srgb, var(--surface-c) 82%, transparent); border: 1px solid var(--outline-var);
+    background: linear-gradient(var(--surface-c), var(--surface-c)) padding-box, var(--refl) border-box; border: 1px solid transparent;
     border-radius: 999px; padding: 6px 13px; color: var(--on-surface-var); font-size: 11px;
-    backdrop-filter: blur(6px); box-shadow: 0 2px 8px var(--shade);
+    box-shadow: var(--shadow-card);   /* 근무표 카드처럼 흰 알약이 바탕 위에 뜬다 */
   }
   /* 라이트/다크 토글 스위치 (썸이 좌우로 미끄러지며 해/달 아이콘) */
   .themeToggle { padding: 2px !important; background: none !important; border: none !important; box-shadow: none !important; }
