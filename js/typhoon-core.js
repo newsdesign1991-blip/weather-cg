@@ -123,17 +123,14 @@ function typhoonRangeWindow(pts) {
   }
   return { lo, hi };
 }
-// 라인 모드(비교 지도 제외) — 경로 시각 라벨을 안 그리고 현재 위치에서 멈춘다.
+// 라인 모드(비교 지도 제외) — 경로 시각 라벨·반경 없이 단색선(지난 길 실선 → 예상 점선) + 움직이는 선두 아이콘 하나.
 function typhoonLineMode() { return !isTyphoonCompare() && !!(S.typhoon && S.typhoon.trackMode === 'line'); }
-// 애니가 실제로 훑을 구간 — 라인 모드는 예상 지점으로 넘어가지 않고 현재 위치(nowIdx)에서 끝난다.
+// 애니가 실제로 훑을 구간 — 두 모드 같음('표시 날짜 범위'). 10-09 사용자: 라인 모드도 일반 모드처럼 지나온 길 다음에
+// 예상 점선이 이어서 자라며 예상 끝까지 간다(현재 위치에서 멈추던 옛 규칙은 없앰).
 // 애니 확인(playTyphoon)·타임라인 재생·영상 추출(renderAnimFrame)·라벨 기본 키가 같은 규칙을 쓴다.
-function typhoonAnimWindow(pts) {
-  const win = typhoonRangeWindow(pts);
-  if (!typhoonLineMode()) return win;
-  return { lo: win.lo, hi: Math.max(win.lo, Math.min(win.hi, typhoonNowIdx(pts))) };
-}
-// 진행 폭 — 라인 모드는 구간이 한 점(현재=시작)이면 0(제자리, 예보로 갔다 튀지 않게), 일반 모드는 최소 1.
-function typhoonAnimSpan(lo, hi) { return typhoonLineMode() ? Math.max(0, hi - lo) : Math.max(1, hi - lo); }
+function typhoonAnimWindow(pts) { return typhoonRangeWindow(pts); }
+// 진행 폭 — 최소 1(두 모드 같음)
+function typhoonAnimSpan(lo, hi) { return Math.max(1, hi - lo); }
 // 굽힌 배포 기본값(WCG_DEFAULTS.typhoonStyle)이 있으면 그걸 우선한 태풍 스타일 기본값.
 function typhoonStyleDefaults() {
   const baked = (window.WCG_DEFAULTS && window.WCG_DEFAULTS.typhoonStyle) || {};

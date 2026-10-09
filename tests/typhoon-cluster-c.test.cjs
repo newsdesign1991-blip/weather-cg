@@ -129,8 +129,8 @@ test('P1: 라인 모드 전 저장본(배포값 0.7)은 새 아이콘 크기로 
 test('C79/C80/C81/C83/P5: 라인 모드 범례·아이콘·재생 범위, JMA 현재 라벨, 클립 1회 설정', () => {
   assert.match(html, /lineMode && byId\[id\] && byId\[id\]\.kind === 'band'/);
   assert.match(html, /tip\.head \? !td : false, ex\)/);
-  assert.match(html, /if \(lineMode\) sp = sp\.filter\(\(p\) => p\.idx <= nowIdx\);/);
-  assert.match(html, /function typhoonAnimSpan\(lo, hi\) \{ return typhoonLineMode\(\) \? Math\.max\(0, hi - lo\) : Math\.max\(1, hi - lo\); \}/);
+  assert.doesNotMatch(html.match(/function drawTyphoonTrack\(L, pts\) \{[\s\S]*?\n\}/)[0], /if \(lineMode\) sp = sp\.filter/);   // 10-09: 라인 모드도 예상 끝까지 진행(화면)
+  assert.match(html, /function typhoonAnimSpan\(lo, hi\) \{ return Math\.max\(1, hi - lo\); \}/);
   assert.equal((html.match(/const span = typhoonAnimSpan\(lo, hi\)/g) || []).length, 2);   // playTyphoon·renderAnimFrameBody 같은 구간 길이
   assert.match(html, /tmef: atm, label: atm \? fmtKST\(atm\) : ''/);
   assert.match(html, /scp\.getAttribute\('data-k'\) !== ck/);

@@ -7,16 +7,12 @@ const vm = require('node:vm');
 
 const html = appSource(path.join(__dirname, '..', 'index.html'));
 
-test('미래 점선은 현재 지점부터 시작하고 날짜 범위 밖과 과거 지점을 제외한다', () => {
-  const src = html.match(/function typhoonForecastLinePts\(pts\) \{[\s\S]*?\n\}/)[0];
-  const sandbox = { typhoonNowIdx: () => 2, typhoonIdxInRange: (_, i) => i < 4, typhoonXY: (x, y) => [x * 2, y * 3] };
-  vm.createContext(sandbox); vm.runInContext(src, sandbox);
-  const pts = Array.from({ length: 5 }, (_, i) => ({ lon: i, lat: i + 1 }));
-  assert.deepEqual(JSON.parse(JSON.stringify(sandbox.typhoonForecastLinePts(pts))), [{ x: 4, y: 9, idx: 2 }, { x: 6, y: 12, idx: 3 }]);
-  assert.equal(sandbox.typhoonForecastLinePts([]).length, 0);
-  assert.equal(sandbox.typhoonForecastLinePts(pts.slice(0, 3)).length, 1);
+test('라인 모드도 일반 모드처럼 — 애니 구간은 예상 끝까지(현재에서 멈추지 않음), 진행 폭 최소 1', () => {
+  const src = ['typhoonRangeWindow', 'typhoonAnimWindow', 'typhoonAnimSpan'].map((n) => html.match(new RegExp(`function ${n}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}|function ${n}\\([^)]*\\) \\{[^\\n]*\\}`))[0]).join('\n');
+  assert.match(src, /function typhoonAnimWindow\(pts\) \{ return typhoonRangeWindow\(pts\); \}/);
+  assert.match(src, /function typhoonAnimSpan\(lo, hi\) \{ return Math\.max\(1, hi - lo\); \}/);
+  assert.doesNotMatch(html, /typhoonForecastLinePts/, '예상 점선을 진행과 상관없이 미리 그리던 함수는 없앴다');
 });
-
 test('태풍 라인 모드 UI와 저장 가능한 스타일 값을 제공한다', () => {
   assert.match(html, /id="typTrackMode"/);
   assert.match(html, /data-tm="line"/);
@@ -27,18 +23,17 @@ test('태풍 라인 모드 UI와 저장 가능한 스타일 값을 제공한다'
   assert.match(html, /'trackMode', 'lineColor', 'lineWidth'/);
 });
 
-test('라인 모드의 이동 아이콘과 실선은 현재 위치에서 멈추고 미래는 별도 점선으로 표시한다', () => {
-  assert.match(html, /T\.trackMode === 'line'/);
-  assert.match(html, /p\.idx <= nowIdx/);
-  assert.match(html, /Math\.min\(win\.hi, typhoonNowIdx\(pts\)\)/);
-  assert.match(html, /const forecast = typhoonForecastLinePts\(pts\)/);
-  assert.match(html, /'data-typ-line-forecast': '1'[^\n]*'stroke-dasharray'/);
+test('라인 모드: 지난 길(현재까지) 실선 → 현재부터 점선이 같은 진행(sp)으로 이어서 자란다', () => {
+  const fn = html.match(/function drawTyphoonTrack\(L, pts\) \{[\s\S]*?\n\}/)[0];
+  assert.match(fn, /T\.trackMode === 'line'/);
+  assert.doesNotMatch(fn, /if \(lineMode\) sp = sp\.filter/, '선두·실선을 현재까지로 자르지 않는다');
+  assert.match(fn, /const pastLine = sp\.filter\(\(p\) => p\.idx <= nowIdx\), futLine = sp\.filter\(\(p\) => p\.idx >= nowIdx\);/);
+  assert.match(fn, /'data-typ-line-forecast': '1', d: 'M' \+ futLine\.map[^\n]*'stroke-dasharray'/);
   assert.match(html, /lineMode && ch.hasAttribute\('data-typ-line-forecast'\)/);
 });
 
 test('라인 모드는 선두 아이콘 하나와 조절 가능한 굵기의 실선·점선을 그린다', () => {
-  assert.match(html, /stroke: T\.lineColor \|\| iconCol/);
-  assert.match(html, /stroke-width': Math\.max\(1, \+T\.lineWidth \|\| 5\)/);
+  assert.match(html, /lineCol = T\.lineColor \|\| iconCol, lw = Math\.max\(1, \+T\.lineWidth \|\| 5\)/);
   assert.match(html, /const tip = sp\[sp\.length - 1\]/);
   assert.match(html, /if \(lineMode\) \{ drawTyphoonPlaces\(L, LB\); return; \}/);
 });

@@ -27,19 +27,16 @@ function typhoonCtx(trackMode, cmp, nowIdx, rangeOn) {
   return ctx;
 }
 
-test('라인 모드 애니 구간은 현재 위치(nowIdx)에서 끝나고, 일반·비교 지도는 끝까지', () => {
+test('애니 구간은 라인·일반·비교 모두 끝까지(10-09: 라인 모드도 예상 끝까지 — 현재에서 멈추지 않음)', () => {
   const pts = new Array(9).fill(0);
-  assert.deepEqual({ ...typhoonCtx('line', false, 4).typhoonAnimWindow(pts) }, { lo: 0, hi: 4 });
+  assert.deepEqual({ ...typhoonCtx('line', false, 4).typhoonAnimWindow(pts) }, { lo: 0, hi: 8 });
   assert.deepEqual({ ...typhoonCtx('full', false, 4).typhoonAnimWindow(pts) }, { lo: 0, hi: 8 });
   assert.deepEqual({ ...typhoonCtx('line', true, 4).typhoonAnimWindow(pts) }, { lo: 0, hi: 8 });
-  // 범위가 현재 이후만이면 lo보다 작아지지 않는다
-  const c = typhoonCtx('line', false, 0, true);
-  assert.deepEqual({ ...c.typhoonAnimWindow(pts) }, { lo: 1, hi: 1 });
 });
 
-test('라인 모드 선두(head)도 현재 위치를 넘지 않는다 — 구간이 한 점뿐(span=1)이어도 예상 쪽으로 안 뻗음', () => {
+test('라인 모드 선두·실선을 현재까지로 자르지 않는다(지난 길 실선 → 현재부터 점선이 이어서 자람)', () => {
   const f = fnSrc('drawTyphoonTrack');
-  assert.match(f, /if \(lineMode\) sp = sp\.filter\(\(p\) => p\.idx <= nowIdx\)/);
+  assert.doesNotMatch(f, /if \(lineMode\) sp = sp\.filter/);
   assert.doesNotMatch(f, /nowIdx \+ 1/);
 });
 

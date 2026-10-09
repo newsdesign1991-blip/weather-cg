@@ -216,17 +216,6 @@ function drawCompareLabels(LB) {
   }
 }
 
-// 예측선은 선두 애니 진행도와 무관한 참고선. 현재부터 미래까지, 선택한 날짜 범위만 표시한다.
-function typhoonForecastLinePts(pts) {
-  const nowIdx = typhoonNowIdx(pts);
-  const out = [];
-  pts.forEach((p, idx) => {
-    if (idx < nowIdx || !typhoonIdxInRange(pts, idx)) return;
-    const [x, y] = typhoonXY(p.lon, p.lat);
-    out.push({ x, y, idx });
-  });
-  return out;
-}
 function drawTyphoonTrack(L, pts) {
   const T = S.typhoon;
   const cmpMode = isTyphoonCompare();   // 비교 지도: 굵은 메인·반경·라벨 숨기고 비교 예보선만 대등하게
@@ -235,7 +224,6 @@ function drawTyphoonTrack(L, pts) {
   const lineMode = !cmpMode && T && T.trackMode === 'line';
   let sp = typhoonScreenPts(pts);
   if (T && T.rangeOn) sp = sp.filter((p) => p.head || typhoonIdxInRange(pts, p.idx));   // 표시 날짜 범위 밖 지점 제외
-  if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 실선·움직이는 아이콘은 현재까지만. 미래 점선은 아래에서 별도로 그린다.
   const add = (e) => L.appendChild(e);
   // 독도 — 줌아웃하면 실제로는 안 보이므로 '있는듯 없는듯' 작은 점 하나로 표시(시청자 민감 이슈).
   // 크기는 울릉도 화면 반경의 1/4 정도로 비례, 색은 남한 강조 스트로크색. 남한 강조 끄면 같이 숨김.
@@ -264,13 +252,15 @@ function drawTyphoonTrack(L, pts) {
   }
   if (!cmpMode) {
   if (lineMode) {
-    const iconCol = T.iconCol || '#E5231E';
-    const forecast = typhoonForecastLinePts(pts), forecastW = Math.max(1, +T.lineWidth || 5);
-    if (forecast.length > 1) add(_te('path', { 'data-typ-line-forecast': '1', d: 'M' + forecast.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: T.lineColor || iconCol, 'stroke-width': forecastW, 'stroke-dasharray': `${forecastW * 3.2} ${forecastW * 2.5}`, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
-    if (sp.length > 1) add(_te('path', { d: 'M' + sp.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: T.lineColor || iconCol, 'stroke-width': Math.max(1, +T.lineWidth || 5), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    // 일반 모드와 같은 진행(sp = 지금까지 그려진 지점 + 움직이는 선두): 지난 길(현재까지) = 실선, 현재부터 = 점선.
+    // 선두가 아직 과거면 점선은 없고, 현재를 지나면 점선이 이어서 자라 예상 끝까지 간다(10-09 사용자 요청 — 미리 그려 두지 않음).
+    const iconCol = T.iconCol || '#E5231E', lineCol = T.lineColor || iconCol, lw = Math.max(1, +T.lineWidth || 5);
+    const pastLine = sp.filter((p) => p.idx <= nowIdx), futLine = sp.filter((p) => p.idx >= nowIdx);
+    if (futLine.length > 1) add(_te('path', { 'data-typ-line-forecast': '1', d: 'M' + futLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: lineCol, 'stroke-width': lw, 'stroke-dasharray': `${lw * 3.2} ${lw * 2.5}`, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    if (pastLine.length > 1) add(_te('path', { d: 'M' + pastLine.map((p) => p.x + ' ' + p.y).join('L'), fill: 'none', stroke: lineCol, 'stroke-width': lw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
     const tip = sp[sp.length - 1];
     if (tip) {
-      const srcIdx = Math.min(nowIdx, Math.max(0, Math.floor(tip.idx)));
+      const srcIdx = Math.min(pts.length - 1, Math.max(0, Math.floor(tip.idx)));
       const dp = pts[srcIdx] || pts[nowIdx] || {};
       const ws = tip.head && tip.ws != null ? tip.ws : (+dp.ws || 99);
       const ex = tip.head ? !!tip.ex : !!dp.ex;
