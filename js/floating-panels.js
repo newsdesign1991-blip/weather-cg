@@ -65,6 +65,14 @@ function setDockSide(side) {
 // 툴바 좌우 위치. null 이면 기본 = 스테이지(캔버스) 가운데. 내가 끌어 옮기면 그 자리를 기억한다.
 // 스테이지 안에서 절대배치라 스테이지 폭 기준으로 잡는다.
 let toolbarX = null;   // 처음 켰을 때 기본: 가운데 (사이드바 크기가 바뀌어도 다시 가운데로)
+// 툴바 세로 위치. null = 맨 위(제목줄 바로 아래), 'bottom' = 창 아래 끝에 붙음(창 크기가 바뀌어도 아래), 숫자 = 스테이지 기준 px
+let toolbarY = null;
+const TB_SNAP = 14, TB_GAP = 10;   // 붙는 거리(px) · 붙었을 때 띄우는 간격(px)
+// 아래 끝 자리 — 타임라인이 열려 있으면(스테이지 아래 여백이 커짐) 그 위까지
+function toolbarBottomY(st, tb) {
+  const extra = Math.max(0, (parseFloat(getComputedStyle(st).paddingBottom) || 0) - 26);
+  return Math.max(0, st.clientHeight - extra - tb.offsetHeight - TB_GAP);
+}
 function applyToolbarPos() {
   const tb = $('#topbar'), st = $('#stage');
   if (!tb || !st) return;
@@ -73,6 +81,29 @@ function applyToolbarPos() {
   const center = clamp(Math.round((st.clientWidth - tb.offsetWidth) / 2), 16, max);
   const x = toolbarX == null ? center : clamp(toolbarX, 16, max);
   tb.style.left = Math.round(x) + 'px';
+  const yMax = toolbarBottomY(st, tb);
+  const y = toolbarY == null ? 0 : toolbarY === 'bottom' ? yMax : clamp(toolbarY, 0, yMax);
+  tb.style.top = Math.round(y) + 'px';
+}
+// 끌기 중 붙이기 — 위(제목줄 바로 아래)·아래(창 아래 끝)·작업창(아트보드) 위/아래 바깥, 가로는 작업창 왼끝·오른끝·가운데·스테이지 가운데.
+// 가까운(TB_SNAP 이내) 것에 붙는다. 반환 x/y 는 toolbarX/toolbarY 에 그대로 넣는 값(null·'bottom' 포함)
+function snapToolbar(x, y) {
+  const tb = $('#topbar'), st = $('#stage'), fit = document.querySelector('.fit');
+  const w = tb.offsetWidth, h = tb.offsetHeight, sr = st.getBoundingClientRect();
+  const xs = [[Math.round((st.clientWidth - w) / 2), null]];
+  const ys = [[0, null], [toolbarBottomY(st, tb), 'bottom']];
+  if (fit) {
+    const r = fit.getBoundingClientRect(), L = r.left - sr.left, R = r.right - sr.left, T = r.top - sr.top, B = r.bottom - sr.top;
+    xs.push([L], [R - w], [Math.round((L + R - w) / 2)]);
+    ys.push([T - h - TB_GAP], [B + TB_GAP]);
+  }
+  const pick = (list, v) => {
+    let best = null, d0 = TB_SNAP + 1;
+    for (const [p, key] of list) { const d = Math.abs(p - v); if (d < d0) { d0 = d; best = key === undefined ? p : key; } }
+    return d0 <= TB_SNAP ? { v: best } : null;
+  };
+  const sx = pick(xs, x), sy = pick(ys, y);
+  return { x: sx ? sx.v : x, y: sy ? sy.v : y };
 }
 // 플로팅 바 모양 판번호 — 2: 메뉴를 맨 위 제목줄로 옮겨 칠하기·브러쉬·이동·되돌리기만 남은 좁은 바.
 // 옛 넓은 바 기준으로 저장된 위치(toolbarX)는 안 맞으니 한 번 버리고 가운데에서 시작한다.
@@ -155,7 +186,7 @@ const secTitle = (s) => {
 function saveLayout() {
   try {
     const docked = [...$('#panel').children].map((n) => n.dataset.sec).filter(Boolean);
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ docked, wins, dockSide, toolbarX, toolbarV: TOOLBAR_V, panelZoom }));
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ docked, wins, dockSide, toolbarX, toolbarY, toolbarV: TOOLBAR_V, panelZoom }));
   } catch (e) { /* 용량 초과 등 — 배치는 없어도 앱은 돌아간다 */ }
 }
 
@@ -543,6 +574,7 @@ function loadLayout() {
   try { L = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) { /* 깨졌으면 기본 배치 */ }
   if (!L || !Array.isArray(L.docked)) return;
   if (L.toolbarX !== undefined && L.toolbarV === TOOLBAR_V) toolbarX = L.toolbarX;   // 옛 넓은 바 위치는 버림(가운데)
+  if (L.toolbarV === TOOLBAR_V && (L.toolbarY === 'bottom' || typeof L.toolbarY === 'number')) toolbarY = L.toolbarY;   // 세로 위치(없으면 맨 위)
   if (L.panelZoom) panelZoom = L.panelZoom;
   dockSide = L.dockSide === 'left' ? 'left' : 'right';   // 저장에 없으면(옛 파일) 기본 오른쪽
   applyDockSide();   // 저장 안 함 — 방금 읽은 걸 도로 덮어쓰지 않게 (applyPanelSize도 부른다)

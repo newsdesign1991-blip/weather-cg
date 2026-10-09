@@ -8,12 +8,13 @@ function wire() {
   // 사이드바 위치/기본배치 버튼은 사이드바 하단 footer에서 만들고 배선한다(위 footer 생성부).
   applyDockSide();   // 저장하지 않고 기본 상태만 반영 (loadLayout가 이 뒤에 덮어쓴다)
 
-  // 툴바 좌우로 끌어 옮기기 (손잡이)
+  // 툴바 끌어 옮기기 (손잡이) — 상하좌우 자유, 위·아래 끝과 작업창 가장자리 가까이에선 붙는다(snapToolbar)
   $('#tbGrip').addEventListener('pointerdown', (e) => {
-    const st = $('#stage'), tb = $('#topbar');
-    const x0 = e.clientX, base = tb.offsetLeft;
+    const tb = $('#topbar');
+    const x0 = e.clientX, y0 = e.clientY, bx = tb.offsetLeft, by = tb.offsetTop;
     const mv = (ev) => {
-      toolbarX = base + (ev.clientX - x0);
+      const s = snapToolbar(bx + (ev.clientX - x0), by + (ev.clientY - y0));
+      toolbarX = s.x; toolbarY = s.y;
       applyToolbarPos();
     };
     const up = () => {
