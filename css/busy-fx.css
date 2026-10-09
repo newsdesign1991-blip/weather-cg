@@ -1,78 +1,78 @@
-/* [모듈] css/busy-fx.css — 작업 중·도착 효과(js/busy-fx.js): 흐르는 그라디언트·버튼 진행·제목줄 버튼 흐름·진행 막대·빛 훑는 자리표시 막대·도착 빛·섹션 머리 띠, 렌더 가리개 흐름, 움직임 줄이기 */
-  /* ===== 작업 중·도착 효과 =====
-     뉴스 플레이어 검수 버튼(ShowThinking·AddPlaceholderLines·RevealLines)과 같은 값:
-     흐름 = 대각선 그라디언트(투명 → 파랑 33% → 보라 30% → 청록 25% → 투명)가 가로 ±80%(2.8초)·세로 ±60%(3.7초) 사인 왕복, .5초 페이드.
-     자리표시 = 높이 12·반경 6 막대(폭 92/68/84/50/76/60%) 위로 빛이 1.4초마다 왼→오.
-     움직이는 것은 transform·translate·opacity 뿐(합성기에서 돈다). 흐름 판은 호스트보다 사방 40% 크게(1.8배) 두고 옮기며,
-     호스트는 overflow: clip 으로 자른다 — 스크롤 상자가 아니라서 크기·줄바꿈(flex/grid 최소 폭)이 안 바뀌고, 둥근 모서리도 그대로 따른다.
-     판의 가장자리는 둥근 마스크로 투명하게 녹인다 — 판을 옮겨도 판 끝이 곧은 선으로 보이지 않게(WPF 그라디언트는 끝없이 이어지는 띠라 끝이 없다).
+/* [모듈] css/busy-fx.css — 작업 중·도착 효과(js/busy-fx.js): 은은한 빛 훑기·버튼 진행 줄·진행 막대·빛 훑는 자리표시 막대·도착 빛·섹션 머리 띠, 렌더 가리개, 움직임 줄이기 */
+  /* ===== 작업 중·도착 효과 (2026-10-09 다듬음 — 무지개 띠 대신 우리 파랑 한 가지) =====
+     섹션·상자 = 옅은 파랑 테두리 + 부드러운 빛이 비스듬히 천천히 훑고(1.9초, 끝에서 잠깐 쉼) 지나간다.
+     버튼 = 같은 빛 + 아래 2px 줄이 함께 훑는다(끝없는 진행 표시). 파란 바탕 버튼(.pri·.on)은 흰 빛.
+     자리표시 = 높이 12·반경 6 회색 막대 위로 빛이 1.4초마다 왼→오.
+     움직이는 것은 transform·opacity 뿐(합성기에서 돈다). 호스트는 overflow: clip 으로 자른다 — 크기·줄바꿈이 안 바뀌고 둥근 모서리도 따른다.
      켜고 끄는 것은 js/busy-fx.js(fxBusy) — .fx-on(켜짐) · .fx-out(.5초 동안 사라지는 중) · .fx-arrive(도착 빛 한 번). */
   :root, :root[data-theme="dark"] {
-    --fx-blend: screen;                     /* 어두운 바탕: 빛을 더하듯 — 흰 글자는 그대로 밝고 바탕만 물든다 */
-    --fx-ph-dim: rgba(255,255,255,.08);     /* 뉴스 플레이어 #FFFFFF14 */
-    --fx-ph-shine: rgba(255,255,255,.18);   /* 막대 위에 겹쳐 #FFFFFF3D 쯤이 되게 */
+    --fx-rgb: 106, 168, 255;                /* 어두운 바탕 — 밝은 파랑 */
+    --fx-sheen-a: .15;                      /* 훑는 빛 가운데 진하기 */
+    --fx-ring-a: .34;                       /* 일하는 섹션 테두리 */
+    --fx-blend: screen;                     /* 빛을 더하듯 — 흰 글자는 그대로 밝고 바탕만 살짝 밝아진다 */
+    --fx-ph-dim: rgba(255,255,255,.08);
+    --fx-ph-shine: rgba(255,255,255,.18);
   }
   :root[data-theme="light"] {
-    --fx-blend: multiply;                   /* 밝은 바탕: 색 유리를 대듯 — 흰 바탕이 옅은 파랑·보라·청록으로 */
-    --fx-ph-dim: rgba(0,0,0,.06);           /* #0000000F */
-    --fx-ph-shine: rgba(0,0,0,.10);         /* 겹쳐 #00000026 쯤 */
+    --fx-rgb: 49, 130, 246;                 /* 밝은 바탕 — 앱 기본 파랑 */
+    --fx-sheen-a: .10;
+    --fx-ring-a: .30;
+    --fx-blend: normal;
+    --fx-ph-dim: rgba(0,0,0,.06);
+    --fx-ph-shine: rgba(0,0,0,.10);
   }
   :root {
-    /* 판(1.8배) 기준 멈춤 위치 = 22.2% + 55.6% × 카드 기준(0 · .3 · .55 · .8 · 1) — 판이 한가운데일 때 카드 위 모양이 뉴스 플레이어와 같다 */
-    --fx-flow: linear-gradient(to bottom right, rgba(59,130,246,0) 22.2%, rgba(59,130,246,.33) 38.9%, rgba(139,92,246,.30) 52.8%, rgba(20,184,166,.25) 66.7%, rgba(20,184,166,0) 77.8%);
-    --fx-flow-mask: radial-gradient(closest-side, #000 70%, transparent 100%);
-    --fx-band: linear-gradient(90deg, rgba(59,130,246,0), rgba(59,130,246,.42) 32%, rgba(139,92,246,.40) 55%, rgba(20,184,166,.34) 76%, rgba(20,184,166,0));
-    --fx-band-tb: linear-gradient(90deg, rgba(59,130,246,0), rgba(59,130,246,.62) 30%, rgba(139,92,246,.58) 55%, rgba(20,184,166,.52) 78%, rgba(20,184,166,0));   /* 제목줄 버튼은 작아서 조금 진하게 */
-    --fx-band-on-blue: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.45) 50%, rgba(255,255,255,0));   /* 파란 바탕 버튼 위(.pri·.on) */
-    --fx-sine: cubic-bezier(.37, 0, .63, 1);      /* SineEase InOut */
-    --fx-ease-out: cubic-bezier(.33, 1, .68, 1);  /* CubicEase Out */
+    /* 훑는 빛 — 폭 전체에 걸친 넓고 부드러운 비스듬한 빛(가장자리 0 → 가운데 --fx-sheen-a). 판(::after)이 호스트 폭만큼이라 가운데가 지나가며 사라진다 */
+    --fx-sheen: linear-gradient(100deg, rgba(var(--fx-rgb), 0) 18%, rgba(var(--fx-rgb), calc(var(--fx-sheen-a) * .55)) 38%, rgba(var(--fx-rgb), var(--fx-sheen-a)) 50%, rgba(var(--fx-rgb), calc(var(--fx-sheen-a) * .55)) 62%, rgba(var(--fx-rgb), 0) 82%);
+    /* 버튼 아래 진행 줄(빛과 같이 움직인다) */
+    --fx-line: linear-gradient(90deg, rgba(var(--fx-rgb), 0) 10%, rgba(var(--fx-rgb), .95) 50%, rgba(var(--fx-rgb), 0) 90%);
+    --fx-sheen-on-blue: linear-gradient(100deg, rgba(255,255,255,0) 18%, rgba(255,255,255,.13) 38%, rgba(255,255,255,.24) 50%, rgba(255,255,255,.13) 62%, rgba(255,255,255,0) 82%);
+    --fx-line-on-blue: linear-gradient(90deg, rgba(255,255,255,0) 10%, rgba(255,255,255,.9) 50%, rgba(255,255,255,0) 90%);
+    --fx-ease: cubic-bezier(.45, 0, .25, 1);      /* 부드럽게 출발·도착 */
+    --fx-ease-out: cubic-bezier(.33, 1, .68, 1);
   }
-  /* 흐름 왕복 — 카드 기준 가로 ±80%·세로 ±60% = 판(1.8배) 기준 ±44.4%·±33.3%. 시작을 한가운데(지연 -반주기)에 두어 누르자마자 색이 보이게 */
-  @keyframes fxDriftX { from { transform: translateX(-44.4%); } to { transform: translateX(44.4%); } }
-  @keyframes fxDriftY { from { translate: 0 33.3%; } to { translate: 0 -33.3%; } }
   @keyframes fxIn { from { opacity: 0; } }
   @keyframes fxOut { to { opacity: 0; } }
-  @keyframes fxBandSweep { from { transform: translateX(-100%); } to { transform: translateX(143%); } }   /* 폭 70% 띠가 왼쪽 밖 → 오른쪽 밖 */
+  /* 빛 훑기 — 판(호스트 폭)이 왼쪽 밖 → 오른쪽 밖, 끝(75%~)에서 잠깐 쉰다 */
+  @keyframes fxSheen { 0% { transform: translateX(-100%); } 75%, 100% { transform: translateX(100%); } }
   @keyframes fxPhSweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-  @keyframes fxArriveSweep { from { transform: translateX(-100%); opacity: 1; } to { transform: translateX(143%); opacity: .5; } }
+  @keyframes fxArriveSweep { from { transform: translateX(-100%); opacity: 1; } to { transform: translateX(100%); opacity: .6; } }
   @keyframes fxArriveFade { from { opacity: .9; } to { opacity: 0; } }
 
-  /* ----- 섹션·상자: 흐르는 그라디언트 (.fx-glow) — 내용 위에 섞어 칠한다(눌러지지 않음) ----- */
-  .fx-glow { position: relative; isolation: isolate; overflow: clip; }
+  /* ----- 섹션·상자(.fx-glow): 옅은 파랑 테두리 + 비스듬한 빛 훑기 — 내용 위에 얹는다(눌러지지 않음) ----- */
+  .fx-glow { position: relative; isolation: isolate; overflow: clip; transition: box-shadow .4s ease; }
+  .fx-glow.fx-on, #panel > .sec.fx-glow.fx-on { box-shadow: inset 0 0 0 1px rgba(var(--fx-rgb), var(--fx-ring-a)); }   /* 사이드바 섹션 box-shadow:none 보다 우선 */
   .fx-glow.fx-on::after, .fx-glow.fx-out::after {
-    content: ''; position: absolute; inset: -40%; z-index: 3; pointer-events: none;
-    background: var(--fx-flow); -webkit-mask-image: var(--fx-flow-mask); mask-image: var(--fx-flow-mask); mix-blend-mode: var(--fx-blend);
-    animation: fxDriftX 2.8s var(--fx-sine) -1.4s infinite alternate, fxDriftY 3.7s var(--fx-sine) -1.85s infinite alternate, fxIn .5s ease-out both;
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; z-index: 3; pointer-events: none;
+    background: var(--fx-sheen); mix-blend-mode: var(--fx-blend); transform: translateX(-100%);
+    animation: fxSheen 1.9s var(--fx-ease) infinite, fxIn .4s ease-out both;
   }
-  .fx-glow.fx-out::after {
-    animation: fxDriftX 2.8s var(--fx-sine) -1.4s infinite alternate, fxDriftY 3.7s var(--fx-sine) -1.85s infinite alternate, fxOut .5s ease-in forwards;
-  }
+  .fx-glow.fx-out::after { animation: fxSheen 1.9s var(--fx-ease) infinite, fxOut .5s ease-in forwards; }
   /* 떼어낸 창: 창 카드 전체에 한 번만 — 탭에 가려 안 보이는 섹션이 일하는 중이어도 창에서 보이게(.win 은 이미 overflow:hidden·반경 20) */
-  #wins .winbody > .sec.fx-glow { overflow: visible; }
+  #wins .winbody > .sec.fx-glow { overflow: visible; box-shadow: none; }
   #wins .winbody > .sec.fx-glow::after { content: none; }
   .win:has(> .winbody > .sec.fx-on)::before, .win:has(> .winbody > .sec.fx-out)::before {
-    content: ''; position: absolute; inset: -40%; z-index: 5; pointer-events: none;
-    background: var(--fx-flow); -webkit-mask-image: var(--fx-flow-mask); mask-image: var(--fx-flow-mask); mix-blend-mode: var(--fx-blend);
-    animation: fxDriftX 2.8s var(--fx-sine) -1.4s infinite alternate, fxDriftY 3.7s var(--fx-sine) -1.85s infinite alternate, fxIn .5s ease-out both;
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; z-index: 5; pointer-events: none;
+    background: var(--fx-sheen); mix-blend-mode: var(--fx-blend); transform: translateX(-100%);
+    animation: fxSheen 1.9s var(--fx-ease) infinite, fxIn .4s ease-out both;
   }
-  .win:has(> .winbody > .sec.fx-out):not(:has(> .winbody > .sec.fx-on))::before {
-    animation: fxDriftX 2.8s var(--fx-sine) -1.4s infinite alternate, fxDriftY 3.7s var(--fx-sine) -1.85s infinite alternate, fxOut .5s ease-in forwards;
-  }
+  .win:has(> .winbody > .sec.fx-out):not(:has(> .winbody > .sec.fx-on))::before { animation: fxSheen 1.9s var(--fx-ease) infinite, fxOut .5s ease-in forwards; }
 
-  /* ----- 버튼: 작은 흐름 + 비활성(.fx-btn) / 제목줄 버튼: 색 띠 흐름 + 진행 막대(.fx-tb) — 띠는 글자 아래 ----- */
+  /* ----- 버튼(.fx-btn) · 제목줄 버튼(.fx-tb): 빛 + 아래 진행 줄이 함께 훑는다 — 글자 아래에 깔린다 ----- */
   .fx-btn, .fx-tb, button.fx-arrive { position: relative; isolation: isolate; overflow: clip; }
   .fx-btn.fx-on::after, .fx-tb.fx-on::after, .fx-tb.fx-out::after {
-    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 70%; z-index: -1; pointer-events: none;
-    background: var(--fx-band); transform: translateX(-100%);
-    animation: fxBandSweep 1.4s linear infinite;
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; z-index: -1; pointer-events: none;
+    background: var(--fx-line) left bottom / 100% 2px no-repeat, var(--fx-sheen);
+    transform: translateX(-100%); animation: fxSheen 1.5s var(--fx-ease) infinite;
   }
-  .fx-tb.fx-on::after, .fx-tb.fx-out::after { animation-duration: 1.6s; background: var(--fx-band-tb); }
-  .fx-tb.fx-out::after { animation: fxBandSweep 1.6s linear infinite, fxOut .5s ease-in forwards; }
-  .fx-btn.pri::after, .fx-tb.pri::after, .fx-tb.on::after, #tlAuto.fx-btn::after { background: var(--fx-band-on-blue); }
-  /* 일하는 중인 버튼은 '꺼진' 버튼(.4)처럼 흐리게 하지 않는다 — 흐름이 보이게 */
+  .fx-tb.fx-out::after { animation: fxSheen 1.5s var(--fx-ease) infinite, fxOut .5s ease-in forwards; }
+  .fx-btn.pri::after, .fx-tb.pri::after, .fx-tb.on::after, #tlAuto.fx-btn::after { background: var(--fx-line-on-blue) left bottom / 100% 2px no-repeat, var(--fx-sheen-on-blue); }
+  /* 일하는 중인 버튼은 '꺼진' 버튼(.4)처럼 흐리게 하지 않는다 — 빛이 보이게 */
   button.fx-btn:disabled { opacity: .82; cursor: progress; }
   #titlebar .fx-tb:disabled { opacity: .92; cursor: progress; }
-  /* 진행률(fxProgress) — 제목줄 버튼 아래 얇은 막대(currentColor). 길이는 scaleX(--fx-p) */
+  /* 진행률(fxProgress) — 제목줄 버튼 아래 얇은 막대(currentColor). 길이는 scaleX(--fx-p). 진행률이 있으면 훑는 줄은 감춘다(빛만) */
+  .fx-tb.fx-has-p::after { background: var(--fx-sheen); }
+  .fx-tb.fx-has-p.pri::after, .fx-tb.fx-has-p.on::after { background: var(--fx-sheen-on-blue); }
   .fx-tb.fx-has-p::before {
     content: ''; position: absolute; left: 7px; right: 7px; bottom: 2px; height: 2px; border-radius: 2px; z-index: 1; pointer-events: none;
     background: currentColor; opacity: .85; transform-origin: left center; transform: scaleX(var(--fx-p, 0)); transition: transform .2s linear;
@@ -85,47 +85,47 @@
   .fx-ph > i::after {
     content: ''; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(90deg, transparent, var(--fx-ph-shine), transparent);
-    transform: translateX(-100%); animation: fxPhSweep 1.4s linear infinite;
+    transform: translateX(-100%); animation: fxPhSweep 1.4s var(--fx-ease) infinite;
   }
 
-  /* ----- 도착: 섹션 머리·버튼에 한 번 빛(왼→오, .9초) — 목록 행이 떠오르는 것은 js(Web Animations) ----- */
+  /* ----- 도착: 섹션 머리·버튼에 빛 한 번(왼→오, .9초) — 목록 행이 떠오르는 것은 js(Web Animations) ----- */
   .sec.fx-arrive > h3 { position: relative; isolation: isolate; overflow: clip; }
   .sec.fx-arrive > h3::before, button.fx-arrive::before {
-    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 70%; z-index: -1; pointer-events: none;
-    background: var(--fx-band); transform: translateX(-100%);
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; z-index: -1; pointer-events: none;
+    background: var(--fx-sheen); transform: translateX(-100%);
     animation: fxArriveSweep .9s var(--fx-ease-out) 1 forwards;
   }
-  button.fx-arrive.pri::before, button.fx-arrive.on::before { background: var(--fx-band-on-blue); }
+  button.fx-arrive.pri::before, button.fx-arrive.on::before { background: var(--fx-sheen-on-blue); }
 
-  /* ----- 섹션 머리만(h3 — fxHead): 뒤에서 도는 확인(발생·소멸 TD 등). 머리에 옅은 띠가 천천히 왼→오(2.4초) —
-     흐름 판·비활성·자리표시 없이 은은하게(사용자를 막지 않는다). ::after 는 접기 꺾쇠라 ::before 를 쓰고,
+  /* ----- 섹션 머리만(h3 — fxHead): 뒤에서 도는 확인(발생·소멸 TD 등). 머리에 옅은 빛이 천천히 훑는다(2.6초) —
+     테두리·비활성·자리표시 없이 은은하게(사용자를 막지 않는다). ::after 는 접기 꺾쇠라 ::before 를 쓰고,
      같은 자리를 쓰는 도착 빛(.sec.fx-arrive > h3::before)이 도는 동안은 쉰다(빛이 끝나면 이어서 훑는다) ----- */
   .sec > h3.fx-head { position: relative; isolation: isolate; overflow: clip; }
   .sec:not(.fx-arrive) > h3.fx-head.fx-on::before, .sec:not(.fx-arrive) > h3.fx-head.fx-out::before {
-    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 70%; z-index: -1; pointer-events: none;
-    background: var(--fx-band); opacity: .55; transform: translateX(-100%);
-    animation: fxBandSweep 2.4s linear infinite, fxIn .5s ease-out both;
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; z-index: -1; pointer-events: none;
+    background: var(--fx-sheen); opacity: .7; transform: translateX(-100%);
+    animation: fxSheen 2.6s var(--fx-ease) infinite, fxIn .5s ease-out both;
   }
-  .sec:not(.fx-arrive) > h3.fx-head.fx-out::before { animation: fxBandSweep 2.4s linear infinite, fxOut .5s ease-in forwards; }
+  .sec:not(.fx-arrive) > h3.fx-head.fx-out::before { animation: fxSheen 2.6s var(--fx-ease) infinite, fxOut .5s ease-in forwards; }
 
-  /* ----- 렌더 가리개(#exportMask — css/toss-modal.css)에도 같은 흐름: 진행 카드·막대는 그 위에 그대로.
-     가리개는 크니 transform 으로만 옮긴다(렌더 중 메인 스레드를 안 쓴다). 가리개가 숨으면(display:none) 함께 멈춘다. ----- */
+  /* ----- 렌더 가리개(#exportMask — css/toss-modal.css): 진행 카드 뒤로 옅은 빛이 천천히 훑는다(transform 만 — 렌더 중 메인 스레드를 안 쓴다).
+     가리개가 숨으면(display:none) 함께 멈춘다. ----- */
   #exportMask { overflow: clip; }
   #exportMask::before {
-    content: ''; position: absolute; inset: -40%; z-index: -1; pointer-events: none;
-    background: var(--fx-flow); -webkit-mask-image: var(--fx-flow-mask); mask-image: var(--fx-flow-mask);
-    animation: fxDriftX 2.8s var(--fx-sine) -1.4s infinite alternate, fxDriftY 3.7s var(--fx-sine) -1.85s infinite alternate;
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 100%; z-index: -1; pointer-events: none;
+    background: var(--fx-sheen); transform: translateX(-100%);
+    animation: fxSheen 2.8s var(--fx-ease) infinite;
   }
 
-  /* ----- 움직임 줄이기: 흐름·훑기·떠오름 없이 은은한 색과 짧은 페이드만 ----- */
+  /* ----- 움직임 줄이기: 훑기·떠오름 없이 은은한 색과 짧은 페이드만 ----- */
   @media (prefers-reduced-motion: reduce) {
-    .fx-glow.fx-on::after, .win:has(> .winbody > .sec.fx-on)::before { animation: fxIn .2s ease-out both; transform: none; translate: none; opacity: .7; }
-    .fx-glow.fx-out::after, .win:has(> .winbody > .sec.fx-out):not(:has(> .winbody > .sec.fx-on))::before { animation: fxOut .2s ease-in forwards; transform: none; translate: none; }
-    .fx-btn.fx-on::after, .fx-tb.fx-on::after, .fx-tb.fx-out::after { animation: none; transform: none; width: 100%; opacity: .55; }
+    .fx-glow.fx-on::after, .win:has(> .winbody > .sec.fx-on)::before { animation: fxIn .2s ease-out both; transform: none; opacity: .6; }
+    .fx-glow.fx-out::after, .win:has(> .winbody > .sec.fx-out):not(:has(> .winbody > .sec.fx-on))::before { animation: fxOut .2s ease-in forwards; transform: none; }
+    .fx-btn.fx-on::after, .fx-tb.fx-on::after, .fx-tb.fx-out::after { animation: none; transform: none; opacity: .6; }
     .fx-tb.fx-has-p::before { transition: none; }
     .fx-ph { animation: none; }
     .fx-ph > i::after { animation: none; display: none; }
-    .sec.fx-arrive > h3::before, button.fx-arrive::before { animation: fxArriveFade .6s ease-out 1 forwards; transform: none; width: 100%; }
-    .sec:not(.fx-arrive) > h3.fx-head.fx-on::before { animation: fxIn .2s ease-out both; transform: none; width: 100%; opacity: .3; }
-    #exportMask::before { animation: none; opacity: .7; }
+    .sec.fx-arrive > h3::before, button.fx-arrive::before { animation: fxArriveFade .6s ease-out 1 forwards; transform: none; }
+    .sec:not(.fx-arrive) > h3.fx-head.fx-on::before { animation: fxIn .2s ease-out both; transform: none; opacity: .35; }
+    #exportMask::before { animation: none; opacity: .6; }
   }

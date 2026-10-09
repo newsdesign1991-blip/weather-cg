@@ -167,7 +167,7 @@ test('선택 완료 한 번 = 되돌리기 한 칸(중간 상태 새 CG 종류 +
     new Function('ctx', `const undoStack = ctx.stack; let pendingRes = 'r', pendingStyle = 's';
       const applyPendingRes = () => { if (${resChanges}) undoStack.push({ k: 'beforeRes' }); pendingRes = null; };
       const applyPendingStyle = () => { if (${styleChanges}) undoStack.push({ k: 'mid' }); pendingStyle = null; };
-      const updateUndoBtns = () => {}, markResBtns = () => {}, markStyleBtns = () => {}, closeCgSetup = () => { ctx.closed++; };
+      const updateUndoBtns = () => {}, markResBtns = () => {}, markStyleBtns = () => {}, closeCgSetup = () => { ctx.closed++; }, openAutoSec = () => {};
       ${fn('applyCgSetup')}; applyCgSetup();`)(ctx);
     return [stack.map((x) => x.k), ctx.closed];
   };
@@ -254,5 +254,5 @@ test('부팅 점검: CG 구성 고르기·완료·취소, 프로젝트 아이콘
   // 사용자 요청(10-09): 플로피는 AE로 보내기 바로 오른쪽, 장면 설정은 색 있는 버튼(투명 배경 아님)
   assert.ok(R.layout.projRightOfAe && R.layout.gap >= 0 && R.layout.gap <= 10, JSON.stringify(R.layout));
   assert.ok(R.layout.projDropInView, '플로피 드롭다운이 화면 안');
-  assert.notEqual(R.layout.sceneBg, 'none', '장면 설정 버튼에 색');
+
 });

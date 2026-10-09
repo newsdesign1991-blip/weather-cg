@@ -150,7 +150,14 @@ function applyCgSetup() {
   pendingRes = res; pendingStyle = style;   // 닫히는 동안 고른 카드가 그대로 보이게(닫힌 뒤 비움)
   markResBtns(); markStyleBtns();
   closeCgSetup();
+  setTimeout(openAutoSec, 360);   // 창이 닫힌 뒤 — 가장 먼저 쓰는 자동 기능 섹션을 펼쳐 둔다(사용자 요청 10-09)
 }
+// 이 지도에서 가장 먼저 쓰는 자동 기능 섹션 — 태풍 비교·태풍(불러오기), 특보(기상특보 자동 색칠), 시도·시군(기상예보 자동 색칠). 없으면 null(서울 등)
+function autoSecFor() {
+  for (const s of ['typhoonCompare', 'typhoon', 'wrn', 'fct']) if (!secModeHidden(s)) return s;
+  return null;
+}
+function openAutoSec() { const s = autoSecFor(); if (s) revealSec(s); }
 // 좁은 창(위아래로 쌓임)에서 한쪽 판을 고르면 아직 안 고른 다른 판을 본문 스크롤로 화면 안에 올려 준다(반대 순서도 같게).
 // picked = 방금 고른 판('res' | 'style'). 넓은 창(좌우 2판)은 둘 다 보이므로 아무것도 안 한다.
 function cgsShowOtherPane(picked) {

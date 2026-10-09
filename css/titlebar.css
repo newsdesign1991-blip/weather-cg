@@ -61,28 +61,15 @@
   @media (max-width: 1280px) { #titlebar #exportGroup .tbAction { padding: 0 10px; } }
   @media (max-width: 1040px) { #titlebar #exportGroup .tbAction { padding: 0 8px; } }
   @media (max-width: 860px) { #titlebar #exportGroup .tbAction { padding: 0 7px; } }
-  /* 장면 설정(#cgSetupBtn, 맨 왼쪽) — 작업의 시작점이라 렌더 버튼(파랑)과 구분되는 보라→파랑 틴트 + 채운 아이콘(레이아웃 타일).
-     렌더 버튼과 같은 높이·모서리·글자 굵기. 창이 열리면(.on) 꽉 찬 보라 그라데이션(아이콘도 흰색으로 따라감). 밝은 테마 글자는 진한 보라(대비 4.5:1 이상) */
-  :root, :root[data-theme="dark"] {
-    --tb-scene-fg: #cbbcff; --tb-scene-ring: rgba(167,139,250,.4);
-    --tb-scene-bg: linear-gradient(135deg, rgba(139,92,246,.26), rgba(74,148,255,.14));
-    --tb-scene-hover: linear-gradient(135deg, rgba(139,92,246,.4), rgba(74,148,255,.24));
-  }
-  :root[data-theme="light"] {
-    --tb-scene-fg: #5b2bd0; --tb-scene-ring: rgba(124,58,237,.3);
-    --tb-scene-bg: linear-gradient(135deg, rgba(124,58,237,.14), rgba(49,130,246,.08));
-    --tb-scene-hover: linear-gradient(135deg, rgba(124,58,237,.24), rgba(49,130,246,.14));
-  }
-  #titlebar .tbScene {
-    height: 26px; padding: 0 12px 0 10px; gap: 6px; border-radius: 8px; font-weight: 650;
-    background: var(--tb-scene-bg); color: var(--tb-scene-fg); box-shadow: inset 0 0 0 1px var(--tb-scene-ring);
-  }
+  /* 장면 설정(#cgSetupBtn, 맨 왼쪽) — 다른 글자 메뉴와 같은 모양(버튼 테두리·색 없음, 올리면 둥근 배경) + 아이콘(레이아웃 타일). 사용자 요청 10-09 */
+  #titlebar .tbScene { gap: 6px; padding: 0 10px 0 8px; }
   #titlebar .tbScene svg { flex: none; width: 15px; height: 15px; display: block; }
-  #titlebar .tbScene:hover { background: var(--tb-scene-hover); }
-  #titlebar .tbScene.on {
-    background: linear-gradient(135deg, #8b5cf6, #5b6cff); color: #fff; font-weight: 700;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 4px 12px -5px rgba(139,92,246,.75);
-  }
+  /* 되돌리기·다시(#undo·#redo) — 장면 설정 바로 오른쪽 아이콘 버튼(플로팅 바에서 옮겨 옴) */
+  #titlebar .tbHist { width: 30px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: none; box-shadow: none; color: var(--on-surface); display: inline-flex; align-items: center; justify-content: center; }
+  #titlebar .tbHist:hover:not(:disabled) { background: color-mix(in srgb, var(--on-surface) 9%, transparent); }
+  #titlebar .tbHist:disabled { opacity: .35; background: none; }
+  #titlebar .tbHist svg { width: 16px; height: 16px; display: block; }
+  #titlebar #cgSetupBtn + .tbHist { margin-left: 4px; }
   /* 프로젝트(플로피)는 렌더 버튼들 바로 오른쪽 — 렌더 버튼끼리 간격(6px)과 맞춘다 */
   #titlebar #exportGroup + .tbIconMenu { margin-left: 2px; }
   #titlebar .zoomInfo { font-size: 12px; min-width: 38px; font-variant-numeric: tabular-nums; }

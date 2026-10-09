@@ -88,13 +88,14 @@ test('사용자 요청(10-09): 저장(플로피)은 AE로 보내기 오른쪽, �
   assert.match(afterGroup, /^\s*(<!--[\s\S]*?-->\s*)?<button class="menuBtn tbMenu tbIconMenu" data-menu="proj"/, '렌더 버튼 묶음 바로 다음이 플로피');
   // 오른쪽 묶음이라 드롭다운은 버튼 오른쪽 끝에 맞춰 연다(화면 밖으로 안 나가게)
   assert.match(html, /const alignR = !!btn\.closest\('\.tbRight'\);/);
-  // 장면 설정 = 채운 아이콘 하나 + 글자, 보라 틴트(두 테마), 열리면 꽉 찬 그라데이션
+  // 장면 설정 = 채운 아이콘 하나 + 글자, 다른 글자 메뉴와 같은 모양(사용자 요청 10-09: 버튼 모양·색 없이)
   const scene = /<button[^>]*id="cgSetupBtn"[^>]*>[\s\S]*?<\/button>/.exec(titlebar)[0];
   const svg = /<svg[^>]*>[\s\S]*?<\/svg>/.exec(scene)[0];
   assert.match(svg, /fill="currentColor"/); assert.doesNotMatch(svg, /stroke=/); assert.match(svg, /aria-hidden="true"/);
-  assert.match(html, /#titlebar \.tbScene \{[^}]*background: var\(--tb-scene-bg\); color: var\(--tb-scene-fg\)/);
-  assert.match(html, /#titlebar \.tbScene\.on \{[^}]*background: linear-gradient\(/);
-  assert.equal((html.match(/--tb-scene-fg: #/g) || []).length, 2, '밝은·어두운 테마 둘 다');
+  assert.match(html, /#titlebar \.tbScene \{ gap: 6px; padding: 0 10px 0 8px; \}/);
+  assert.doesNotMatch(html, /--tb-scene-|\.tbScene\.on/, '보라 틴트·그라데이션 없음');
+  // 되돌리기·다시 = 장면 설정 바로 오른쪽(제목줄)
+  assert.match(titlebar, /id="cgSetupBtn"[\s\S]*?<\/button>\s*(<!--[\s\S]*?-->\s*)?<button id="undo" class="tbHist"[^>]*>[\s\S]*?<\/button>\s*<button id="redo" class="tbHist"/);
   // 장면 설정 버튼 글자를 통째로 덮는 코드가 없다(아이콘이 지워지지 않게)
   assert.doesNotMatch(html, /\$\('#cgSetupBtn'\)\.(textContent|innerText|innerHTML) =/);
 });
@@ -127,9 +128,11 @@ test('렌더 3버튼 — 한 묶음(세그먼트, 같은 폭), 아이콘 + 글�
   assert.doesNotMatch(html, /\.tbAppIcon/);
 });
 
-test('플로팅 바엔 칠하기·브러쉬·이동·되돌리기·다시만 남는다', () => {
-  for (const id of ['tbGrip', 'mPaint', 'mBrush', 'mMove', 'undo', 'redo']) assert.match(topbar, new RegExp(`id="${id}"`));
-  assert.doesNotMatch(topbar, /menuBtn|id="(tlToggle|aeSend|zoomV|theme|tourBtn|noticeBtn|helperBtn)"/);
+test('플로팅 바엔 손잡이 + 칠하기·브러쉬·이동(아이콘 + 글자)만 — 되돌리기·다시는 제목줄로, 버튼이 바를 꽉 채운다', () => {
+  for (const id of ['tbGrip', 'mPaint', 'mBrush', 'mMove']) assert.match(topbar, new RegExp(`id="${id}"`));
+  for (const id of ['mPaint', 'mBrush', 'mMove']) assert.match(topbar, new RegExp(`<button id="${id}"[^>]*><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor"`), id + ' 아이콘');
+  assert.doesNotMatch(topbar, /menuBtn|id="(undo|redo|tlToggle|aeSend|zoomV|theme|tourBtn|noticeBtn|helperBtn)"/);
+  assert.match(html, /\.topbar \{[^}]*padding: 0; z-index: 10; overflow: hidden;/);
 });
 
 test('옮긴 요소는 하나씩만 있다(복제 금지)', () => {
