@@ -642,7 +642,7 @@ const SEC_GRP = {
   res: ['map', '지도'], map: ['map', '지도'],
   pal: ['paint', '칠하기'],
   text: ['text', '글자'], label: ['text', '글자'], mtn: ['text', '글자'],
-  sea: ['special', '특수'], wrn: ['special', '특수'], fct: ['special', '특수'], legend: ['special', '특수'], typhoon: ['special', '특수'], typhoonPlaces: ['special', '특수'],
+  sea: ['special', '특수'], wrn: ['special', '특수'], fct: ['special', '특수'], legend: ['special', '특수'], typhoon: ['special', '특수'], typhoonPlaces: ['special', '특수'], typhoonCompare: ['special', '특수'],
   proj: ['proj', '파일'],
 };
 // 항목 제목의 아이콘. 채워진(filled) 모양으로 통일한다 — 24x24 기준 path.
@@ -661,7 +661,11 @@ const SEC_ICON = {
   out: 'M12 2v10.2l3.4-3.4 1.8 1.8L12 15.8 6.8 10.6l1.8-1.8L12 12.2V2zM3 17h18v5H3z', // 내려받기
   proj: 'M3 4h6l2 2h10v13H3zm2 5v8h14V9z',                                  // 폴더
   anim: 'M4 4h16v3H4zm0 5h16v11H4zm3 2v7l6-3.5z',                           // 타임라인/재생
-  typhoon: 'M12 3c3.9 0 6.5 2.1 6.5 4.9 0 2.1-1.5 3.5-3.6 3.5-1.5 0-2.5-.8-2.5-2 0-.9.6-1.5 1.5-1.5.6 0 1 .3 1 .8-.6 0-.9.3-.9.8 0 .6.5 1 1.3 1 1.2 0 2-.8 2-2.1 0-1.9-1.8-3.2-4.3-3.2-3.3 0-5.7 1.9-6.4 5.1M12 21c-3.9 0-6.5-2.1-6.5-4.9 0-2.1 1.5-3.5 3.6-3.5 1.5 0 2.5.8 2.5 2 0 .9-.6 1.5-1.5 1.5-.6 0-1-.3-1-.8.6 0 .9-.3.9-.8 0-.6-.5-1-1.3-1-1.2 0-2 .8-2 2.1 0 1.9 1.8 3.2 4.3 3.2 3.3 0 5.7-1.9 6.4-5.1M12 10a2 2 0 100 4 2 2 0 000-4z', // 태풍(소용돌이)
+  // 태풍 = 지도에 그리는 우리 태풍 아이콘(typhoon-icon.js) 모양 그대로(눈 뚫림 — evenodd). 장면 설정 카드 아이콘(js/map-build.js CGS_ICON)과 같은 도형
+  typhoon: [['M16.61 3.15C15.89 3.96 14.91 5.24 15.13 6.64C17.46 7.91 18.95 10.25 18.53 13.01C18.02 17.05 14.28 20.03 8.67 20.75C9.43 19.94 10.41 18.67 10.2 17.26C7.86 15.99 6.37 13.65 6.79 10.89C7.3 6.85 11.05 3.88 16.61 3.15ZM16.06 11.95A3.4 3.4 0 1 0 9.26 11.95A3.4 3.4 0 1 0 16.06 11.95Z', 1]],
+  // 태풍 비교 = 같은 아이콘 두 개(뒤 것은 옅게)
+  typhoonCompare: [['M10.53 2.04C9.95 2.69 9.17 3.71 9.34 4.83C11.21 5.85 12.4 7.72 12.06 9.93C11.65 13.16 8.66 15.54 4.17 16.12C4.78 15.47 5.57 14.45 5.4 13.33C3.53 12.31 2.34 10.44 2.68 8.23C3.08 5 6.08 2.62 10.53 2.04ZM10.09 9.08A2.72 2.72 0 1 0 4.65 9.08A2.72 2.72 0 1 0 10.09 9.08Z', 0.5],
+    ['M19.63 7.84C19.05 8.49 18.27 9.51 18.44 10.63C20.31 11.65 21.5 13.52 21.16 15.73C20.75 18.96 17.76 21.34 13.27 21.92C13.88 21.27 14.67 20.25 14.5 19.13C12.63 18.11 11.44 16.24 11.78 14.03C12.18 10.8 15.18 8.42 19.63 7.84ZM19.19 14.88A2.72 2.72 0 1 0 13.75 14.88A2.72 2.72 0 1 0 19.19 14.88Z', 1]],
   typhoonPlaces: 'M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z', // 지명(위치 핀)
 };
 
@@ -682,24 +686,19 @@ for (const [sec, [grp, tag]] of Object.entries(SEC_GRP)) {
   n.dataset.grp = grp;
   const h = n.querySelector('h3');
   const d = SEC_ICON[sec];
-  if (sec === 'typhoon' && window.TYPHOON_ICON && window.TYPHOON_ICON.img) {
-    // 태풍 섹션 아이콘 = 실제 태풍 아이콘 '모양'을 섹션 강조색(보라)으로 칠한 실루엣(원래 아이콘 색감과 통일).
-    const span = document.createElement('span');
-    span.className = 'secIcon';                    // 박스(연보라 배경)
-    const im = document.createElement('i');
-    im.className = 'secIconMask';                  // 안쪽: 태풍 모양 마스크 + currentColor(보라)
-    im.style.webkitMaskImage = `url("${window.TYPHOON_ICON.img}")`;
-    im.style.maskImage = `url("${window.TYPHOON_ICON.img}")`;
-    span.appendChild(im);
-    h.prepend(span);
-  } else if (d) {
+  if (d) {
     const svg = document.createElementNS(svgNS, 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
     svg.setAttribute('class', 'secIcon');
-    const p = document.createElementNS(svgNS, 'path');
-    p.setAttribute('d', d);
-    p.setAttribute('fill', 'currentColor');
-    svg.append(p);
+    // 문자열 = path 하나(nonzero), 배열 = [d, 불투명도] 여러 개(evenodd — 태풍 눈 뚫림)
+    for (const [pd, op] of (Array.isArray(d) ? d : [[d, 1]])) {
+      const p = document.createElementNS(svgNS, 'path');
+      p.setAttribute('d', pd);
+      p.setAttribute('fill', 'currentColor');
+      if (Array.isArray(d)) p.setAttribute('fill-rule', 'evenodd');
+      if (op !== 1) p.setAttribute('opacity', String(op));
+      svg.append(p);
+    }
     h.prepend(svg);
   }
   const t = document.createElement('span');

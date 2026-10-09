@@ -314,16 +314,12 @@ const CGS_ICON = {
   sido: '<path d="M3.5 6.2l5.3-2.2 6.4 2.2 5.3-2.2v13.8l-5.3 2.2-6.4-2.2-5.3 2.2z"/><path d="M8.8 4v13.8M15.2 6.2V20"/>',
   warn: '<path d="M12 3.6l9.2 16H2.8z" stroke-linejoin="round"/><path d="M12 10v4.2M12 16.8v.3" stroke-width="2.2"/>',
   warnsea: '<path d="M12 2.8l7 12.1H5z" stroke-linejoin="round"/><path d="M12 7.6v3.4M12 12.8v.2" stroke-width="2.1"/><path d="M2.5 19.2c1.6 0 1.6-1.3 3.2-1.3s1.6 1.3 3.2 1.3 1.6-1.3 3.1-1.3 1.6 1.3 3.2 1.3 1.6-1.3 3.2-1.3 1.6 1.3 3.1 1.3"/>',
-  typhoon: '<path d="M12 4.2c4.4 0 7.3 2.1 7.3 4.9 0 2-1.6 3.3-3.6 3.3M12 19.8c-4.4 0-7.3-2.1-7.3-4.9 0-2 1.6-3.3 3.6-3.3"/><circle cx="12" cy="12" r="2.6"/>',
-  typhoonCompare: '<path d="M10 4.6c3.6 0 6 1.7 6 4 0 1.6-1.3 2.7-2.9 2.7M10 17.4c-3.6 0-6-1.7-6-4 0-1.6 1.3-2.7 2.9-2.7"/><circle cx="10" cy="11" r="2.1"/><path d="M15.5 15.5c2.2.2 4.2 1.2 4.2 2.6s-1.6 2.3-3.6 2.3" opacity=".7"/>',
+  // 태풍 = 지도에 그리는 우리 태풍 아이콘(typhoon-icon.js 일러스트, 304×440) 모양을 그대로 옮긴 채운 도형 — 색은 다른 카드 아이콘처럼 글자색(currentColor), 눈은 뚫림
+  typhoon: `<path fill="currentColor" stroke="none" fill-rule="evenodd" transform="translate(6.2 2.6) scale(0.0425)" d="${'M245 13C228 32 205 62 210 95C265 125 300 180 290 245C278 340 190 410 58 427C76 408 99 378 94 345C39 315 4 260 14 195C26 100 114 30 245 13ZM232 220A80 80 0 1 0 72 220A80 80 0 1 0 232 220Z'}"/>`,
+  // 태풍 비교 = 같은 아이콘 두 개(뒤 것은 옅게)
+  typhoonCompare: `<g fill="currentColor" stroke="none" fill-rule="evenodd"><path opacity=".5" transform="translate(2.2 1.6) scale(0.034)" d="${'M245 13C228 32 205 62 210 95C265 125 300 180 290 245C278 340 190 410 58 427C76 408 99 378 94 345C39 315 4 260 14 195C26 100 114 30 245 13ZM232 220A80 80 0 1 0 72 220A80 80 0 1 0 232 220Z'}"/><path transform="translate(11.3 7.4) scale(0.034)" d="${'M245 13C228 32 205 62 210 95C265 125 300 180 290 245C278 340 190 410 58 427C76 408 99 378 94 345C39 315 4 260 14 195C26 100 114 30 245 13ZM232 220A80 80 0 1 0 72 220A80 80 0 1 0 232 220Z'}"/></g>`,
 };
 function cgsIconSvg(k) {
-  // 태풍·태풍 비교 = 지도에 그리는 우리 태풍 아이콘(typhoon-icon.js 일러스트) 그대로. 비교는 두 개를 겹친다(뒤 것은 파랑으로 물들임 — css/cg-setup.css)
-  const IC = window.TYPHOON_ICON;
-  if ((k === 'typhoon' || k === 'typhoonCompare') && IC && IC.img) {
-    const img = (c) => `<img class="cgsTyIcon${c ? ' ' + c : ''}" src="${IC.img}" alt="" draggable="false">`;
-    return k === 'typhoon' ? img('') : `<span class="cgsTyPair" aria-hidden="true">${img('b')}${img('a')}</span>`;
-  }
   const d = CGS_ICON[k] || '<path d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16.5l9 5 9-5"/>';
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${d}</svg>`;
 }

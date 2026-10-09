@@ -91,12 +91,6 @@
   .cgsCard.choicePending::after { content: '\2713'; background: var(--acc); border-color: var(--acc); animation: choiceCheck .32s cubic-bezier(.2,1.5,.35,1); }
   .cgsCardIcon { flex: none; width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: var(--acc-on); background: color-mix(in srgb, var(--acc) 14%, transparent); }
   .cgsCardIcon svg { width: 19px; height: 19px; }
-  /* 태풍·태풍 비교 카드 = 지도에 그리는 우리 태풍 아이콘(일러스트). 비교는 두 개 겹침 — 뒤 것은 파랑으로 물들이고 조금 흐리게 */
-  .cgsCardIcon .cgsTyIcon { width: 25px; height: 25px; object-fit: contain; display: block; pointer-events: none; }
-  .cgsCardIcon .cgsTyPair { position: relative; width: 28px; height: 26px; }
-  .cgsCardIcon .cgsTyPair .cgsTyIcon { position: absolute; width: 19px; height: 19px; }
-  .cgsCardIcon .cgsTyPair .b { left: 0; top: 0; filter: hue-rotate(205deg) saturate(1.1); opacity: .8; }
-  .cgsCardIcon .cgsTyPair .a { right: 0; bottom: 0; }
   .cgsCardTxt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .cgsCardTxt b { font-size: 13.5px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; word-break: keep-all; }
   .cgsCardTxt small { font-size: 11px; font-weight: 600; line-height: 1.4; color: var(--cgs-muted); word-break: keep-all; white-space: pre-line; }
