@@ -23,6 +23,14 @@ const title = () => (pop() ? pop().querySelector('.dpTitleTx').textContent : nul
 const key = (el, k, o = {}) => el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
 const tap = (el) => { const o = { bubbles: true, cancelable: true, button: 0, pointerId: 7, pointerType: 'mouse', clientY: 10 }; el.dispatchEvent(new PointerEvent('pointerdown', o)); el.dispatchEvent(new PointerEvent('pointerup', o)); };
 const R = {};
+// 날짜를 고를 때 실제 API에 의존하지 않는다. 지도 적용은 발표 시각을 고른 뒤에만 한다.
+const dateTestFetch = window.fetch;
+window.fetch = async (url, ...args) => {
+  const s = String(url);
+  if (s.startsWith(WNS_HELPER + '/ping')) return new Response(JSON.stringify({ ok: true, ver: 20261009 }));
+  if (s.startsWith(WNS_HELPER + '/api/kma?')) return new Response('#START7777\n# TM_FC, TM_EF, TM_IN, STN, REG_ID, WRN, LVL, CMD, GRD, CNT, RPT\n');
+  return dateTestFetch(url, ...args);
+};
 
 // 0) 붙었는가 — 모든 type=date·time 이 숨겨지고 옆에 우리 칸
 R.attached = {
@@ -103,7 +111,9 @@ R.outside = { closed: !pop(), value: wd.value };
 wd.value = '2020-01-05';
 R.programmatic = field.textContent;
 // 7) 시각 칸 — 시 '14' → 분 '37'(10분 단위 → 30) → change, 알약 18:00, ↑ = 18:10
-const wt = $('#wrnTime'), tb = wt._dpt.box, H = tb.querySelector('.dpTH'), M = tb.querySelector('.dpTM');
+const wt = document.createElement('input'); wt.type = 'time'; wt.step = '600';
+$('#wrnPastRow').append(wt); dpTimeAttach(wt);
+const tb = wt._dpt.box, H = tb.querySelector('.dpTH'), M = tb.querySelector('.dpTM');
 let tch = 0; wt.addEventListener('change', () => tch++);
 // 숨김 창은 포커스 이벤트를 안 보낼 때가 있다 — 실제 창처럼 focusin/focusout을 직접 보낸다(이미 왔으면 두 번째는 아무 일 없음)
 H.focus(); if (!document.querySelector('.dpTimePop')) H.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); await sleep(300);
@@ -167,4 +177,5 @@ R.cmp.pop = { side: pop().dataset.side, noCover: cpr.left >= cfr.right || cpr.to
   title: title(), on: $$('.dpPop .dpDay:not(:disabled)').map((b) => +b.dataset.d.slice(8)).join(','), todayOff: $('.dpPop .dpTodayBtn').disabled };
 $('.dpPop .dpDay[data-d="2024-08-23"]').click(); await sleep(400);
 R.cmp.picked = { value: cf.value, field: cff.textContent, change: cfc, closed: !pop(), state: (S.typhoon.compare[0] || {}).rangeFrom };
+window.fetch = dateTestFetch;
 return R;

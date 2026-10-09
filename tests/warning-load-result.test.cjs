@@ -390,15 +390,11 @@ test('자동 재요청 실패 — 고른 시각 표시를 지도 시각으로 �
   assert.equal(v.lines[1], '지도 색은 바꾸지 않았어요 — 이전 그대로입니다.');
   assert.equal(v.lines[2], '날짜·시각 선택도 지도에 칠해진 시각(지금)으로 되돌렸어요.');
   assert.equal(wrnResultView({ kind: 'server', src: 'fetch' }).lines.length, 2);
-  // 날짜 칸(syncWhen)도 통보문 고르기처럼 실패하면 되돌린다
-  const sync = sliceBetween('const syncWhen = (reapply) =>', "$('#wrnWhenNow').onclick");
-  assert.match(sync, /const prevWhen = wrnWhen;/);
-  assert.match(sync, /fetchWrn\(null, [^\n]*\{ back \}\)\.then\(\(ok\) => \{/);
-  assert.match(sync, /if \(ok !== false \|\| wrnWhen !== want\) return;/);
-  assert.match(sync, /wrnWhen = prevWhen; reflectWhenToPicker\(\); syncNowLabel\(\);/);
-  const bs = sliceBetween("const bs = $('#wrnBulletinSel'); if (bs) bs.onchange", '// 인증키는 이 브라우저에만');
-  assert.match(bs, /\{ back \}\);/);
-  assert.match(bs, /wrnWhen = prevWhen; reflectWhenToPicker\(\);/);
+  const pick = sliceBetween('async function wrnSelectTime(', 'function wireWrnWhen(');
+  assert.match(pick, /const prevWhen = wrnWhen, prevFc = wrnSelFc;/);
+  assert.match(pick, /\{ back, at \}\);/);
+  assert.match(pick, /if \(ok === false\)/);
+  assert.match(pick, /wrnWhen = prevWhen; reflectWhenToPicker\(\);/);
 });
 
 test('결과 카드 숫자는 지도 전환·눈 켜고 끄기 뒤 다시 센다 · 구버전 확장팩 안내가 카드와 맞는다 · 0건이면 AE 막힘도 정상 안내', () => {

@@ -514,16 +514,15 @@ async function sendToAE() {
         // 단일 태풍: 리깅 — 지점 널(수동 이동) + 표현식 경로선·반경(널 따라 움직임) + 아이콘(부모=널) + 리빌 키프레임 + 편집 라벨.
         const T = S.typhoon, pts = curTyphoonPoints(), nowIdx = typhoonNowIdx(pts);
         // 리깅 좌표는 위의 kx/ky/kk(출력해상도 배율)로 스케일한다(SX/SY) — 여기서 다시 곱하지 않는다.
-        const lineMode = T.trackMode === 'line';   // 현재까지 단색선·선두 아이콘 리깅, 미래 점선은 정적 참고선으로 배경에 보존
+        const lineMode = T.trackMode === 'line';   // 지난 실선 → 예상 점선까지 같은 진행 곡선으로 그린다.
         let sp = typhoonScreenPts(pts).filter((p) => !p.head && typhoonIdxInRange(pts, p.idx));   // '표시 날짜 범위'만 내보냄
-        if (lineMode) sp = sp.filter((p) => p.idx <= nowIdx);   // 움직이는 리깅만 현재에서 멈춤. 미래 점선은 아래 배경에 남긴다.
         const iconCol = T.iconCol || '#E5231E';
         const trackW = Math.max(1, +T.lineWidth || 5);   // 화면 경로선 굵기(라인=단색선, 일반=현재~예상 점선)
         // 지명표시(원+이름표)는 정적이라 배경에 그대로 구워 넣는다 — 태풍 트랙/라벨만 제거(리깅이 재구성), place 요소는 보존.
         const bl = rigBleed();
         const bg = addFile(await svgBlob((c) => {
           for (const id of ['#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove();
-          for (const id of ['#L_typhoon', '#L_typhoonLabels']) { const ly = c.querySelector(id); if (ly) [...ly.children].forEach((ch) => { if (!ch.hasAttribute('data-place-dot') && !ch.hasAttribute('data-place-label') && !ch.hasAttribute('data-place-leader') && !(lineMode && ch.hasAttribute('data-typ-line-forecast'))) ch.remove(); }); }
+          for (const id of ['#L_typhoon', '#L_typhoonLabels']) { const ly = c.querySelector(id); if (ly) [...ly.children].forEach((ch) => { if (!ch.hasAttribute('data-place-dot') && !ch.hasAttribute('data-place-label') && !ch.hasAttribute('data-place-leader')) ch.remove(); }); }
         }, false, bleedOpt(bl)));
         const icC = await aeIconBlob(iconCol, false, false), icG = await aeIconBlob(iconCol, true, false);
         const icTC = await aeIconBlob(iconCol, false, true), icTG = await aeIconBlob(iconCol, true, true);
@@ -559,6 +558,7 @@ async function sendToAE() {
           trackMode: lineMode ? 'line' : 'full', lineColor: lineCol, lineWidth: +(trackW * kk).toFixed(2), pastLineWidth: +(Math.max(1.5, trackW * 0.55) * kk).toFixed(2), pastIconK: 0.3,
           prog, labelCurve: lineMode ? 0 : 1, leaderGap: +(16 * kk).toFixed(4) };
         if (headFile) rig.headFile = headFile;
+        if (lineMode) rig.lineForecast = 1;   // 옛 헬퍼는 이 필드만 무시: 전체 경로·선두는 유지, 점선만 실선으로 보인다.
         // 카메라(위치·확대·방향 키) — 헬퍼 CAM(·ROT) 널이 지도·지점·반경을 부모로 움직인다. 배경은 작업 뷰로 구웠으니 anchor=작업 뷰, sBaked=작업 배율.
         const cam = aeCamSpec(rigPt, S.map);
         if (cam) rig.camera = cam;

@@ -29,7 +29,8 @@ test('라인 모드: 지난 길(현재까지) 실선 → 현재부터 점선이 
   assert.doesNotMatch(fn, /if \(lineMode\) sp = sp\.filter/, '선두·실선을 현재까지로 자르지 않는다');
   assert.match(fn, /const pastLine = sp\.filter\(\(p\) => p\.idx <= nowIdx\), futLine = sp\.filter\(\(p\) => p\.idx >= nowIdx\);/);
   assert.match(fn, /'data-typ-line-forecast': '1', d: 'M' \+ futLine\.map[^\n]*'stroke-dasharray'/);
-  assert.match(html, /lineMode && ch.hasAttribute\('data-typ-line-forecast'\)/);
+  assert.doesNotMatch(html, /lineMode && ch.hasAttribute\('data-typ-line-forecast'\)/, '예상 경로는 배경에 굽지 않고 AE 리그로 전달');
+  assert.match(html, /if \(lineMode\) rig.lineForecast = 1/);
 });
 
 test('라인 모드는 선두 아이콘 하나와 조절 가능한 굵기의 실선·점선을 그린다', () => {

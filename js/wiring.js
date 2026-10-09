@@ -251,23 +251,9 @@ function wire() {
   // (태풍 '이름·발표 시각 수정' 접기는 뺐다 — 칸은 숨김, 고르기는 '태풍 불러오기 · 선택' 창)
   foldWire($('#tycManual'), 'wcg_tyc_manual_open');
   $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value, null, 'paste');
-  $('#wrnFetch').onclick = () => fetchWrn();   // 인자 없이(=목록 새로 만듦). onclick이 이벤트를 keepSel로 넘기지 않게 감쌈.
+  wireWrnWhen();   // 날짜별 발표 목록 → 고른 시각의 발효현황 재조회
   setupWrnColPop();   // '특보 종류별 색' 버튼 → 2분할 팝업(js/warnings-load.js) — 옛 사이드바 색 격자 자리
   wireWrnOverlap();
-  // 발효시각을 고르면 그 시각으로 '재요청'해서 정확한 발효현황을 받아 칠한다(picker와 동일). 목록은 그대로 둠.
-  { const bs = $('#wrnBulletinSel'); if (bs) bs.onchange = async () => {
-      const v = bs.value, prevWhen = wrnWhen, prevFc = wrnSelFc;
-      wrnWhen = (v === '__NOW__') ? '' : v;
-      reflectWhenToPicker();
-      // __NOW__는 목록도 새로, 특정시각은 목록 유지(keepSel). 다시 시도 = 같은 시각을 다시 고르기.
-      const back = wrnWhen === prevWhen ? '' : prevWhen ? wrnTmText(prevWhen) : '지금';   // 실패하면 아래에서 이 시각으로 되돌린다
-      const ok = await fetchWrn(v === '__NOW__' ? null : v, () => { bs.value = v; bs.onchange(); }, { back });
-      if (ok === false) {
-        // 못 불러왔으면 지도는 이전 그대로다 — 목록·시각 표시도 지도에 칠해진 시각으로 되돌려 서로 어긋나 보이지 않게
-        wrnWhen = prevWhen; reflectWhenToPicker();
-        if (prevFc && [...bs.options].some((o) => o.value === prevFc)) bs.value = prevFc;
-      }
-    }; }
 
   // 인증키는 이 브라우저에만 둔다 — 프로젝트 JSON이나 배포 파일에 섞여 나가면 안 된다.
   // 넣는 곳은 API 설정 한 군데뿐이고, 특보·예보 항목은 없으면 그리로 보내기만 한다.
@@ -275,55 +261,8 @@ function wire() {
   $('#apiKey').oninput = (e) => { localStorage.setItem(WRN_KEY_STORE, e.target.value.trim()); syncKeyWarn(); };
   syncKeyWarn();
 
-  // 언제 특보 — '지금'이면 tm을 비우고, '지난 날짜'면 그 시각을 넣는다
-  // '발효 현황' 라벨만 새 시각으로 갱신. 실제 색칠은 '기상청에서 불러오기'가 그 시각으로 재요청해 정확히 받아온다.
-  // (한 번 받은 데이터를 다른 시각으로 로컬 재계산하면 열대야 자동해제 등이 안 맞아 틀림 → 재요청이 정답)
-  const syncNowLabel = () => {
-    if (!wrnLoaded) return;   // 한 번 읽었으면(발효 특보 0건이어도) 라벨 갱신
-    const sel = $('#wrnBulletinSel');
-    const opt = sel && [...sel.options].find((o) => o.value === '__NOW__');
-    if (opt) opt.textContent = wrnEffLabel();
-  };
-  // 날짜·시각 칸만 w 시각으로 보여 준다(지도에 칠해진 시각 wrnWhen은 그대로)
-  const showPickerAt = (w) => { const keep = wrnWhen; wrnWhen = w; reflectWhenToPicker(); wrnWhen = keep; };
-  const syncWhen = (reapply) => {
-    const prevWhen = wrnWhen;   // 지금 지도에 칠해진 시각
-    const past = $('#wrnPastRow').style.display !== 'none';
-    $('#wrnWhenNow').classList.toggle('pri', !past);
-    $('#wrnWhenPast').classList.toggle('pri', past);
-    if (!past) { wrnWhen = ''; }
-    else { const d = $('#wrnDate').value, t = $('#wrnTime').value || '00:00'; wrnWhen = d ? d.replace(/-/g, '') + t.replace(':', '') : ''; }
-    syncNowLabel();
-    // reapply=true면 그 시각으로 바로 재요청(picker 조작 시 사용자가 기대하는 동작).
-    if (reapply && wrnLoaded) {
-      const want = wrnWhen;
-      // 못 불러오면 지도는 이전 시각 그대로다 — 통보문 고르기처럼 '지금/지난 날짜'·날짜 칸·'발효 현황' 라벨도 지도 시각으로 되돌린다.
-      // 다시 시도 = 고르려던 시각을 칸에 다시 채우고 같은 동작 반복.
-      const back = want === prevWhen ? '' : prevWhen ? wrnTmText(prevWhen) : '지금';   // 같은 시각을 다시 부른 거면 되돌릴 게 없다
-      fetchWrn(null, () => { showPickerAt(want); syncWhen(true); }, { back }).then((ok) => {
-        if (ok !== false || wrnWhen !== want) return;   // 칠했거나, 그새 다른 시각을 골랐으면 그대로
-        wrnWhen = prevWhen; reflectWhenToPicker(); syncNowLabel();
-      });
-    }
-  };
-  $('#wrnWhenNow').onclick = () => { $('#wrnPastRow').style.display = 'none'; syncWhen(true); };
-  $('#wrnWhenPast').onclick = () => {
-    $('#wrnPastRow').style.display = '';
-    if (!$('#wrnDate').value) {
-      // 기본값은 어제 — '지난 날짜'를 누르는 사람이 가장 자주 찾는 날이다
-      const y = new Date(Date.now() - 864e5);
-      $('#wrnDate').value = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
-      $('#wrnTime').value = '09:00';
-    }
-    syncWhen(true);
-  };
-  $('#wrnDate').onchange = () => syncWhen(true);
-  $('#wrnTime').onchange = () => syncWhen(true);
-  syncWhen();
-
   $('#wrnOpen').onclick = () => {
     if (!apiKey()) { apiPop(true); status('인증키를 먼저 넣어주세요'); return; }
-    syncWhen();
     window.open(WRN_URL(), '_blank', 'noopener');
     status(wrnWhen ? `${tmShort(wrnWhen)} 특보 — Ctrl+A → Ctrl+C 해서 아래에 붙여넣으세요`
                    : '새 창에서 Ctrl+A → Ctrl+C 하고 아래에 붙여넣으세요');

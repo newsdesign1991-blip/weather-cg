@@ -78,6 +78,7 @@ function wireCompareCard(root, cmp, i) {
   q('[data-cmpfrom]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.rangeFrom = n.value; R(); }; });
   q('[data-cmpto]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.rangeTo = n.value; R(); }; });
   q('input[type=date]').forEach((n) => dpAttach(n, { short: true }));   // 표시 날짜범위 — 시스템 칸 대신 달력(js/date-picker.js), 한 태풍 안이라 해는 뺀 '10. 9 (금)'
+  q('select').forEach((n) => ddAttach(n));   // 아이콘 위치·이름표 글꼴 — 시스템 드롭다운 대신 토스 카드 목록(js/dropdown.js)
   q('[data-lblchk]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; const pi = +n.dataset.lblchk; pushUndo(); c.labels = c.labels || []; const ex = c.labels.find((l) => l.idx === pi); if (n.checked) { if (!ex) c.labels.push({ idx: pi, txt: '' }); else ex.off = 0; } else if (ex) c.labels = c.labels.filter((l) => l.idx !== pi); const tx = root.querySelector(`[data-lbltxt="${pi}"]`); if (tx) { tx.disabled = !n.checked; tx.style.opacity = n.checked ? '' : '.45'; if (!n.checked) tx.value = ''; } R(); }; });   // 전체 재빌드 대신 인접 입력만 갱신 → 목록 스크롤 유지(맨 위로 안 튐)
   q('[data-lbltxt]').forEach((n) => wireImeText(n, (v) => { const c = cmp[i]; if (!c) return; const pi = +n.dataset.lbltxt; const lb = (c.labels || []).find((l) => l.idx === pi); if (lb) { pushUndo('cmplbltxt'); lb.txt = v; R(); } }));
   q('[data-numsize]').forEach((n) => { n.onchange = () => { const c = cmp[i]; if (!c) return; pushUndo(); c.numSize = +n.value; R(); }; });
@@ -648,7 +649,7 @@ function setupTyphoonLoad() {
   }, true);   // 다른 출처를 누르면 이전 출처의 늦은 응답·선택은 취소
   ov.addEventListener('pointerdown', (e) => { if (e.target === ov) closeTyphoonLoad(); });
   window.addEventListener('keydown', (e) => {
-    if (!ov.classList.contains('on') || _dpNow || $('#tossOv') || document.querySelector('select:open')) return;
+    if (!ov.classList.contains('on') || _dpNow || _ddNow || $('#tossOv')) return;   // 위에 뜬 달력·드롭다운 목록·토스 모달이 먼저
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeTyphoonLoad(); }
     else if (e.key === 'Tab') popTrapTab(ov.querySelector('.cgSetupCard'), e);
   });

@@ -20,8 +20,7 @@ q('#typFetch').addEventListener('click', e=>e.stopImmediatePropagation(), {captu
 q('#typFetch').click();check(!q('#typLoadResults').hidden,'load button must reveal results immediately');
 for(const id of ['typHistoryMonth','typFetchJma','typJtwcDl'])check(q('#'+id).closest('#typLoadOv'),'control outside modal: '+id);
 for(const id of ['typWhichSel','typName','typIssueSel'])check(q('#'+id).closest('#typDetailSettings'),'detail control outside sidebar fold: '+id);
-check(CSS.supports('appearance','base-select'),'runtime lacks custom select');
-check([...document.querySelectorAll('select')].every(n=>getComputedStyle(n).appearance==='base-select'),'native dropdown remains');
+check([...document.querySelectorAll('select')].every(n=>n._dd&&getComputedStyle(n).display==='none'&&n.nextElementSibling===n._dd.field),'native dropdown remains');
 const initial=JSON.stringify(S.typhoon);
 let p=chooseTyphoonFromList([{tno:'1',year:'2026',name:'제1호 태풍',points:pts},{tno:'2',year:'2026',name:'제2호 태풍',points:pts}],'기상청',()=>true);
 const panes=q('.typLoadBody').children,a=panes[0].getBoundingClientRect(),b=panes[1].getBoundingClientRect();

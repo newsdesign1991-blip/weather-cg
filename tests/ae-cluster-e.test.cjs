@@ -35,8 +35,8 @@ test('인라인 스크립트가 전부 문법 오류 없이 컴파일된다', ()
   for (const code of blocks) assert.doesNotThrow(() => new vm.Script(code));
 });
 
-test('HELPER_VER_MIN은 새 헬퍼(20261008) 기준 — AE 확장(AE_EXT_VER)도 같은 판', () => {
-  assert.match(html, /const HELPER_VER_MIN = 20261008;/);
+test('HELPER_VER_MIN은 예상 점선 헬퍼(20261009), 좌표 확장 게이트는 20261008 유지', () => {
+  assert.match(html, /const HELPER_VER_MIN = 20261009;/);
   assert.match(html, /const AE_EXT_VER = 20261008;/);
 });
 
@@ -103,7 +103,8 @@ test('단일 태풍 리그가 라인모드·선 굵기/색·과거아이콘 30%�
   const send = sliceBetween('async function sendToAE()', '// 폴더를 물어보고');
   const ty = send.slice(send.indexOf('// 단일 태풍: 리깅'), send.indexOf("name: '태풍 리깅'"));
   assert.match(ty, /const lineMode = T\.trackMode === 'line'/);
-  assert.match(ty, /if \(lineMode\) sp = sp\.filter\(\(p\) => p\.idx <= nowIdx\)/);
+  assert.doesNotMatch(ty, /if \(lineMode\) sp = sp\.filter\(\(p\) => p\.idx <= nowIdx\)/);
+  assert.match(ty, /if \(lineMode\) rig.lineForecast = 1/);
   assert.match(ty, /const trackW = Math\.max\(1, \+T\.lineWidth \|\| 5\)/);
   assert.match(ty, /if \(!lineMode\) for \(const k of \['r70', 'r15', 'r25'\]\)/);
   assert.match(ty, /if \(!lineMode\) for \(const b of labelList\(\)\)/);
@@ -302,7 +303,7 @@ test('MXF 29.97 타임라인이면 안내 없음, 1프레임이면 워커 풀 �
 test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_BOOT_CHECK !== '1' && 'WCG_BOOT_CHECK=1 일 때만(일렉트론 필요)' }, () => {
   let raw;
   try {
-    raw = execFileSync(process.execPath, [path.join(root, 'desktop', 'test', 'boot-check.cjs'), '--wait=7000', '--eval=' + path.join(__dirname, 'ae-cluster-e.boot-eval.js')], { encoding: 'utf8', timeout: 400000 });
+    raw = execFileSync(process.execPath, [path.join(root, 'desktop', 'test', 'boot-check.cjs'), '--wait=9000', '--keepalive', '--eval=' + path.join(__dirname, 'ae-cluster-e.boot-eval.js')], { encoding: 'utf8', timeout: 400000 });
   } catch (e) { raw = e.stdout; }
   const j = JSON.parse(raw);
   assert.equal(j.ok, true, JSON.stringify(j.errors));
@@ -329,7 +330,8 @@ test('부팅 점검: 실제 sendToAE/wnsRender 스펙', { skip: process.env.WCG_
   // 단일 태풍
   const L = o.tyLineTouch.rig, F = o.tyFullTouch.rig, N = o.tyFull1920.rig;
   assert.equal(L.trackMode, 'line'); assert.deepEqual(L.bands, {}); assert.deepEqual(L.labels, []);
-  assert.ok(L.points.every((p) => p.idx <= L.nowIdx));
+  assert.ok(L.points.some((p) => p.idx > L.nowIdx));
+  assert.equal(L.lineForecast, 1);
   assert.equal(L.points[L.points.length - 1].past, false);
   assert.equal(L.lineColor, '#00AAFF'); close(L.lineWidth, +(6 * kk).toFixed(2));
   assert.equal(F.trackMode, 'full'); assert.equal(F.pastIconK, 0.3); close(F.pastLineWidth, +(Math.max(1.5, 6 * 0.55) * kk).toFixed(2));

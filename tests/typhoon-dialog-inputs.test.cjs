@@ -29,8 +29,10 @@ test('all date types and native select menus use shared UI; year/month offers ex
   assert.match(source,/if \(input.max && value > input.max\) value = input.max/);
   assert.match(source,/dpWheelDone[^\n]*확인 · 일자 선택/);
   assert.match(source,/q\('\.dpWheelDone'\).addEventListener\('click', confirmWheel\)/);
-  assert.match(source,/select, select::picker\(select\) \{ appearance: base-select; \}/);
-  assert.match(source,/dateInputs.observe\(document.body, \{ childList: true, subtree: true \}\)/);
+  assert.match(source,/\.ddSrc \{ display: none !important; \}/);   // 시스템 드롭다운은 숨기고 공용 드롭다운(js/dropdown.js)
+  assert.doesNotMatch(source,/appearance: base-select/);
+  assert.match(source,/\nddAttachAll\(\);/);
+  assert.match(source,/lateFields.observe\(document.body, \{ childList: true, subtree: true \}\)/);
 });
 test('desktop: split dialog, embedded picker, datetime synchronization, all dropdowns, wheel confirmation',{skip:process.env.WCG_BOOT_CHECK!=='1'},()=>{
   const raw=execFileSync(process.execPath,[path.join(__dirname,'../desktop/test/boot-check.cjs'),path.join(__dirname,'..'),'--wait=9000','--size=1500x900','--eval='+path.join(__dirname,'typhoon-dialog-inputs.boot-eval.js')],{encoding:'utf8',timeout:180000});

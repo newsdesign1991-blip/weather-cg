@@ -187,7 +187,7 @@ test('붙이는 자리 — 부팅 때 문서 전체(wire 뒤·loadLayout 앞), �
   for (const id of ['wrnDate', 'fctDate']) assert.match(html, new RegExp(`<input[^>]*(type="date"[^>]*id="${id}"|id="${id}"[^>]*type="date")`));
   assert.match(html, /id="typHistoryMonth" type="month"/);
   assert.match(html, /each\('input\[type=month\]', dpAttach\)/);
-  assert.match(html, /<input type="time" id="wrnTime" step="600">/);
+  assert.doesNotMatch(html, /id="wrnTime"/); // 특보는 날짜별 발표 시각 목록에서 선택
 });
 
 test('모양 — 원래 칸 숨김, 휠 scroll-snap(가운데)·줄 높이 = DP_ITEM, 팝오버 fixed, 색은 토큰(--dp-* 두 테마), #hex 없음', () => {
@@ -225,19 +225,19 @@ test('부팅 점검: 특보 지난 날짜 → 달력 → 휠 2019년 3월 → 15
   assert.ok(R.attached.time.every((d) => d.dpt && d.hidden));
   assert.deepEqual([R.open.pop, R.open.below, R.open.inView, R.open.futureOff, R.open.nextOff], [true, true, true, true, true]);
   assert.deepEqual([R.open.sel, R.open.today], [R.open.todayDs, R.open.todayDs], '오늘 = 고른 날·오늘 테두리');
-  assert.deepEqual([R.wheel.on, R.wheel.calHidden, R.wheel.wheelShown, R.wheel.lastYearDis, R.wheel.snap], [true, true, true, true, 'y mandatory']);
-  assert.equal(R.wheel.years[0], '1990년');
+  assert.deepEqual([R.wheel.on, R.wheel.calHidden, R.wheel.wheelShown, R.wheel.lastYearDis, R.wheel.snap], [true, true, true, false, 'y mandatory']);
+  assert.equal(R.wheel.years[0], '2004년');
   assert.equal(R.blocked, R.wheel.title, '오늘 이후(다음 달·내년)로는 안 간다');
   assert.equal(R.afterKeys, '2019년 ' + R.wheel.title.split(' ')[1]);
   assert.equal(R.afterTap, '2019년 3월');
   assert.equal(R.monthsAll, true);
-  assert.deepEqual(R.scrollAligned.map(Math.round), [29, 2], '고른 줄이 가운데(scroll-snap)');
+  assert.deepEqual(R.scrollAligned.map(Math.round), [15, 2], '고른 줄이 가운데(scroll-snap)');
   assert.deepEqual([R.backCal.title, R.backCal.calShown, R.backCal.wheelOff, R.backCal.lead], ['2019년 3월', true, true, 5]);
-  assert.deepEqual(R.picked, { value: '2019-03-15', field: '2019. 3. 15 (금)', when: '201903150900', ev: { input: 1, change: 1 }, closed: true, focus: true });
-  assert.deepEqual([R.kbFocus0, R.kbRight, R.kbPgUp, R.kbYear, R.kbPick], ['2019-03-15', '2019-03-16', ['2019-02-16', '2019년 2월'], ['2018-02-16', '2018년 2월'], ['2018-02-16', '201802160900']]);
+  assert.deepEqual(R.picked, { value: '2019-03-15', field: '2019. 3. 15 (금)', when: '', ev: { input: 1, change: 1 }, closed: true, focus: true });
+  assert.deepEqual([R.kbFocus0, R.kbRight, R.kbPgUp, R.kbYear, R.kbPick], ['2019-03-15', '2019-03-16', ['2019-02-16', '2019년 2월'], ['2018-02-16', '2018년 2월'], ['2018-02-16', '']]);
   assert.deepEqual([R.esc, R.outside], [{ closed: true, value: '2018-02-16' }, { closed: true, value: '2018-02-16' }]);
   assert.equal(R.programmatic, '2020. 1. 5 (일)');
-  assert.deepEqual([R.timePop, R.timeAdv, R.timeTyped.value, R.timeTyped.change, R.timeTyped.ampm, R.timeTyped.when], [true, true, '14:30', 1, '오후 2시 30분', '202001051430']);
+  assert.deepEqual([R.timePop, R.timeAdv, R.timeTyped.value, R.timeTyped.change, R.timeTyped.ampm, R.timeTyped.when], [true, true, '14:30', 1, '오후 2시 30분', '']);
   assert.deepEqual([R.timeChip.value, R.timeChip.change, R.timeUp.value, R.timeUp.change, R.timeClosed], ['18:00', 2, '18:10', 3, true]);
   assert.deepEqual(R.typ, { value: '2019-09', field: '2019년 9월', change: 1, closed: true });
 });

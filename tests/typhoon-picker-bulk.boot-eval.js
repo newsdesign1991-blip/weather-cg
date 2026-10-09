@@ -61,5 +61,5 @@ const sliderSaved=JSON.parse(JSON.stringify(stateForSave()));loadProjectData(sli
 check(q('#tycBulkScaleRange').value==='70'&&q('#tycBulkWidthRange').value==='9.5','saved slider values not restored');
 q('#tycBulk').scrollIntoView({block:'center'});
 await pause(500);
-for(const n of q('#tycBulk').querySelectorAll('input,select')){const a=n.getBoundingClientRect(),b=q('#tycBulk').getBoundingClientRect();check(a.left>=b.left&&a.right<=b.right+1,'bulk controls overflow');}
+for(const n of [...q('#tycBulk').querySelectorAll('input,select,.ddField')].filter(n=>n.getClientRects().length)){const a=n.getBoundingClientRect(),b=q('#tycBulk').getBoundingClientRect();check(a.left>=b.left&&a.right<=b.right+1,'bulk controls overflow');}
 return {ok:true,bulkCount:S.typhoon.compare.length,checks:'picker second/cancel/replacement, mixed controls, hidden storm, live sliders, one-gesture undo/redo, numeric sync, save/load, pen, fold, layout'};

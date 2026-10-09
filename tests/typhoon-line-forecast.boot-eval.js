@@ -13,16 +13,19 @@ check(q(forecastSelector)?.getAttribute('d') === pathFor(pts.slice(2)), 'forecas
 check(q(forecastSelector).getAttribute('stroke') === '#00AAFF' && q(forecastSelector).getAttribute('stroke-width') === '5', 'forecast style mismatch');
 check(q(forecastSelector).getAttribute('stroke-dasharray') === '16 12.5', 'forecast must be dashed');
 const snapshot = q(forecastSelector).getAttribute('d');
-for (const time of [0, 2, 4, 6]) {
+for (const time of [0, 2]) {
   renderAnimFrame(time);
-  check(q(forecastSelector)?.getAttribute('d') === snapshot, 'forecast disappears during animation at ' + time);
+  check(!q(forecastSelector), 'forecast appears before head passes current point at ' + time);
 }
+renderAnimFrame(3);
+check(q(forecastSelector) && q(forecastSelector).getAttribute('d') !== snapshot, 'forecast must grow after current point');
+for (const time of [4, 6]) { renderAnimFrame(time); check(q(forecastSelector)?.getAttribute('d') === snapshot, 'completed forecast missing'); }
 const solid = q('#L_typhoon > path:not([data-typ-line-forecast])');
 check(solid?.getAttribute('d') === pathFor(pts.slice(0, 3)), 'solid path must stop at current position');
 const icons = q('#L_typhoon').querySelectorAll(':scope > g');
 check(icons.length === 1, 'line mode must keep only one icon');
-const currentXY = typhoonXY(pts[2].lon, pts[2].lat);
-check(icons[0].getAttribute('transform')?.includes('translate(' + currentXY[0]), 'icon must stop at current position');
+const endXY = typhoonXY(pts[4].lon, pts[4].lat);
+check(icons[0].getAttribute('transform')?.includes('translate(' + endXY[0]), 'icon must finish at forecast end');
 animOff();
 let pngHasForecast = false;
 const png = await svgBlob(c => { pngHasForecast = !!c.querySelector('[data-typ-line-forecast]'); }, true);
@@ -35,4 +38,4 @@ ranged.typhoon.rangeTo = '2026-10-09T09:00'; loadProjectData(ranged, null); rend
 check(!q(forecastSelector), 'no forecast segment when range ends at current position');
 ranged.typhoon.rangeOn = false; ranged.typhoon.trackMode = 'full'; loadProjectData(ranged, null); renderTyphoon();
 check(!q(forecastSelector), 'normal mode must not duplicate forecast');
-return { ok: true, futureDashed: true, currentStop: true, animation: true, imageExport: true, dateRange: true, normalUnchanged: true };
+return { ok: true, futureDashed: true, forecastEnd: true, animation: true, imageExport: true, dateRange: true, normalUnchanged: true };

@@ -175,7 +175,7 @@ const WNS_HELPER = (window.wcgDesktop && window.wcgDesktop.helperUrl) || 'http:/
 const WNS_DESKTOP = !!(window.wcgDesktop && window.wcgDesktop.isDesktop);
 // 이 버전 미만(또는 ver 필드가 없는 옛 헬퍼)이면 '구버전'으로 보고 업데이트 안내를 띄운다.
 // 헬퍼(helper.py)를 새로 빌드·배포할 때 HELPER_VER 와 이 값을 함께 올린다.
-const HELPER_VER_MIN = 20261008;   // 20261008: 타임라인 = AE(앱 이징 곡선·태풍 진행 곡선·비교 예보별 타이밍·블라인드·일반/비교 지도 카메라·방향·지시선 따라가기)
+const HELPER_VER_MIN = 20261009;   // 라인 모드: 예상 점선과 선두 아이콘도 예상 끝까지 진행
 // 이 버전 이상 헬퍼만 아는 AE 보내기 확장(헬퍼 20261008). 옛 헬퍼는 새 필드를 무시하고 지금처럼 들어간다(가장 가까운 결과).
 const AE_EXT_VER = 20261008;
 let _helperVer = null;   // 마지막으로 확인한 헬퍼 버전(null = 아직 모름, 0 = ver 없는 옛 헬퍼) — 타임라인 'AE 차이' 표시가 이 헬퍼 기준으로 바뀐다

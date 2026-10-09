@@ -63,6 +63,8 @@ async function fetchWrn(keepSel, retry, opts) {
   const extra = { retry: again, back: (opts && opts.back) || '', defKey };
   if (!apiKey()) { if (typeof apiPop === 'function') apiPop(true); showWrnResult({ kind: 'key', noKey: true, src: 'fetch', ...extra }); return false; }
   const seq = ++wrnFetchSeq;
+  const targetWhen = opts && opts.at != null ? opts.at : wrnWhen;
+  const requestUrl = apiUrl('wrnNow', { TM: targetWhen });
   const stale = () => seq !== wrnFetchSeq;
   const fail = (f) => { if (stale()) return null; showWrnResult({ ...f, ...extra, src: 'fetch' }); return false; };
   showWrnResult({ kind: 'busy' });
@@ -77,7 +79,7 @@ async function fetchWrn(keepSel, retry, opts) {
     if (stale()) return (ok = null);
     if (!hp.up) { fail({ kind: 'helperOff' }); wnsHelperOffNotice(); return false; }
     let r;
-    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(WRN_URL())); }
+    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(requestUrl)); }
     catch (e) { return fail(wrnHttpFail(0, e && e.message)); }   // 확인 직후 연결이 끊김(확장팩 멈춤 등)
     if (!r.ok) { let b = ''; try { b = await r.text(); } catch (e) { /* 본문 없음 */ } return fail(wrnHttpFail(r.status, b)); }
     let t;
@@ -91,12 +93,110 @@ async function fetchWrn(keepSel, retry, opts) {
     $('#wrnPaste').value = t.slice(0, 200000);
     const read = wrnReadText(t);
     if (read.kind !== 'rows') return fail(read);   // 기상청 오류 문구·빈 응답·형식 이상(표 형식 바뀜 포함) — 지도는 그대로
-    return (ok = applyWrn(t, keepSel, 'fetch', extra));
+    const prevWhen = wrnWhen;
+    wrnWhen = targetWhen;
+    ok = applyWrn(t, keepSel, 'fetch', extra);
+    if (ok) reflectWhenToPicker(); else wrnWhen = prevWhen;
+    return ok;
   } finally {
     fxBusy(fx, false);
     // 도착 효과 — 칠했으면(발효 0건 포함) 섹션 머리에 한 번 빛 + 결과 카드·들어온 특보 줄이 위에서부터 떠오른다
     if (ok === true) fxArrive([fxSec('wrn'), $('#wrnResult'), ...fxRows($('#wrnList'))]);
   }
+}
+
+// 하루 발표 목록은 wrn_met_data, 지도는 선택 시각의 wrn_now_data(fe=e)를 다시 받는다.
+// 하루 이벤트만 재생하면 전날부터 유지 중인 특보가 빠지므로 목록 자료로 직접 색칠하지 않는다.
+function wrnDayTimes(text, day) {
+  const lines = String(text).split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#') && s !== '=');
+  const times = new Set();
+  for (const line of lines) {
+    const p = line.split(',').map(s => s.trim());
+    if (!/^\d{12}$/.test(p[0]) || !/^[LS]\d+$/.test(p[4] || '') || p.length < 11) return null;
+    if (p[0].slice(0, 8) === day && p[9] === '4') times.add(p[0]);
+  }
+  if (!lines.length && !/#.*TM_FC/.test(text)) return null;
+  return [...times].sort().reverse();
+}
+function wrnBrowsePast() { return $('#wrnPastRow').style.display !== 'none'; }
+function wrnDayOptions(times, day) {
+  const sel = $('#wrnBulletinSel'); sel.replaceChildren();
+  const option = (value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; sel.append(o); };
+  option('', times.length ? '발표 시각을 선택하세요' : '이날 새로 발표된 특보가 없어요');
+  for (const tm of times) option(tm, tmFull(tm) + ' 발표');
+  const end = day === currentTm().slice(0, 8) ? currentTm() : day + '2359';
+  if (!times.includes(end)) option(end, tmFull(end) + ' 현황 (발표와 별도)');
+  sel.value = ''; sel.disabled = false;
+  $('#wrnBulletinRow').style.display = '';
+}
+async function fetchWrnDay() {
+  const seq = ++wrnFetchSeq, stale = () => seq !== wrnFetchSeq || !wrnBrowsePast();
+  $('#wrnBulletinRow').style.display = 'none';
+  const day = $('#wrnDate').value.replace(/-/g, '');
+  if (!/^\d{8}$/.test(day) || day < '20040630' || day > currentTm().slice(0, 8)) {
+    status('오늘까지의 날짜를 골라 주세요'); return false;
+  }
+  const extra = { src: 'fetch', retry: fetchWrnDay };
+  if (!apiKey()) { apiPop(true); showWrnResult({ kind: 'key', noKey: true, ...extra }); return false; }
+  const url = API_BASE + 'wrn_met_data.php?reg=0&wrn=A&tmfc1=' + day + '0000&tmfc2=' + day + '2359&disp=0&help=1&authKey=' + encodeURIComponent(apiKey());
+  const sel = $('#wrnBulletinSel'); sel.disabled = true;
+  $('#wrnBulletinRow').style.display = 'none';
+  showWrnResult({ kind: 'busy' });
+  const fx = [fxSec('wrn'), $('#wrnFetch')]; fxBusy(fx, true);
+  const fail = result => { if (!stale()) showWrnResult({ ...result, ...extra }); return false; };
+  try {
+    const hp = await pingHelper(); if (stale()) return null;
+    if (!hp.up) { fail({ kind: 'helperOff' }); wnsHelperOffNotice(); return false; }
+    const r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(url));
+    if (!r.ok) return fail(wrnHttpFail(r.status, await r.text()));
+    const buf = await r.arrayBuffer(); if (stale()) return null;
+    let text = new TextDecoder('utf-8').decode(buf);
+    if (text.includes('\uFFFD')) text = new TextDecoder('euc-kr').decode(buf);
+    const times = wrnDayTimes(text, day);
+    if (times === null) { const read = wrnReadText(text); return fail(read.kind === 'rows' ? { kind: 'format' } : read); }
+    wrnDayOptions(times, day);
+    showWrnResult(null);
+    $('#wrnWhenHint').textContent = times.length ? '발표 ' + times.length + '개 · 시각을 고르면 그때 발효 중인 특보를 칠해요.' : '새 발표가 없어도 아래 현황을 고르면 이어지는 특보를 확인할 수 있어요.';
+    status(times.length ? '발표 목록을 불러왔어요 — 시각을 골라 주세요' : '이날 새 발표가 없어요 — 현황은 확인할 수 있어요');
+    return true;
+  } catch (e) { return fail(wrnHttpFail(0, e && e.message)); }
+  finally { fxBusy(fx, false); }
+}
+async function wrnSelectTime(value) {
+  if (!value) return;
+  const prevWhen = wrnWhen, prevFc = wrnSelFc;
+  const at = value === '__NOW__' ? '' : value;
+  const back = prevWhen ? wrnTmText(prevWhen) : '지금';
+  const ok = await fetchWrn(value === '__NOW__' ? null : value, () => wrnSelectTime(value), { back, at });
+  if (ok === false) {
+    wrnWhen = prevWhen; reflectWhenToPicker();
+    const sel = $('#wrnBulletinSel');
+    sel.value = [...sel.options].some(o => o.value === prevFc) ? prevFc : '';
+  }
+  return ok;
+}
+function wireWrnWhen() {
+  const day = $('#wrnDate'); day.max = dpToday();
+  const pastUi = past => {
+    ++wrnFetchSeq; // 날짜 목록과 현황 요청 모두 늦게 도착한 응답을 버린다.
+    $('#wrnPastRow').style.display = past ? '' : 'none';
+    $('#wrnWhenNow').classList.toggle('pri', !past);
+    $('#wrnWhenPast').classList.toggle('pri', past);
+    $('#wrnBulletinRow').style.display = 'none';
+    $('#wrnBulletinSel').replaceChildren();
+    $('#wrnBulletinSel').disabled = false;
+    $('#wrnWhenHint').textContent = past ? '날짜의 발표 목록을 불러온 뒤 시각을 골라 주세요. 지도는 고른 뒤 바뀝니다.' : '지금 발효 중인 특보를 불러와 칠해요.';
+    showWrnResult(null);
+  };
+  $('#wrnWhenPast').onclick = () => {
+    pastUi(true);
+    if (!day.value) { const d = new Date(Date.now() - 864e5); day.value = dateToTm(d).slice(0, 8).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3'); }
+    fetchWrnDay();
+  };
+  $('#wrnWhenNow').onclick = () => { pastUi(false); wrnSelectTime('__NOW__'); };
+  day.onchange = () => { if (wrnBrowsePast()) fetchWrnDay(); };
+  $('#wrnFetch').onclick = () => wrnBrowsePast() ? fetchWrnDay() : wrnSelectTime('__NOW__');
+  $('#wrnBulletinSel').onchange = e => wrnSelectTime(e.target.value);
 }
 
 // 특보 종류별 색 편집 줄 → 사이드바엔 버튼 하나(#wrnColBtn — 오른쪽 점 = 종류별 경보 색 미리보기)와 '특보 종류별 색' 팝업(#wrnColOv).

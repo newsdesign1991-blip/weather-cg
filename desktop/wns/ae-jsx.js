@@ -473,7 +473,15 @@ function emitTyphoonRig(L, rig) {
       fmt('var st=ct.addProperty("ADBE Vector Graphic - Stroke");st.property("ADBE Vector Stroke Color").setValue(hx("%s"));st.property("ADBE Vector Stroke Width").setValue(%f);' +
         'try{st.property("ADBE Vector Stroke Line Cap").setValue(2);st.property("ADBE Vector Stroke Line Join").setValue(2);}catch(e){}%s}catch(e){}', [col, wid, dashjs]));
   }
-  if (line_mode) {   // 라인 모드 — 모든 점을 잇는 lineColor 단색 실선 1개(대시 없음)
+  if (line_mode && on(get(rig, 'lineForecast'))) {
+    const past_ = [], fut_ = [];
+    for (let i = 0; i < n; i++) {
+      if (le(sub(A[i], 'idx'), nowIdx)) past_.push(i);
+      if (ge(sub(A[i], 'idx'), nowIdx)) fut_.push(i);
+    }
+    emitLine('\\uacbd\\ub85c', past_, lineColor, lineWidth, false);
+    emitLine('\\uacbd\\ub85c(\\uc608\\uc0c1)', fut_, lineColor, lineWidth, true);
+  } else if (line_mode) {   // 새 필드 없는 옛 스펙 출력은 그대로 유지
     const all_ = [];
     for (let i = 0; i < n; i++) all_.push(i);
     emitLine('\\uacbd\\ub85c', all_, lineColor, lineWidth, false);

@@ -204,19 +204,19 @@ function fitView(S) {
 // 화면(앱) 태풍 상태 — renderAnimFrameBody + drawTyphoonTrack 규칙 그대로(typhoonScreenPts·typhoonBandInto·typhoonLabelProg는 실제 함수)
 function appTyphoon(S, scr, t) {
   const pts = S.typhoon.issues[0].points, tr = S.anim.tracks[0], line = S.typhoon.trackMode === 'line', nowIdx = S.typhoon.nowIdx;
-  const lo = 0, hi = line ? Math.min(pts.length - 1, nowIdx) : pts.length - 1, span = line ? Math.max(0, hi - lo) : Math.max(1, hi - lo);
+  const lo = 0, hi = pts.length - 1, span = Math.max(1, hi - lo);
   const k = scr.clamp01((t - tr.ps) / Math.max(0.001, tr.pe - tr.ps));
   if (S.anim.cam.keys.length) { const c = scr.camAt(t); scr.S.map = { x: c.x, y: c.y, s: c.s }; }
   scr.typhoonProg = k >= 1 ? null : lo + scr.easeInOutC(k) * span;
   const map = {}; for (const b of S.typhoon.labels) { const e = tr.lab[b.id]; const d = Math.max(0.05, e.e - e.s) * 1000; map[b.id] = { st: e.s * 1000, LINE: d * 0.6, SCALE: d * 0.7 }; }
   scr.typhoonLabelAnim = { at: t * 1000, map };
   let sp = scr.typhoonScreenPts(pts); scr.typhoonProg = null;
-  if (line) sp = sp.filter((p) => p.idx <= nowIdx);
   const out = { sp, icons: new Set(), head: null, past: [], fut: [], bands: { r70: { circles: [], traps: 0, stroke: false }, r15: { circles: [], traps: 0, stroke: false }, r25: { circles: [], traps: 0, stroke: false } }, labels: {} };
   if (line) {
     const tip = sp[sp.length - 1];
     if (tip.head) { const td = tip.ex || tip.ws < 17; out.head = { x: tip.x, y: tip.y, kind: tip.ex ? 2 : td ? 1 : 0 }; } else out.icons.add(tip.idx);
-    out.past = sp.map((p) => [p.x, p.y]);
+    out.past = sp.filter((p) => p.idx <= nowIdx).map((p) => [p.x, p.y]);
+    out.fut = sp.filter((p) => p.idx >= nowIdx).map((p) => [p.x, p.y]);
   } else {
     for (const p of sp) {
       if (p.head) { const hws = p.ws == null ? 40 : p.ws, hEx = !!p.ex, htd = hEx || hws < 17; out.head = { x: p.x, y: p.y, kind: hEx ? 2 : htd ? 1 : 0 }; continue; }
@@ -241,7 +241,7 @@ function aeTyphoon(M, spec, t) {
   rig.points.forEach((p, j) => { const ic = L('아이콘' + j); if (ic && ic.tf.opacity.valueAtTime(t) > 50) out.icons.add(p.idx); });
   for (const kind of [0, 1, 2]) { const hd = L('선두' + kind); if (hd && hd.tf.opacity.valueAtTime(t) > 50) { assert.equal(out.head, null, '선두는 한 종류만'); const w = worldPt(M, hd, t, hd.tf.anchor.valueAtTime(t)); out.head = { x: w[0], y: w[1], kind }; } }
   const drawn = (nm) => { const sl = L(nm); if (!sl) return 0; const path = nodesOf(M, sl, 'ADBE Vector Shape')[0].valueAtTime(t).points.map((p) => worldPt(M, sl, t, p)); return plen(path) * nodesOf(M, sl, 'ADBE Vector Trim End')[0].valueAtTime(t) / 100; };
-  if (rig.trackMode === 'line') out.past = drawn('경로'); else { out.past = drawn('경로(지난)'); out.fut = drawn('경로(예상)'); }
+  out.past = drawn(rig.trackMode === 'line' ? '경로' : '경로(지난)'); out.fut = drawn('경로(예상)');
   for (const key of ['r70', 'r15', 'r25']) {
     const sl = L('반경_' + key); if (!sl) { out.bands[key] = { circles: [], traps: 0, stroke: false }; continue; }
     const circles = [];
@@ -294,9 +294,10 @@ test('D2 태풍 경로 = 화면(지점 등분 + easeInOutC) — 선 길이·지�
   assert.ok(R['태풍 반경 반지름(px)'] < 0.6, '반경 반지름 ' + R['태풍 반경 반지름(px)']);   // 보내는 반지름이 반올림 px(옛날부터) + 선두 반지름 km 보간
   assert.ok(R['태풍 라벨 곡선'] < 1e-6, '라벨 ' + R['태풍 라벨 곡선']);
 });
-test('D2 라인 모드 — 현재 위치까지 단색선 + 선두 하나(멈추면 그 지점 아이콘)', async () => {
+test('D2 라인 모드 — 현재까지 실선, 예상 끝까지 점선 + 선두 하나', async () => {
   await checkTyphoon(tyS({}, { line: true }), '라인');
   assert.ok(R['라인 선두 자리(px)'] < 0.6 && R['라인 지난 선 길이(px)'] < 0.6, JSON.stringify(R));
+  assert.ok(R['라인 예상 선 길이(px)'] < 0.6, JSON.stringify(R));
 });
 test('D2 + 카메라(키 3개·확대) — 태풍 리그가 CAM 아래에서 화면과 같이 움직인다', async () => {
   const S = tyS({}, { cam: [{ id: 'c1', t: 0.5, x: 0, y: 0, s: 0 }, { id: 'c2', t: 2.0, x: 0, y: 0, s: 0 }, { id: 'c3', t: 3.5, x: 0, y: 0, s: 0 }] });

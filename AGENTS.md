@@ -2,7 +2,7 @@
 
 이 앱(날씨 CG 메이커)은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** 먼저 [`MODULES.md`](MODULES.md)를 읽을 것.
 
-- 로직은 `js/*.js`(42개), 스타일은 `css/*.css`(14개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
+- 로직은 `js/*.js`(43개), 스타일은 `css/*.css`(15개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
   `index.html`에서 함수 본문을 찾지 말고 `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`로 찾는다.
 - `<script>`/`<link>` 태그 순서 변경, `defer`/`async`/`type="module"` 추가 금지. 순서 = 로드 순서 = 덮어쓰기 우선순위.
   기존 파일의 순서는 바꾸지 않는다(테스트가 고정 목록과 비교한다). 새 파일은 사이에 끼워 넣기만 하고, 그때 MODULES.md 표에 행을 하나 넣는다.
@@ -12,6 +12,8 @@
   부팅 뒤를 가정한 setTimeout·rAF는 `js/boot.js`(마지막 파일)에 두거나, 쓰는 이름이 모두 앞 파일에 있는 곳에 둔다.
   boot.js가 아닌 파일의 최상위에서 `dispatchEvent`·`click()`·`focus()`·`queueMicrotask`·`MutationObserver`도 금지(로드 실패 가드가 치명 오류로 본다).
   최상위 리스너 등록문을 다른 파일로 옮기지 않는다(같은 이벤트의 실행 순서가 바뀐다).
+- **`<select>`는 공용 드롭다운**(`js/dropdown.js`·`css/dropdown.css`)이 덮는다 — 원래 select는 숨긴 채 값·옵션·change의 원천이다.
+  코드는 하던 대로 `select.value`·`innerHTML`·`onchange`를 쓰면 칸이 따라간다. 새 select를 만들어도 boot.js 관찰자가 붙인다(시스템 드롭다운을 다시 보이게 하지 말 것).
 - css 안 상대 경로는 css/ 기준(`url('../FontNew/…')`), js 안 경로는 문서 기준(`'FontNew/…'`). 경로는 늘 상대 경로(`/…` 금지).
 - 테스트·스크립트에서 앱 코드를 잘라 쓸 때는 `index.html`을 직접 읽지 말고 `tools/app-source.cjs`를 쓴다
   (`appSource(path.join(__dirname, '..', 'index.html'))` → 분할 전 한 파일과 같은 텍스트). 근무표의 app-source.cjs와 다르니 서로 복사하지 않는다.

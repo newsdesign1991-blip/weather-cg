@@ -202,9 +202,8 @@ function reflectWhenToPicker() {
   if (nb) nb.classList.toggle('pri', !past);
   if (pb) pb.classList.toggle('pri', past);
   if (past) {
-    const w = wrnWhen, di = $('#wrnDate'), ti = $('#wrnTime');
+    const w = wrnWhen, di = $('#wrnDate');
     if (di) di.value = `${w.slice(0, 4)}-${w.slice(4, 6)}-${w.slice(6, 8)}`;
-    if (ti) ti.value = `${w.slice(8, 10)}:${w.slice(10, 12)}`;
   }
 }
 
