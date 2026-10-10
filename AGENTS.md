@@ -16,7 +16,7 @@
   부팅 뒤를 가정한 setTimeout·rAF는 `js/boot.js`(마지막 파일)에 두거나, 쓰는 이름이 모두 앞 파일에 있는 곳에 둔다.
   boot.js가 아닌 파일의 최상위에서 `dispatchEvent`·`click()`·`focus()`·`queueMicrotask`·`MutationObserver`도 금지(로드 실패 가드가 치명 오류로 본다).
   최상위 리스너 등록문을 다른 파일로 옮기지 않는다(같은 이벤트의 실행 순서가 바뀐다).
-- **태풍 지도 배경 '가벼운 지도 (WebGL · 시험)'**(10-10, `data-bm="gl"` — `js/gl-basemap.js`): MapLibre GL(`vendor/maplibre-gl/`, 저장소에 파일로 — CDN 금지)이 OpenFreeMap 벡터 타일을 아트보드 뒤 캔버스에 그린다. 다른 4모드(파란·밝은/어두운 위성·Mapbox)의 코드 길과 섞지 않는다 — 이 모드 판정은 `glbShowing()`·복제본 `#bgMapT[data-glb]`로만. 지도를 그림으로 굽는 곳(svgToImage·svgBlob·previewPng)을 새로 만들면 `glbInlineClone`도 부른다(MODULES.md 3장 6번·10장).
+- **태풍 지도 배경 '가벼운 지도 (WebGL · 시험)'**(10-10, `data-bm="gl"` — `js/gl-basemap.js`): MapLibre GL(`vendor/maplibre-gl/`, 저장소에 파일로 — CDN 금지)이 OpenFreeMap 벡터 타일을 아트보드 뒤 캔버스에 그린다. 다른 4모드(파란·밝은/어두운 위성·Mapbox)의 코드 길과 섞지 않는다 — 이 모드 판정은 `glbShowing()`·복제본 `#bgMapT[data-glb]`로만. 지도를 그림으로 굽는 곳(svgToImage·svgBlob·previewPng)을 새로 만들면 `glbInlineClone`도 부른다(MODULES.md 3장 6번·10장). 위성 사진 출처는 개인 Mapbox 주소(`wcg_mapbox_url`) 우선, 없으면 데스크톱 비공개 `desktop/private/mapbox.token`(공개용 pk. 토큰, Git 제외 — invoke `wcg:mapbox-token`)으로 기본 스타일. 토큰 값은 코드·문서·로그·시험에 넣지 말 것(시험은 가짜 `WCG_TEST_MAPBOX_TOKEN`).
 - **`<select>`는 공용 드롭다운**(`js/dropdown.js`·`css/dropdown.css`)이 덮는다 — 원래 select는 숨긴 채 값·옵션·change의 원천이다.
   코드는 하던 대로 `select.value`·`innerHTML`·`onchange`를 쓰면 칸이 따라간다. 새 select를 만들어도 boot.js 관찰자가 붙인다(시스템 드롭다운을 다시 보이게 하지 말 것).
 - css 안 상대 경로는 css/ 기준(`url('../FontNew/…')`), js 안 경로는 문서 기준(`'FontNew/…'`). 경로는 늘 상대 경로(`/…` 금지).

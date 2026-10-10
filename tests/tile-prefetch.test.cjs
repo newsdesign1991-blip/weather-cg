@@ -19,17 +19,17 @@ function ctx(extra) {
   const c = Object.assign({
     S: { res: '1920x1080', map: { ...KOREA }, typhoon: { basemap: 'mapbox' } },
     MAP: { proj: PROJ }, RES: { '1920x1080': { size: [1920, 1080] }, '1920x1080-vf': { size: [1920, 1080] } },
-    CAM_BLEED: 1.0, Math, JSON, Promise, Set, Array, Uint8Array, TextDecoder, TextEncoder, performance: { now: () => 0 },
-    window: {}, _exportingFrames: false, _mbxCacheBust: '', _tileData: {},
+    CAM_BLEED: 1.0, Math, JSON, Promise, Set, Array, Uint8Array, TextDecoder, TextEncoder, performance: { now: () => 0 }, setTimeout,
+    window: {}, _exportingFrames: false, _mbxCacheBust: '', _tileData: {}, glbActive: () => false,
     camActive3d: () => false, mapboxTileTemplate: () => TMPL, isTyphoon: () => true,
     mapboxUrlRaw: () => '',   // 가벼운 지도 위성 사진 출처(넣어 둔 Mapbox 주소) — 기본은 없음(벡터만)
   }, extra || {});
   vm.createContext(c);
   vm.runInContext([
     cst('_lon2xt'), cst('_lat2yt'), fn('mapboxTileSet'), fn('mapboxTileUrl'), cst('camTilted'), fn('mapboxPrefetchUrls'),
-    cst('GLB_TILES'), cst('GLB_SAT_MAXZ'), cst('GLB_SNAP_MAX'), cst('GLB_MERC_LAT'), cst('GLB_PROTO'),
-    "const _glb = { proto: false, tj: null, tjAt: 0, satBad: '', mbRaw: null, mbBust: null, mbSrc: null };",
-    fn('glbSatSrc'), fn('glbSatSrcNow'), cst('glbSatPref'), fn('glbSatNow'), fn('glbSnapBox'),
+    cst('GLB_TILES'), cst('GLB_SAT_MAXZ'), cst('GLB_SAT_STYLE'), cst('GLB_SNAP_MAX'), cst('GLB_MERC_LAT'), cst('GLB_PROTO'), cst('GLB_WAIT_MS'), cst('glbSleep'),
+    "const _glb = { state: 'ready', proto: false, tj: null, tjAt: 0, satBad: '', mbRaw: null, mbBust: null, mbDef: null, mbSrc: null };",
+    fn('glbSatBuiltinUrl'), fn('glbSatSrc'), fn('glbSatSrcNow'), cst('glbSatPref'), fn('glbSatNow'), fn('glbSnapBox'), cst('glbPending'), fn('glbSettle'),
     fn('glbView'), fn('glbBand'), fn('glbTransform'), fn('glbProtoLoad'), fn('glbTileJson'), fn('glbPrefetchUrls'), fn('prefetchRenderTiles'),
   ].join('\n'), c);
   return c;
@@ -306,4 +306,45 @@ test('가벼운 지도 위성 사진 렌더 전 미리 받기 — 카메라 키 
   assert.equal(new Set(got).size, got.length);
   const want = await c.glbPrefetchUrls(Array.from({ length: 61 }, (_, i) => c.camAt(i / 30)));
   assert.deepEqual([...got].sort(), [...want].sort());
+});
+
+test('가벼운 지도 렌더 전 미리 받기 — 실패(파란 지도로 그림)면 하나도 안 받고, 불러오는 중이면 끝을 본 뒤 정한다(위성 → 벡터만으로 바뀔 수 있다)', async () => {
+  const got = [];
+  const c = ctx({
+    mapboxUrlRaw: () => SAT_STYLE, camKeys: () => [{ t: 0 }], camAt: () => ({ ...KOREA }), glbActive: () => true, exportProgress: () => {}, status: () => {},
+    tileFetch: async (u) => { got.push(u); return { data: new TextEncoder().encode(u.endsWith('/planet') ? JSON.stringify({ tiles: [OFM], maxzoom: 14 }) : 'x'), type: '' }; },
+  });
+  c.S.typhoon = { basemap: 'gl', glSat: 1 };
+  vm.runInContext("_glb.state = 'fail'", c);
+  assert.deepEqual(plain(await c.glbPrefetchUrls([KOREA])), []);
+  await c.prefetchRenderTiles(10, 30);
+  assert.equal(got.length, 0, '실패면 위성 그림 타일(요청마다 Mapbox 사용량)도 벡터 타일도 안 받음');
+  // 불러오는 중 → 그사이 위성 타일을 한 장도 못 받아(satBad) 벡터로 준비됨 → 벡터 타일만
+  vm.runInContext("_glb.state = 'loading'; setTimeout(() => { _glb.satBad = glbSatSrcNow().tiles[0]; _glb.state = 'ready'; }, 30)", c);
+  await c.prefetchRenderTiles(10, 30);
+  assert.ok(got.length > 0 && got.every((u) => !u.includes('api.mapbox.com')), '벡터만 ' + got.slice(0, 2));
+  // 불러오는 중 → 실패 → 안 받음
+  got.length = 0;
+  vm.runInContext("_glb.satBad = ''; _glb.state = 'loading'; setTimeout(() => { _glb.state = 'fail'; }, 30)", c);
+  await c.prefetchRenderTiles(10, 30);
+  assert.equal(got.length, 0);
+});
+
+test('가벼운 지도 위성 사진 기본 출처 — 넣어 둔 주소가 없으면 데스크톱 기본 토큰(pk.)으로 기본 스타일, 넣어 둔 주소가 먼저', async () => {
+  let url = '', tok = 'pk.TESTDEFAULT.fake';
+  const c = ctx({ mapboxUrlRaw: () => url, window: { wcgDesktop: { mapboxToken: () => tok } }, tileFetch: async () => ({ data: new TextEncoder().encode(JSON.stringify({ tiles: [OFM], maxzoom: 14 })), type: '' }) });
+  c.S.typhoon = { basemap: 'gl', glSat: 1 };
+  const DEF = 'https://api.mapbox.com/styles/v1/supermanpasa/cmsg6825m002h01r6eufdeg24/tiles/512/';
+  let list = await c.glbPrefetchUrls([KOREA]);
+  assert.ok(list.length && list.every((x) => x.startsWith(DEF) && x.endsWith('@2x?access_token=pk.TESTDEFAULT.fake')), list[0]);
+  assert.equal(c.glbSatSrcNow().def, 1);
+  url = SAT_STYLE;   // 넣어 둔 주소가 먼저
+  list = await c.glbPrefetchUrls([KOREA]);
+  assert.ok(list.every((x) => x.includes('/user1/ckstyle01/')), list[0]);
+  url = 'https://example.com/{z}/{x}/{y}.png';   // 못 알아보는 주소 → 기본 출처
+  assert.ok((await c.glbPrefetchUrls([KOREA])).every((x) => x.startsWith(DEF)));
+  for (const bad of ['', 'sk.secret', 'pk.bad token', 'https://evil/?access_token=pk.x']) {   // 공개 토큰 모양이 아니면 기본 출처 없음 → 벡터만
+    tok = bad; url = '';
+    assert.ok((await c.glbPrefetchUrls([KOREA])).every((x) => x.endsWith('.pbf')), JSON.stringify(bad));
+  }
 });

@@ -1,8 +1,9 @@
 // boot-check --eval 본문(async 함수 본문, return 으로 결과). tests/gl-basemap.test.cjs 가 WCG_BOOT_CHECK=1 일 때 돌린다.
 // 가벼운 지도(WebGL · 시험)의 위성 사진(10-10) — 실제 앱(숨은 Electron)·실제 MapLibre, 토큰 없이: 가짜 Mapbox 주소(pk.TEST)를 넣고
-// 그 그림 타일은 우리 받기(tileFetch — wcgtile:// 길)에서 합성 그림(초록 바탕 + 정해 둔 경위도의 빨간 선)으로 준다.
+// 그 그림 타일은 우리 받기(tileFetch — wcgtile:// 길)에서 합성 그림(초록 바탕 + 정해 둔 경위도의 빨간 선)으로 준다. 데스크톱 기본 토큰도 가짜(WCG_TEST_MAPBOX_TOKEN).
 // 고르기·준비(위성 타일만 — 벡터 타일 안 받음)·격자 기본값·출처·실제 GPU 픽셀 정렬(화면·추출 그림, 합성 선 = 앱 좌표)·추출 그림에 위성,
-// [벡터만]·되돌리기, 카메라 키 2개 렌더 전 미리 받기 뒤 프레임 렌더 중 미리 받은 것 밖 요청 0, 전부 실패 → 벡터만 + 알림, 일부 실패 → 받은 데까지, 주소 없음 안내, 다른 4모드 흔적 없음.
+// [벡터만]·되돌리기, 카메라 키 2개 렌더 전 미리 받기 뒤 프레임 렌더 중 미리 받은 것 밖 요청 0, 전부 실패 → 벡터만 + 알림, 렌더 중 불러오다 전부 실패 → 곧 벡터로,
+// 위성·벡터 모두 실패 → 경고 하나, 일부 실패 → 받은 데까지, 오프라인 + 받아 둔 타일 → 위성, 주소 없음 → 기본 토큰, 가벼운 지도 칸에서 주소 [적용], 다른 4모드 흔적 없음.
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const q = (s) => document.querySelector(s);
 try { closeTossModal(); } catch (e) { /* 없음 */ } try { closeCgSetup(); } catch (e) { /* 없음 */ }
@@ -31,15 +32,19 @@ async function synTile(z, x, y, size) {
   SYN.made++;
   return { data: new Uint8Array(await b.arrayBuffer()), type: 'image/jpeg' };
 }
+// 데스크톱 기본 출처(넣어 둔 주소가 없을 때) — 점검은 가짜 토큰(WCG_TEST_MAPBOX_TOKEN = pk.TESTDEFAULT.fake, tests/gl-basemap.test.cjs가 넘김)으로 기본 스타일
+const DEF_RE = /^https:\/\/api\.mapbox\.com\/styles\/v1\/supermanpasa\/cmsg6825m002h01r6eufdeg24\/tiles\/(\d+)\/(\d+)\/(\d+)\/(\d+)@2x\?access_token=pk\.TESTDEFAULT\.fake/;
 const origTF = window.tileFetch;
 window.tileFetch = async function (u) {
   SYN.calls.push(u);
-  const m = SAT_RE.exec(u);
+  const m = SAT_RE.exec(u) || DEF_RE.exec(u);
   if (m) {
     const [, ts, z, x, y] = m.map(Number);
-    if (SYN.fail && SYN.fail(z, x, y)) throw new Error('tile http 401');
+    if (SYN.fail && SYN.fail(z, x, y, u)) throw new Error('tile http 401');
     return synTile(z, x, y, ts * 2);
   }
+  if (/^https:\/\/api\.mapbox\.com\//.test(u)) throw new Error('tile http 404');   // 그 밖 Mapbox 주소는 실제로 안 받는다(토큰·사용량)
+  if (SYN.vecFail && u.includes('openfreemap')) throw new Error('net');   // 벡터도 못 받음(인터넷 끊김 흉내)
   return origTF(u);
 };
 const inl = [];
@@ -67,6 +72,7 @@ const errs = (at, Wd, Hd, kx, ky, oy) => {
 try {
   localStorage.setItem('wcg_mapbox_url', FAKE);
   out.line = [LON, LAT];
+  out.tok = typeof wcgDesktop.mapboxToken === 'function' && wcgDesktop.mapboxToken() === 'pk.TESTDEFAULT.fake';   // 메인 → preload(invoke) → 앱
   // 1) 고르기 → 위성 그림 타일만 받아 준비(벡터 타일·TileJSON 안 받음)
   await pickBm('gl');
   await waitGl(30000);
@@ -145,16 +151,50 @@ try {
       q('#basemapBtn').click(); await sleep(150); q('#bmGlSat button[data-glsat="1"]').click(); await sleep(200); closePop();
       for (let i = 0; i < 100 && !(_glb.live && _glb.live.__sat && _glb.live.__okS.sat > 0); i++) await sleep(100);
       out.reSat = { sat: _glb.live ? _glb.live.__sat : null, ok: _glb.live ? _glb.live.__okS.sat : 0, satBad: _glb.satBad, state: _glb.state }; }
+    // 6-1) 영상 렌더 중 + 화면 지도가 불러오는 중에 위성 타일이 전부 실패(401) → 몇 초 안에 벡터로 넘어가 끝남(프레임마다 glbSettle 13초 기다림 없음)
+    { SYN.fail = () => true; _exportingFrames = true;
+      try {
+        glbRetry(); const t0 = performance.now(); await glbSettle();
+        out.expLoad = { ms: Math.round(performance.now() - t0), state: _glb.state, why: _glb.why, sat: _glb.live ? _glb.live.__sat : null, satBad: !!_glb.satBad, pending: glbPending() };
+        const t1 = performance.now(); await glbSettle(); out.expLoad.again = Math.round(performance.now() - t1);
+      } finally { _exportingFrames = false; SYN.fail = null; }
+      renderAll(); glbRetry(); await waitGl(30000); }
+    // 6-2) 위성도 벡터도 못 받음(인터넷 끊김 흉내 — 온라인으로 잡힘) → 파란 지도 + 경고는 하나(까닭 = 둘 다 못 받음)
+    { const warns = [], origSt = window.status;
+      window.status = function (msg, a, kind) { if (kind === 'warn') warns.push(String(msg)); return origSt.apply(this, arguments); };
+      SYN.fail = () => true; SYN.vecFail = true;
+      try { glbRetry(); await waitGl(30000); await sleep(400); out.both = { state: _glb.state, why: _glb.why, warns, ui: q('#bmGlState').textContent }; }
+      finally { window.status = origSt; SYN.fail = null; SYN.vecFail = false; }
+      glbRetry(); await waitGl(30000); }
     // 7) 일부 실패(바둑판 칸 하나 걸러) → 화면은 받은 데까지, 추출은 다시 해 보고 받은 데까지(바다색 칸 + 알림) — 파란 지도로 안 튄다
     { SYN.fail = (z, x, y) => (x + y) % 2 === 1;
       glbRetry(); await waitGl(30000);
       out.part = { state: _glb.state, sat: _glb.live ? _glb.live.__sat : null, ok: _glb.live ? _glb.live.__okS.sat : 0, err: _glb.live ? _glb.live.__errS.sat : 0 };
       inl.length = 0; const c = await frame(); out.part.inl = inl.includes(true) && !inl.includes(false); out.part.status = q('#status').textContent;
       SYN.fail = null; glbRetry(); await waitGl(30000); }
-    // 8) Mapbox 주소 없음 → 벡터만 + 안내(격자 기본 켬)
-    { localStorage.removeItem('wcg_mapbox_url'); renderTyphoon(); glbUi(); await sleep(200);
-      out.noUrl = { sat: _glb.live ? _glb.live.__sat : null, note: q('#bmGlSatNote').textContent, noteShown: q('#bmGlSatNote').style.display !== 'none', grid: typhoonGridOn(S.typhoon), attr: q('#glMapAttr').textContent };
-      localStorage.setItem('wcg_mapbox_url', FAKE); renderTyphoon(); await sleep(200); }
+    // 7-1) 오프라인이어도 이 PC에 받아 둔 타일이 있으면(데스크톱 디스크 캐시 — 여기선 합성 받기가 그 역할) 한 번 해 보고 위성 사진으로 준비
+    { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
+      try { glbRetry(); await waitGl(30000); out.offCache = { state: _glb.state, why: _glb.why, sat: _glb.live ? _glb.live.__sat : null, ok: _glb.live ? _glb.live.__okS.sat : 0 }; }
+      finally { delete navigator.onLine; }
+      glbRetry(); await waitGl(30000); }
+    // 8) 넣어 둔 Mapbox 주소 없음 → 데스크톱 기본 토큰(점검 = 가짜)으로 기본 스타일 위성 사진 — 안내 줄·주소 칸 없음, 격자 끔
+    { localStorage.removeItem('wcg_mapbox_url'); const c0 = SYN.calls.length; renderTyphoon(); glbUi();
+      for (let i = 0; i < 100 && !(_glb.live && _glb.live.__sat && _glb.live.__okS.sat > 0); i++) await sleep(100);
+      await waitTiles(_glb.live, 8000); glbUi();
+      const calls = SYN.calls.slice(c0);
+      out.def = { sat: _glb.live ? _glb.live.__sat : null, ok: _glb.live ? _glb.live.__okS.sat : 0, defCalls: calls.filter((u) => DEF_RE.test(u)).length, ownCalls: calls.filter((u) => SAT_RE.test(u)).length,
+        note: q('#bmGlSatNote').style.display, mbxBox: q('#bmMbxBox').style.display, grid: typhoonGridOn(S.typhoon), attr: q('#glMapAttr').textContent }; }
+    // 8-1) 넣어 둔 주소로 한 장도 못 받음 → 벡터만 + 주소 칸(가벼운 지도 칸 안). 다시 넣고 [적용] → 배경은 가벼운 지도 그대로, 위성 사진 다시
+    { localStorage.setItem('wcg_mapbox_url', FAKE); SYN.fail = (z, x, y, u) => SAT_RE.test(u);
+      glbRetry(); await waitGl(30000);
+      q('#basemapBtn').click(); await sleep(150); if (q('#basemapPop').style.display === 'none') { q('#basemapBtn').click(); await sleep(150); }
+      out.apply = { before: { state: _glb.state, sat: _glb.live ? _glb.live.__sat : null, mbxBox: q('#bmMbxBox').style.display, note: q('#bmGlSatNote').textContent, miss: q('#bmGlSat button[data-glsat="1"]').classList.contains('miss') } };
+      SYN.fail = null;
+      q('#bmMbxUrl').value = FAKE; q('#bmMbxApply').click(); await sleep(200);
+      for (let i = 0; i < 100 && !(_glb.live && _glb.live.__sat && _glb.live.__okS.sat > 0); i++) await sleep(100);
+      out.apply.after = { basemap: S.typhoon.basemap, state: _glb.state, sat: _glb.live ? _glb.live.__sat : null, ok: _glb.live ? _glb.live.__okS.sat : 0, mbxBox: q('#bmMbxBox').style.display,
+        miss: q('#bmGlSat button[data-glsat="1"]').classList.contains('miss'), status: q('#status').textContent, gridEyeOff: q('#typGridEye') ? q('#typGridEye').classList.contains('off') : null };
+      closePop(); await waitGl(30000); }
     // 9) 저장·불러오기 — glSat이 작업에 함께
     { S.typhoon.glSat = 0; const saved = JSON.parse(JSON.stringify(stateForSave())); out.save = { glSat: saved.typhoon.glSat };
       S.typhoon.glSat = 1; loadProjectData(saved, null); await sleep(800); out.save.reload = S.typhoon.glSat; out.save.sat = _glb.live ? _glb.live.__sat : null;

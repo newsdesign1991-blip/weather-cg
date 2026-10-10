@@ -35,7 +35,7 @@ function pick(name) {
   }
   return html.slice(s, i);
 }
-const CONSTS = ['GLB_LIB', 'GLB_TILES', 'GLB_ATTR', 'GLB_ATTR_MBX', 'GLB_SAT_MAXZ', 'GLB_SEA', 'GLB_BORDER', 'GLB_SNAP_MAX', 'GLB_WAIT_MS', 'GLB_SNAP_MS', 'GLB_MERC_LAT'];
+const CONSTS = ['GLB_LIB', 'GLB_TILES', 'GLB_ATTR', 'GLB_ATTR_MBX', 'GLB_SAT_MAXZ', 'GLB_SAT_STYLE', 'GLB_SEA', 'GLB_BORDER', 'GLB_SNAP_MAX', 'GLB_WAIT_MS', 'GLB_SNAP_MS', 'GLB_MERC_LAT'];
 function ctxWith(names, extra) {
   const ctx = Object.assign({ console, Math, Number, String, JSON, Promise }, extra || {});
   vm.createContext(ctx);
@@ -133,11 +133,11 @@ test('위성 사진 스타일: 바탕(바다색) + 그림 타일 하나 — 벡�
   sat.tiles[0] = 'changed'; assert.equal(s.sources.sat.tiles[0], SAT512, '스타일은 주소 틀 사본을 가진다');
 });
 
-test('위성 사진 켜기(glbSatPref·glbSatOn·glbSatNow): 고른 값 + 쓸 수 있는 Mapbox 주소, 못 받은 주소(satBad)는 벡터만 — 격자 기본값은 불러오기 성공·실패와 무관', () => {
-  let url = STYLE_URL;
-  const ctx = vm.createContext({ console, Math, Number, String, JSON, Promise, S: { typhoon: { basemap: 'gl' } }, mapboxUrlRaw: () => url });
-  vm.runInContext("let _mbxCacheBust = '';\n" + CONSTS.map(pick).join('\n') + '\n' + ['_glb', 'glbSatSrc', 'glbSatSrcNow', 'glbSatPref', 'glbSatOn', 'glbSatNow', 'glbKeyOf'].map(pick).join('\n') +
-    '\nglobalThis.__x = { _glb, glbSatPref, glbSatOn, glbSatNow, glbKeyOf };', ctx);
+test('위성 사진 켜기(glbSatPref·glbSatOn·glbSatNow): 고른 값 + 쓸 수 있는 Mapbox 출처(넣어 둔 주소 → 데스크톱 기본 토큰), 못 받은 주소(satBad)는 벡터만, 노말 VF는 격자도 파란 지도처럼 — 격자 기본값은 불러오기 성공·실패와 무관', () => {
+  let url = STYLE_URL, tok = '';
+  const ctx = vm.createContext({ console, Math, Number, String, JSON, Promise, S: { typhoon: { basemap: 'gl' } }, mapboxUrlRaw: () => url, window: { wcgDesktop: { mapboxToken: () => tok } } });
+  vm.runInContext("let _mbxCacheBust = '';\n" + CONSTS.map(pick).join('\n') + '\n' + ['_glb', 'glbSatBuiltinUrl', 'glbSatSrc', 'glbSatSrcNow', 'glbSatPref', 'glbSatOn', 'glbSatNow', 'glbSatMissed', 'glbKeyOf'].map(pick).join('\n') +
+    '\nglobalThis.__x = { _glb, glbSatPref, glbSatOn, glbSatNow, glbSatMissed, glbKeyOf, glbSatSrcNow };', ctx);
   const X = ctx.__x, T = ctx.S.typhoon;
   assert.equal(X.glbSatPref(T), 1, '옛 작업(glSat 없음) = 위성 사진');
   assert.equal(X.glbSatPref(null), 1);
@@ -148,8 +148,35 @@ test('위성 사진 켜기(glbSatPref·glbSatOn·glbSatNow): 고른 값 + 쓸 �
   url = 'https://example.com/{z}/{x}/{y}.png'; assert.equal(X.glbSatOn(T), false, '못 알아보는 주소');
   url = STYLE_URL; X._glb.satBad = SAT512;
   assert.equal(X.glbSatNow(), null, '한 장도 못 받은 주소 = 벡터만'); assert.equal(X.glbSatOn(T), true, '격자 칸은 그대로(눈 단추가 그때그때 다른 칸을 바꾸지 않게)');
+  assert.equal(X.glbSatMissed(), true, '못 받아 벡터만 = 알림·안내 한 줄');
   vm.runInContext("_mbxCacheBust = '7'", ctx); assert.equal(X.glbSatNow().tiles[0], SAT512 + '&_cb=7', "'적용'(다시 받기) = 새 주소라 다시 시도");
+  assert.equal(X.glbSatMissed(), false);
+  vm.runInContext("_mbxCacheBust = ''; _glb.satBad = ''", ctx);
+  // 데스크톱 기본 출처(비공개 토큰 → 기본 스타일 Static Tiles) — 넣어 둔 주소가 없거나 못 알아볼 때만
+  const DEF = 'https://api.mapbox.com/styles/v1/supermanpasa/cmsg6825m002h01r6eufdeg24/tiles/512/{z}/{x}/{y}@2x?access_token=pk.TESTDEFAULT.fake';
+  tok = 'pk.TESTDEFAULT.fake';
+  assert.equal(X.glbSatNow().tiles[0], SAT512, '넣어 둔 주소가 먼저'); assert.equal(X.glbSatSrcNow().def, undefined);
+  url = ''; assert.equal(X.glbSatNow().tiles[0], DEF); assert.equal(X.glbSatSrcNow().def, 1); assert.equal(X.glbSatOn(T), true, '주소 없어도 기본 출처면 위성(격자 끔 칸)');
+  url = 'https://example.com/{z}/{x}/{y}.png'; assert.equal(X.glbSatNow().tiles[0], DEF, '못 알아보는 주소 → 기본 출처');
+  for (const bad of ['sk.secret.token', 'pk.bad token', '']) { tok = bad; assert.equal(X.glbSatNow(), null, '공개 토큰 모양이 아니면 기본 출처 없음 ' + JSON.stringify(bad)); }
+  tok = 'pk.TESTDEFAULT.fake'; url = STYLE_URL;
+  ctx.S.res = '1920x1080-vf'; assert.equal(X.glbSatOn(T), false, '노말 VF = 늘 파란 지도 → 격자도 파란 지도처럼'); ctx.S.res = '1920x1080';
+  assert.equal(X.glbSatOn(T), true);
   for (const bm of ['blue', 'satellite', 'satdark', 'mapbox']) { T.basemap = bm; assert.equal(X.glbSatOn(T), false, bm); }
+});
+
+test('스타일 바꾸기(glbRestyle): 화면 지도가 불러오는 중이면 기다린 시간도 처음부터 — 앞 스타일에서 기다린 시간으로 새 스타일을 실패 판정하지 않게', () => {
+  let now = 9000;
+  const set = [];
+  const X = ctxWith(['_glb', 'glbKeyOf', 'glbCount0', 'glbRestyle'], { performance: { now: () => now }, glbStyle: (T, sat) => ({ sat: !!sat }), S: { typhoon: {} } });
+  const mk = () => ({ setStyle: (st) => set.push(st) });
+  const live = mk(), exp = mk();
+  X._glb.live = live; X._glb.state = 'loading'; X._glb.tw = 1000;
+  X.glbRestyle(live, { tiles: ['https://api.mapbox.com/x/{z}/{x}/{y}'] });
+  assert.equal(X._glb.tw, 9000); assert.equal(live.__sat, true); assert.equal(live.__key, 'https://api.mapbox.com/x/{z}/{x}/{y}'); assert.equal(live.__ok, 0);
+  now = 12000; X.glbRestyle(exp, null); assert.equal(X._glb.tw, 9000, '추출용 지도는 화면 시계를 안 건드림');
+  X._glb.state = 'ready'; X.glbRestyle(live, null); assert.equal(X._glb.tw, 9000, '준비된 화면은 glbSatWatch가 따로 잰다'); assert.equal(live.__key, 'vec');
+  assert.equal(set.length, 3);
 });
 
 test('위성 사진 준비 판정(glbSatCheck): 받으면 ok(일부 실패는 받은 데까지) · 한 장도 못 받으면 fail(→ 벡터만) · 아니면 wait', () => {
@@ -208,7 +235,14 @@ test('메뉴: [위성 사진 | 벡터만] — 공용 세그먼트(.mode), 이모
   assert.ok(!/bmApply[^>]*>위성/.test(box), '큰 버튼 아님');
   assert.match(read('css/toss-modal.css'), /\.basemapPop \.bmGlSat button \{[^}]*height: 28px/);
   const ui = pick('glbUi');
-  assert.match(ui, /#bmGlSat button/); assert.match(ui, /Mapbox 주소를 넣으면 위성 사진이 깔려요/); assert.match(ui, /glbAttrNow\(\)/);
+  assert.match(ui, /#bmGlSat button/); assert.match(ui, /Mapbox 주소가 없어 벡터만 그려요 — 아래 칸에 Mapbox 스타일 URL을 넣고 적용하면 위성 사진이 깔려요/); assert.match(ui, /glbAttrNow\(\)/);
+  assert.match(ui, /classList\.toggle\('miss'/, '골랐지만 지금은 벡터면 위성 칸을 흐리게');
+  assert.match(ui, /const mb = \$\('#bmMbxBox'\); if \(mb && glbActive\(\)\)/, '주소 칸은 이 모드일 때만 건드린다(Mapbox 모드는 syncOpts 그대로)');
+  assert.match(read('css/toss-modal.css'), /\.basemapPop \.bmGlSat button\.miss \{ opacity: \.55; \}/);
+  // 주소 칸의 [적용] — 가벼운 지도에서 누르면 배경은 그대로(위성 사진만 새 주소로), Mapbox 모드 길은 옛 줄 그대로
+  const wb = pick('wireBasemap');
+  assert.match(wb, /if \(S\.typhoon && S\.typhoon\.basemap === 'gl'\) \{\n\s*glbUrlApplied\(\); syncOpts\(\);[\s\S]*?return;\n\s*\}\n\s*if \(S\.typhoon\) S\.typhoon\.basemap = 'mapbox';\n\s*renderTyphoon\(\); updateMapboxTiles\(\);/);
+  assert.match(pick('glbUrlApplied'), /if \(_glb\.state === 'fail'\) glbRetry\(\);/, '실패 중이었으면 처음부터');
   assert.match(pick('glbWire'), /glbSetSat\(\+b\.dataset\.glsat\)/);
   const set = pick('glbSetSat');
   assert.match(set, /pushUndo\(\); T\.glSat = v;/, '되돌리기·저장에 따라간다');
@@ -350,6 +384,11 @@ test('다른 4모드 길 그대로(정적): 위성·Mapbox 판정·격자 규칙
   const wb = pick('wireBasemap');
   assert.ok(wb.includes("else { pop.style.display = 'none'; status({ satellite: '밝은 위성지도', satdark: '어두운 위성지도' }[b.dataset.bm] || '파란 지도', true); }"));
   assert.ok(wb.includes("else if (b.dataset.bm === 'gl') { glbPicked(); syncOpts(); }"));
+  // 영상 렌더 중: 스타일(위성 ↔ 벡터)은 바꾸고 카메라만 멈춘다 — 불러오는 중 위성 실패가 벡터로 넘어가야 준비가 끝난다(프레임마다 glbSettle 13초 없음)
+  { const gs = pick('_glbSync'); const a = gs.indexOf('glbRestyle(m, sat)'), b = gs.indexOf('if (_exportingFrames && _glb.view) return;'), c = gs.indexOf('m.jumpTo(');
+    assert.ok(a > 0 && b > a && c > b, '스타일 바꾸기 → 렌더 중 멈춤(한 번도 자리 안 잡았으면 한 번은) → 카메라'); }
+  assert.match(pick('glbSatFail'), /if \(m === _glb\.live && m\.__sat\) glbRestyle\(m, glbSatNow\(\)\);/);
+  assert.match(pick('glbPrefetchUrls'), /if \(glbPending\(\)\) await glbSettle\(\);\n\s*if \(_glb\.state === 'fail'\) return \[\];/);
   // 한 번도 안 썼고 이 모드가 아니면 glbSync는 곧바로 끝(다른 배경의 끌기·렌더엔 DOM 손대기 없음)
   assert.match(pick('glbSync'), /if \(!_glb\.live && !glbActive\(\)\) return;/);
 });
@@ -379,12 +418,17 @@ test('실제 앱: 가벼운 지도 고르기·준비·정렬(화면 끌기·휠�
     assert.equal(o.offline.state, 'fail'); assert.equal(o.offline.why, 'offline');
     assert.ok(o.offline.blue && o.offline.glHidden && o.offline.retryBtn, JSON.stringify(o.offline));
     assert.match(o.offline.ui, /인터넷/); assert.match(o.offline.status, /파란 지도/);
+    assert.equal(o.offline.proto, true, '데스크톱 디스크 캐시 길이라 오프라인이어도 한 번 해 본 뒤(받은 게 없어) 파란 지도');
     if (!o.net) { console.log('# 인터넷 없음 — GL 그리기 검사 건너뜀: ' + JSON.stringify(o.netWhy)); return; }
     assert.equal(o.pick.popOpen, true, '고르면 팝오버를 열어 둔 채 상태 줄');
     assert.equal(o.ready.state, 'ready');
     assert.ok(o.ready.ms < 25000, 'ready ' + o.ready.ms);
     assert.ok(o.ready.hidden.every((h) => /:none:1$/.test(h)), '파란 바다·육지·남한 바탕·지형 숨김 + 표시 ' + o.ready.hidden);
     assert.equal(o.ready.dataGlb, '1');
+    // 위성 사진(기본)인데 출처 없음(점검은 기본 토큰을 안 준다) → 벡터만 + 까닭 한 줄 + 주소 칸(가벼운 지도 칸 안) + 흐린 위성 칸 + 알림
+    assert.equal(o.ready.noSrc.tok, '', '자동 점검엔 실제 토큰 없음'); assert.equal(o.ready.noSrc.sat, false); assert.equal(o.ready.noSrc.basemap, 'gl');
+    assert.match(o.ready.noSrc.note, /Mapbox 주소가 없어 벡터만 그려요 — 아래 칸에/); assert.equal(o.ready.noSrc.mbxBox, '', '주소 칸이 보임'); assert.equal(o.ready.noSrc.miss, true);
+    assert.match(o.ready.noSrc.status, /Mapbox 주소가 없어 벡터만/);
     for (const k of ['live', 'drag', 'zoom', 'anim', 'resize']) assert.ok(o.align[k] < 0.5, `${k} 정렬 ${o.align[k]}px — ${JSON.stringify(o.align)}`);
     assert.equal(o.align.sameFrame, true, '끌기 프레임 안에서 바로 맞춤(다음 프레임 기다림 없음)');
     assert.ok(o.pix.live < 1 && o.pix.export < 1, '실제 GPU로 그린 시험 선 = 앱 좌표(1px 안쪽) ' + JSON.stringify(o.pix));
@@ -405,16 +449,19 @@ test('실제 앱: 가벼운 지도 고르기·준비·정렬(화면 끌기·휠�
     assert.deepEqual(o.back, { glMap: 'none', marks: 0, ocean: '' });
   });
 
-test('실제 앱: 위성 사진(가짜 Mapbox 주소 pk.TEST + 합성 그림 타일) — 준비·GPU 픽셀 정렬·추출·벡터만/되돌리기·렌더 전 미리 받기 뒤 추가 요청 0·전부/일부 실패·주소 없음·저장·다른 4모드',
+test('실제 앱: 위성 사진(가짜 Mapbox 주소 pk.TEST·가짜 기본 토큰 + 합성 그림 타일) — 준비·GPU 픽셀 정렬·추출·벡터만/되돌리기·렌더 전 미리 받기 뒤 추가 요청 0·전부/일부 실패·렌더 중 실패·모두 실패·오프라인 캐시·기본 토큰·주소 적용·저장·다른 4모드',
   { skip: process.env.WCG_BOOT_CHECK !== '1' && 'WCG_BOOT_CHECK=1 일 때만(일렉트론 필요 — 벡터만 부분은 인터넷)' }, () => {
     let raw;
     try {
-      raw = execFileSync(process.execPath, [path.join(root, 'desktop', 'test', 'boot-check.cjs'), root, '--wait=7000', '--size=1600x900', '--keepalive', '--eval=' + path.join(__dirname, 'gl-satellite.boot-eval.js')], { encoding: 'utf8', timeout: 600000, maxBuffer: 1 << 26 });
+      // 기본 토큰은 가짜(자동 점검은 desktop/private/mapbox.token을 읽지 않는다 — 그 값 대신 이것) — 그 주소 요청은 합성 그림 타일로(실제 Mapbox 요청 없음)
+      raw = execFileSync(process.execPath, [path.join(root, 'desktop', 'test', 'boot-check.cjs'), root, '--wait=7000', '--size=1600x900', '--keepalive', '--eval=' + path.join(__dirname, 'gl-satellite.boot-eval.js')],
+        { encoding: 'utf8', timeout: 600000, maxBuffer: 1 << 26, env: { ...process.env, WCG_TEST_MAPBOX_TOKEN: 'pk.TESTDEFAULT.fake' } });
     } catch (e) { raw = e.stdout; }
     const j = JSON.parse(raw);
     assert.equal(j.ok, true, JSON.stringify(j.errors));
     const o = j.evalResult;
     assert.ok(o && !o.error, o && o.error);
+    assert.equal(o.tok, true, '메인 → preload(invoke) → 앱으로 기본 토큰이 온다');
     assert.equal(o.ready.proto, true, '데스크톱 디스크 캐시 길(wcgtile://) — 합성 타일을 우리 받기에서 준다');
     // 준비: 위성 그림 타일만(벡터 타일·TileJSON 안 받음), 파란 지도 숨김, 상태 줄·고르기·출처·격자(위성 = 끔)
     assert.equal(o.ready.state, 'ready'); assert.equal(o.ready.sat, true); assert.ok(o.ready.okSat > 0 && o.ready.errSat === 0, JSON.stringify(o.ready));
@@ -443,11 +490,25 @@ test('실제 앱: 위성 사진(가짜 Mapbox 주소 pk.TEST + 합성 그림 타
     assert.equal(o.allFail.satBad, true); assert.equal(o.allFail.sat, false); assert.match(o.allFail.note, /토큰이나 URL 제한/);
     if (o.allFail.state === 'ready') { assert.match(o.allFail.status, /위성 사진을 못 받아 벡터만/); assert.equal(o.allFail.inl, true); assert.ok(o.allFail.sea < 8); }
     assert.deepEqual(o.reSat, { sat: true, ok: o.reSat.ok, satBad: '', state: 'ready' }); assert.ok(o.reSat.ok > 0);
+    // 렌더 중 + 불러오는 중 위성 전부 실패 → 몇 초 안에 끝(벡터로 준비 — 인터넷 없으면 파란 지도), 다음 프레임은 기다림 없음
+    assert.ok(o.expLoad.ms < 9000, 'glbSettle ' + JSON.stringify(o.expLoad)); assert.ok(o.expLoad.state === 'ready' || o.expLoad.state === 'fail', JSON.stringify(o.expLoad));
+    assert.equal(o.expLoad.satBad, true); assert.equal(o.expLoad.pending, false); assert.ok(o.expLoad.again < 100, 'again ' + o.expLoad.again);
+    if (o.expLoad.state === 'ready') assert.equal(o.expLoad.sat, false, '벡터로 준비');
+    // 위성도 벡터도 못 받음 → 파란 지도 + 경고 하나(둘 다 못 받음 — OpenFreeMap 탓으로만 말하지 않음)
+    assert.equal(o.both.state, 'fail'); assert.equal(o.both.why, 'net');
+    assert.equal(o.both.warns.length, 1, JSON.stringify(o.both.warns)); assert.match(o.both.warns[0], /위성 사진과 벡터 지도를 모두 못 받았어요. 인터넷/); assert.match(o.both.ui, /모두 못 받았어요/);
     // 일부 실패 → 화면 준비(받은 데까지), 추출도 다시 해 본 뒤 받은 데까지(파란 지도로 안 튐) + 알림
     assert.equal(o.part.state, 'ready'); assert.equal(o.part.sat, true); assert.ok(o.part.ok > 0 && o.part.err > 0);
     assert.equal(o.part.inl, true); assert.match(o.part.status, /몇 칸을 못 받아/);
-    // 주소 없음 → 벡터만 + 안내
-    assert.equal(o.noUrl.sat, false); assert.equal(o.noUrl.noteShown, true); assert.match(o.noUrl.note, /Mapbox 주소를 넣으면 위성 사진이 깔려요/); assert.equal(o.noUrl.grid, 1);
+    // 오프라인이어도 받아 둔 타일이 있으면(디스크 캐시 길) 위성 사진으로 준비
+    assert.deepEqual(o.offCache, { state: 'ready', why: '', sat: true, ok: o.offCache.ok }); assert.ok(o.offCache.ok > 0);
+    // 넣어 둔 주소 없음 → 데스크톱 기본 토큰으로 기본 스타일 위성 사진(안내 줄·주소 칸 없음, 격자 끔)
+    assert.equal(o.def.sat, true); assert.ok(o.def.ok > 0 && o.def.defCalls > 0, JSON.stringify(o.def)); assert.equal(o.def.ownCalls, 0);
+    assert.equal(o.def.note, 'none'); assert.equal(o.def.mbxBox, 'none'); assert.equal(o.def.grid, 0); assert.match(o.def.attr, /Mapbox.*Maxar/);
+    // 넣어 둔 주소로 못 받음 → 가벼운 지도 칸 안에 주소 칸 → [적용] → 배경 그대로(gl), 위성 사진 다시
+    assert.equal(o.apply.before.sat, false); assert.equal(o.apply.before.mbxBox, ''); assert.equal(o.apply.before.miss, true); assert.match(o.apply.before.note, /토큰이나 URL 제한/);
+    assert.equal(o.apply.after.basemap, 'gl'); assert.equal(o.apply.after.sat, true); assert.ok(o.apply.after.ok > 0); assert.equal(o.apply.after.mbxBox, 'none'); assert.equal(o.apply.after.miss, false);
+    assert.equal(o.apply.after.gridEyeOff, true);
     // 저장·불러오기·옛 작업(glSat 없음 = 위성 사진)
     assert.deepEqual(o.save, { glSat: 0, reload: 0, sat: false, old: 1, oldSat: true });
     // 다른 4모드: GL 흔적 없음, 격자 칸 그대로

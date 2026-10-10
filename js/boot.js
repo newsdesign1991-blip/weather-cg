@@ -174,5 +174,9 @@ if (window.wcgDesktop && typeof window.wcgDesktop.onCloseAsk === 'function') {
   window.addEventListener('beforeunload', workUnsavedKeep);   // 자동 저장(saveWork) 뒤에 — 새로고침해도 '변경 있음'을 이어받게
   window.wcgDesktop.onCloseAsk((id) => closeAsk(id));
 }
+// 가벼운 지도 위성 사진의 기본 토큰(데스크톱 — preload가 비동기로 받는다, 옛 데스크톱엔 없음). 보통은 이미 와 있고, 늦게 오면 그 화면을 다시(js/gl-basemap.js glbTokenArrived)
+if (window.wcgDesktop && typeof window.wcgDesktop.mapboxTokenReady === 'function') {
+  window.wcgDesktop.mapboxTokenReady().then((ok) => { if (ok) glbTokenArrived(); }, () => {});
+}
 document.fonts.ready.then(() => { renderLabels(); renderMtns(); renderSel(); });
 if (freshOpen) startupUiEnter();

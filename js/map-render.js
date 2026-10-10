@@ -261,6 +261,12 @@ function wireBasemap() {
     _mbxCacheBust = String(Date.now());            // 재publish 반영 — 캐시(메모리·HTTP) 우회
     for (const k in _tileData) delete _tileData[k];   // 메모리 타일 캐시 비우기
     const g = $('#typhoonTiles'); if (g) g.textContent = '';   // 기존 타일 이미지 제거 → 새 URL로 다시 받게
+    // 가벼운 지도에서 넣었으면(위성 사진 출처 — js/gl-basemap.js glbUi가 이 칸을 보인다) 배경은 그대로 두고 위성 사진만 새 주소로(glbUrlApplied — 실패 중이었으면 처음부터)
+    if (S.typhoon && S.typhoon.basemap === 'gl') {
+      glbUrlApplied(); syncOpts();
+      status(glbSatNow() ? '가벼운 지도 — 위성 사진 주소 적용됨 (새로 불러옴)' : 'URL을 확인하세요 — Mapbox 스타일 URL(WMTS 포함)이나 v4 래스터 주소', true);
+      return;
+    }
     if (S.typhoon) S.typhoon.basemap = 'mapbox';
     renderTyphoon(); updateMapboxTiles();
     status(mapboxTileTemplate() ? 'Mapbox 타일 적용됨 (새로 불러옴)' : 'URL을 확인하세요', true);
