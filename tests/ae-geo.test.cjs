@@ -130,7 +130,19 @@ test('보기 키·프레임 = 앱 camAt(키 사이 같은 e로 위치·배율 �
   assert.equal(plan.tilt, true);
   const rows = plan.frames.rows;
   assert.equal(rows[0][0], 0.5); assert.equal(rows[rows.length - 1][0], 4);
-  assert.equal(rows.length, Math.ceil(3.5 * FPS) + 1);
+  // 줄 = 맨 앞·맨 끝 키 시각 + 그 사이 AE 프레임 격자(n/fps) — AE가 값을 읽는 시각에 바로 키가 있게
+  const n0 = Math.ceil(0.5 * FPS), n1 = Math.floor(4 * FPS);
+  assert.equal(rows.length, n1 - n0 + 1 + 2);
+  for (const row of rows.slice(1, -1)) { const n = row[0] * FPS; assert.ok(Math.abs(n - Math.round(n)) < 1e-4, '프레임 격자 ' + row[0]); }
+  for (let i = 1; i < rows.length; i++) assert.ok(rows[i][0] > rows[i - 1][0]);
+  // 줄이 GEO_MAX_FRAMES를 넘으면 간격 = 프레임의 정수배(여전히 격자 위), 끝 키 포함
+  C.camKeys = () => [{ t: 0, x: 860, y: 377, s: 0.3, rz: 0 }, { t: 200.3, x: 300, y: -400, s: 0.9, rz: 0 }];
+  const long = C.geoViewPlan(MAP_PROJ, 1, 30).frames.rows;
+  assert.ok(long.length <= vm.runInContext('GEO_MAX_FRAMES', C), long.length);
+  assert.equal(long[long.length - 1][0], 200.3);
+  const st = Math.round((long[2][0] - long[1][0]) * 30);
+  assert.ok(st >= 2 && long.slice(1, -1).every((r) => Math.abs(r[0] * 30 - Math.round(r[0] * 30)) < 1e-4));
+  C.camKeys = () => keys;
   for (const row of rows) {
     const v = C.geoViewOf(C.camAt(row[0]), MAP_PROJ, 1);
     assert.ok(Math.abs(row[1] - v.latitude) < 1e-7 && Math.abs(row[2] - v.longitude) < 1e-7 && Math.abs(row[3] - v.zoom) < 1e-6 && Math.abs(row[4] - v.bearing) < 1e-4);
@@ -165,7 +177,7 @@ function geoCtx(S, opt) {
   return r;
 }
 
-test('sendToAE GEOlayers 길: mode·geo 명세, 리깅 카메라 = 항등 키(앱 키 시각), 바탕 = 지도 겹 PNG, 남한 강조 PNG, GeoJSON, 토큰 없음', async () => {
+test('sendToAE GEOlayers 길: mode·geo 명세, 리깅 카메라 = 항등 위치·배율 키(앱 키 시각·회전), 바탕 = 지도 겹 PNG, 남한 강조 PNG, GeoJSON, 토큰 없음', async () => {
   const S = tyS();
   const { caps, sendGeo, send } = geoCtx(S);
   const spec = await sendGeo();
@@ -173,9 +185,11 @@ test('sendToAE GEOlayers 길: mode·geo 명세, 리깅 카메라 = 항등 키(�
   assert.equal(spec.mode, 'geolayers');
   const g = spec.geo, rig = spec.layers.find((l) => l.typhoonRig).typhoonRig;
   assert.equal(g.v, 1);
-  // 리깅 카메라: 모든 키가 작업 뷰(항등) — 위치 = 앵커, 배율 = sBaked, 회전 0, 시각 = 앱 카메라 키
+  // 리깅 카메라: 위치·배율은 모두 작업 뷰(항등) — 위치 = 앵커, 배율 = sBaked, 시각 = 앱 카메라 키, 회전 = 앱 키 rz(헬퍼가 ROT 널로 라벨 박스를 돌린다)
   assert.deepEqual(rig.camera.keys.map((k) => k.t), [0.5, 3.5]);
-  for (const k of rig.camera.keys) { assert.equal(k.x, rig.camera.anchor[0]); assert.equal(k.y, rig.camera.anchor[1]); assert.equal(k.s, rig.camera.sBaked); assert.equal(k.rz, 0); }
+  for (const k of rig.camera.keys) { assert.equal(k.x, rig.camera.anchor[0]); assert.equal(k.y, rig.camera.anchor[1]); assert.equal(k.s, rig.camera.sBaked); }
+  assert.deepEqual(rig.camera.keys.map((k) => k.rz), [0, 12]);
+  assert.deepEqual(rig.camera.pivot, [960, 540]);
   assert.deepEqual(rig.camera.anchor, [1160, 545]);
   // 업로드: 바탕 = 지도 겹(바다·위성 없이), 남한 강조 따로
   const fi = (f) => +f.slice(2, 7);
@@ -223,7 +237,7 @@ test('sendToAE GEOlayers 길: 비교 지도도(예보선마다 선 GeoJSON), 노
   assert.deepEqual(Object.keys(spec.geo.typhoon.geojson), ['c0']);
   assert.equal(spec.geo.draw[0].col, '#FFC53D');
   const crig = spec.layers.find((l) => l.compareRig).compareRig;
-  for (const k of crig.camera.keys) assert.equal(k.rz, 0);
+  assert.deepEqual(crig.camera.keys.map((k) => [k.x, k.y, k.s, k.rz]), [[1160, 545, 1.02, 0], [1160, 545, 1.02, 12]]);
   for (const res of ['1920x1080-vf']) {
     const r = geoCtx(tyS({ res }));
     assert.equal(await r.sendGeo(), null);
@@ -238,15 +252,15 @@ function mkGeo(M, o) {
   o = o || {};
   const P = M.proj, temps = [];
   const fxSet = (L, v) => { const fx = L.property('ADBE Effect Parade'); for (const k of Object.keys(v)) fx.property(k).property(1).setValue(v[k]); };
-  const addTemplate = (name, w, h, view, anchorName) => {
-    const mc = P.items.addComp(name, w, h, 1, 30, FPS);
-    const C = P.items.addComp(name + ' (담는 컴프)', w, h, 1, 30, FPS);
-    const L = C.layers.add(mc); L.name = name;
+  const addTemplate = (name, w, h, view, anchorName, mcIn, dur) => {
+    const mc = mcIn || P.items.addComp(name, w, h, 1, dur || 30, FPS);
+    const C = P.items.addComp(name + ' (담는 컴프)', w, h, 1, dur || 30, FPS);
+    const L = C.layers.add(mc); L.name = mc.name;
     const fx = L.property('ADBE Effect Parade');
     for (const [nm, mt] of [['Latitude', 'ADBE Angle Control'], ['Longitude', 'ADBE Angle Control'], ['Zoom', 'ADBE Slider Control'], ['Bearing', 'ADBE Angle Control'], ['Pitch', 'ADBE Angle Control']]) { const e = fx.addProperty(mt); e.name = nm; }
     fxSet(L, view || { Latitude: 36, Longitude: 127.5, Zoom: 5, Bearing: 0, Pitch: 0 });
     const A = C.layers.addNull(); A.name = anchorName || name + ' Anchor'; A.setParentWithJump(L);
-    const ctl = (nm) => `thisComp.layer(${JSON.stringify(name)}).effect("${nm}")(1)`;
+    const ctl = (nm) => `thisComp.layer(${JSON.stringify(mc.name)}).effect("${nm}")(1)`;
     A.tf.anchor.expression = `var la=+${ctl('Latitude')},lo=+${ctl('Longitude')},M=262144;la=Math.max(-85.05112878,Math.min(85.05112878,la));var s=Math.sin(la*Math.PI/180);[(lo+180)/360*M,(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*M]`;
     A.tf.position.expression = `[${w / 2},${h / 2}]`;
     A.tf.scale.expression = `var z=Math.max(0,Math.min(23,+${ctl('Zoom')}));var k=100*Math.pow(2,z)/262144*512;[k,k]`;
@@ -258,20 +272,27 @@ function mkGeo(M, o) {
     calls: [],
     getMapcomps: () => temps.map((t) => t.mc),
     getMapcompAnchor: (c) => { const t = pairOf(c); return o.noAnchorApi || !t ? undefined : t.A; },
+    // o.dupShared = 담는 컴프만 새로 만들고 맵 컴프는 원본을 같이 씀(쓸 수 없는 복제 — 지우고 멈춰야 한다)
     duplicate: (c, opt) => {
       api.calls.push(['duplicate', opt, c && c.name]);
       const t = pairOf(c); if (!t || o.noDup) return undefined;
       const v = {}; for (const k of ['Latitude', 'Longitude', 'Zoom', 'Bearing', 'Pitch']) v[k] = t.L.property('ADBE Effect Parade').property(k).property(1).value;
-      const n = addTemplate((opt && (opt.newContainingCompName || opt.newName)) + ' 맵', t.mc.width, t.mc.height, v, o.anchorName);
+      const n = addTemplate((opt && (opt.newContainingCompName || opt.newName)) + ' 맵', t.mc.width, t.mc.height, v, o.anchorName, o.dupShared ? t.mc : null, t.mc.duration);
       n.C.name = (opt && opt.newContainingCompName) || n.C.name;
       return n.C;
     },
     removeMapcompControlKeys: (c) => { api.calls.push(['removeKeys']); const t = pairOf(c); for (const k of ['Latitude', 'Longitude', 'Zoom', 'Bearing', 'Pitch']) t.L.property('ADBE Effect Parade').property(k).property(1).keys = []; },
-    setViewAtTime: (c, v, force, tm) => { api.calls.push(['setViewAtTime', v, force, tm]); const t = pairOf(c); fxSet(t.L, { Latitude: v.latitude, Longitude: v.longitude, Zoom: v.zoom, Bearing: v.bearing, Pitch: v.pitch }); return v; },
+    // o.zoomMax = 이미지 범위(설치판 clipZoom처럼 Zoom을 자르고 적용한 보기를 돌려준다)
+    setViewAtTime: (c, v, force, tm) => {
+      api.calls.push(['setViewAtTime', v, force, tm]); const t = pairOf(c);
+      const z = o.zoomMax != null ? Math.min(o.zoomMax, v.zoom) : v.zoom;
+      fxSet(t.L, { Latitude: v.latitude, Longitude: v.longitude, Zoom: z, Bearing: v.bearing, Pitch: v.pitch });
+      return { latitude: v.latitude, longitude: v.longitude, zoom: z, bearing: v.bearing, pitch: v.pitch };
+    },
     draw: (c, file, cb, opt) => { api.calls.push(['draw', file.path, opt]); const t = temps.find((x) => x.C === c); const sl = t.C.layers.addShape(); sl.name = 'drawn'; cb(null, {}); },
     finalize: (comps, cb, opt) => { api.calls.push(['finalize', comps.map((x) => x.name), opt]); cb(null, comps); },
   };
-  return { api, addTemplate, temps };
+  return { api, addTemplate, temps, o };
 }
 test('끝까지: 스펙 → geo-jsx → AE 흉내 + 가짜 GEOlayers — 프레임마다 태풍 지점(TP 널) = 앱 화면 자리(0.5px 안)', async () => {
   const S = tyS();
@@ -300,6 +321,10 @@ test('끝까지: 스펙 → geo-jsx → AE 흉내 + 가짜 GEOlayers — 프레�
   const kr = main.list.find((l) => l.name === '남한 강조');
   assert.ok(kr && kr.blendingMode === 'SCREEN' && kr.parent && kr.parent.name === 'CAM');
   assert.equal(kr.source.name, spec.geo.overlays.kr.file);
+  // 겹 순서 = 앱(bgMapT: 남한 강조 → 시도선·지명): 지도 겹 바로 아래, GEOlayers 지도(GEO_MAP)보다 위
+  const ix = (nm) => main.list.findIndex((l) => l.name === nm);
+  assert.equal(ix('남한 강조'), ix('지도') + 1, '남한 강조는 지도 겹 바로 아래');
+  assert.ok(ix('남한 강조') < ix('GEO_MAP'));
   // 마커 = 앱 카메라 키
   assert.deepEqual(main.markerProperty.keys.map((k) => k.t), [0.5, 3.5]);
   // draw(편집용 셰이프, 꺼 둠) → finalize → 알림
@@ -334,6 +359,91 @@ test('끝까지: 스펙 → geo-jsx → AE 흉내 + 가짜 GEOlayers — 프레�
     }
   }
   assert.ok(worst2 < 0.5, '보기를 고친 뒤 최대 차 ' + worst2 + 'px'); if (process.env.GEO_DEBUG) console.log('worst2', worst2);
+});
+
+// 스펙 → geo-jsx → AE 흉내 + 가짜 GEOlayers(맵 컴프 1920×1080 하나) 한 번
+async function geoRun(S, o) {
+  o = o || {};
+  const r = geoCtx(S);
+  const spec = await r.sendGeo();
+  if (o.edit) o.edit(spec);
+  const M = mkModel({ geo: true });
+  const G = mkGeo(M, o);
+  G.addTemplate('Map 1', 1920, 1080, null, null, null, o.dur);
+  if (o.setup) o.setup(M, G);
+  M.g.geolayers3 = G.api;
+  M.run(GJ.buildGeoJsx(JSON.parse(JSON.stringify(spec)), 'C:\\WCG\\frames\\gr', o.gopt));
+  const main = M.comps.find((c) => c.name === spec.comp.name);
+  return { r, spec, M, G, main };
+}
+// 라벨 박스 가운데(AE) — 라벨N 레이어의 위치 + (박스 가운데 [500,180] − 기준점) = 회전한 박스 가운데(박스 자체는 똑바로 — 앱도 같다)
+const boxCenter = (M, l, t) => { const p = l.tf.position.valueAtTime(t), a = l.tf.anchor.valueAtTime(t); return [p[0] + 500 - a[0], p[1] + 180 - a[1]]; };
+// 앱 라벨 박스 가운데 = camProjectXY(b.x, b.y)(기울기 0이면 뷰박스 가운데(960,540) 기준 rz 회전) × 출력 배율
+function appBox(b, rz, W, H) {
+  const r = (rz * Math.PI) / 180, X = b.x - 960, Y = b.y - 540;
+  return [(960 + X * Math.cos(r) - Y * Math.sin(r)) * (W / 1920), (540 + X * Math.sin(r) + Y * Math.cos(r)) * (H / 1080)];
+}
+test('끝까지: 앱 카메라에 회전(rz)이 있으면 라벨 박스·지시선도 GEOlayers 보기를 따라 화면 가운데 기준으로 돈다(ROT 널) — 이동+회전 45°·회전만 30°·터치 12°', async () => {
+  const cases = [
+    { nm: '이동+회전 0→45°', res: '1920x1080', cam: [{ t: 0.5, x: 1160, y: 545, s: 1.02, rz: 0 }, { t: 3.5, x: 700, y: 900, s: 1.6, rz: 45 }] },
+    { nm: '회전만 0→30°', res: '1920x1080', cam: [{ t: 0.5, x: 1160, y: 545, s: 1.02, rz: 0 }, { t: 3, x: 1160, y: 545, s: 1.02, rz: 30 }] },
+    { nm: '터치 0→12°', res: '2158x1214' },
+  ];
+  for (const cs of cases) {
+    const S = tyS({ res: cs.res, cam: cs.cam });
+    const { M, main, spec } = await geoRun(S);
+    assert.deepEqual(M.errors, [], cs.nm);
+    const [W, H] = cs.res === '2158x1214' ? [2158, 1214] : [1920, 1080], k = (W / 1920 + H / 1080) / 2;
+    const ROT = main.list.find((l) => l.name === 'ROT'), CAM = main.list.find((l) => l.name === 'CAM');
+    assert.ok(ROT, cs.nm + ': ROT 널');
+    assert.equal(CAM.parent, null, 'CAM은 ROT에서 뗀다(방향은 표현식이 GEOlayers에서)');
+    assert.equal(ROT.tf.rotation.expression, GJ.ROT_EXPR);
+    assert.ok(M.alerts[M.alerts.length - 1].includes('Bearing'), '알림에 라벨 회전');
+    const C = mathCtx({ map: S.map }); C.camKeys = () => S.anim.cam.keys;
+    const b = S.typhoon.labels[0], lab = main.list.find((l) => l.name === '라벨0'), led = main.list.find((l) => l.name === '지시선0');
+    const shapeNode = M.nodes(led).find((n) => n.name === 'ADBE Vector Shape');
+    const hw = spec.layers.find((l) => l.typhoonRig).typhoonRig.labels[0].bw / 2;
+    let worst = 0, worstLead = 0, worstTp = 0;
+    const pts = S.typhoon.issues[0].points;
+    for (let f = 0; f <= Math.ceil(4.2 * FPS); f += 2) {
+      const t = f / FPS, cam = C.camAt(t);
+      const want = appBox(b, cam.rz, W, H), got = boxCenter(M, lab, t);
+      worst = Math.max(worst, hyp(want, got));
+      const path = shapeNode.valueAtTime(t).points, end = path[path.length - 1];   // 지시선 끝 = 박스 왼쪽·오른쪽 가장자리(같은 높이)
+      worstLead = Math.max(worstLead, Math.abs(end[1] - want[1]), Math.abs(Math.abs(end[0] - want[0]) - hw));
+      for (let i = 0; i < pts.length; i += 3) { const tp = main.list.find((l) => l.name === 'TP' + i); worstTp = Math.max(worstTp, hyp(M.apply(M.worldAt(tp, t), [0, 0]), C.geoAppXY(pts[i].lon, pts[i].lat, cam, MAP_PROJ, k, W, H))); }
+    }
+    if (process.env.GEO_DEBUG) console.log(cs.nm, 'label', worst, 'leader', worstLead, 'tp', worstTp);
+    assert.ok(worst < 0.3, cs.nm + ' 라벨 박스 최대 차 ' + worst + 'px');
+    assert.ok(worstLead < 0.3, cs.nm + ' 지시선 끝 최대 차 ' + worstLead + 'px');
+    assert.ok(worstTp < 0.7, cs.nm + ' 태풍 지점 최대 차 ' + worstTp + 'px');
+    // AE에서 Bearing을 고치면 라벨도 그만큼 돈다(태풍 지점처럼 GEOlayers 보기를 따라감)
+    const L2 = main.list.find((l) => l.name === 'GEO_MAP').source.list.find((l) => l.name.endsWith('맵'));
+    for (const key of L2.property('ADBE Effect Parade').property('Bearing').property(1).keys) key.v += 20;
+    const t = 4, cam = C.camAt(t);
+    assert.ok(hyp(appBox(b, cam.rz + 20, W, H), boxCenter(M, lab, t)) < 0.3, '보기 Bearing +20° → 라벨도 +20°');
+  }
+  // 회전이 없으면 ROT 널도 없다(지금처럼 라벨은 제자리)
+  const S0 = tyS({ cam: [{ t: 0.5, x: 1160, y: 545, s: 1.02, rz: 0 }, { t: 3.5, x: 700, y: 900, s: 1.6, rz: 0 }] });
+  const z = await geoRun(S0);
+  assert.equal(z.main.list.find((l) => l.name === 'ROT'), undefined);
+  assert.ok(!z.M.alerts[z.M.alerts.length - 1].includes('ROT'));
+});
+test('끝까지: 비교 지도도 회전이 있으면 라벨 박스가 GEOlayers 보기를 따라 돈다', async () => {
+  const S = tyS({ style: 'typhoonCompare', cam: [{ t: 0.5, x: 1160, y: 545, s: 1.02, rz: 0 }, { t: 3.5, x: 900, y: 700, s: 1.3, rz: 30 }],
+    compare: [{ id: 'c1', name: 'JMA', color: '#FFC53D', show: 1, points: REAL14.slice(4, 12).map(([lon, lat]) => ({ lon, lat })), labels: [] }] });
+  const { M, main, spec } = await geoRun(S);
+  assert.deepEqual(M.errors, []);
+  const crig = spec.layers.find((l) => l.compareRig).compareRig;
+  const ROT = main.list.find((l) => l.name === 'ROT'), CAM = main.list.find((l) => l.name === 'CAM');
+  assert.ok(ROT && CAM.parent === null && ROT.tf.rotation.expression === GJ.ROT_EXPR);
+  // 비교 라벨이 있으면 박스 가운데 = 앱 회전(없는 작업이면 회전 널 배선만 본다)
+  const labs = main.list.filter((l) => /^라벨\d+_\d+$/.test(l.name));
+  const C = mathCtx({ map: S.map }); C.camKeys = () => S.anim.cam.keys;
+  for (const lab of labs) {
+    const [ti, li] = lab.name.slice(2).split('_').map(Number), lb = crig.typhoons[ti].labels[li];
+    for (const t of [0, 1.7, 2.6, 4]) assert.ok(hyp(appBox({ x: lb.bx, y: lb.by }, C.camAt(t).rz, 1920, 1080), boxCenter(M, lab, t)) < 0.3, lab.name + ' ' + t);
+  }
 });
 
 test('끝까지: 앵커 레이어를 못 찾아도(컨트롤 식으로) 같은 자리, 담는 컴프 크기가 다르면 zoom 보정(터치 2158×1214 ← 1920×1080 맵 컴프)', async () => {
@@ -396,9 +506,73 @@ test('끝까지: GEOlayers 패널이 없으면·맵 컴프가 없거나 여럿�
   x.M.run(jsx);
   const dup2 = x.G.api.calls.find((c) => c[0] === 'duplicate');
   assert.equal(dup2[2], 'WeatherCG_T_GEO'); assert.equal(dup2[1].newContainingCompName, 'WeatherCG_T_GEO_2');
-  // 복제를 못 하면 원래 맵 컴프에 바로 얹고 기록
-  x = run(1, (M, G) => { G.api.duplicate = () => undefined; });
-  assert.match(x.M.alerts[x.M.alerts.length - 1], /복제하지 못해/);
+  // 복제를 못 하면(undefined·예외·맵 컴프를 같이 쓰는 복제) 멈춤 — 우리 컴프도 안 만들고, 원래 맵 컴프는 그대로(키·길이·레이어), 이번에 생긴 컴프만 지운다
+  const fxKeys = (G) => ['Latitude', 'Longitude', 'Zoom', 'Bearing', 'Pitch'].reduce((n, k) => n + G.temps[0].L.property('ADBE Effect Parade').property(k).property(1).keys.length, 0);
+  for (const [nm, setup, err] of [
+    ['undefined', (M, G) => { G.api.duplicate = () => undefined; }, false],
+    ['예외', (M, G) => { G.api.duplicate = () => { throw new Error('boom'); }; }, true],
+    ['맵 컴프를 같이 쓰는 복제', (M, G) => { G.o.dupShared = true; }, false],
+  ]) {
+    x = run(1, setup);
+    assert.equal(x.M.alerts.length, 1, nm);
+    assert.match(x.M.alerts[0], /복제하지 못해 멈췄어요[\s\S]*Map 1 \(담는 컴프\)/, nm);
+    if (err) assert.match(x.M.alerts[0], /boom/);
+    assert.deepEqual(x.M.comps.map((c) => c.name), ['Map 1', 'Map 1 (담는 컴프)'], nm + ': 남는 컴프 = 원래 둘');
+    assert.equal(fxKeys(x.G), 0, nm + ': 원래 맵 컴프에 키 없음');
+    assert.equal(x.G.temps[0].C.duration, 30); assert.equal(x.G.temps[0].mc.duration, 30);
+    assert.equal(x.G.temps[0].C.list.length, 2, nm + ': 원래 담는 컴프 레이어 그대로(맵·앵커)');
+    if (nm === '맵 컴프를 같이 쓰는 복제') assert.deepEqual(x.M.removed, ['WeatherCG_T_GEO'], '이번에 생긴 담는 컴프만 지움');
+  }
+});
+
+test('끝까지: 패널을 닫아 draw·finalize 답이 안 오면 정한 시간 뒤 알림·기록(app.scheduleTask), 답이 오면 그 예약은 취소', async () => {
+  // 패널 닫힘 — geolayers3는 남아 있지만 콜백이 안 온다
+  let x = await geoRun(tyS(), { setup: (M, G) => { M.useTasks(); G.api.draw = () => {}; G.api.finalize = () => {}; } });
+  assert.deepEqual(x.M.errors, []);
+  assert.equal(x.M.alerts.length, 0, '③까지는 알림 없음(비동기 기다림)');
+  assert.equal(x.M.tasks.length, 1);
+  assert.equal(x.M.tasks[0].ms, GJ.WAIT_DRAW_S * 1000);
+  assert.ok(x.M.files['C:/WCG/frames/gr/geo_log.txt'].includes('OK'), '③까지 기록은 먼저');
+  x.M.runTasks();
+  assert.equal(x.M.alerts.length, 1);
+  assert.match(x.M.alerts[0], new RegExp(GJ.WAIT_DRAW_S + '초 넘게 답이 없어요[\\s\\S]*Finalize[\\s\\S]*geo_log\\.txt'));
+  assert.match(x.M.files['C:/WCG/frames/gr/geo_log.txt'], /답이 없어요/);
+  assert.equal(Object.keys(x.M.g).filter((k) => /^wcgGeoWait/.test(k)).length, 0, '전역 함수는 한 번 쓰고 지움');
+  // 셰이프가 없고 타일 받기만이면 더 오래 기다린다
+  x = await geoRun(tyS(), { edit: (sp) => { sp.geo.draw = []; }, setup: (M, G) => { M.useTasks(); G.api.finalize = () => {}; } });
+  assert.equal(x.M.tasks.length, 1); assert.equal(x.M.tasks[0].ms, GJ.WAIT_FIN_S * 1000);
+  // 패널이 답하면(가짜 GEOlayers는 바로 콜백) 예약은 취소되고 마지막 알림 하나만
+  x = await geoRun(tyS(), { setup: (M) => M.useTasks() });
+  assert.equal(x.M.alerts.length, 1); assert.match(x.M.alerts[0], /GEOlayers 지도로 보냈어요/);
+  assert.ok(x.M.tasks.every((t) => t.off), '예약 취소');
+  x.M.runTasks(); assert.equal(x.M.alerts.length, 1);
+});
+test('끝까지: 패널이 없을 때 — 설치판이 지원하지 않는 AE 버전이면 그 까닭을, 지원 범위 안이면 패널 열기 안내 + 범위', async () => {
+  const S = tyS();
+  const r = geoCtx(S);
+  const spec = await r.sendGeo();
+  const run = (ver, gopt) => { const M = mkModel({ geo: true }); M.g.app.version = ver; M.run(GJ.buildGeoJsx(JSON.parse(JSON.stringify(spec)), 'C:\\WCG\\v', gopt)); return M; };
+  let M = run('27.0x53', { ae: [13.6, 26.9], ver: '1.17.0' });
+  assert.match(M.alerts[0], /이 AE에서는 뜨지 않아요[\s\S]*27판[\s\S]*GEOlayers 3\(1\.17\.0\)는 AE 13\.6~26\.9만 지원/);
+  assert.equal(M.comps.length, 0);
+  M = run('26.0x125', { ae: [13.6, 26.9], ver: '1.17.0' });
+  assert.match(M.alerts[0], /패널이 열려 있지 않아요[\s\S]*설치판 1\.17\.0: AE 13\.6~26\.9/);
+  M = run('12.0x1', { ae: [13.6, 26.9], ver: '1.17.0' });
+  assert.match(M.alerts[0], /이 AE에서는 뜨지 않아요/);
+  M = run(undefined, { ae: [13.6, 26.9], ver: '1.17.0' });   // 판을 못 읽으면 일반 안내
+  assert.match(M.alerts[0], /패널이 열려 있지 않아요/);
+  M = run('27.0x53');   // 범위를 모르면(옛 호출) 범위 없이 일반 안내 + 지원 여부 확인 한 줄
+  assert.match(M.alerts[0], /패널이 열려 있지 않아요[\s\S]*이 AE 버전을 지원하는지도 확인해 주세요\.$/);
+});
+test('끝까지: 한 보기(키 없음) — GEOlayers가 Zoom을 이미지 범위로 자르면 기록, 맵 컴프가 짧으면 길이를 늘리고 안내', async () => {
+  const S = tyS({ cam: [] });
+  let x = await geoRun(S, { zoomMax: 3 });
+  assert.deepEqual(x.M.errors, []);
+  const last = x.M.alerts[x.M.alerts.length - 1];
+  assert.match(last, /Zoom을 바꿔 넣었어요[\s\S]*-> 3\.000/);
+  x = await geoRun(S, { dur: 2 });
+  assert.match(x.M.alerts[x.M.alerts.length - 1], /맵 컴프 길이를 우리 컴프 길이에 맞춰 늘렸어요/);
+  assert.doesNotMatch((await geoRun(S)).M.alerts.pop(), /길이를|Zoom을 바꿔/);
 });
 
 test('geo-jsx: 기존 jsx는 글자 그대로 가운데에(golden 불변), ASCII만, 확정 못 한 API는 typeof·try', async () => {
@@ -408,13 +582,23 @@ test('geo-jsx: 기존 jsx는 글자 그대로 가운데에(golden 불변), ASCII
   const base = Object.assign({}, spec); delete base.mode; delete base.geo;
   const jsx = GJ.buildGeoJsx(JSON.parse(JSON.stringify(spec)), 'C:\\WCG\\f');
   const plain = buildAeJsx(JSON.parse(JSON.stringify(base)), 'C:\\WCG\\f').split('\n');
-  assert.ok(jsx.includes(plain.slice(0, -1).join('\n') + '\n'), '기존 jsx(마지막 줄 전까지)가 그대로 들어 있다');
+  assert.ok(jsx.includes('\n' + plain.slice(1, -1).join('\n') + '\n'), '기존 jsx(첫 줄 뒤 ~ 마지막 줄 전)가 그대로 들어 있다');
+  // 첫 줄(실행 취소 묶음 열기)은 한 번만 — 확인·찾기 뒤, 맵 컴프 복제 앞(복제도 묶음 안), 마지막 줄은 맨 끝 비동기 앞
+  const J = jsx.split('\n');
+  assert.equal(J.filter((s) => s === plain[0]).length, 1);
+  const iHead = J.indexOf(plain[0]), iDup = J.findIndex((s) => s.includes('geolayers3.duplicate(')), iBody = J.indexOf(plain[1]), iFind = J.findIndex((s) => s.includes('geolayers3.getMapcomps()'));
+  assert.ok(iFind < iHead && iHead < iDup && iDup < iBody, [iFind, iHead, iDup, iBody].join(','));
+  assert.equal(J.filter((s) => s === plain[plain.length - 1]).length, 1);
   assert.ok(!/[^\x00-\x7e\n]/.test(jsx), 'jsx는 ASCII만(한국어는 \\uXXXX)');
   assert.doesNotThrow(() => new vm.Script(jsx));
   for (const s of ['typeof geolayers3==="undefined"', 'geolayers3.getMapcomps()', 'geolayers3.duplicate(', 'geolayers3.setViewAtTime(', 'setValuesAtTimes(', 'geolayers3.getMapcompAnchor(',
-    'geolayers3.removeMapcompControlKeys(', 'typeof geolayers3.draw!=="function"', 'typeof geolayers3.finalize==="function"', 'File(dir+"/"+d.f)', 'BlendingMode.SCREEN', 'thisComp.layer(\\"GEO_MAP\\")']) assert.ok(jsx.includes(s), s);
+    'geolayers3.removeMapcompControlKeys(', 'typeof geolayers3.draw!=="function"', 'typeof geolayers3.finalize==="function"', 'File(dir+"/"+d.f)', 'BlendingMode.SCREEN', 'thisComp.layer(\\"GEO_MAP\\")',
+    'app.scheduleTask(', 'app.cancelTask(', 'krl.moveAfter(bg0)']) assert.ok(jsx.includes(s), s);
+  // 복제를 두 번 시도하지 않는다(맵 컴프 자체를 복제하면 원래 담는 컴프에 새 레이어가 생길 수 있다)
+  assert.equal(jsx.split('geolayers3.duplicate(').length - 1, 1);
+  assert.doesNotMatch(jsx, /GP2=GP;/, '원래 맵 컴프에 바로 얹는 길이 없다');
   // ES3만(옛 ExtendScript): let/const/화살표 없음 — 우리 덧붙임 부분만 본다
-  const extra = jsx.replace(plain.slice(0, -1).join('\n'), '');
+  const extra = jsx.replace(plain.slice(1, -1).join('\n'), '');
   assert.ok(!/\b(let|const)\s|=>/.test(extra), 'ES3 문법만');
   // 기존 경로: mode가 없거나 geo가 없으면 GEOlayers 길이 아니다
   assert.equal(GJ.isGeoSpec(base), false);
@@ -440,6 +624,10 @@ test('보내는 방식 카드: 태풍 지도만 GEOlayers 칸이 켜지고, 다�
   assert.equal(r.cards[1].why, '');
   assert.match(r.cards[1].sub, /1\.17\.0/);
   assert.equal(c.aeModeCards(caps, null).pick, 'layers');
+  // 안내: 설치판의 지원 AE 범위를 알면 덧붙인다(더 새 AE에서는 패널이 아예 안 뜬다), 모르면 패널 안내만
+  assert.match(r.geoNote, /GEOlayers 3 패널을 열고/); assert.doesNotMatch(r.geoNote, /판에서만/);
+  const n2 = c.aeModeCards({ ok: true, geolayers: { installed: true, version: '1.17.0', ae: [13.6, 26.9] } }, 'geolayers').geoNote;
+  assert.match(n2, /GEOlayers 3 1\.17\.0는 AE 13\.6~26\.9판에서만 패널이 떠요/);
   c = popCtx({ style: 'sgg', res: '1920x1080' });
   r = c.aeModeCards(caps, 'geolayers');
   assert.equal(r.pick, 'layers'); assert.equal(r.cards[1].why, '태풍 지도에서만 써요'); assert.equal(r.cards[1].sub, '태풍 지도에서만 써요');
@@ -489,10 +677,12 @@ test('부팅 점검: 실제 앱의 보내는 방식 팝업 → GEOlayers 지도�
   assert.deepEqual(o.typhoon.cards.map((c) => [c.mode, c.dis, c.on]), [['layers', false, true], ['geolayers', false, false]]);
   assert.deepEqual(o.typhoon.afterPick, [false, true]);
   assert.match(o.typhoon.note, /GEOlayers 3 패널/);
+  assert.match(o.typhoon.note, /AE 13\.6~26\.9판에서만/);
   assert.equal(o.spec.mode, 'geolayers'); assert.equal(o.spec.geoV, 1);
   assert.equal(o.spec.keys, 2); assert.ok(o.spec.rows > 70);
   assert.ok(['r70', 'r15', 'r25', 'past', 'fcst', 'points'].every((k) => o.spec.fc.includes(k)), o.spec.fc.join(','));
-  assert.ok(o.spec.camKeys.every((k) => k.x === o.spec.anchor[0] && k.y === o.spec.anchor[1] && k.rz === 0), '리깅 카메라 = 항등');
+  assert.ok(o.spec.camKeys.every((k) => k.x === o.spec.anchor[0] && k.y === o.spec.anchor[1]), '리깅 카메라 위치·배율 = 항등');
+  assert.deepEqual(o.spec.camKeys.map((k) => k.rz), [0, 15], '회전은 앱 키 그대로(헬퍼가 ROT로 라벨을 돌림)');
   assert.equal(o.spec.token, false);
   assert.equal(o.saved, 'geolayers');
   assert.equal(o.overlay.a, 0, '지도 겹 PNG 가장자리 = 투명(바다·육지는 GEOlayers가 그린다)');

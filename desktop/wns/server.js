@@ -10,7 +10,7 @@
 //   POST /api/finalize {sid,mode,tail} -> ffmpeg 인코딩 → 파일 바이트 응답, 본문 16MB까지
 //   POST /api/ae {sid,aePath,...}      -> jsx 만들고 AfterFX -r 로 실행 → {"ok":true,"ae":..,"fontsOk":bool}, 본문 16MB까지
 //                                         mode:'geolayers' + geo 가 있으면 GEOlayers 길(geo-jsx.js — GeoJSON 파일도 보내기 폴더에), 없으면 지금 jsx 그대로
-//   GET  /api/geo-caps                 -> {"ok":true,"geolayers":{"installed":bool,"version":"1.17.0"|null}} (내장판만 — 파이썬 헬퍼엔 없어 404 = 앱은 지금 방식만)
+//   GET  /api/geo-caps                 -> {"ok":true,"geolayers":{"installed":bool,"version":"1.17.0"|null,"ae":[13.6,26.9]|null}} (내장판만 — 파이썬 헬퍼엔 없어 404 = 앱은 지금 방식만)
 // 출처(Origin): 없음=허용('*'), GitHub Pages·app://weathercg·localhost/127.0.0.1/[::1]=허용(반사+Vary), 'null'=GET만, 그 밖 403(CORS 헤더 없음).
 // 본문 길이: Transfer-Encoding 이 있거나 Content-Length 가 숫자 하나가 아니면 모든 요청 400(본문 안 읽음), 상한 있는 POST 는 길이 없으면 411 · 넘으면 413.
 // 외부 npm 패키지 없이 Node 내장 모듈만 쓴다.
@@ -467,14 +467,17 @@ function geoDirs() {
   if (process.env.APPDATA) out.push(path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'GEOlayers 3'));
   return out;
 }
+// ae = 그 판이 지원하는 AE 범위 [최소, 최대](manifest <Host Name="AEFT" Version="[13.6,26.9]"/> — 1.17.0은 AE 26.9까지, AE 27은 1.18.0부터).
+// 범위 밖 AE에서는 패널이 아예 안 뜬다 — 앱 팝업 안내와 jsx 알림(geo-jsx.js)이 이 값으로 까닭을 알린다. 못 읽으면 null.
 function geoCaps(dirs) {
   for (const d of dirs) {
     let x;
     try { x = fs.readFileSync(path.join(d, 'CSXS', 'manifest.xml'), 'utf8'); } catch (e) { continue; }
     const m = /ExtensionBundleVersion\s*=\s*"([0-9][0-9A-Za-z.\-]{0,31})"/.exec(x);
-    return { installed: true, version: m ? m[1] : null };
+    const h = /<Host\s+Name\s*=\s*"AEFT"\s+Version\s*=\s*"\[\s*([0-9]{1,3}(?:\.[0-9]{1,3})?)\s*,\s*([0-9]{1,3}(?:\.[0-9]{1,3})?)\s*\]"/.exec(x);
+    return { installed: true, version: m ? m[1] : null, ae: h && +h[1] <= +h[2] ? [+h[1], +h[2]] : null };
   }
-  return { installed: false, version: null };
+  return { installed: false, version: null, ae: null };
 }
 
 // ── 서버 ──
@@ -665,7 +668,9 @@ function createWnsServer(opts = {}) {
         const GJ = require('./geo-jsx');
         const geo = GJ.isGeoSpec(obj);
         if (geo) for (const f of GJ.geoFiles(obj)) await fsp.writeFile(path.join(d, f.name), f.text, 'utf8');
-        const build = cfg.buildAeJsx || (geo ? GJ.buildGeoJsx : require('./ae-jsx').buildAeJsx);
+        // GEOlayers 길은 설치판이 지원하는 AE 범위도 넘긴다(패널이 없을 때 '이 AE를 지원하지 않음'을 알리려고)
+        const gc = geo && !cfg.buildAeJsx ? geoCaps(cfg.geoDirs || geoDirs()) : null;
+        const build = cfg.buildAeJsx || (geo ? (s, dd) => GJ.buildGeoJsx(s, dd, { ae: gc.ae, ver: gc.version }) : require('./ae-jsx').buildAeJsx);
         const jsx = String(await build(obj, d));
         const jsxpath = path.join(d, '_import.jsx');
         await fsp.writeFile(jsxpath, jsx.replace(/\n/g, '\r\n'), 'utf8');   // 파이썬 텍스트 모드 쓰기(\n → \r\n)

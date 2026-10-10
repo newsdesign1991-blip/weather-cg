@@ -62,7 +62,8 @@ const geoRound = (v, d) => +(+v).toFixed(d);
 // 메르카토르 평면(u = 경도 라디안, v = −메르카토르 y — 화면처럼 아래로 +) → [경도, 위도]
 const geoUV2LL = (u, v) => [geoRound((u * 180) / Math.PI, 7), geoRound(geoLatOf(-v), 7)];
 // 반경 원 — 앱과 같은 '메르카토르 원'(typhoonKmToUnit: km·scale/(R·cosφ) — 그 지점 위도에서 sec 보정한 등각 원)을 n각형으로.
-// 화면에 그려지는 원과 꼭짓점이 1:1로 겹친다(측지 원과는 430km·위도 30°에서 최대 약 5px 차이 — 앱 화면을 따른다).
+// 화면에 그려지는 원과 꼭짓점이 1:1로 겹친다 — 앱 화면을 따른다. 측지 원과의 차이는 km로 재면 배율과 무관하게
+// 260km·위도 15°에서 약 ±1.5km, 430km·30°에서 약 ±8.6km(2%), 500km·45°에서 약 ±20km(4%). 화면 px로는 배율 s에 비례한다(430km·30°: s 0.3 ≈ 4.5px, s 1 ≈ 15px).
 function geoCircleRing(lon, lat, km, n) {
   n = n || GEO_CIRCLE_N;
   const u0 = (lon * Math.PI) / 180, v0 = -geoMerc(lat), r = km / (TYPHOON_R_EARTH * Math.cos((lat * Math.PI) / 180)), out = [];
@@ -87,6 +88,8 @@ const geoLine = (pts, props) => ({ type: 'Feature', properties: props, geometry:
 const geoViewOut = (v) => ({ latitude: geoRound(v.latitude, 8), longitude: geoRound(v.longitude, 8), zoom: geoRound(v.zoom, 7), bearing: geoRound(v.bearing, 5), pitch: 0 });
 // 카메라 키 → 보기 키, 그리고 키 사이를 프레임마다 구운 보기(앱 camAt 그대로 — 위치·배율이 같은 e로 보간되므로 위경도·zoom을 따로 보간하면
 // 키 사이 가운데가 어긋난다. 프레임마다 키를 두면 GEOlayers 쪽 보간 방식과 무관하게 화면과 같다). 키가 0~1개면 frames = null(한 보기).
+// 줄 시각 = AE 프레임 격자 n/fps(첫 키 ~ 끝 키 안) + 맨 앞·맨 끝 키 시각. AE는 n/fps에서 값을 읽으므로 격자 밖에 구우면 두 줄 사이를 선형으로 읽어
+// 이징 가속 구간에서 어긋난다(큰 확대에서 약 1px). 줄이 GEO_MAX_FRAMES를 넘으면 간격을 프레임의 정수배로 넓힌다.
 function geoViewPlan(proj, k, fps) {
   const ks = camKeys().slice().sort((a, b) => a.t - b.t);
   const keys = ks.map((q) => Object.assign({ t: +(+q.t).toFixed(4) }, geoViewOut(geoViewOf(q, proj, k))));
@@ -94,16 +97,16 @@ function geoViewPlan(proj, k, fps) {
   const work = geoViewOut(geoViewOf(ks.length === 1 ? ks[0] : S.map, proj, k));
   let frames = null;
   if (ks.length >= 2) {
-    const t0 = +ks[0].t, t1 = +ks[ks.length - 1].t;
-    let step = 1 / (fps || 29.97);
-    if ((t1 - t0) / step + 1 > GEO_MAX_FRAMES) step = (t1 - t0) / (GEO_MAX_FRAMES - 1);
-    const rows = [];
-    for (let i = 0; ; i++) {
-      const raw = Math.min(t1, t0 + i * step), t = +raw.toFixed(6), v = geoViewOut(geoViewOf(camAt(t), proj, k));   // 키 시각 = 보기를 잰 시각(반올림한 그 시각)
-      rows.push([t, v.latitude, v.longitude, v.zoom, v.bearing]);
-      if (raw >= t1) break;
-    }
-    frames = { fps: fps || 29.97, rows };
+    const f = fps || 29.97, t0 = +ks[0].t, t1 = +ks[ks.length - 1].t;
+    const n0 = Math.ceil(t0 * f - 1e-6), n1 = Math.floor(t1 * f + 1e-6), step = Math.max(1, Math.ceil((n1 - n0 + 1) / (GEO_MAX_FRAMES - 2)));
+    const ts = [t0];
+    for (let n = n0; n <= n1; n += step) { const t = n / f; if (t > t0 + 1e-6 && t < t1 - 1e-6) ts.push(t); }
+    if (t1 > t0) ts.push(t1);
+    const rows = ts.map((raw) => {
+      const t = +raw.toFixed(6), v = geoViewOut(geoViewOf(camAt(t), proj, k));   // 키 시각 = 보기를 잰 시각(반올림한 그 시각)
+      return [t, v.latitude, v.longitude, v.zoom, v.bearing];
+    });
+    frames = { fps: f, rows };
   }
   return { work, keys, frames, tilt };
 }
@@ -168,15 +171,17 @@ function aeGeoSpec(o) {
     finalize: 1,
   };
 }
-// GEOlayers 길의 리깅 카메라 — 값은 모두 작업 뷰(항등)다. 헬퍼가 CAM 널을 만들게 하려는 것이고, 실제 움직임(위치·배율·방향)은
-// 헬퍼가 CAM에 거는 표현식(GEOlayers 앵커 따라가기)이 맡는다. 키 시각은 앱 카메라 키 그대로(컴프 길이가 카메라 키 끝까지),
-// 회전은 0(ROT 널을 안 만든다 — 방향도 표현식이 GEOlayers Bearing에서 읽는다).
+// GEOlayers 길의 리깅 카메라 — 위치·배율은 모두 작업 뷰(항등)다. 헬퍼가 CAM 널을 만들게 하려는 것이고, 실제 움직임(위치·배율·방향)은
+// 헬퍼가 CAM에 거는 표현식(GEOlayers 앵커 따라가기)이 맡는다. 키 시각은 앱 카메라 키 그대로(컴프 길이가 카메라 키 끝까지).
+// 회전(rz)은 앱 키 그대로 — 회전이 있으면 헬퍼가 ROT 널(피벗 = 프레임 가운데)을 만들고 라벨 박스·지시선을 그 회전으로 돌린다(앱 camProjectXY처럼).
+// GEOlayers 길에서는 헬퍼(geo-jsx)가 CAM을 ROT에서 떼고 ROT 회전을 CAM 방향(GEOlayers Bearing)에 묶는다 — 여기 rz 키는 표현식이 꺼졌을 때의 대비.
 function aeGeoCamSpec(pt, m0) {
   const [W, H] = RES[S.res].size;
   const a = pt(+m0.x, +m0.y), s0 = +m0.s || 1;
-  const ts = camKeys().map((q) => +q.t || 0).sort((x, y) => x - y);
-  if (!ts.length) ts.push(0);
-  return { anchor: [a.x, a.y], sBaked: s0, keys: ts.map((t) => ({ t, x: a.x, y: a.y, s: s0, rz: 0 })), ease: aeEaseOf(EASE_BEZIER), pivot: [W / 2, H / 2] };
+  const ks = camKeys().slice().sort((x, y) => x.t - y.t);
+  const keys = ks.map((q) => ({ t: +q.t || 0, x: a.x, y: a.y, s: s0, rz: +q.rz || 0 }));
+  if (!keys.length) keys.push({ t: 0, x: a.x, y: a.y, s: s0, rz: 0 });
+  return { anchor: [a.x, a.y], sBaked: s0, keys, ease: aeEaseOf(EASE_BEZIER), pivot: [W / 2, H / 2] };
 }
 // 지도 바탕 노드 — GEOlayers가 그리므로 겹 PNG에서 뺀다(바다·배경 그림·Mapbox 타일·위성·육지·해안선·남한 바탕·지형·이웃 나라)
 const GEO_BASE_IDS = ['#typhoonOcean', '#bgImg', '#typhoonTiles', '#typhoonSat', '#typhoonLand', '#typhoonCoast', '#typhoonKrBase', '#typhoonRelief', '#nbrNW', '#nbrJP'];
@@ -226,14 +231,19 @@ function aeGeoWhyNot(caps) {
   return '';
 }
 // 팝업 카드 내용(순수 — 시험용). 고른 것: 저장해 둔 방식이 쓸 수 있으면 그것, 아니면 지금 방식.
+// geoNote: GEOlayers 지도로를 골랐을 때 아래 안내 — 설치판이 지원하는 AE 범위(manifest AEFT, 헬퍼 /api/geo-caps의 ae)를 알면 덧붙인다
+//   (예: 1.17.0 = AE 26.9까지 — 더 새 AE에서는 패널이 아예 안 떠서 '패널을 열라'는 안내만으로는 모른다)
 function aeModeCards(caps, saved) {
-  const why = aeGeoWhyNot(caps), ver = caps && caps.geolayers && caps.geolayers.version ? ' ' + caps.geolayers.version : '';
+  const why = aeGeoWhyNot(caps), gl = (caps && caps.geolayers) || {}, ver = gl.version ? ' ' + gl.version : '';
   const cards = [
     { id: 'layers', name: '레이어 그림으로', sub: '지금 방식 — 지도·태풍을 앱 그림 레이어로, AE 카메라로 움직여요', why: '' },
     { id: 'geolayers', name: 'GEOlayers 지도로', sub: why || ('GEOlayers 3' + ver + ' 맵 컴프에 위성 지도 — 보기·태풍은 앱 그대로 따라가요'), why },
   ];
   const pick = saved === 'geolayers' && !why ? 'geolayers' : 'layers';
-  return { cards, pick };
+  const ae = Array.isArray(gl.ae) && gl.ae.length === 2 && gl.ae.every((x) => Number.isFinite(+x)) ? gl.ae : null;
+  const geoNote = 'AE에서 GEOlayers 3 패널을 열고, 위성 이미지로 맵 컴프를 하나 만들어 열어 두세요 — 그 맵 컴프를 복제해 보기·태풍을 얹어요.' +
+    (ae ? ' 설치된 GEOlayers 3' + ver + '는 AE ' + (+ae[0]) + '~' + (+ae[1]) + '판에서만 패널이 떠요(더 새 AE면 GEOlayers를 새 판으로).' : '');
+  return { cards, pick, geoNote };
 }
 const AE_MODE_ICON = {
   layers: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5l9.5 5.2-9.5 5.2-9.5-5.2zM4.6 11.3L12 15.4l7.4-4.1 2.1 1.2L12 17.7l-9.5-5.2zm0 4.6L12 20l7.4-4.1 2.1 1.2L12 22.3l-9.5-5.2z"/></svg>',
@@ -245,7 +255,7 @@ function aeAskMode(caps) {
     let done = false;
     const fin = (v) => { if (!done) { done = true; resolve(v); } };
     let saved = null; try { saved = localStorage.getItem(AE_MODE_KEY); } catch (e) { /* 저장소를 못 쓰면 기본값 */ }
-    const { cards, pick: pick0 } = aeModeCards(caps, saved);
+    const { cards, pick: pick0, geoNote } = aeModeCards(caps, saved);
     let pick = pick0;
     const m = tossModal({
       title: 'After Effects로 보내기', sub: '보내는 방식을 골라 주세요', wide: true,
@@ -256,9 +266,7 @@ function aeAskMode(caps) {
     const box = m.body.querySelector('.aeModeCards'), note = m.body.querySelector('.aeModeNote');
     const sync = () => {
       for (const b of box.children) { const on = b.dataset.mode === pick; b.classList.toggle('choicePending', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
-      note.textContent = pick === 'geolayers'
-        ? 'AE에서 GEOlayers 3 패널을 열고, 위성 이미지로 맵 컴프를 하나 만들어 열어 두세요 — 그 맵 컴프를 복제해 보기·태풍을 얹어요.'
-        : '지금처럼 지도·태풍을 앱 그림 레이어로 보내요.';
+      note.textContent = pick === 'geolayers' ? geoNote : '지금처럼 지도·태풍을 앱 그림 레이어로 보내요.';
     };
     for (const cd of cards) {
       const b = document.createElement('button');

@@ -12,7 +12,7 @@ const json = (o) => new Response(JSON.stringify(o), { status: 200, headers: { 'C
 window.fetch = async (url, opts) => {
   const u = String(url);
   if (/\/ping(\?|$)/.test(u)) return json({ ok: true, ff: true, ver: 20261009 });
-  if (u.includes('/api/geo-caps')) { caps.geoCaps++; return json({ ok: true, geolayers: { installed: true, version: '1.17.0' } }); }
+  if (u.includes('/api/geo-caps')) { caps.geoCaps++; return json({ ok: true, geolayers: { installed: true, version: '1.17.0', ae: [13.6, 26.9] } }); }
   if (u.includes('/api/frame')) { const q = new URL(u).searchParams; caps.frames[+q.get('index')] = opts && opts.body; return json({ ok: true }); }
   if (u.includes('/api/ae')) { caps.ae.push(JSON.parse(opts.body)); return json({ ok: true, ae: 'AE test', fontsOk: true }); }
   return realFetch(url, opts);
@@ -27,7 +27,7 @@ const pts = Array.from({ length: 6 }, (_, i) => ({ lon: 132 - i * 0.8, lat: 18 +
 work.typhoon = Object.assign({}, typhoonStyleDefaults(), { name: 'GEO 점검', issues: [{ tmfc: '', label: 'test', points: pts }], sel: 0, nowIdx: 2, trackMode: 'full', places: [], labels: [], compare: [], krShow: 1, basemap: 'blue' });
 work.anim = { dur: 6, fps: 29.97, tracks: [{ id: 'ty', kind: 'typhoon', ps: 1, pe: 4, start: 1, len: 3, lab: {} }], cam: { keys: [] } };
 loadProjectData(work, null); setTyphoonDefaultView(); renderTyphoon(); await sleep(400);
-anim().cam.keys = [{ t: 0.5, x: S.map.x, y: S.map.y, s: S.map.s, rz: 0 }, { t: 3, x: S.map.x - 300, y: S.map.y + 200, s: S.map.s * 1.5, rz: 0 }];
+anim().cam.keys = [{ t: 0.5, x: S.map.x, y: S.map.y, s: S.map.s, rz: 0 }, { t: 3, x: S.map.x - 300, y: S.map.y + 200, s: S.map.s * 1.5, rz: 15 }];
 const openPop = async () => { $q('#aeSend').onclick(); for (let i = 0; i < 30 && !$q('#tossOv .aeModeCards'); i++) await sleep(100); return $q('#tossOv'); };
 // 1) 태풍 지도 — 두 카드, GEOlayers 칸 켜짐, 기본은 지금 방식
 let ov = await openPop();

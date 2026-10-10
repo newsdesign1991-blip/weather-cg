@@ -5,8 +5,9 @@
 //  · 표현식 = 문자열을 vm에서 그대로 실행(thisComp.layer(이름).position·toComp·transform·effect(이름)(1)·createPath·time).
 //  · 부모 대입 = AE처럼 지금 시각(0)의 부모 변환으로 보정(F1을 그대로 재현). 틀린 사용(이즈 개수·범위 밖 영향·없는 키)은 AE처럼 예외 + errors 기록.
 // 한계: 3D·카메라·마스크 모양·효과 렌더·텍스트 크기는 흉내만(값 저장). 3키 이상 위치의 '자동 베지어' 휘어짐은 모델에 없다(curved 표시만).
-// opt.geo = GEOlayers 길(desktop/wns/geo-jsx.js) 시험용 덧붙임 — 켤 때만: 프로젝트 항목(activeItem·selection·item·numItems)·CompItem·usedIn·
-//   레이어 복제·소스 바꾸기·혼합 모드·마커·alert·File 쓰기, 표현식의 layer.source·startTime·toComp(점, 시각)·효과 값의 valueAtTime,
+// opt.geo = GEOlayers 길(desktop/wns/geo-jsx.js) 시험용 덧붙임 — 켤 때만: 프로젝트 항목(activeItem·selection·item·numItems·컴프 id·remove)·CompItem·usedIn·
+//   레이어 복제·소스 바꾸기·혼합 모드·마커·alert·File 쓰기·$.global·app.scheduleTask(M.useTasks로 켜고 M.runTasks로 돌림),
+//   표현식의 layer.source·startTime·toComp(점, 시각)·효과 값의 valueAtTime,
 //   효과 묶음(ADBE Effect Parade)에서 없는 이름은 null(AE처럼 — 켜지 않으면 예전처럼 자동으로 만든다). opt.globals = jsx 전역에 더할 것(가짜 geolayers3 등).
 'use strict';
 const vm = require('node:vm');
@@ -163,6 +164,7 @@ function mkModel(opt = {}) {
   class Comp {
     constructor(name, w, h, par, dur, fps) {
       this.name = name; this.width = w; this.height = h; this.duration = dur; this.frameRate = fps; this.list = []; this.typeName = 'Composition';
+      if (opt.geo) this.id = ++uid;   // 프로젝트 항목 id(AE Item.id — 같은 항목 알아보기·새로 생긴 항목 찾기)
       const c = this;
       this.layers = {
         add: (item) => c._add(new Layer(c, item instanceof Comp ? 'comp' : 'av', item, item.name)),
@@ -179,6 +181,13 @@ function mkModel(opt = {}) {
     get numLayers() { return this.list.length; }
     get usedIn() { return M.comps.filter((c) => c.list.some((l) => l.source === this)); }
     get markerProperty() { return this._mk || (this._mk = new Node(null, 'Marker', null)); }
+    // 항목 지우기(opt.geo) — AE처럼 이 컴프를 소스로 쓰던 레이어도 사라진다. 지운 항목을 다시 만지면 예외
+    remove() {
+      if (this._gone) fail('지운 항목: ' + this.name);
+      this._gone = true; M.removed = (M.removed || []).concat(this.name);
+      M.comps.splice(M.comps.indexOf(this), 1);
+      for (const c of M.comps) c.list = c.list.filter((l) => l.source !== this);
+    }
   }
 
   // ── 2D 변환(행렬 [a b c d e f]: x' = a x + c y + e, y' = b x + d y + f) ──
@@ -256,6 +265,15 @@ function mkModel(opt = {}) {
       alert: (s) => { M.alerts.push(String(s)); },
       File: function File(p) { return { path: p, encoding: '', open() { return true; }, write(s) { M.files[p] = (M.files[p] || '') + s; }, close() {} }; },
     });
+    g.$ = { global: g };   // ExtendScript $.global(전역 객체) — app.scheduleTask 문자열이 부를 전역 함수 자리
+    // app.scheduleTask·cancelTask(시험이 켤 때만 — M.tasks에 쌓고 M.runTasks()로 돌린다)
+    M.tasks = [];
+    M.useTasks = () => {
+      let id = 0;
+      g.app.scheduleTask = (s, ms, rep) => { M.tasks.push({ id: ++id, s, ms, rep, off: false }); return id; };
+      g.app.cancelTask = (i) => { for (const t of M.tasks) if (t.id === i) t.off = true; };
+    };
+    M.runTasks = () => { for (const t of M.tasks.splice(0)) if (!t.off) vm.runInContext(t.s, g); };
   }
   Object.assign(g, opt.globals || {});
   M.Comp = Comp; M.proj = proj; M.g = g;   // M.g = jsx 전역(만든 뒤에 가짜 geolayers3 등을 넣을 때)

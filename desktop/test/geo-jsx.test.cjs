@@ -17,6 +17,10 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'wns-geo-'));
 const FRAMES = path.join(TMP, 'frames');
 const AFX = 'C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.exe';
 test.after(() => fs.rmSync(TMP, { recursive: true, force: true }));
+// 가짜 GEOlayers 3 설치 폴더(manifest만 — 설치판 1.17.0과 같은 꼴: 판 + 지원 AE 범위)
+const EXT = path.join(TMP, 'ext', 'GEOlayers 3');
+fs.mkdirSync(path.join(EXT, 'CSXS'), { recursive: true });
+fs.writeFileSync(path.join(EXT, 'CSXS', 'manifest.xml'), '<?xml version="1.0"?><ExtensionManifest ExtensionBundleId="x" ExtensionBundleVersion="1.17.0" Version="7.0"><HostList>\n            <Host Name="AEFT" Version="[13.6,26.9]" />\n</HostList></ExtensionManifest>');
 
 // 작은 GEOlayers 스펙(앱 aeGeoSpec 모양) — 리깅은 지금 형식 그대로, 카메라는 항등 키
 function geoSpec(sid, over) {
@@ -35,27 +39,32 @@ function geoSpec(sid, over) {
   }, over || {});
 }
 
-test('GET /api/geo-caps — GEOlayers 3 manifest 판(경로·사용자 이름은 응답에 없음), 없으면 installed:false', async () => {
-  const ext = path.join(TMP, 'ext', 'GEOlayers 3');
-  fs.mkdirSync(path.join(ext, 'CSXS'), { recursive: true });
-  fs.writeFileSync(path.join(ext, 'CSXS', 'manifest.xml'), '<?xml version="1.0"?><ExtensionManifest ExtensionBundleId="x" ExtensionBundleVersion="1.17.0" Version="7.0"></ExtensionManifest>');
+test('GET /api/geo-caps — GEOlayers 3 manifest 판·지원 AE 범위(경로·사용자 이름은 응답에 없음), 없으면 installed:false', async () => {
+  const ext = EXT;
   const srv = W.createWnsServer({ framesDir: FRAMES, aeDryRun: true, fontsInstall: false, geoDirs: [path.join(TMP, 'nope'), ext] });
   const port = await srv.listen(0);
   try {
     const r = await fetch('http://127.0.0.1:' + port + '/api/geo-caps');
     assert.equal(r.status, 200);
     const txt = await r.text();
-    assert.equal(txt, '{"ok": true, "geolayers": {"installed": true, "version": "1.17.0"}}');
+    assert.equal(txt, '{"ok": true, "geolayers": {"installed": true, "version": "1.17.0", "ae": [13.6, 26.9]}}');
     assert.ok(!txt.includes(TMP.replace(/\\/g, '\\\\')) && !txt.includes(os.userInfo().username), '경로·사용자 이름 없음');
     srv.config.geoDirs = [path.join(TMP, 'nope')];
-    assert.deepEqual(await (await fetch('http://127.0.0.1:' + port + '/api/geo-caps')).json(), { ok: true, geolayers: { installed: false, version: null } });
-    assert.deepEqual(W.geoCaps([]), { installed: false, version: null });
+    assert.deepEqual(await (await fetch('http://127.0.0.1:' + port + '/api/geo-caps')).json(), { ok: true, geolayers: { installed: false, version: null, ae: null } });
+    assert.deepEqual(W.geoCaps([]), { installed: false, version: null, ae: null });
+    // Host 줄이 없거나 범위가 거꾸로면 ae = null(판은 그대로)
+    const ext2 = path.join(TMP, 'ext2', 'GEOlayers 3');
+    fs.mkdirSync(path.join(ext2, 'CSXS'), { recursive: true });
+    fs.writeFileSync(path.join(ext2, 'CSXS', 'manifest.xml'), '<ExtensionManifest ExtensionBundleVersion="1.18.0"><Host Name="AEFT" Version="[27.9,13.6]" /></ExtensionManifest>');
+    assert.deepEqual(W.geoCaps([ext2]), { installed: true, version: '1.18.0', ae: null });
+    fs.writeFileSync(path.join(ext2, 'CSXS', 'manifest.xml'), '<ExtensionManifest ExtensionBundleVersion="1.18.0"></ExtensionManifest>');
+    assert.deepEqual(W.geoCaps([ext2]), { installed: true, version: '1.18.0', ae: null });
     assert.ok(W.geoDirs().every((d) => d.endsWith(path.join('Adobe', 'CEP', 'extensions', 'GEOlayers 3'))));
   } finally { await srv.close(); }
 });
 
 test('/api/ae — mode:geolayers면 GeoJSON 파일(정해진 이름만)과 GEOlayers jsx, mode가 없으면 지금 jsx 그대로(바이트 동일)', async () => {
-  const srv = W.createWnsServer({ framesDir: FRAMES, aeDryRun: true, fontsInstall: false, findRunningAfterFx: async () => AFX, listAfterFx: () => [] });
+  const srv = W.createWnsServer({ framesDir: FRAMES, aeDryRun: true, fontsInstall: false, findRunningAfterFx: async () => AFX, listAfterFx: () => [], geoDirs: [EXT] });
   const port = await srv.listen(0), b = 'http://127.0.0.1:' + port;
   try {
     const sid = 'aegeo' + Date.now();
@@ -69,8 +78,9 @@ test('/api/ae — mode:geolayers면 GeoJSON 파일(정해진 이름만)과 GEOla
     assert.deepEqual(fs.readdirSync(d).filter((f) => f.endsWith('.geojson')).sort(), ['geo_past.geojson', 'geo_r15.geojson', 'typhoon.geojson']);
     assert.equal(JSON.parse(fs.readFileSync(path.join(d, 'typhoon.geojson'), 'utf8')).features.length, 2);
     const jsx = fs.readFileSync(j.jsx, 'utf8');
-    assert.equal(jsx, GJ.buildGeoJsx(JSON.parse(JSON.stringify(spec)), d).replace(/\n/g, '\r\n'));
+    assert.equal(jsx, GJ.buildGeoJsx(JSON.parse(JSON.stringify(spec)), d, { ae: [13.6, 26.9], ver: '1.17.0' }).replace(/\n/g, '\r\n'));
     assert.match(jsx, /typeof geolayers3==="undefined"/);
+    assert.match(jsx, /gav<13\.6\|\|gav>26\.9/, '설치판이 지원하는 AE 범위로 패널 없음 까닭을 가른다');
     assert.match(jsx, /"f":"geo_r15\.geojson"/); assert.match(jsx, /"f":"geo_past\.geojson"/);
     assert.doesNotMatch(jsx, /geo_nope|\.\.\/bad/);
     // mode 없는 같은 스펙 = 지금 jsx 그대로
@@ -106,6 +116,15 @@ test('geo-jsx: 보기 하나·프레임마다 갈래, 셰이프 스타일(GEOlay
   assert.equal(st.stroke.strokeWidth, 2); assert.equal(st.stroke.dashVal, 0.6); assert.equal(st.stroke.strokeCap, 2);
   const ln = GJ.styleOf({ kind: 'line', col: 'bad', w: 0 });
   assert.equal(ln.fill.addFill, false); assert.deepEqual(ln.stroke.strokeColor, { r: 255, g: 255, b: 255, a: 1 }); assert.equal(ln.stroke.strokeWidth, 2);
+  // 채움 불투명도 0 = 채움 끄기(설치판 'fillOpacity || 100'이 0을 100으로 바꾸므로), 0.4% 같은 반올림 0도
+  for (const op of [0, 0.004]) { const z = GJ.styleOf({ kind: 'fill', col: '#112233', op, w: 2 }); assert.equal(z.fill.addFill, false); assert.equal(z.stroke.addStroke, true); }
+  assert.equal(GJ.styleOf({ kind: 'fill', col: '#112233', op: 0.01 }).fill.opacity, 1);
+  // 채움도 선도 없는 셰이프는 그리지 않고, 선이 있으면 굵기를 화면 px로 고정(autoStrokeWidth)
+  const s5 = geoSpec('e'); s5.geo.draw[0] = Object.assign({}, s5.geo.draw[0], { op: 0, w: 0 });
+  const j5 = GJ.buildGeoJsx(s5, 'C:/t');
+  assert.doesNotMatch(j5, /"f":"geo_r15\.geojson"/);
+  assert.match(j5, /var GD=\[\{"f":"geo_past\.geojson".*"dash":false,"aw":true\}\],/);
+  assert.match(j5, /autoStrokeWidth:!!d\.aw/);
   // 묶기 상수가 없으면 CAM을 묶지 않고 기록만
   const s3 = geoSpec('c'); s3.geo.bind = null;
   assert.doesNotMatch(GJ.buildGeoJsx(s3, 'C:/t'), /var EXH=/);
