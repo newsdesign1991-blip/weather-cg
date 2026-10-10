@@ -8,6 +8,7 @@ window.fetch = async (url, opts) => {
   const u = String(url);
   if (/\/ping(\?|$)/.test(u)) return json({ ok: true, ff: true, ver: 20261009 });
   if (u.includes('/api/frame')) { const q = new URL(u).searchParams; caps.frames.push({ sid: q.get('sid'), index: +q.get('index'), body: opts && opts.body }); return json({ ok: true }); }
+  if (u.includes('/api/geo-caps')) return json({ ok: true, geolayers: { installed: false, version: null } });   // AE 보내기 방식 팝업 없이(사용자 PC의 GEOlayers와 무관하게) 지금 방식으로 바로
   if (u.includes('/api/finalize')) { caps.finalize.push(JSON.parse(opts.body)); return new Response(new Uint8Array([1, 2, 3]), { status: 200 }); }
   if (u.includes('/api/ae')) { caps.ae.push(JSON.parse(opts.body)); return json({ ok: true, fontsOk: false, ae: 'AE test' }); }
   return realFetch(url, opts);

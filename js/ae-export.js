@@ -389,6 +389,11 @@ function aeVfMaskRect() {
 }
 async function sendToAE() {
   const A = anim();
+  // 'GEOlayers 지도로'(js/ae-geo.js aeSendClick이 { aeMode: 'geolayers' }로 부름) — 시험들이 이 함수의 머리 줄(인자 없는 꼴) 글자로 본문을 잘라 쓰므로
+  // 매개변수 대신 arguments[0]으로 받는다. 버튼 클릭 이벤트·인자 없음 = 지금 방식.
+  const geoMode = !!(arguments[0] && arguments[0].aeMode === 'geolayers');
+  if (geoMode && (!isTyphoon() || S.res === '1920x1080-vf')) { status('GEOlayers 지도로는 태풍 지도(노말 VF 제외)에서만 보낼 수 있어요', true); return; }
+  let geoKr = null;   // GEOlayers 길: 남한 강조 PNG 파일 이름(스크린 혼합)
   let up = false, hv = 0;
   try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; if (up) { const j = await r.json().catch(() => ({})); hv = +((j && j.ver) || 0); } } catch (e) { up = false; }
   if (!up) { wnsHelperOffNotice(); return; }
@@ -458,7 +463,9 @@ async function sendToAE() {
         // 비교 지도: 리깅 — 예보선별 (색 선 + 작은 틴트 아이콘 + 이름표 + 수치라벨). 널 옮기면 선·아이콘 따라옴.
         const T = S.typhoon;
         const bl = rigBleed();
-        const bg = addFile(await svgBlob((c) => { for (const id of ['#L_typhoon', '#L_typhoonLabels', '#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove(); }, false, bleedOpt(bl)));
+        // GEOlayers 길: 바탕 지도는 GEOlayers가 그린다 — 지도에 붙는 겹(지명 등)만 투명 PNG로, 남한 강조는 따로(스크린 혼합)
+        const bg = addFile(geoMode ? await aeGeoOverlayBlob(bleedOpt(bl)) : await svgBlob((c) => { for (const id of ['#L_typhoon', '#L_typhoonLabels', '#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove(); }, false, bleedOpt(bl)));
+        if (geoMode) { const kb = await aeGeoKrBlob(bleedOpt(bl)); if (kb) geoKr = addFile(kb); }
         const ls = (typhoonStyleDefaults().labelStyle) || {};
         // 예보마다 진행 곡선(화면 renderAnimFrameBody): 비교 막대 → 없으면 메인 경로 막대 → 둘 다 없으면 처음부터 전부(정적)
         const cmpProg = (c) => { const tr = tracks.find((x) => x.kind === 'typcmp' && x.key === c.id); const sp = tr ? [+tr.start, +tr.start + Math.max(0.001, +tr.len)] : _tt ? [+_tt.ps, +_tt.ps + Math.max(0.001, +_tt.pe - +_tt.ps)] : [0, 0]; return { start: +sp[0].toFixed(4), end: +sp[1].toFixed(4), curve: 'ioc' }; };
@@ -510,6 +517,7 @@ async function sendToAE() {
         const crig = { bg, reveal, typhoons, labelCurve: 1, leaderGap: +(16 * kk).toFixed(4) };
         const cam = aeCamSpec(rigPt, S.map);
         if (cam) crig.camera = cam;
+        if (geoMode) crig.camera = aeGeoCamSpec(rigPt, S.map);   // GEOlayers 길 = 항등 카메라(헬퍼가 CAM을 GEOlayers 앵커에 묶는다)
         if (bl && bl.place) crig.bgPlace = bl.place;
         specLayers.push({ compareRig: crig, name: '태풍 비교 리깅' });
       } else {
@@ -522,10 +530,11 @@ async function sendToAE() {
         const trackW = Math.max(1, +T.lineWidth || 5);   // 화면 경로선 굵기(라인=단색선, 일반=현재~예상 점선)
         // 지명표시(원+이름표)는 정적이라 배경에 그대로 구워 넣는다 — 태풍 트랙/라벨만 제거(리깅이 재구성), place 요소는 보존.
         const bl = rigBleed();
-        const bg = addFile(await svgBlob((c) => {
+        const bg = addFile(geoMode ? await aeGeoOverlayBlob(bleedOpt(bl)) : await svgBlob((c) => {
           for (const id of ['#L_title', '#L_legend', '#L_refImg']) c.querySelector(id)?.remove();
           for (const id of ['#L_typhoon', '#L_typhoonLabels']) { const ly = c.querySelector(id); if (ly) [...ly.children].forEach((ch) => { if (!ch.hasAttribute('data-place-dot') && !ch.hasAttribute('data-place-label') && !ch.hasAttribute('data-place-leader')) ch.remove(); }); }
         }, false, bleedOpt(bl)));
+        if (geoMode) { const kb = await aeGeoKrBlob(bleedOpt(bl)); if (kb) geoKr = addFile(kb); }   // GEOlayers 길: 남한 강조(스크린 혼합)
         const icC = await aeIconBlob(iconCol, false, false), icG = await aeIconBlob(iconCol, true, false);
         const icTC = await aeIconBlob(iconCol, false, true), icTG = await aeIconBlob(iconCol, true, true);
         const icExC = await aeIconBlob(iconCol, false, false, false, true), icExG = await aeIconBlob(iconCol, true, false, false, true);   // 온대저압부('저')
@@ -564,6 +573,7 @@ async function sendToAE() {
         // 카메라(위치·확대·방향 키) — 헬퍼 CAM(·ROT) 널이 지도·지점·반경을 부모로 움직인다. 배경은 작업 뷰로 구웠으니 anchor=작업 뷰, sBaked=작업 배율.
         const cam = aeCamSpec(rigPt, S.map);
         if (cam) rig.camera = cam;
+        if (geoMode) rig.camera = aeGeoCamSpec(rigPt, S.map);   // GEOlayers 길 = 항등 카메라 — 헬퍼가 CAM을 GEOlayers 앵커에 표현식으로 묶는다(보기 키는 spec.geo.view)
         if (bl && bl.place) rig.bgPlace = bl.place;
         specLayers.push({ typhoonRig: rig, name: '태풍 리깅' });
       }
@@ -687,6 +697,8 @@ async function sendToAE() {
     };
     if (gCam) spec.camera = gCam;   // 일반 지도 카메라 — 이미지 레이어 cam:1(지도 묶음)의 부모(새 헬퍼)
     if (gMask) spec.vfMask = gMask;   // 노말 VF 패널 마스크 — 카메라로 움직이는 지도는 패널 클립 없이 구웠다
+    // GEOlayers 길(js/ae-geo.js) — 헬퍼는 mode·geo가 있을 때만 desktop/wns/geo-jsx.js로 간다(없으면 지금 jsx 그대로)
+    if (geoMode) { spec.mode = 'geolayers'; spec.geo = aeGeoSpec({ kk, fps, kr: geoKr }); }
     exportProgress(uploads.length + 1, uploads.length + 1, 'AE 여는 중');
     const postAe = async (s) => { const r = await fetch(WNS_HELPER + '/api/ae', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) }); return { r, j: await r.json().catch(() => ({})) }; };
     let { r: rr, j: jr } = await postAe(spec);
@@ -696,7 +708,7 @@ async function sendToAE() {
       ({ r: rr, j: jr } = await postAe(Object.assign({}, spec, { aePath: chosen })));
     }
     if (!rr.ok || !jr.ok) throw new Error(jr.error || ('AE 실행 실패 ' + rr.status));
-    status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다' + (auto && auto.tracks.length ? ' (타임라인 트랙이 없어 자동 구성 타이밍으로 보냈습니다)' : '')); flashDone('AE로 보냄');
+    status('AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 컴포지션이 열립니다' + (geoMode ? ' (GEOlayers 맵 컴프를 복제해 보기·태풍을 얹어요 — AE에서 GEOlayers 3 패널이 열려 있어야 해요)' : '') + (auto && auto.tracks.length ? ' (타임라인 트랙이 없어 자동 구성 타이밍으로 보냈습니다)' : '')); flashDone('AE로 보냄');
     if (jr.fontsOk === false) status('AE로 보냄 — SUITE 폰트를 설치하지 못해 AE에서 기본 폰트로 들어갈 수 있습니다', true);   // 새 헬퍼만 보냄(없으면 옛 헬퍼 → 안내 없음)
     else if (!aeExt) status('AE로 보냄 — 기능 확장팩이 옛 버전이라 일부 움직임이 화면과 조금 다르게 들어갑니다(기능 확장팩을 다시 실행하면 같아집니다)', true);
     { const el = $('#tlInfo'); if (el) el.textContent = 'AE로 보냄 — ' + (jr.ae || 'After Effects') + '에서 열림'; }

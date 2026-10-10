@@ -5,6 +5,10 @@
 //  · 표현식 = 문자열을 vm에서 그대로 실행(thisComp.layer(이름).position·toComp·transform·effect(이름)(1)·createPath·time).
 //  · 부모 대입 = AE처럼 지금 시각(0)의 부모 변환으로 보정(F1을 그대로 재현). 틀린 사용(이즈 개수·범위 밖 영향·없는 키)은 AE처럼 예외 + errors 기록.
 // 한계: 3D·카메라·마스크 모양·효과 렌더·텍스트 크기는 흉내만(값 저장). 3키 이상 위치의 '자동 베지어' 휘어짐은 모델에 없다(curved 표시만).
+// opt.geo = GEOlayers 길(desktop/wns/geo-jsx.js) 시험용 덧붙임 — 켤 때만: 프로젝트 항목(activeItem·selection·item·numItems·컴프 id·remove)·CompItem·usedIn·
+//   레이어 복제·소스 바꾸기·혼합 모드·마커·alert·File 쓰기·$.global·app.scheduleTask(M.useTasks로 켜고 M.runTasks로 돌림),
+//   표현식의 layer.source·startTime·toComp(점, 시각)·효과 값의 valueAtTime,
+//   효과 묶음(ADBE Effect Parade)에서 없는 이름은 null(AE처럼 — 켜지 않으면 예전처럼 자동으로 만든다). opt.globals = jsx 전역에 더할 것(가짜 geolayers3 등).
 'use strict';
 const vm = require('node:vm');
 
@@ -37,9 +41,12 @@ function mkModel(opt = {}) {
     property(k) {
       if (typeof k === 'number') { const c = this.kids[k - 1]; if (!c) { const n = new Node(this.layer, String(k), 0); this.kids[k - 1] = n; return n; } return c; }
       let c = this.kids.find((x) => x && (x.name === k || x.matchName === k));
+      if (!c && opt.geo && this.name === 'ADBE Effect Parade') return null;   // AE: 없는 효과 이름 = null
       if (!c) { c = new Node(this.layer, k, GROUPS.has(k) ? undefined : 0, /Position$/.test(k) && k !== 'ADBE Vector Ellipse Size'); this.kids.push(c); }
       return c;
     }
+    setValuesAtTimes(ts, vs) { for (let i = 0; i < ts.length; i++) this.setValueAtTime(ts[i], vs[i]); }
+    removeKey(k) { this._key(k); this.keys.splice(k - 1, 1); }
     addProperty(match) {
       const n = new Node(this.layer, match, undefined);
       if (match === 'ADBE Slider Control') n.kids = [new Node(this.layer, 'Slider', 0)];
@@ -106,6 +113,7 @@ function mkModel(opt = {}) {
     constructor(comp, kind, src, name) {
       this.comp = comp; this.kind = kind; this.source = src || null; this.name = name || kind; this.id = ++uid;
       this.enabled = true; this.guideLayer = false; this.inPoint = 0; this._parent = null;
+      this.startTime = 0; this.outPoint = comp.duration; this.blendingMode = 'NORMAL';
       const w = src && src.width != null ? src.width : 0, h = src && src.height != null ? src.height : 0;
       const anchor = kind === 'av' || kind === 'solid' || kind === 'comp' ? [w / 2, h / 2] : [0, 0];   // 그림·단색·프리컴프 = 가운데, 널·셰이프·글자 = 0,0
       this.root = new Node(this, 'root');
@@ -135,6 +143,17 @@ function mkModel(opt = {}) {
       if (!this.tf.rotation.keys.length) this.tf.rotation._v = rot;
     }
     setParentWithJump(p) { this._parent = p || null; }
+    // 복제(opt.geo) — 같은 부모·같은 변환·키·효과, 바로 위에
+    duplicate() {
+      const d = new Layer(this.comp, this.kind, this.source, this.name);
+      const cp = (a, b) => { b._v = clone(a._v); b.keys = a.keys.map((k) => Object.assign({}, k, { v: clone(k.v) })); b.expression = a.expression; b.name = a.name; b.matchName = a.matchName; b.kids = a.kids.map((x) => { if (!x) return x; const n = new Node(d, x.name, undefined, x.isSpatial); cp(x, n); return n; }); };
+      for (const k of Object.keys(this.tf)) cp(this.tf[k], d.tf[k]);
+      cp(this.root, d.root);
+      d._parent = this._parent; d.enabled = this.enabled; d.blendingMode = this.blendingMode;
+      const l = this.comp.list; l.splice(l.indexOf(this), 0, d);
+      return d;
+    }
+    replaceSource(item) { this.source = item; }
     moveToEnd() { const l = this.comp.list; l.splice(l.indexOf(this), 1); l.push(this); }
     moveToBeginning() { const l = this.comp.list; l.splice(l.indexOf(this), 1); l.unshift(this); }
     moveAfter(o) { const l = this.comp.list; l.splice(l.indexOf(this), 1); l.splice(l.indexOf(o) + 1, 0, this); }
@@ -145,6 +164,7 @@ function mkModel(opt = {}) {
   class Comp {
     constructor(name, w, h, par, dur, fps) {
       this.name = name; this.width = w; this.height = h; this.duration = dur; this.frameRate = fps; this.list = []; this.typeName = 'Composition';
+      if (opt.geo) this.id = ++uid;   // 프로젝트 항목 id(AE Item.id — 같은 항목 알아보기·새로 생긴 항목 찾기)
       const c = this;
       this.layers = {
         add: (item) => c._add(new Layer(c, item instanceof Comp ? 'comp' : 'av', item, item.name)),
@@ -158,6 +178,16 @@ function mkModel(opt = {}) {
     _add(l) { this.list.unshift(l); return l; }   // 새 레이어 = 맨 위(index 1)
     layer(k) { return typeof k === 'number' ? this.list[k - 1] : this.list.find((l) => l.name === k); }
     openInViewer() { M.viewer = this; }
+    get numLayers() { return this.list.length; }
+    get usedIn() { return M.comps.filter((c) => c.list.some((l) => l.source === this)); }
+    get markerProperty() { return this._mk || (this._mk = new Node(null, 'Marker', null)); }
+    // 항목 지우기(opt.geo) — AE처럼 이 컴프를 소스로 쓰던 레이어도 사라진다. 지운 항목을 다시 만지면 예외
+    remove() {
+      if (this._gone) fail('지운 항목: ' + this.name);
+      this._gone = true; M.removed = (M.removed || []).concat(this.name);
+      M.comps.splice(M.comps.indexOf(this), 1);
+      for (const c of M.comps) c.list = c.list.filter((l) => l.source !== this);
+    }
   }
 
   // ── 2D 변환(행렬 [a b c d e f]: x' = a x + c y + e, y' = b x + d y + f) ──
@@ -180,13 +210,17 @@ function mkModel(opt = {}) {
   let depth = 0;
   function layerProxy(l, t) {
     if (!l) throw new Error('표현식: 레이어 없음');
+    // opt.geo: 효과 값 = 수처럼 쓰이고 .valueAtTime(시각)도 되는 값(AE Property처럼)
+    const fxVal = (n) => { const v = n.valueAtTime(t); if (!opt.geo || typeof v !== 'number') return v; const o = new Number(v); o.valueAtTime = (tt) => n.valueAtTime(tt); return o; };
     return {
       get position() { return l.tf.position.valueAtTime(t); },
       get transform() { return { get position() { return l.tf.position.valueAtTime(t); }, get rotation() { return l.tf.rotation.valueAtTime(t); }, get scale() { return l.tf.scale.valueAtTime(t); }, get anchorPoint() { return l.tf.anchor.valueAtTime(t); }, get opacity() { return l.tf.opacity.valueAtTime(t); } }; },
-      toComp: (p) => apply(worldAt(l, t), p),
-      effect: (nm) => { const e = l.effectNode(nm); return (k) => e.property(k).valueAtTime(t); },
+      toComp: (p, tt) => apply(worldAt(l, opt.geo && tt != null ? tt : t), p),
+      effect: (nm) => { const e = l.effectNode(nm); return (k) => fxVal(e.property(k)); },
       sourceRectAtTime: () => l.sourceRectAtTime(),
       get index() { return l.index; }, get name() { return l.name; },
+      get startTime() { return l.startTime || 0; },
+      get source() { const s = l.source; return s instanceof Comp ? { layer: (k) => layerProxy(s.layer(k), t), width: s.width, height: s.height, duration: s.duration, name: s.name } : s; },
     };
   }
   function evalExpr(node, t) {
@@ -220,6 +254,29 @@ function mkModel(opt = {}) {
     File: (p) => ({ path: p }),
     Math, String, parseInt, Array,
   };
+  if (opt.geo) {   // GEOlayers 길 시험용 — 프로젝트 항목·전역(켤 때만)
+    M.alerts = []; M.files = {};
+    proj.activeItem = null; proj.selection = [];
+    proj.item = (i) => M.comps.concat(M.items)[i - 1];
+    Object.defineProperty(proj, 'numItems', { get: () => M.comps.length + M.items.length });
+    class MarkerValue { constructor(c) { this.comment = c; } }
+    Object.assign(g, {
+      CompItem: Comp, MarkerValue, BlendingMode: { NORMAL: 'NORMAL', SCREEN: 'SCREEN' },
+      alert: (s) => { M.alerts.push(String(s)); },
+      File: function File(p) { return { path: p, encoding: '', open() { return true; }, write(s) { M.files[p] = (M.files[p] || '') + s; }, close() {} }; },
+    });
+    g.$ = { global: g };   // ExtendScript $.global(전역 객체) — app.scheduleTask 문자열이 부를 전역 함수 자리
+    // app.scheduleTask·cancelTask(시험이 켤 때만 — M.tasks에 쌓고 M.runTasks()로 돌린다)
+    M.tasks = [];
+    M.useTasks = () => {
+      let id = 0;
+      g.app.scheduleTask = (s, ms, rep) => { M.tasks.push({ id: ++id, s, ms, rep, off: false }); return id; };
+      g.app.cancelTask = (i) => { for (const t of M.tasks) if (t.id === i) t.off = true; };
+    };
+    M.runTasks = () => { for (const t of M.tasks.splice(0)) if (!t.off) vm.runInContext(t.s, g); };
+  }
+  Object.assign(g, opt.globals || {});
+  M.Comp = Comp; M.proj = proj; M.g = g;   // M.g = jsx 전역(만든 뒤에 가짜 geolayers3 등을 넣을 때)
   M.run = (jsx) => { vm.createContext(g); vm.runInContext(jsx, g); M.main = M.comps[0]; return M; };
   M.find = (name, comp) => (comp || M.main).list.find((l) => l.name === name) || M.comps.flatMap((c) => c.list).find((l) => l.name === name) || null;
   M.findAll = (re) => M.comps.flatMap((c) => c.list.filter((l) => re.test(l.name)));

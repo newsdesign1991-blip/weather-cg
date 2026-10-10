@@ -63,6 +63,9 @@
   .tlDirBtn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
   .tlDirBtn svg { width: 15px; height: 15px; flex: none; }
   .tlDirBtn.on { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, var(--btn-line)); }
+  /* AE로 보내기 — 보내는 방식 고르기(js/ae-geo.js aeAskMode, 토스 모달 안). 장면 설정 카드(.cgsCard)·고름 표시(.choicePending)·흐린 카드(aria-disabled) 그대로 */
+  .aeModeCards { --acc: var(--cgs-res); --acc-on: var(--cgs-res-on); }
+  .tossBody .aeModeNote { margin: 12px 2px 2px; word-break: keep-all; }
   /* 좁은 창 — ①도 한 칸(위아래 쌓기는 cg-setup.css 의 .cgsBody 규칙) */
   @media (max-width: 900px) {
     .exQuick { padding: 10px 12px 0 16px; }
@@ -71,6 +74,7 @@
   @media (max-width: 560px) {
     .exPaneOne .cgsChoices { grid-template-columns: minmax(0, 1fr); }
     .exQuickLbl { display: none; }
+    .aeModeCards { grid-template-columns: minmax(0, 1fr); }
   }
   @media (prefers-reduced-motion: reduce) {
     .exRingFill { transition: none; }

@@ -529,7 +529,8 @@ function wire() {
     updateOutDirBtn();
   };
   // AE로 보내기 — 모두에게 노출(로컬 헬퍼로 동작, 헬퍼 꺼져 있으면 안내창).
-  if ($('#aeSend')) { $('#aeSend').onclick = sendToAE; $('#aeSend').style.display = ''; }
+  // GEOlayers 3가 있는 PC면 보내는 방식(지금 방식 / GEOlayers 지도로)을 묻고, 아니면 지금처럼 바로 보낸다(js/ae-geo.js aeSendClick).
+  if ($('#aeSend')) { $('#aeSend').onclick = aeSendClick; $('#aeSend').style.display = ''; }
 
   $('#newWork').onclick = () => {
     if (!confirm('지금 작업을 비우고 저장해 둔 기본 배치로 새로 시작할까요?')) return;

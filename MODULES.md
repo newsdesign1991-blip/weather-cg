@@ -1,7 +1,7 @@
 # 날씨 CG 메이커 — 모듈 지도 (먼저 읽을 것)
 
 이 앱은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** `index.html`은 뼈대(head·마크업·데이터 스크립트)와 태그뿐이고,
-로직은 `js/*.js`(46개), 스타일은 `css/*.css`(16개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍, 드롭다운 `dropdown` 한 쌍, 데이터 지도 `data-maps`·`data-load`·`css/data-maps.css`, 가벼운 지도(WebGL · 시험) `gl-basemap.js`를 더했다).
+로직은 `js/*.js`(47개), 스타일은 `css/*.css`(16개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍, 드롭다운 `dropdown` 한 쌍, 데이터 지도 `data-maps`·`data-load`·`css/data-maps.css`, 가벼운 지도(WebGL · 시험) `gl-basemap.js`, AE로 보내기 'GEOlayers 지도로' `ae-geo.js`를 더했다).
 
 - Claude·GPT 등 AI 공용 안내는 [`AGENTS.md`](AGENTS.md). 이 문서는 그 자세한 판이다.
 - 함수 찾기: `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`
@@ -13,8 +13,8 @@
 
 ```
 index.html          뼈대: head 인라인(웹판 막기·서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 16개
-                    + 마크업 + 테마 + 데이터 스크립트 13개 + <script src="js/…"> 46개(맨 끝)
-js/                 앱 로직 46개 — 아래 표 순서가 곧 로드 순서
+                    + 마크업 + 테마 + 데이터 스크립트 13개 + <script src="js/…"> 47개(맨 끝)
+js/                 앱 로직 47개 — 아래 표 순서가 곧 로드 순서
 css/                스타일 16개 — 아래 표 순서가 곧 덮어쓰기 우선순위
 *.js (루트)          데이터 스크립트(지도·글꼴·이미지·배치 — window.X = … 꼴, 앱 로직 아님)
 FontNew/            글꼴 파일(css/base.css의 @font-face가 ../FontNew/ 로 가리킴)
@@ -107,16 +107,17 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 34 | `js/export-video.js` | 410 | 정확 MP4·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더 | `bakeMp4` `pingHelper` `checkHelperFreshOnBoot` `wnsHelperOffNotice` `wnsRender` |
 | 35 | `js/export-blobs.js` | 198 | **추출 핵심**: 레이어 목록·SVG→PNG blob, 미리보기, 프로젝트 파일 PNG 메타(읽기), 내보내기 대상 | `ALL_LAYERS` `svgBlob` `keepLayers` `pngEmbed` `readProjectFile` `exportBlobs` |
 | 36 | `js/ae-export.js` | 572 | After Effects 보내기(타임라인 = AE — 헬퍼 20261008: 앱 이징 곡선을 AE 키 영향값으로·태풍/비교 진행 곡선·블라인드·일반/비교 지도 카메라(이동/고정 레이어 나눔·블리드)·방향·지시선 셰이프·옮기지 않은 비교 이름표 따라가기(nameLabel.follow)), 다운로드 | `sendToAE` `aeEaseOf` `aeCamSpec` `aeBleedBox` `aeLeaderSpec` `aeBlindMtnSpan` `download` |
-| 37 | `js/export-dialog.js` | 378 | **이미지로 추출 팝업**(CG 구성 모양 — 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 **저장**(폴더 고르기(지난번 폴더 'imgDir') → `오늘날짜_날씨CG메이커` 폴더 → 카드 이름 그대로 PNG, 같은 이름이면 덮어쓰기/번호/취소(같은 이름 '폴더'는 그 장만 번호), 폴더 고르기를 못 쓰면 ZIP, 취소·권한 거절은 까닭 + [ZIP으로 받기] — 말없이 ZIP 안 받음), 정지 화면에서 굽기 | `openExport` `renderExport` `withStaticFrame` `exportFolderName` `setupExportDialog` `EXPORT_ICON` `exErrText` |
-| 38 | `js/project-io.js` | 325 | 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기, **저장 안 한 변경 판정·닫기 전 묻기**(데스크톱 — 10장) | `exportSettings` `importSettings` `saveProject` `bakeDefaults` `workDirty` `workMarkClean` `closeAsk` |
-| 39 | `js/wiring.js` | 778 | 버튼·입력 배선 `wire()`(함수 하나) + 사이드바 그룹 정리(로드 때 실행) | `wire` `refreshToolGroup` |
-| 40 | `js/anim.js` | 640 | 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙(계획·적용), renderAnimFrame(정확 경로 + 재생 중 가속 경로 — 틸트 그림은 지도 내용이 바뀐 프레임만 다시 굽기: animMapKey), 재생/정지/탐색, 저장용 상태 | `cubicBezier` `renderAnimFrame` `animFastOn` `animPlay` `animStop` `stateForSave` `autoTrackPlan` |
-| 41 | `js/timeline-plan.js` | 230 | 타임라인 레이어 계획(화면·AE 공용 목록·순서·이름·타이밍), 시간 도우미(프레임·타임코드·입력 해석), 막대 끌기 계산, 스냅 대상 | `tlLayerPlan` `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` `tlDragCalc` `tlSnapTargets` |
-| 42 | `js/timeline-ui.js` | 560 | 타임라인 화면(AE식 레이어 열·아이콘·막대·키·눈금자·CTI·내비게이터), 그리기 스케줄러(rAF 하나), 열기·높이·미리보기, 카메라 키 팝오버. 내용 변경 알림 `tlContentChanged`(renderAll·renderFills — 가속 미리보기를 걷고 다시 그림) / 1.5초 행 점검 `tlCheckRows`(boot.js — 가속은 그대로) | `buildTimeline` `tlSync` `tlInvalidate` `tlFrame` `tlSetT` `tlSetOpen` `tlContentChanged` `tlCheckRows` `openCamKeyPopover` `TL_ICONS` |
-| 43 | `js/timeline-input.js` | 420 | 타임라인 조작: 막대·키 끌기(프레임·스냅·다중 선택), 스크럽·줌·스크롤, 이름 열 숫자 끌기·키 내비게이터, 키보드 단축키·패널 포커스, Alt 카메라 자동 키 | `tlWire` `tlKeydown` `tlOwnsKeys` `tlCamKeyAt` `tlCamAutoKey` |
-| 44 | `js/floating-panels.js` | 670 | 떼어낸 창, 패널 크기, 레이아웃, **제목줄 메뉴(추출·프로젝트·설정(렌치))**, 시작 화면 | `popOut` `dockSec` `loadLayout` `setupMenus` `setupStartScreen` `showStartScreen` |
-| 45 | `js/tour.js` | 200 | 둘러보기(온보딩 투어) | `tourOpen` `tourGo` `wireTour` |
-| 46 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
+| 37 | `js/ae-geo.js` | 300 | **AE로 보내기 'GEOlayers 지도로'**(10-10): 제목줄 'AE로 보내기' = `aeSendClick` — 헬퍼가 그 길을 알고(GET `/api/geo-caps`) 이 PC에 GEOlayers 3가 있으면 보내는 방식 토스 모달(`aeAskMode` — 카드 2장 '레이어 그림으로'(지금 방식)·'GEOlayers 지도로', 태풍 지도만 켜짐·다른 지도·노말 VF는 흐림 + 까닭 `aeGeoWhyNot`, 고른 것 기억 localStorage `wcg_ae_mode`, 설치판이 지원하는 AE 범위를 알면 안내에 덧붙임), 아니면 팝업 없이 `sendToAE()`(옛 헬퍼·부팅 점검 길). geo 명세 `aeGeoSpec`(순수 함수 — `sendToAE({ aeMode: 'geolayers' })`가 spec.mode·spec.geo로): 앱 지도 위치 → GEOlayers 보기(`geoViewOf` — zoom = log2(2π·scale·s·k/512), 512 타일 = glbView와 같음, bearing = rz, pitch 0), 카메라 키 → 보기 키·프레임마다 구운 보기(`geoViewPlan` = camAt, 줄 시각 = AE 프레임 격자 n/fps + 첫·끝 키), 리깅 CAM 묶기 상수(투영 원점 세계 px·작업 뷰 px/라디안), 태풍 GeoJSON(지난·예상 선, 반경 = 앱과 같은 메르카토르 원 128각 + 사다리꼴 `geoBandPolys`, 지점)·셰이프 스타일, 비교 지도는 예보선마다 선. 리깅 카메라는 위치·배율 항등 키 + 앱 rz(`aeGeoCamSpec` — 움직임은 헬퍼가 CAM을 GEOlayers 앵커에 묶고, 회전이 있으면 생기는 ROT 널을 CAM 방향에 묶어 라벨 박스도 돈다), 바탕 = 지도에 붙는 겹만 투명 PNG(`aeGeoOverlayBlob` — 바다·육지·지형·위성·Mapbox·GL 그림 뺌), 남한 강조는 따로(`aeGeoKrBlob` — AE 스크린 혼합) | `aeSendClick` `aeAskMode` `aeModeCards` `aeGeoCaps` `aeGeoWhyNot` `aeGeoSpec` `aeGeoCamSpec` `geoViewOf` `geoViewPlan` `geoWorldXY` `geoAppXY` `geoCompXY` `geoCircleRing` `geoBandPolys` `aeGeoOverlayBlob` `aeGeoKrBlob` |
+| 38 | `js/export-dialog.js` | 378 | **이미지로 추출 팝업**(CG 구성 모양 — 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 **저장**(폴더 고르기(지난번 폴더 'imgDir') → `오늘날짜_날씨CG메이커` 폴더 → 카드 이름 그대로 PNG, 같은 이름이면 덮어쓰기/번호/취소(같은 이름 '폴더'는 그 장만 번호), 폴더 고르기를 못 쓰면 ZIP, 취소·권한 거절은 까닭 + [ZIP으로 받기] — 말없이 ZIP 안 받음), 정지 화면에서 굽기 | `openExport` `renderExport` `withStaticFrame` `exportFolderName` `setupExportDialog` `EXPORT_ICON` `exErrText` |
+| 39 | `js/project-io.js` | 325 | 설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기, **저장 안 한 변경 판정·닫기 전 묻기**(데스크톱 — 10장) | `exportSettings` `importSettings` `saveProject` `bakeDefaults` `workDirty` `workMarkClean` `closeAsk` |
+| 40 | `js/wiring.js` | 778 | 버튼·입력 배선 `wire()`(함수 하나) + 사이드바 그룹 정리(로드 때 실행) | `wire` `refreshToolGroup` |
+| 41 | `js/anim.js` | 640 | 영상 애니메이션: 이징, 카메라 키프레임, 자동 트랙(계획·적용), renderAnimFrame(정확 경로 + 재생 중 가속 경로 — 틸트 그림은 지도 내용이 바뀐 프레임만 다시 굽기: animMapKey), 재생/정지/탐색, 저장용 상태 | `cubicBezier` `renderAnimFrame` `animFastOn` `animPlay` `animStop` `stateForSave` `autoTrackPlan` |
+| 42 | `js/timeline-plan.js` | 230 | 타임라인 레이어 계획(화면·AE 공용 목록·순서·이름·타이밍), 시간 도우미(프레임·타임코드·입력 해석), 막대 끌기 계산, 스냅 대상 | `tlLayerPlan` `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` `tlDragCalc` `tlSnapTargets` |
+| 43 | `js/timeline-ui.js` | 560 | 타임라인 화면(AE식 레이어 열·아이콘·막대·키·눈금자·CTI·내비게이터), 그리기 스케줄러(rAF 하나), 열기·높이·미리보기, 카메라 키 팝오버. 내용 변경 알림 `tlContentChanged`(renderAll·renderFills — 가속 미리보기를 걷고 다시 그림) / 1.5초 행 점검 `tlCheckRows`(boot.js — 가속은 그대로) | `buildTimeline` `tlSync` `tlInvalidate` `tlFrame` `tlSetT` `tlSetOpen` `tlContentChanged` `tlCheckRows` `openCamKeyPopover` `TL_ICONS` |
+| 44 | `js/timeline-input.js` | 420 | 타임라인 조작: 막대·키 끌기(프레임·스냅·다중 선택), 스크럽·줌·스크롤, 이름 열 숫자 끌기·키 내비게이터, 키보드 단축키·패널 포커스, Alt 카메라 자동 키 | `tlWire` `tlKeydown` `tlOwnsKeys` `tlCamKeyAt` `tlCamAutoKey` |
+| 45 | `js/floating-panels.js` | 670 | 떼어낸 창, 패널 크기, 레이아웃, **제목줄 메뉴(추출·프로젝트·설정(렌치))**, 시작 화면 | `popOut` `dockSec` `loadLayout` `setupMenus` `setupStartScreen` `showStartScreen` |
+| 46 | `js/tour.js` | 200 | 둘러보기(온보딩 투어) | `tourOpen` `tourGo` `wireTour` |
+| 47 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
 
 경계 조정(2026-10-08, 코드 무변경 — 이어 붙인 텍스트는 그대로): 처음 분할의 `cg-setup.js` 뒤쪽(팝업 닫힘 애니메이션·토스 카드 모달)을
 `notices.js` 앞에 붙여 `modals-notices.js`로, `export-video.js`의 `ALL_LAYERS`부터 끝을 `export-blobs.js`로, `forecast-panel.js`의
@@ -157,7 +158,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | | `default-presets.js` + 배치 슬롯으로 `WCG_DEFAULTS` 교체(`var _per/_mas`), `font-data.js` + `#fontEmbed`, Wanted Sans preload(UI 전용·FontNew 내장, CG 출력 SUITE는 그대로) |
 | | `<link rel="stylesheet" href="css/…?v=…">` 16개 |
 | body | 마크업(사이드바·제목줄·모달·SVG 등) |
-| 끝 | 테마(`data-theme`), 데이터 스크립트 11개(`onerror` 대체값 — 지도 `map-data.js`·`seoul-map-data.js`·`region-map-data.js`(데이터 지도, 10-10)·태풍·지명·예보·이미지), `<script src="js/…?v=…">` 46개 |
+| 끝 | 테마(`data-theme`), 데이터 스크립트 11개(`onerror` 대체값 — 지도 `map-data.js`·`seoul-map-data.js`·`region-map-data.js`(데이터 지도, 10-10)·태풍·지명·예보·이미지), `<script src="js/…?v=…">` 47개 |
 
 ## 6. 공용 도우미 위치
 
@@ -184,6 +185,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | `pingHelper` `wnsHelperOffNotice` `HELPER_VER_MIN` `wnsRender` `AE_EXT_VER` `aeHelperExt`(헬퍼가 AE 확장을 아는가 — 'AE 차이' 표시 기준) | `export-video.js` |
 | `svgBlob` `keepLayers` `ALL_LAYERS` `readProjectFile` `pngEmbed` `pngExtract` `exportBlobs` `exportPlan` `exportWhyNot` `safeFileName` `EXPORT_STACK` | `export-blobs.js` |
 | `download` `aeEaseOf`(앱 cubic-bezier(x1,0,x2,1) → AE 영향 [x1·100, (1−x2)·100]) `aeCamSpec` `aeBleedBox` | `ae-export.js` |
+| `aeSendClick`(제목줄 AE 버튼 — 방식 묻기·바로 보내기) `aeGeoSpec`(GEOlayers 길 geo 명세) `geoViewOf`(앱 지도 위치 → GEOlayers 보기) `geoWorldXY`(경위도 → GEOlayers 세계 px) | `ae-geo.js` |
 | `openExport` `closeExport` `exportIsOpen` `renderExport` `withStaticFrame` `exportFolderName` | `export-dialog.js` |
 | `tlLayerPlan`(타임라인 레이어 = AE 레이어 목록·순서·타이밍) `tlQuant` `tlFmtTC` `tlParseTime` `tlSetSpan` | `timeline-plan.js` |
 | `buildTimeline` `tlSetT`(재생헤드) `tlInvalidate` `tlRefreshPreview` `tlState` | `timeline-ui.js` |
@@ -282,6 +284,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `node --test tests/data-airkorea.test.cjs desktop/test/data-fetch.test.cjs` | **에어코리아·생활기상 느림·누락 고치기**(10-10): 게이트웨이 시간 초과(504 SERVICETIMEOUT 05 — JSON 감쌈)·헬퍼 시간 초과 문구·생활기상 99 판정, 시도마다 시간 제한을 늘려 다시 보내기(키·신청·한도·자료 없음은 한 번), 메인 길 못 쓰면 헬퍼 길(점검 모드·프록시·옛 메인), 헬퍼 길 시간 초과 끊기, 여러 쪽(총건수 0), 농도 24시간 자료(1시간·직전 값/24시간 평균 보충·빈 곳 까닭·24:00·옛 이름), 카드 문구, 캐시 유효 시각, 예보 날짜당 한 번·조회일 기준 오늘/내일. 메인 받기(`desktop/data-fetch.js`)는 로컬 http 서버로 멈춤·하나 더(2번)·재사용·시간 제한·본문 멈춤·크기·끊긴 재사용 소켓·허용 주소·배선 |
 | `node --test tests/data-maps-geometry.test.cjs` | **데이터 지도 도형**(`region-map-data.js`): 시군구 230·코드·인셋·시도군 지도와 같은 자리, 예보 권역 19·명단 = 통보문 용어. `WCG_DATA_DIR=<원본 data 폴더>`면 생성기를 다시 돌려 바이트 비교 |
 | `node --test tests/ae-timeline-spec.test.cjs` | **타임라인 = AE 1:1**: 실제 `sendToAE`(vm)가 보내는 `/api/ae` 스펙과 헬퍼 JSX(`desktop/wns/ae-jsx.js`)를 AE 흉내로 실행한 키·이징·부모·효과를 무작위 작업 수백 개의 타임라인 값(트랙·태풍 키·카메라 키·길이)과 비교 — 헬퍼 20261008(새)·20261007(옛) 두 번. AE 보내기를 고치면 꼭 돌린다 |
+| `node --test tests/ae-geo.test.cjs` | **AE로 보내기 'GEOlayers 지도로'**(10-10): 투영 왕복(앱 화면 출력 px = GEOlayers 보기의 컴프 px — GEOlayers 식은 설치판 표현식 파일에서 시험에 따로 옮김, 무작위 3000점·회전·터치)·zoom 정의(512 타일, glbView와 같음)·반경 원/사다리꼴 = 앱 typhoonBandInto·보기 키/프레임 = camAt, 실제 sendToAE(vm)의 GEOlayers 길 스펙(리깅 카메라 항등·겹 PNG·남한 강조·GeoJSON·토큰 없음, 비교 지도, 노말 VF·일반 지도 막음), **끝까지**: 그 스펙 → `desktop/wns/geo-jsx.js` → AE 흉내(`ae-model.cjs` opt.geo) + 가짜 GEOlayers(앵커 = 세계 px) — 프레임마다 태풍 지점 = 앱 화면 자리(최대 0.1px, 터치 0.5px), 카메라 회전(이동+45°·회전만 30°·터치 12°·비교 지도)이 있으면 라벨 박스·지시선 = 앱 camProjectXY(0.1px 안), AE에서 보기를 고쳐도 따라감, 앵커를 못 찾아도(컨트롤 식) 같음, 남한 강조 겹 순서, 패널 없음(지원하지 않는 AE 판 까닭 포함)·맵 컴프 없음·여럿 알림, 복제 실패(undefined·예외·맵 컴프를 같이 쓰는 복제 — 원본 그대로·새로 생긴 것만 지움), 패널이 답하지 않으면 예약 알림, Zoom 자름·맵 컴프 길이 안내, 기존 jsx 글자 그대로·ASCII·ES3, 팝업 카드·까닭·aeSendClick 갈래·배선 |
 | `node --test tests/ae-ease-match.test.cjs` | **AE 키·표현식 = 화면 함수**: 헬퍼 JSX를 AE 흉내(`desktop/test/ae-model.cjs` — AE 시간 베지어·부모 보정·표현식 vm 실행)로 프레임마다 계산해 앱 실제 함수(easeOut·easeVf·camAt·typhoonScreenPts·typhoonBandInto·typhoonLabelProg·compareScreenPts·typhoonLeaderGeom·블라인드 덮임 식)와 비교. 끝에 항목별 최대 오차 표 |
 | `node --test desktop/test/golden-legacy.test.cjs` | 옛 앱 스펙 골든 137개가 헬퍼 확장 뒤에도 바이트까지 같다(sha256 — F1 카메라 6개만 의도한 변경) |
 | `node tools/ae-verify/make.cjs` → AE에서 실행 → `node tools/ae-verify/compare.cjs` | **AE 실기 대조**(사람이 1회): 골든 스펙 JSX + 값 덤프 꼬리를 AE(새 빈 프로젝트)에서 돌려 `valueAtTime` 덤프를 AE 흉내 값과 비교 — AE 흉내의 가정(영향 합 >100%·공간 속성 이즈·슬라이더 표현식·toComp·부모 보정·한글 이름)을 실제 AE로 확인 |
@@ -360,6 +363,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   새로고침해도 이어받는다(sessionStorage `wcg_unsaved`). 시험: `tests/close-ask.test.cjs`(판정·팝업 흐름 vm + 배선, `WCG_BOOT_CHECK=1`이면 `close-ask.boot-eval.js`로 실제 앱),
   `desktop/test/close-guard.test.cjs`(메인 순서·시간 제한 + `WCG_BOOT_CHECK=1`이면 `close-flow-check.cjs` — 메인 검사기로 진짜 `win.close()`: 변경 없음 = 곧바로 꺼짐, 칠함 = 팝업·취소·저장 안 함, 멈춘 웹앱 = 약 5초 뒤 꺼짐,
   칠하고 새로고침 = 그래도 팝업(최소화 흉내 창 되살림), 죽은 렌더러 = 곧바로 꺼짐).
+- **AE로 보내기 'GEOlayers 지도로'**(2026-10-10 — 내장 헬퍼만): `desktop/wns/server.js`에 GET `/api/geo-caps`(GEOlayers 3 확장 폴더의 CSXS/manifest.xml 판·지원 AE 범위(AEFT — 1.17.0은 13.6~26.9)만 읽음 — 경로·사용자 이름은 응답에 없음), `/api/ae`는 스펙에 `mode:'geolayers'` + `geo`가 있을 때만 `desktop/wns/geo-jsx.js`로(태풍 GeoJSON을 보내기 폴더에 `geo_<키>.geojson`·`typhoon.geojson`으로 저장, 지원 AE 범위를 jsx에 넘김) — 없으면 `ae-jsx.js` 그대로(golden 바이트 동일). geo-jsx는 기존 jsx를 글자 그대로 가운데에 넣고 앞뒤만 덧붙인다(첫 줄 '실행 취소 묶음 열기'만 ①로 당김): ① `geolayers3` 전역(GEOlayers 3 패널이 열려 있어야 생김 — 없으면 AE 판이 설치판 지원 범위 밖인지까지 알림)·맵 컴프 찾기(열어 둔 컴프 → 프로젝트 창에서 고른 것 → 맵 컴프가 하나뿐이면 그것 — 없거나 여럿이면 한국어 알림으로 멈춤, 아무것도 안 만듦) → 실행 취소 묶음 열기 → `duplicate`로 담는 컴프 복제(담는 컴프·맵 컴프가 둘 다 새것일 때만 씀 — 아니면 이번에 새로 생긴 컴프만 지우고 알림으로 멈춤, **사용자의 원래 맵 컴프는 읽기만**) ② 기존 jsx ③ 복제본을 우리 컴프 맨 아래 `GEO_MAP`(짧으면 길이를 늘리고 안내), 보기 키(프레임마다 Latitude·Longitude·Zoom·Bearing 값 직접 — 안 되면 setViewAtTime, 한 보기는 setViewAtTime이 돌려준 Zoom이 다르면 기록), 리깅 CAM 널 = GEOlayers 앵커 레이어(세계 px)를 따라가는 표현식(앵커가 없으면 컨트롤 값으로 같은 식 — AE에서 보기를 고쳐도 태풍이 지도에 붙어 있음), 앱 카메라에 회전이 있으면 기존 jsx의 ROT 널(라벨 박스·지시선을 프레임 가운데 기준으로 돌림)에서 CAM을 떼고 ROT 회전 = CAM 방향(라벨도 GEOlayers Bearing을 따라 돎), 남한 강조 스크린 혼합(지도 겹 바로 아래·GEO_MAP 위 — 앱 순서), 마커 = 앱 카메라 키 ④ 비동기(패널이 처리): 태풍 GeoJSON을 `draw`로 GEOlayers 셰이프(편집용·꺼 둠, 선이 있으면 autoStrokeWidth, 채움 불투명도 0은 채움 끄기 — 설치판이 0을 100으로 바꿈) → `finalize`(타일 받기) → 알림·`geo_log.txt`. 패널을 닫았으면 콜백이 안 오므로 `app.scheduleTask`로 정한 시간(셰이프 90초·타일 받기만 600초) 안에 첫 답이 없으면 알림·기록. 확정 못 한 API(duplicate 반환 모양·draw 콜백·스타일 dashVal 뜻)는 typeof·try로 감싸고 안 된 것을 알림·기록에 남긴다. 파이썬 헬퍼(웹판)에는 없다(앱은 404면 지금 방식만). 기울기(rx)는 옮기지 않는다(Pitch 0 — 리깅이 2D). 실제 AE 확인은 사람이(보고서 순서).
 - **기능 확장팩(헬퍼)**: 분할과 무관. 원본은 저장소 밖 `R:\[F]_Util\WNS\_src\helper.py`(웹판, PyInstaller로 빌드)이고, 데스크톱 내장판
   `desktop/wns/`(server.js·ae-jsx.js)가 그것을 Node로 옮긴 것이다. 저장소의 `tools/wns-helper/helper.py`는 **2026-07 옛 사본**(고치지 않는다 —
   `tests/wns-helper-legend.test.cjs`·`tests/wns_helper_smoke.py`가 그 사본의 범례 기능만 본다). 고치는 법은 `AGENTS.md`.
