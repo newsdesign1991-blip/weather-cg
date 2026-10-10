@@ -121,7 +121,7 @@
 <link rel="preload" href="FontNew/WantedSansVariable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/base.css?v=06ae7863">
 <link rel="stylesheet" href="css/sidebar.css?v=acffb0f9">
-<link rel="stylesheet" href="css/stage.css?v=dd33058c">
+<link rel="stylesheet" href="css/stage.css?v=c73f7762">
 <link rel="stylesheet" href="css/titlebar.css?v=84d2c35e">
 <link rel="stylesheet" href="css/start-tour.css?v=87e8f3ff">
 <link rel="stylesheet" href="css/cg-setup.css?v=7c445748">
@@ -131,7 +131,7 @@
 <link rel="stylesheet" href="css/dialogs.css?v=3f11d014">
 <link rel="stylesheet" href="css/panel-misc.css?v=df9eac86">
 <link rel="stylesheet" href="css/data-maps.css?v=11a3cd7a">
-<link rel="stylesheet" href="css/toss-modal.css?v=140bb66f">
+<link rel="stylesheet" href="css/toss-modal.css?v=ca20e212">
 <link rel="stylesheet" href="css/dropdown.css?v=fba3cc7e">
 <link rel="stylesheet" href="css/date-picker.css?v=55ed447a">
 <link rel="stylesheet" href="css/busy-fx.css?v=89c40212">
@@ -1282,6 +1282,13 @@
       <button data-bm="satellite" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#3a5a3a,#26506a)"></span>밝은 위성지도</button>
       <button data-bm="satdark" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#1c2b22,#14202e)"></span>어두운 위성지도</button>
       <button data-bm="mapbox" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#2b7a5b,#1c4a6e)"></span>Mapbox 실시간 타일</button>
+      <!-- 가벼운 지도(10-10 시험 — js/gl-basemap.js): 벡터 타일을 WebGL(MapLibre GL, vendor/)로 그린다. 고를 때만 엔진·타일을 받는다 -->
+      <button data-bm="gl" class="bmOpt"><span class="bmSw" style="background:linear-gradient(135deg,#12325a,#0b2240)"></span>가벼운 지도 (WebGL · 시험)</button>
+      <div class="bmMbx bmGl" id="bmGlBox" style="display:none">
+        <div class="bmGlState" id="bmGlState"></div>
+        <button id="bmGlRetry" class="bmApply" type="button" style="display:none">다시 시도</button>
+        <p class="bmMbxHint">구글 지도·Mapbox GL처럼 지도 그림이 아니라 도형 자료(벡터 타일)를 받아 그래픽 카드(WebGL)로 그려요. 키·가입 없이 무료(OpenFreeMap). 방송에 쓰면 출처를 적어 주세요: <span id="bmGlAttr"></span></p>
+      </div>
       <div class="bmMbx" id="bmMbxBox" style="display:none">
         <div class="bmHead" style="padding-top:4px">내 Mapbox 타일 URL <span style="font-weight:500;opacity:.6">· 이 브라우저에만 저장</span></div>
         <textarea id="bmMbxUrl" rows="3" placeholder="Mapbox 스타일 URL(WMTS 포함) 또는 {z}/{x}/{y} 타일 템플릿을 붙여넣기"></textarea>
@@ -1295,6 +1302,8 @@
       <span class="unitIc" aria-hidden="true"></span><span class="unitTxt"></span>
     </button>
     <div id="fctMapPop" class="basemapPop unitPop" style="display:none"></div>
+    <!-- 가벼운 지도(WebGL · 시험, js/gl-basemap.js) — 아트보드(#cg) 뒤 MapLibre 캔버스. 그 모드에서 준비됐을 때만 보이고, 기울이면 숨는다(틸트는 그림으로 굽는다) -->
+    <div id="glMap" class="glMap" aria-hidden="true" style="display:none"><div id="glMapIn" class="glMapIn"></div></div>
     <div id="camClip"><canvas id="camCanvas" width="1920" height="1080" style="display:none"></canvas><canvas id="camGL" width="1" height="1" style="display:none"></canvas></div>
     <svg id="cg" class="paintmode" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
       <defs>
@@ -1429,6 +1438,8 @@
       <circle id="brushCursor" r="0" style="display:none"/>
     </svg>
     <div id="frameGuide" aria-hidden="true"></div>
+    <!-- 가벼운 지도 출처(화면에만 — 아트보드 바로 아래, 추출엔 안 나온다) -->
+    <div id="glMapAttr" class="glMapAttr" aria-hidden="true" style="display:none"></div>
    </div>
   </div>
   <!-- 떼어낸 창 층 — .app 안이라야 메뉴·둘러보기·파일 놓기 안내가 창 위에 온다(#wins CSS 주석 참고) -->
@@ -1531,16 +1542,17 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/brush.js?v=035193cf"></script>
 <script src="js/brush-ui.js?v=6faf3832"></script>
 <script src="js/map-build.js?v=37283ac1"></script>
-<script src="js/map-render.js?v=f5f62e97"></script>
+<script src="js/map-render.js?v=09bb6d50"></script>
+<script src="js/gl-basemap.js?v=881ac980"></script>
 <script src="js/vf-legend.js?v=104ed949"></script>
 <script src="js/labels-mountains.js?v=84a9ae7a"></script>
 <script src="js/typhoon-core.js?v=5532a14a"></script>
-<script src="js/typhoon-render.js?v=1a3357e4"></script>
+<script src="js/typhoon-render.js?v=b5ed9e07"></script>
 <script src="js/typhoon-panel.js?v=4c5b6b20"></script>
 <script src="js/typhoon-api.js?v=9578633e"></script>
 <script src="js/typhoon-jtwc.js?v=cde1c8b2"></script>
 <script src="js/panels.js?v=4845dde1"></script>
-<script src="js/view-camera.js?v=31608106"></script>
+<script src="js/view-camera.js?v=908701d2"></script>
 <script src="js/tilt-gl.js?v=23ca46fd"></script>
 <script src="js/pointer-drag.js?v=aa99387f"></script>
 <script src="js/warnings.js?v=c48fe730"></script>
@@ -1558,9 +1570,9 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/date-picker.js?v=98c0a274"></script>
 <script src="js/busy-fx.js?v=05f4b1c5"></script>
 <script src="js/preset-slots.js?v=e6768992"></script>
-<script src="js/export-image.js?v=10c7f5d5"></script>
+<script src="js/export-image.js?v=184e2b90"></script>
 <script src="js/export-video.js?v=4669ab92"></script>
-<script src="js/export-blobs.js?v=9c480ce9"></script>
+<script src="js/export-blobs.js?v=0a2939a0"></script>
 <script src="js/ae-export.js?v=e88d4304"></script>
 <script src="js/export-dialog.js?v=704c001e"></script>
 <script src="js/project-io.js?v=2892299a"></script>

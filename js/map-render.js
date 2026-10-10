@@ -162,10 +162,13 @@ function wireBasemap() {
   const btn = $('#basemapBtn'), pop = $('#basemapPop'), box = $('#bmMbxBox'), urlIn = $('#bmMbxUrl'), applyBtn = $('#bmMbxApply');
   if (!btn || !pop) return;
   _basemapWired = true;
+  const glBox = $('#bmGlBox');   // 가벼운 지도(WebGL · 시험) 상태 줄 — js/gl-basemap.js
+  glbWire();
   const syncOpts = () => {
     const cur = (S.typhoon && S.typhoon.basemap) || 'blue';
     pop.querySelectorAll('.bmOpt').forEach((b) => b.classList.toggle('on', b.dataset.bm === cur));
     if (box) box.style.display = cur === 'mapbox' ? '' : 'none';
+    if (glBox) { glBox.style.display = cur === 'gl' ? '' : 'none'; glbUi(); }
     if (urlIn && document.activeElement !== urlIn) urlIn.value = mapboxUrlRaw();
   };
   btn.onclick = (e) => { e.stopPropagation(); const open = pop.style.display !== 'none'; pop.style.display = open ? 'none' : ''; if (!open) syncOpts(); };
@@ -176,6 +179,7 @@ function wireBasemap() {
     renderTyphoon();
     { const eye = $('#typGridEye'); if (eye) eye.classList.toggle('off', !typhoonGridOn(S.typhoon)); }   // 격자 켜기는 배경마다 따로(위성은 기본 끔)
     if (b.dataset.bm === 'mapbox') { syncOpts(); updateMapboxTiles(); status('Mapbox 실시간 타일' + (mapboxTileTemplate() ? '' : ' — URL을 붙여넣으세요'), true); }
+    else if (b.dataset.bm === 'gl') { glbPicked(); syncOpts(); }   // 팝오버는 열어 둔다 — 불러오는 중·실패 상태 줄을 보이게
     else { pop.style.display = 'none'; status({ satellite: '밝은 위성지도', satdark: '어두운 위성지도' }[b.dataset.bm] || '파란 지도', true); }
   }; });
   if (applyBtn) applyBtn.onclick = (e) => {

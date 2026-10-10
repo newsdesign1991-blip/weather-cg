@@ -14,6 +14,7 @@ async function svgBlob(mutate, overlayText, opt) {
   const [W0, H0] = RES[S.res].size;
   const box = opt.box || null;
   const W = box ? Math.max(1, Math.round(box.w * W0 / 1920)) : W0, H = box ? Math.max(1, Math.round(box.h * H0 / 1080)) : H0;
+  if (glbPending()) await glbSettle();   // 가벼운 지도(WebGL)가 불러오는 중이면 끝날 때까지(그 모드가 아니면 곧바로)
   brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다
   const clone = svg.cloneNode(true);
   clone.setAttribute('width', W); clone.setAttribute('height', H);
@@ -26,6 +27,10 @@ async function svgBlob(mutate, overlayText, opt) {
   if (opt.noVfClip) clone.querySelector('#L_vfScale')?.removeAttribute('clip-path');
   mutate(clone);
   syncSeoulExport(clone);   // 서울 칠 오버레이·한강을 남은 존 칠에 맞춘다
+  if (clone.querySelector('#bgMapT[data-glb]')) {   // 가벼운 지도(WebGL) 화면이었으면 그 영역의 GL 그림 — 기울이면 블리드까지(아래 지도 계열 복제본이 이걸 물려받는다)
+    const tl = !!(opt.tilt && camActive3d());
+    await glbInlineClone(clone, tl ? Math.round(W * (1 + 2 * CAM_BLEED)) : W, tl ? Math.round(H * (1 + 2 * CAM_BLEED)) : H, tl ? camBleedViewBox() : (box ? `${box.x} ${box.y} ${box.w} ${box.h}` : null));
+  }
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const cx = c.getContext('2d');
@@ -85,6 +90,7 @@ async function previewPng(maxW, opt) {
   clone.setAttribute('width', w); clone.setAttribute('height', h);
   clone.setAttribute('preserveAspectRatio', 'none');   // 가로·세로 배율이 조금 달라도 위·아래 빈 줄 없이
   stripExportUi(clone);
+  if (clone.querySelector('#bgMapT[data-glb]')) await glbInlineClone(clone, w, h, null, true);   // 가벼운 지도(WebGL) 화면이면 미리보기에도 그 그림(작은 그림 — JPEG)
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   const xml = new XMLSerializer().serializeToString(clone);
   const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml); await img.decode();   // data: URL — 폰트 확실 적용
