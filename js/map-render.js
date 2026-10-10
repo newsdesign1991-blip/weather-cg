@@ -100,13 +100,100 @@ const _yt2lat = (y, n) => { const t = Math.PI * (1 - 2 * y / n); return Math.ata
 // 타일 data URI 캐시 — 실시간 타일은 외부 URL이라 SVG 래스터(3D·추출)엔 안 들어감. 로드 때 data URI로도 받아 캐시하고,
 // svgToImage(래스터)에서 href를 이 data URI로 바꿔 끼워 넣는다 → 3D 회전·영상/이미지 추출에도 타일이 나온다.
 const _tileData = {};
-let _mbxCacheBust = '';   // '적용'(재publish 반영) 때마다 바꿔 캐시(메모리·브라우저 HTTP)를 우회해 새 타일을 받는다
-function fetchTileData(url) {
-  if (_tileData[url] !== undefined) return;   // 진행중/완료
+const _tileWait = {};   // 받는 중인 타일 → 약속(같은 타일을 두 번 안 받게)
+let _mbxCacheBust = '';   // '적용'(재publish 반영) 때마다 바꿔 캐시(메모리·디스크·브라우저 HTTP)를 우회해 새 타일을 받는다
+// 지도 타일 받기 — 데스크톱 앱이면 메인의 디스크 캐시(desktop/tile-cache.js: 한 번 받은 타일은 이 PC에서 바로, 버튼 없이 자동),
+// 아니면(웹·캐시가 거절한 주소) 그냥 fetch. Mapbox 실시간 타일(아래)·가벼운 지도 벡터 타일(js/gl-basemap.js)·렌더 전 미리 받기가 같이 쓴다.
+// 디스크 캐시 길이 안 되면 그냥 fetch로 — 앱을 새로 켜지 않고 새로고침만 해 메인에 받는 곳('wcg:tile-get')이 아직 없을 때(invoke가 거절),
+// 메인이 못 받았을 때(사내 프록시 등). 서버가 분명히 답한 4xx(타일 없음)만 그대로 실패. 메인 길이 연달아 3번 안 되는데 fetch는 되면 이번 실행 동안 끈다.
+// 돌려주는 것: { data: Uint8Array, type } — 못 받으면 throw
+let _tileIpcOff = false, _tileIpcMiss = 0;
+async function tileFetch(url) {
+  const d = window.wcgDesktop;
+  let viaIpcFailed = false;
+  if (!_tileIpcOff && d && typeof d.tileGet === 'function') {
+    let r = null;
+    try { r = await d.tileGet(url); } catch (e) { r = null; _tileIpcOff = true; }   // 받는 곳 없음(옛 메인) — 이번 실행 동안 fetch로
+    if (r && r.ok) { _tileIpcMiss = 0; return { data: r.body, type: r.type || '' }; }
+    if (r && r.err === 'http' && r.status >= 400 && r.status < 500) throw new Error('tile http ' + r.status);
+    viaIpcFailed = !!r && r.err !== 'denied';
+  }
+  const res = await fetch(url, { mode: 'cors' });
+  if (!res.ok) throw new Error('tile http ' + res.status);
+  if (viaIpcFailed && ++_tileIpcMiss >= 3) _tileIpcOff = true;   // 메인은 못 받는데 여기선 받힌다 — 디스크 캐시 길을 쉰다
+  return { data: new Uint8Array(await res.arrayBuffer()), type: res.headers.get('content-type') || '' };
+}
+// 타일 하나를 data URI로(래스터·추출용 _tileData, 화면 <image>도 이걸로). quiet = 렌더 전 미리 받기 — 화면·틸트를 건드리지 않는다.
+// 돌려주는 것: data URI 또는 null(실패). 진행 중이면 _tileData[url] = null, 실패하면 지운다(undefined).
+function fetchTileData(url, quiet) {
+  if (_tileData[url]) return Promise.resolve(_tileData[url]);
+  if (_tileWait[url]) return _tileWait[url];
   _tileData[url] = null;
-  fetch(url, { mode: 'cors' }).then((r) => r.blob()).then((b) => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); }))
-    .then((durl) => { _tileData[url] = durl; tiltInvalidate(); if (camActive3d()) applyTilt(); })   // 틸트 그림(태풍 바탕 포함)에 새 타일을 넣게 다시 굽는다 — 평면이면 미리 구운 그림만 버린다
-    .catch(() => { delete _tileData[url]; });
+  const p = tileFetch(url)
+    .then(({ data, type }) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(new Blob([data], { type: type || 'image/jpeg' })); }))
+    .then((durl) => {
+      _tileData[url] = durl;
+      mbxTileShow(url, durl);
+      if (!quiet) { tiltInvalidate(); if (camActive3d()) applyTilt(); }   // 틸트 그림(태풍 바탕 포함)에 새 타일을 넣게 다시 굽는다 — 평면이면 미리 구운 그림만 버린다
+      return durl;
+    })
+    .catch(() => { delete _tileData[url]; return null; })
+    .finally(() => { delete _tileWait[url]; });
+  _tileWait[url] = p;
+  return p;
+}
+// 받은 타일을 화면 <image>에 — 새 배율 타일이 다 떴으면 밑에 남겨 둔 옛 배율 타일(data-stale)을 치운다
+function mbxTileShow(url, durl) {
+  const g = $('#typhoonTiles'); if (!g) return;
+  g.querySelectorAll('image[data-url="' + CSS.escape(url) + '"]').forEach((im) => { if (!im.hasAttribute('href')) im.setAttribute('href', durl); });
+  mbxDropStale(g);
+}
+function mbxDropStale(g) {
+  if (!g.querySelector('image[data-stale]')) return;
+  if (g.querySelector('image:not([data-stale]):not([href])')) return;   // 아직 안 뜬 새 타일이 있다 — 그 자리 빈 격자가 안 보이게 옛 타일을 둔다
+  g.querySelectorAll('image[data-stale]').forEach((im) => im.remove());
+}
+// cam {x,y,s} 화면(여백 mgn 배)에 필요한 Mapbox 타일 — 배율 z와 타일 범위(타일 수 상한 cap을 넘으면 배율을 낮춘다)
+function mapboxTileSet(cam, mgn, cap) {
+  const [W, H] = RES[S.res].size;
+  const { cx0, cy0, scale } = MAP.proj, s = +cam.s || 1;
+  const ll = (x, y) => { const mx = (x - cam.x) / s / scale + cx0, my = cy0 - (y - cam.y) / s / scale; return [mx * 180 / Math.PI, (2 * Math.atan(Math.exp(my)) - Math.PI / 2) * 180 / Math.PI]; };
+  const cs = [ll(0, 0), ll(W, 0), ll(0, H), ll(W, H)];
+  let lo0 = Math.min(...cs.map((c) => c[0])), lo1 = Math.max(...cs.map((c) => c[0]));
+  let la0 = Math.min(...cs.map((c) => c[1])), la1 = Math.max(...cs.map((c) => c[1]));
+  const dlo = (lo1 - lo0) * mgn, dla = (la1 - la0) * mgn;
+  lo0 -= dlo; lo1 += dlo; la0 = Math.max(-85, la0 - dla); la1 = Math.min(85, la1 + dla);
+  let z = Math.max(2, Math.min(9, Math.round(Math.log2(2 * Math.PI * scale * s / 512))));
+  let n = Math.pow(2, z);
+  let x0 = Math.floor(_lon2xt(lo0, n)), x1 = Math.floor(_lon2xt(lo1, n));
+  let y0 = Math.floor(_lat2yt(la1, n)), y1 = Math.floor(_lat2yt(la0, n));
+  while ((x1 - x0 + 1) * (y1 - y0 + 1) > cap && z > 2) {   // 타일 과다 방지
+    z--; n = Math.pow(2, z);
+    x0 = Math.floor(_lon2xt(lo0, n)); x1 = Math.floor(_lon2xt(lo1, n));
+    y0 = Math.floor(_lat2yt(la1, n)); y1 = Math.floor(_lat2yt(la0, n));
+  }
+  return { z, n, x0, x1, y0: Math.max(0, y0), y1: Math.min(n - 1, y1) };
+}
+function mapboxTileUrl(tmpl, z, tx, ty, n) {
+  const X = ((tx % n) + n) % n;
+  let url = tmpl.replace('{z}', z).replace('{x}', X).replace('{y}', ty);
+  if (_mbxCacheBust) url += (url.indexOf('?') >= 0 ? '&' : '?') + '_cb=' + _mbxCacheBust;   // 재publish 반영 시 새 URL로
+  return url;
+}
+// 여백·상한 — 3D 틸트는 원근으로 뷰포트보다 훨씬 넓은 영역이 보이므로 넉넉히(그 만큼 타일 미리 로드 → '탁탁' 방지). 추출은 커버 우선(상한 크게).
+// 평면 프레임 추출은 프레임만 그리므로(svgToImage 뷰박스 = 프레임) 화면과 같은 여백 — 블리드(사방 1배)까지 받으면 타일이 3~4배(첫 렌더 미리 받기가 느려짐)
+const mbxMargin = () => (camActive3d() ? CAM_BLEED : 0.3);
+const mbxCap = () => ((camActive3d() || _exportingFrames) ? 300 : 140);
+const camTilted = (c) => Math.abs(+c.rx || 0) > 0.05 || Math.abs(+c.ry || 0) > 0.05 || Math.abs(+c.rz || 0) > 0.05;   // setCamRot의 3D 켜짐 기준
+// 렌더 전 미리 받기(js/export-video.js prefetchRenderTiles) — 카메라 프레임들(cams)의 추출에 필요한 타일 주소(추출 때 updateMapboxTiles와 같은 여백·상한)
+function mapboxPrefetchUrls(cams) {
+  const tmpl = mapboxTileTemplate(); if (!tmpl) return [];
+  const out = new Set();
+  for (const c of cams) {
+    const t = mapboxTileSet(c, camTilted(c) ? CAM_BLEED : 0.3, 300);
+    for (let ty = t.y0; ty <= t.y1; ty++) for (let tx = t.x0; tx <= t.x1; tx++) out.add(mapboxTileUrl(tmpl, t.z, tx, ty, t.n));
+  }
+  return [...out];
 }
 let _mbxT = 0;
 function scheduleMapboxTiles() { clearTimeout(_mbxT); _mbxT = setTimeout(updateMapboxTiles, 120); }
@@ -117,42 +204,28 @@ function updateMapboxTiles() {
   const tmpl = on ? mapboxTileTemplate() : '';
   if (!on || !tmpl) { g.style.display = 'none'; if (!on) g.textContent = ''; return; }
   g.style.display = '';
-  const [W, H] = RES[S.res].size;
-  const cs = [xyToLonLat(0, 0), xyToLonLat(W, 0), xyToLonLat(0, H), xyToLonLat(W, H)];
-  let lo0 = Math.min(...cs.map((c) => c.lon)), lo1 = Math.max(...cs.map((c) => c.lon));
-  let la0 = Math.min(...cs.map((c) => c.lat)), la1 = Math.max(...cs.map((c) => c.lat));
-  // 여백 — 3D 틸트/추출은 원근으로 뷰포트보다 훨씬 넓은 영역이 보이므로 넉넉히(그 만큼 타일 미리 로드 → '탁탁' 방지).
-  const mgn = (camActive3d() || _exportingFrames) ? CAM_BLEED : 0.3;
-  const dlo = (lo1 - lo0) * mgn, dla = (la1 - la0) * mgn;
-  lo0 -= dlo; lo1 += dlo; la0 = Math.max(-85, la0 - dla); la1 = Math.min(85, la1 + dla);
-  const cap = (camActive3d() || _exportingFrames) ? 300 : 140;   // 3D/추출은 커버 우선(상한 크게)
-  let z = Math.max(2, Math.min(9, Math.round(Math.log2(2 * Math.PI * MAP.proj.scale * (S.map.s || 1) / 512))));
-  let n = Math.pow(2, z);
-  let x0 = Math.floor(_lon2xt(lo0, n)), x1 = Math.floor(_lon2xt(lo1, n));
-  let y0 = Math.floor(_lat2yt(la1, n)), y1 = Math.floor(_lat2yt(la0, n));
-  while ((x1 - x0 + 1) * (y1 - y0 + 1) > cap && z > 2) {   // 타일 과다 방지
-    z--; n = Math.pow(2, z);
-    x0 = Math.floor(_lon2xt(lo0, n)); x1 = Math.floor(_lon2xt(lo1, n));
-    y0 = Math.floor(_lat2yt(la1, n)); y1 = Math.floor(_lat2yt(la0, n));
-  }
+  const t = mapboxTileSet(S.map, mbxMargin(), mbxCap());
+  const { z, n } = t;
   const need = {};
-  for (let ty = y0; ty <= y1; ty++) {
-    if (ty < 0 || ty >= n) continue;
-    for (let tx = x0; tx <= x1; tx++) {
+  for (let ty = t.y0; ty <= t.y1; ty++) {
+    for (let tx = t.x0; tx <= t.x1; tx++) {
       const key = z + '/' + tx + '/' + ty; need[key] = 1;
-      if (g.querySelector('image[data-k="' + key + '"]')) continue;
-      const X = ((tx % n) + n) % n;
+      const old = g.querySelector('image[data-k="' + key + '"]');
+      if (old) { old.removeAttribute('data-stale'); continue; }
       const tl = projLL(tx / n * 360 - 180, _yt2lat(ty, n)), br = projLL((tx + 1) / n * 360 - 180, _yt2lat(ty + 1, n));
-      let url = tmpl.replace('{z}', z).replace('{x}', X).replace('{y}', ty);
-      if (_mbxCacheBust) url += (url.indexOf('?') >= 0 ? '&' : '?') + '_cb=' + _mbxCacheBust;   // 재publish 반영 시 새 URL로
+      const url = mapboxTileUrl(tmpl, z, tx, ty, n);
       const im = _te('image', { 'data-k': key, 'data-url': url, x: tl[0], y: tl[1], width: (br[0] - tl[0]), height: (br[1] - tl[1]), preserveAspectRatio: 'none' });
-      im.setAttribute('crossorigin', 'anonymous');
-      im.setAttribute('href', url);
-      g.appendChild(im);
-      fetchTileData(url);   // 래스터(3D·추출)용 data URI도 미리 받아 캐시
+      // 그림은 받은 data URI로(디스크 캐시를 거친다 — 화면·래스터·추출이 같은 한 번 받기). 아직이면 받은 뒤 mbxTileShow가 채운다
+      if (_tileData[url]) im.setAttribute('href', _tileData[url]);
+      g.appendChild(im);   // 새 타일은 위에(옛 배율 타일은 밑에 남아 빈 격자를 가린다)
+      if (!_tileData[url]) fetchTileData(url);
     }
   }
-  [...g.children].forEach((ch) => { if (!need[ch.getAttribute('data-k')]) ch.remove(); });
+  // 필요 없어진 타일: 새 타일이 다 떴으면 바로 치우고, 아직이면 밑에 남겨 둔다(카메라 확대로 배율이 바뀔 때 빈 격자가 번쩍이지 않게). 너무 쌓이면 오래된 것부터
+  const gone = [...g.children].filter((ch) => !need[ch.getAttribute('data-k')]);
+  gone.forEach((ch) => ch.setAttribute('data-stale', '1'));
+  if (gone.length > 400) gone.slice(0, gone.length - 400).forEach((ch) => ch.remove());
+  mbxDropStale(g);
 }
 
 // 지도 배경(파란/위성/Mapbox) 선택 버튼 + 팝오버

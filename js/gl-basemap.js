@@ -31,7 +31,7 @@ const GLB_WHY = {
   tiles: '지도 서버(OpenFreeMap)에서 타일을 못 받았어요', timeout: '지도 서버 응답이 너무 늦어요', lost: 'GPU가 초기화돼 지도를 잃었어요',
 };
 // 상태: off(아직) · loading(불러오는 중 — 화면은 파란 지도) · ready(GL로 그림) · fail(파란 지도로 대체, why)
-const _glb = { lib: null, live: null, exp: null, state: 'off', why: '', t0: 0, readyMs: 0, view: '', col: '', poll: 0, expT: 0, warnAt: 0, online: false, snaps: 0, snapMs: 0 };
+const _glb = { lib: null, live: null, exp: null, state: 'off', why: '', t0: 0, readyMs: 0, view: '', col: '', poll: 0, expT: 0, warnAt: 0, online: false, snaps: 0, snapMs: 0, proto: false, tj: null, tjAt: 0 };
 let _glbQ = Promise.resolve();
 
 // 지금 태풍 지도 배경이 이 모드인가(준비와 상관없이)
@@ -70,9 +70,22 @@ function glbBand(cam, proj) {
   return [cam.y + (-(Math.PI - proj.cy0) * proj.scale) * s, cam.y + ((Math.PI + proj.cy0) * proj.scale) * s];
 }
 
+// 디스크 캐시 길(데스크톱 앱) — OpenFreeMap 주소(TileJSON·벡터 타일)를 'wcgtile://'로 바꿔(transformRequest) MapLibre가 우리 받기(tileFetch →
+// 메인 디스크 캐시 desktop/tile-cache.js)로 받게 한다. 한 번 본 타일은 다음엔 이 PC에서(버튼 없음). 웹·점검(브리지 없음)은 그대로 https.
+const GLB_PROTO = 'wcgtile';
+const glbCacheOn = () => !!(window.wcgDesktop && typeof window.wcgDesktop.tileGet === 'function');
+function glbTransform(url) {
+  return (_glb.proto && /^https:\/\/tiles\.openfreemap\.org\//.test(url)) ? { url: GLB_PROTO + '://' + url.slice(8) } : { url };
+}
+async function glbProtoLoad(params) {
+  const r = await tileFetch('https://' + String(params.url).slice(GLB_PROTO.length + 3));
+  if (params.type === 'json') return { data: JSON.parse(new TextDecoder().decode(r.data)) };
+  const d = r.data;
+  return { data: d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength) };
+}
 // MapLibre 엔진 — 처음 고를 때 한 번 읽는다(부팅·다른 모드엔 없음). 못 읽으면 null(다음에 다시)
 function glbLoadLib() {
-  if (window.maplibregl) return Promise.resolve(window.maplibregl);
+  if (window.maplibregl) { glbProtoInit(window.maplibregl); return Promise.resolve(window.maplibregl); }
   if (_glb.lib) return _glb.lib;
   _glb.lib = new Promise((res) => {
     const sc = document.createElement('script');
@@ -82,8 +95,12 @@ function glbLoadLib() {
     sc.onload = () => done(true); sc.onerror = () => done(false);
     sc.src = GLB_LIB;
     document.head.appendChild(sc);
-  }).then((ml) => { if (!ml) _glb.lib = null; return ml; });
+  }).then((ml) => { if (!ml) _glb.lib = null; else glbProtoInit(ml); return ml; });
   return _glb.lib;
+}
+function glbProtoInit(ml) {
+  if (_glb.proto || !glbCacheOn() || !ml || typeof ml.addProtocol !== 'function') return;
+  try { ml.addProtocol(GLB_PROTO, glbProtoLoad); _glb.proto = true; } catch (e) { /* 그냥 https로 */ }
 }
 // 지도 하나 — 화면(live)·추출(exp, 숨김·그림 버퍼 보존). 사용자가 직접 끌지 않는다(앱이 카메라를 준다).
 function glbMake(ml, box, exp) {
@@ -94,6 +111,7 @@ function glbMake(ml, box, exp) {
     pixelRatio: exp ? 1 : Math.min(3, window.devicePixelRatio || 1), maxCanvasSize: [GLB_SNAP_MAX, GLB_SNAP_MAX],
     canvasContextAttributes: { antialias: false, preserveDrawingBuffer: false },   // 선·면 가장자리는 MapLibre가 셰이더로 다듬는다(MSAA 불필요 — 4096 그림이면 GPU 메모리 수백 MB). 추출은 그린 직후 같은 작업 안에서 읽는다
     cancelPendingTileRequestsWhileZooming: false,
+    transformRequest: glbTransform,   // 데스크톱이면 디스크 캐시 길로(위 GLB_PROTO)
   });
   m.__ok = 0; m.__err = 0; m.__errMsg = '';
   m.on('sourcedata', (e) => { if (e && e.tile && e.sourceId === 'omt') m.__ok++; });
@@ -337,6 +355,51 @@ async function glbSettle() {
   while ((_glb.state === 'loading' || _glb.state === 'off') && glbActive() && performance.now() - t0 < GLB_WAIT_MS + 1000) await glbSleep(60);
 }
 const glbPending = () => glbActive() && (_glb.state === 'loading' || _glb.state === 'off') && S.res !== '1920x1080-vf';
+
+// ---------- 렌더 전 미리 받기(js/export-video.js prefetchRenderTiles) ----------
+// TileJSON(타일 주소 틀·배율 범위) — 디스크 캐시는 서버 max-age만큼만 두므로 타일 판(버전)이 바뀌면 따라간다. MapLibre도 같은 걸 받는다
+async function glbTileJson() {
+  if (_glb.tj && performance.now() - _glb.tjAt < 600000) return _glb.tj;
+  try {
+    const r = await tileFetch(GLB_TILES);
+    const tj = JSON.parse(new TextDecoder().decode(r.data));
+    if (!tj || !Array.isArray(tj.tiles) || !tj.tiles[0]) return null;
+    _glb.tj = tj; _glb.tjAt = performance.now();
+    return tj;
+  } catch (e) { return null; }
+}
+// 카메라 프레임들(cams: camAt 값)을 추출할 때(glbInlineClone과 같은 영역·그림 크기 → 같은 배율) MapLibre가 쓸 벡터 타일 주소.
+// 3D로 기울인 프레임은 블리드 영역(camBleedViewBox), 평면은 프레임. 벡터 타일(512)은 배율을 내림(floor)해 고른다(MapLibre coveringZoomLevel).
+async function glbPrefetchUrls(cams) {
+  const tj = await glbTileJson(); if (!tj) return [];
+  const tmpl = tj.tiles[0], zmin = +tj.minzoom || 0, zmax = tj.maxzoom == null ? 14 : +tj.maxzoom;
+  const [W] = RES[S.res].size;
+  const { cx0, cy0, scale } = MAP.proj;
+  const out = new Set();
+  for (const c of cams) {
+    const tilt = Math.abs(+c.rx || 0) > 0.05 || Math.abs(+c.ry || 0) > 0.05 || Math.abs(+c.rz || 0) > 0.05;
+    const B = tilt ? CAM_BLEED : 0;
+    const vb = { x: -1920 * B, y: -1080 * B, w: 1920 * (1 + 2 * B), h: 1080 * (1 + 2 * B) };
+    let k = Math.round(W * (1 + 2 * B)) / vb.w;
+    const [b0, b1] = glbBand(c, MAP.proj);
+    const y0 = Math.max(vb.y, b0), y1 = Math.min(vb.y + vb.h, b1);
+    if (!(y1 > y0)) continue;
+    k *= Math.min(1, GLB_SNAP_MAX / (vb.w * k), GLB_SNAP_MAX / ((y1 - y0) * k));
+    const zoom = glbView(c, MAP.proj, k, vb.x, y0, vb.w * k, (y1 - y0) * k).zoom;
+    if (!(zoom >= -2)) continue;
+    const z = Math.max(zmin, Math.min(zmax, Math.floor(zoom))), n = Math.pow(2, z), s = +c.s || 1;
+    const ll = (x, y) => { const mx = (x - c.x) / s / scale + cx0, my = cy0 - (y - c.y) / s / scale; return [mx * 180 / Math.PI, Math.max(-GLB_MERC_LAT, Math.min(GLB_MERC_LAT, (2 * Math.atan(Math.exp(my)) - Math.PI / 2) * 180 / Math.PI))]; };
+    const a = ll(vb.x, y0), b = ll(vb.x + vb.w, y1);
+    const tx0 = Math.floor(_lon2xt(a[0], n)), tx1 = Math.floor(_lon2xt(b[0], n));
+    const ty0 = Math.max(0, Math.floor(_lat2yt(a[1], n))), ty1 = Math.min(n - 1, Math.floor(_lat2yt(b[1], n)));
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) > 400) continue;   // 이상하게 넓으면 건너뜀(렌더 중에 받는다)
+    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+      const X = ((tx % n) + n) % n;
+      out.add(tmpl.replace('{z}', z).replace('{x}', X).replace('{y}', ty));
+    }
+  }
+  return [...out];
+}
 
 // ---------- 메뉴 ----------
 // 지도 배경 팝오버의 상태 줄·다시 시도(js/map-render.js wireBasemap이 열 때·고를 때 부른다)

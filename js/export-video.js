@@ -48,6 +48,35 @@ function buildMp4(W, H, timescale, frameDur, samples, avcc) {
   return new Blob([ftyp, mdat, moov], { type: 'video/mp4' });
 }
 
+// 렌더 전 지도 타일 미리 받기(사용자 10-10: 버튼 없이 렌더를 누르면 알아서) — 카메라 키가 있으면 모든 프레임 화면에 필요한 타일을
+// 먼저 한꺼번에(동시 12개 — 가벼운 지도는 타일이 적어 8개) 받아 둔다: Mapbox 실시간 그림 타일(js/map-render.js mapboxPrefetchUrls → _tileData)·가벼운 지도 벡터 타일(js/gl-basemap.js glbPrefetchUrls).
+// 프레임은 원래도 그 프레임 타일을 기다려 굽지만(awaitMapboxTilesReady·glbSnap) 프레임마다 받으며 기다리면 느리고 시간 제한에 걸리면 빈 칸 — 미리 받아 두면 렌더 중엔 기다림이 없다.
+// 받은 타일은 디스크 캐시(desktop/tile-cache.js)에도 남아 다음 렌더·화면은 이 PC에서 바로. 카메라 키가 없으면(지도 고정) 그 화면 타일만이라 할 일 없음.
+// 프레임 렌더 루프(bakeMp4·exportPngSeq·exportWns)가 _exportingFrames를 켠 뒤 부른다 — 진행은 렌더 진행 막대에 '지도 미리 받는 중'.
+async function prefetchRenderTiles(n, fps) {
+  if (!isTyphoon() || !camKeys().length) return;
+  const T = S.typhoon || {};
+  const mbx = T.basemap === 'mapbox' && !!mapboxTileTemplate();
+  const gl = !mbx && glbActive() && S.res !== '1920x1080-vf';
+  if (!mbx && !gl) return;
+  const cams = [];
+  for (let i = 0; i <= n; i++) { const c = camAt(i / fps); if (c) cams.push(c); }
+  const urls = mbx ? mapboxPrefetchUrls(cams) : await glbPrefetchUrls(cams);
+  const todo = mbx ? urls.filter((u) => !_tileData[u]) : urls;
+  if (!todo.length) return;
+  const one = mbx ? (u) => fetchTileData(u, true) : (u) => tileFetch(u).then(() => 1, () => null);
+  let k = 0, done = 0, fail = 0;
+  exportProgress(0, todo.length, '지도 미리 받는 중');
+  await Promise.all(Array.from({ length: Math.min(mbx ? 12 : 8, todo.length) }, async () => {
+    while (k < todo.length) {
+      const u = todo[k++];
+      if (!(await one(u))) fail++;
+      exportProgress(++done, todo.length, '지도 미리 받는 중');
+    }
+  }));
+  if (fail) status(`지도 타일 ${fail}개를 미리 못 받았어요 — 그 프레임은 렌더하면서 다시 받아요`, true, 'warn');
+}
+
 async function bakeMp4() {
   if (S.res === '1920x1080-vf') { status('노말 VF의 MOV(알파) 렌더는 아직 준비 중입니다 — "PNG 시퀀스로 렌더"를 쓰세요', true); return; }
   const A = anim();
@@ -87,6 +116,7 @@ async function bakeMp4() {
   _exportingFrames = true; showExportMask(true);
   fxBusy(fx, true);   // try 바로 앞 — 끄는 finally와 짝이 어긋나지 않게
   try {
+    await prefetchRenderTiles(n, fps);   // 카메라 키가 있으면 모든 프레임 지도 타일을 먼저
     for (let i = 0; i < n; i++) {
       if (encErr) throw encErr;
       renderAnimFrame(i / fps);
@@ -144,6 +174,7 @@ async function exportPngSeq() {
   const cx = c.getContext('2d', { alpha: vf });   // VF만 투명 배경
   const zipFrames = [];
   try {
+    await prefetchRenderTiles(n, A.fps);   // 카메라 키가 있으면 모든 프레임 지도 타일을 먼저
     for (let i = 0; i <= n; i++) {
       renderAnimFrame(i / A.fps);
       await drawExportFrame(cx, W, H);            // 카메라 3D면 지도만 워프+오버레이 평면 합성
@@ -379,6 +410,7 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     const canPool = (typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && OffscreenCanvas.prototype.convertToBlob);
     const POOL = canPool ? Math.max(2, Math.min(10, (navigator.hardwareConcurrency || 4) - 1)) : 0;   // 인코딩·전송 병렬 워커 상한(6→10) — 지도 캐싱으로 렌더가 빨라져 워커가 더 일함
 
+    await prefetchRenderTiles(n, RF);           // 카메라 키가 있으면 모든 프레임 지도 타일을 먼저
     await sendFrameMain(0);                     // 프레임0 먼저(세션 폴더 리셋 보장)
     exportProgress(1, n, label + ' 전송 중');
 

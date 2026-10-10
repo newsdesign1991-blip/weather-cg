@@ -259,6 +259,7 @@ async function runWns({ dur, fps, pool }) {
     fxBusy() {}, fxArrive() {},   // 작업 중·도착 효과(js/busy-fx.js) — 여기선 화면이 없으니 빈 함수
     status: (m) => statusMsgs.push(m), exportProgress: (d, t) => progress.push([d, t]),
     renderAnimFrame: (t) => times.push(t), drawExportFrame: async () => {},
+    prefetchRenderTiles: async () => {},   // 렌더 전 지도 타일 미리 받기(js/export-video.js) — 여기선 지도 타일 없음
     document: { createElement: () => ({ getContext: () => ({ getImageData: () => ({ data: { buffer: new ArrayBuffer(4) } }), putImageData() {} }), toBlob: (cb) => cb({}) }) },
     // 가짜 헬퍼: 메인 스레드가 보낸 프레임 index 기록(fetch 클로저는 이 파일 realm이라 진짜 URL 사용)
     fetch: async (u) => { const s = String(u); if (s.includes('/api/frame')) sent.push(+new URL(s).searchParams.get('index')); return { ok: true, json: async () => ({}), arrayBuffer: async () => new ArrayBuffer(1) }; },

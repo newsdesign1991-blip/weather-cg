@@ -310,6 +310,24 @@ ipcMain.handle('wcg:data-fetch', (e, u, o) => {
   return dataFetcherGet().fetch(String(u || ''), { timeoutMs: +(o && o.timeoutMs) || 0 });
 });
 
+// ---------- 지도 타일 디스크 캐시 ----------
+// 웹앱(js/map-render.js tileFetch — Mapbox 실시간 타일·가벼운 지도 벡터 타일)이 wcgDesktop.tileGet(주소) → 'wcg:tile-get'으로 부른다.
+// 한 번 받은 타일은 이 PC(%LOCALAPPDATA%\WeatherCG\tile-cache)에 두고 다음엔 디스크에서(desktop/tile-cache.js — 지도 타일 서버만, 30일, 2GB 넘으면 오래된 것부터).
+// 받는 건 앱 기본 세션의 크로미움 네트워크 — 웹앱이 직접 받을 때와 같은 시스템 프록시·프록시 로그인을 쓴다(사내망에서 따로 세션은 프록시 인증에 막힐 수 있다).
+// 점검 모드는 임시 사용자 폴더 안에(끝나면 지워짐). 메인이 못 받으면 웹앱이 그냥 fetch로 받는다(js/map-render.js tileFetch).
+const { createTileCache } = require('./tile-cache');
+let tileCache = null;
+function tileCacheGet() {
+  if (tileCache) return tileCache;
+  const base = TEST_MODE ? app.getPath('userData') : path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'WeatherCG');
+  tileCache = createTileCache({ dir: path.join(base, 'tile-cache'), fetch: (u, init) => session.defaultSession.fetch(u, init) });
+  return tileCache;
+}
+ipcMain.handle('wcg:tile-get', (e, u) => {
+  if (!jtwcCallerOk(e)) return { ok: false, err: 'denied', detail: 'sender' };
+  return tileCacheGet().get(String(u || ''));
+});
+
 // ---------- 닫기 전 묻기(저장하지 않은 변경·렌더 중) ----------
 // 메인 창 닫기(X·Alt+F4·작업표시줄 닫기·앱 종료)는 막고 웹앱에 묻는다. 무엇을 물을지·팝업은 웹앱(js/project-io.js closeAsk),
 // 순서와 안전장치(웹앱이 5초 안에 답이 없으면 그냥 닫기, 팝업 하나)는 desktop/close-guard.js.
