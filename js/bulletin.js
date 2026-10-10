@@ -374,12 +374,19 @@ function bulColorPlan(groups, docKind) {
 function bulTitleTexts(kind) {
   const title = kind === 'snow' ? '예상 적설량' : kind === 'mix' ? '예상 적설·강수량' : '예상 강수량';
   const unit = kind === 'snow' ? '단위 : cm' : kind === 'mix' ? '단위 : cm·mm' : '단위 : mm';
+  return autoTitleTexts(title, unit);
+}
+// 데이터별 표준 제목·단위(10-10 — 강수·적설 + 생활기상·미세먼지). 제목 줄·단위 줄이 이 목록 중 하나와 '통째로' 같을 때만
+// 새 데이터의 문구로 바꾼다(사용자가 고친 제목은 그대로). 바꿨으면 true. 부르는 쪽이 renderTexts().
+const AUTO_TITLE_RE = /^(예상\s*(강수량|적설량?|적설\s*·\s*강수량)|자외선\s*지수|대기\s*정체\s*지수|초?미세먼지\s*(농도|예보)(\s*\(24시간\s*평균\))?|오존\s*예보)$/;
+const AUTO_UNIT_RE = /^단위\s*:\s*(mm|cm|cm\s*·\s*mm|㎍\/㎥|μg\/m³|지수|등급)$/i;
+function autoTitleTexts(title, unit) {
   let changed = false;
   for (const t of S.texts || []) {
     if (!t || t.off) continue;
     const s = String(t.txt || '').trim();
-    if (/^예상\s*(강수량|적설량?|적설\s*·\s*강수량)$/.test(s)) { if (s !== title) { t.txt = title; delete t.runs; changed = true; } }
-    else if (/^단위\s*:\s*(mm|cm|cm\s*·\s*mm)$/i.test(s)) { if (s !== unit) { t.txt = unit; delete t.runs; changed = true; } }
+    if (AUTO_TITLE_RE.test(s)) { if (s !== title) { t.txt = title; delete t.runs; changed = true; } }
+    else if (unit && AUTO_UNIT_RE.test(s)) { if (s !== unit) { t.txt = unit; delete t.runs; changed = true; } }
   }
   return changed;
 }

@@ -144,7 +144,19 @@ function lifeLabelItems(info) {
   return out;
 }
 // 칠하기(+ 라벨) — 자료(info)를 S.dataByStyle.life 에 두고 칠을 만든다. pushUndo 는 부르는 쪽.
+// 데이터별 제목·단위(사용자 10-10: 자외선·대기정체 등을 칠하면 제목도 그에 맞게). 표준 제목일 때만 바꾼다(bulletin.js autoTitleTexts)
+function dataTitleFor(st, info) {
+  if (st === 'life') return info.idx === 'uv' ? ['자외선 지수', '단위 : 지수'] : ['대기정체 지수', '단위 : 지수'];
+  if (st === 'dust') return [(info.item === 'pm25' ? '초미세먼지 농도' : '미세먼지 농도') + (info.cond === 'DAILY' ? ' (24시간 평균)' : ''), '단위 : ㎍/㎥'];
+  if (st === 'dustFcst') return [info.code === 'O3' ? '오존 예보' : info.code === 'PM25' ? '초미세먼지 예보' : '미세먼지 예보', '단위 : 등급'];
+  return null;
+}
+function dataAutoTitle(st, info) {
+  const tu = dataTitleFor(st, info);
+  if (tu && autoTitleTexts(tu[0], tu[1]) && typeof renderTexts === 'function') renderTexts();
+}
 function lifeApply(info) {
+  dataAutoTitle('life', info);
   const { F, cnt } = lifePaintPlan(info);
   (S.dataByStyle ||= {}).life = info;
   S.fillsByStyle.life = F;
@@ -368,6 +380,7 @@ function dustLabelItems(info) {
 }
 function dustApply(info) {
   info.scale = info.item;
+  dataAutoTitle('dust', info);
   const { F, cnt } = dustPaintPlan(info);
   (S.dataByStyle ||= {}).dust = info;
   S.fillsByStyle.dust = F;
@@ -594,6 +607,7 @@ function dfcLabelItems(info) {
 }
 function dfcApply(info) {
   info.scale = 'grade';
+  dataAutoTitle('dustFcst', info);
   const plan = dfcPaintPlan(info);
   (S.dataByStyle ||= {}).dustFcst = info;
   S.fillsByStyle.dustFcst = plan.F;
