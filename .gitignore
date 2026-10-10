@@ -16,3 +16,6 @@ Thumbs.db
 .worktrees/
 # 데스크톱 전용 비공개 인증 설정(코드·프로젝트에 넣지 않음)
 /desktop/private/
+
+# 사용자 PC 바로 가기
+*.lnk
