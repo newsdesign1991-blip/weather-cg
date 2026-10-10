@@ -486,6 +486,7 @@ function lightPanZoom(base) {
   if (L) L.style.transform = tr;
   if (LB) LB.style.transform = tr;
   if (RI) RI.style.transform = tr;   // 대고 그리는 참고 이미지도 팬 중 실시간으로 붙어 이동
+  glbSync();   // 가벼운 지도(WebGL) 캔버스도 같은 프레임에(그 모드가 아니면 바로 끝)
 }
 svg.addEventListener('wheel', (e) => {
   if (!e.altKey || !camMoveActive()) return;

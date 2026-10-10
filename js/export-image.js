@@ -198,6 +198,7 @@ function inlineMapboxTiles(clone) {
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
 // stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
 async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
+  if (glbPending()) await glbSettle();   // 가벼운 지도(WebGL)가 불러오는 중이면 끝날 때까지 — 그 모드가 아니면 기다림 없이 곧바로 복제
   brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다(복제본에 최신 그림)
   const clone = svg.cloneNode(true);
   if (stripText) clone.querySelectorAll('text').forEach((n) => n.remove());
@@ -211,6 +212,7 @@ async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
   if (keep && !keep.includes('L_map')) clone.querySelector('#L_mapBase')?.remove();   // 블라인드 베이스 지도는 L_map과 같이 빠진다(3D 오버레이·정적 캐시)
   inlineMapboxTiles(clone);
+  if (clone.querySelector('#bgMapT[data-glb]')) await glbInlineClone(clone, W, H, viewBox, fontsUsedOnly);   // 가벼운 지도(WebGL) 화면이었으면 이 영역의 GL 그림을 지도 맨 아래에(미리보기는 JPEG로 빨리)
   clone.querySelector('#fontStyle').textContent = fontsUsedOnly ? await suiteFontCssFor(clone) : await suiteFontCss();   // fontsUsedOnly = 미리보기 래스터(쓰는 굵기만)
   const xml = new XMLSerializer().serializeToString(clone);
   // data: URL로 렌더 — blob: URL은 브라우저에 따라 <img> 안 SVG의 base64 @font-face(SUITE)가 첫 렌더에 안 먹어 폴백 폰트로 새는 일이 있다. data:는 자체완결이라 폰트까지 확실히 적용된다.
