@@ -113,8 +113,9 @@ $('#tlToggle').click(); await sleep(500);
 R.tlOff = { timeline: $('#timeline').classList.contains('on'), pri: $('#tlToggle').classList.contains('pri') };
 R.ae = { shown: $('#aeSend').style.display !== 'none' && $('#aeSend').offsetParent !== null };
 // 점검 중 실제 애프터이펙트가 뜨지 않게 /api/ae 요청만 가로챈다(칠한 색이 없으면 그 전에 안내로 끝난다)
+// /api/geo-caps도 — GEOlayers 길을 모르는 답(보내는 방식 팝업 없이 지금 방식으로 바로)
 const _realFetch = window.fetch;
-window.fetch = (u, o) => (/\/api\/ae/.test(String(u)) ? Promise.resolve(new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } })) : _realFetch(u, o));
+window.fetch = (u, o) => (/\/api\/(ae|geo-caps)/.test(String(u)) ? Promise.resolve(new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } })) : _realFetch(u, o));
 await $('#aeSend').onclick(); await sleep(500);
 window.fetch = _realFetch;
 R.ae.afterClick = { toss: !!document.getElementById('tossOv'), title: document.querySelector('#tossOv .tossTitle')?.textContent || '', status: $('#status').textContent };

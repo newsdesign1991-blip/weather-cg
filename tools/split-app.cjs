@@ -80,6 +80,7 @@ const MAP = {
     { file: 'export-video.js', start: '// ===== 정확 MP4 (베이킹)', desc: '정확 MP4(베이킹)·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더(wnsRender)' },
     { file: 'export-blobs.js', start: 'const ALL_LAYERS = [', desc: '추출 핵심: 레이어 목록(ALL_LAYERS)·SVG→PNG blob(svgBlob·keepLayers)·미리보기, 프로젝트 파일 PNG 메타(pngEmbed·pngExtract·readProjectFile), 이미지로 추출 항목·장 목록·굽기(EXPORT_TARGETS·exportPlan·exportBake)' },
     { file: 'ae-export.js', start: '// ===== After Effects 자동 임포트', desc: 'After Effects 보내기(레이어 분해 blob·sendToAE), download' },
+    { file: 'ae-geo.js', start: '// ===== AE로 보내기 — GEOlayers 지도로 =====', desc: "AE로 보내기 'GEOlayers 지도로'(10-10): 보내는 방식 고르기 팝업·헬퍼 확인(/api/geo-caps), geo 명세(앱 지도 위치 ↔ 위경도 ↔ GEOlayers 보기, 태풍 GeoJSON — 순수 함수), 지도에 붙는 겹 PNG" },
     { file: 'export-dialog.js', start: 'const EXPORT_ICON = {', desc: "'이미지로 추출' 팝업(CG 구성 모양: 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 저장(폴더 고르기 → 오늘날짜_날씨CG메이커 폴더 → 카드 이름 그대로 PNG, 폴더 고르기를 못 쓰면 ZIP)" },
     { file: 'project-io.js', start: '// ===== 설정 옮기기', desc: '설정 옮기기, 프로젝트 저장/열기, 최근 파일, 기본 배치 굽기(bakeDefaults), 저장 안 한 변경 판정·닫기 전 묻기(workDirty·closeAsk — 데스크톱)' },
     { file: 'wiring.js', start: '// ===================== 배선 =====================', desc: '버튼·입력 배선 wire()(한 함수) + 사이드바 그룹·아이콘 구성(로드 때 실행, refreshToolGroup)' },

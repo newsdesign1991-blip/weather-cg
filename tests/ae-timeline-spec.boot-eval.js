@@ -12,6 +12,7 @@ window.fetch = async (url, opts) => {
   const u = String(url);
   if (/\/ping(\?|$)/.test(u)) return json({ ok: true, ff: true, ver: 20261008 });
   if (u.includes('/api/frame')) return json({ ok: true });
+  if (u.includes('/api/geo-caps')) return json({ ok: true, geolayers: { installed: false, version: null } });   // AE 보내기 방식 팝업 없이(사용자 PC의 GEOlayers와 무관하게) 지금 방식으로 바로
   if (u.includes('/api/ae')) { caps.ae.push(JSON.parse(opts.body)); return json({ ok: true, ae: 'AE test' }); }
   return realFetch(url, opts);
 };
