@@ -224,7 +224,7 @@ function buildTyphoonPanel() {
     (T.issues || []).forEach((it, i) => { const o = document.createElement('option'); o.value = i; o.textContent = it.label; issueSel.appendChild(o); });
     issueSel.value = String(T.sel || 0);
   }
-  const info = $('#typInfo'); if (info) info.textContent = T.fromApi ? '' : '지금은 샘플(6호 장미) — 위에서 불러오세요.';
+  const info = $('#typInfo'); if (info) info.textContent = T.fromApi ? '' : '지금은 샘플(11호 힌남노) — 위에서 불러오세요.';
   const trackMode = T.trackMode || 'full';
   document.querySelectorAll('#typTrackMode button').forEach((b) => b.classList.toggle('on', b.dataset.tm === trackMode));
   { const lw = $('#typLineWidth'), lwV = $('#typLineWidthV'), v = (T.lineWidth == null ? 5 : T.lineWidth); if (lw) lw.value = v; if (lwV) lwV.textContent = v + 'px'; }

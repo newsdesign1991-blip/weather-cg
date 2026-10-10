@@ -70,7 +70,7 @@ function _camUnprojectRaw(sx, sy) {
   return [x * czr + y * szr + cx0, -x * szr + y * czr + cy0];
 }
 
-// 태풍 데이터 시드(샘플: 6호 '장미'). 실제 연동 시 기상청 API가 issues를 채운다.
+// 태풍 데이터 시드(샘플: 2022년 11호 '힌남노'). 실제 연동 시 기상청 API가 issues를 채운다.
 const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'satdark', nowIdx: null, labelSel: null,
   trackMode: 'full', lineColor: '#E5231E', lineWidth: 5,
   iconMode: 'image', iconScale: 1.25,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 125%)
@@ -167,20 +167,21 @@ function initTyphoonData() {
     if (!S.typhoon.places) S.typhoon.places = [];   // 지명표시(옛 저장 보강)
     return;
   }
-  const mk = (shift) => ([
-    { lon: 137.2, lat: 19.4, label: '28일 03시', cat: 1, ws: 19, ps: 998, r15: 180, r25: 0, r70: 0, fcst: false },
-    { lon: 136.3, lat: 20.6, label: '28일 15시', cat: 1, ws: 21, ps: 996, r15: 200, r25: 0, r70: 60, fcst: true },
-    { lon: 135.0, lat: 22.3, label: '29일 03시', cat: 2, ws: 27, ps: 990, r15: 240, r25: 70, r70: 90, fcst: true },
-    { lon: 133.4, lat: 24.2, label: '29일 15시', cat: 2, ws: 29, ps: 985, r15: 260, r25: 90, r70: 130, fcst: true },
-    { lon: 131.7, lat: 26.0, label: '30일 03시', cat: 2, ws: 30, ps: 980, r15: 280, r25: 100, r70: 170, fcst: true },
-    { lon: 130.2, lat: 27.8, label: '31일 03시', cat: 2, ws: 28, ps: 984, r15: 270, r25: 90, r70: 220, fcst: true },
-  ].map((p) => ({ ...p, lon: p.lon + (shift || 0) })));
+  // 기상청 실제 경로(typ_data 2022년 11호). 9월 4일 21시를 '현재'로 두고 뒤는 실제 지나간 길을 예상경로처럼 보여 준다.
+  // 70% 확률반경(r70)은 과거 자료에 없어 샘플용 예시값(12·24·36·48시간 = 70·110·160·220km).
+  const pts = [
+    { lon: 124.6, lat: 25.1, label: '9월 4일 3시', tmef: '202209031800', dir: 'NNW', sp: 11, ps: 940, ws: 47, r15: 430, r25: 180, r70: 0, loc: '타이완 타이베이 동쪽 약 310 km 부근 해상', fcst: false },
+    { lon: 124.5, lat: 26, label: '9월 4일 9시', tmef: '202209040000', dir: 'N', sp: 18, ps: 940, ws: 47, r15: 430, r25: 180, r70: 0, loc: '타이완 타이베이 동북동쪽 약 320 km 부근 해상', fcst: false },
+    { lon: 124.8, lat: 27, label: '9월 4일 15시', tmef: '202209040600', dir: 'NNE', sp: 26, ps: 935, ws: 49, r15: 430, r25: 180, r70: 0, loc: '타이완 타이베이 북동쪽 약 390 km 부근 해상', fcst: false },
+    { lon: 124.6, lat: 27.7, label: '9월 4일 21시', tmef: '202209041200', dir: 'NNE', sp: 12, ps: 935, ws: 49, r15: 430, r25: 180, r70: 0, loc: '타이완 타이베이 북동쪽 약 420 km 부근 해상', fcst: false },
+    { lon: 124.9, lat: 29.8, label: '9월 5일 9시', tmef: '202209050000', dir: 'N', sp: 24, ps: 930, ws: 50, r15: 430, r25: 180, r70: 70, loc: '서귀포 남남서쪽 약 410 km 부근 해상', fcst: true },
+    { lon: 126.6, lat: 32.4, label: '9월 5일 21시', tmef: '202209051200', dir: 'NNE', sp: 30, ps: 940, ws: 47, r15: 420, r25: 170, r70: 110, loc: '서귀포 남쪽 약 100 km 부근 해상', fcst: true },
+    { lon: 130.5, lat: 36.5, label: '9월 6일 9시', tmef: '202209060000', dir: 'NE', sp: 62, ps: 965, ws: 37, r15: 390, r25: 170, r70: 160, loc: '울릉도 남남서쪽 약 120 km 부근 해상', fcst: true },
+    { lon: 136.7, lat: 44.4, label: '9월 6일 21시', tmef: '202209061200', dir: 'NNE', sp: 94, ps: 980, ws: 29, r15: 0, r25: 0, r70: 220, loc: '일본 삿포로 서북서쪽 약 400 km 부근 해상', fcst: true },
+  ];
   S.typhoon = {
-    name: "6호 태풍 '장미' 예상경로",
-    issues: [
-      { tmfc: '', label: '28일 04시 발표(최신)', points: mk(0) },
-      { tmfc: '', label: '27일 22시 발표', points: mk(0.6) },
-    ],
+    name: '제11호 태풍 힌남노',
+    issues: [{ tmfc: '', label: '9월 4일 22시 발표(샘플)', points: pts }],
     sel: 0,
     places: [],   // 지명표시(원+이름표)
     ...DEF,   // 지도 색·반경 스타일·지형·남한 강조 기본값(굽힌 배포 기본값 우선)
@@ -199,11 +200,15 @@ function setTyphoonDefaultView() {
   if (isTyphoonCompare() && S.typhoon && Array.isArray(S.typhoon.compare)) {
     for (const c of S.typhoon.compare) { if (c && c.show && Array.isArray(c.points)) acc.push(...c.points); }
   }
-  if (acc.length) {
+  const sample = S.typhoon && !S.typhoon.fromApi && !isTyphoonCompare();
+  if (sample) { lo0 = 120; lo1 = 134; la0 = 25.2; la1 = 40.2; }   // 샘플(힌남노): 현재 위치~한반도를 적당히 크게 — 끝 예상점은 화면 밖으로 빠져나감
+  else if (acc.length) {
     for (const p of acc) { if (p.lon == null || p.lat == null) continue; lo0 = Math.min(lo0, p.lon); lo1 = Math.max(lo1, p.lon); la0 = Math.min(la0, p.lat); la1 = Math.max(la1, p.lat); }
   } else { lo0 = 100; lo1 = 150; la0 = 8; la1 = 47; }
-  const mlon = (lo1 - lo0) * 0.3 + 5, mlat = (la1 - la0) * 0.3 + 5;   // 여백(라인 전체가 여유있게 보이도록)
-  lo0 -= mlon; lo1 += mlon; la0 -= mlat; la1 += mlat;
+  if (!sample) {
+    const mlon = (lo1 - lo0) * 0.3 + 5, mlat = (la1 - la0) * 0.3 + 5;   // 여백(라인 전체가 여유있게 보이도록)
+    lo0 -= mlon; lo1 += mlon; la0 -= mlat; la1 += mlat;
+  }
   const box = [[lo0, la1], [lo1, la1], [lo0, la0], [lo1, la0]].map(([lo, la]) => projLL(lo, la));
   const xs = box.map((p) => p[0]), ys = box.map((p) => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
