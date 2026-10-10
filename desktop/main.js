@@ -6,7 +6,7 @@
 //   웹판용 Python 헬퍼(3720)와 포트가 달라 같이 켜져 있어도 충돌하지 않는다. 내장 시작에 실패하면 Python 헬퍼로 대체.
 const { app, BrowserWindow, Menu, shell, protocol, ipcMain, dialog, session, screen } = require('electron');
 const { initialWindowBounds } = require('./window-layout');
-const { readDataPortalKey, privateKeyCallerOk } = require('./private-config');
+const { readDataPortalKey, readMapboxToken, mapboxTokenOk, privateKeyCallerOk } = require('./private-config');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -390,6 +390,12 @@ ipcMain.on('wcg:helper', (e) => { e.returnValue = { url: helperUrl, kind: helper
 // 별도 입력 없는 공공데이터포털 기본 키. 일반 자동 점검에서는 실제 키를 전달하지 않는다.
 ipcMain.on('wcg:data-key', (e) => {
   e.returnValue = privateKeyCallerOk(e, win) && (!TEST_MODE || process.env.WCG_TEST_DATA_KEY === '1') ? readDataPortalKey(__dirname) : '';
+});
+// Mapbox 기본 토큰(가벼운 지도 위성 사진 — 개인 주소가 없을 때, desktop/private/mapbox.token). preload가 invoke로 묻는다(sendSync는 받는 곳 없는 옛 메인이면 창이 멈춘다).
+// 자동 점검에서는 실제 토큰을 주지 않는다 — WCG_TEST_MAPBOX_TOKEN(가짜 pk. 값)이 있으면 그 값(tests/gl-satellite.boot-eval.js — 요청은 합성 타일로)
+ipcMain.handle('wcg:mapbox-token', (e) => {
+  if (!privateKeyCallerOk(e, win)) return '';
+  return TEST_MODE ? mapboxTokenOk(process.env.WCG_TEST_MAPBOX_TOKEN) : readMapboxToken(__dirname);
 });
 // 밝기(테마)가 바뀌면 창 버튼(최소화·최대화·닫기) 바탕·기호 색도 제목줄에 맞춘다. 색은 #hex 만 받는다.
 const HEX = /^#[0-9a-f]{3,8}$/i;

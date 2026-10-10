@@ -47,7 +47,10 @@ test.before(async () => {
       '-frames:v', '3', '-pix_fmt', 'rgba', path.join(SRC, 'p%d.png')], { windowsHide: true });
     if (g.status !== 0) throw new Error('테스트 PNG 생성 실패: ' + g.stderr);
   }
-  srv = W.createWnsServer({ ffmpegPath: FFMPEG, framesDir: FRAMES, aeDryRun: true, fontsInstall: false, buildAeJsx: stubJsx });
+  // AE 설치 목록·실행 중인 AE는 가짜로(이 PC 환경과 떼어 놓음 — AE가 여러 판 깔려 있고 켜진 게 없으면 choose 응답으로 빠진다).
+  // 앱이 고른 경로(aePath = process.execPath)가 목록에 있어야 dry-run까지 간다
+  srv = W.createWnsServer({ ffmpegPath: FFMPEG, framesDir: FRAMES, aeDryRun: true, fontsInstall: false, buildAeJsx: stubJsx,
+    listAfterFx: () => [{ path: process.execPath, name: 'After Effects (시험)' }], findRunningAfterFx: async () => null });
   const port = await srv.listen(0);
   assert.equal(srv.port, port);
   base = 'http://127.0.0.1:' + port;

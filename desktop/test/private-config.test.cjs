@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const {readDataPortalKey,privateKeyCallerOk}=require('../private-config');
+const {readDataPortalKey,readMapboxToken,mapboxTokenOk,privateKeyCallerOk}=require('../private-config');
 test('private key reads only bounded single-token files; missing/malformed files are safe',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'wcg-private-config-'));
   try{
@@ -13,6 +13,20 @@ test('private key reads only bounded single-token files; missing/malformed files
     for(const invalid of ['not a key','x'.repeat(5000),'<html>failed response</html>']){
       fs.writeFileSync(file,invalid);assert.equal(readDataPortalKey(dir),'');
     }
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('Mapbox default token: only a bounded public pk. token line; secret sk. tokens, URLs and junk are refused',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'wcg-private-config-'));
+  try{
+    assert.equal(readMapboxToken(dir),'');
+    fs.mkdirSync(path.join(dir,'private'));
+    const file=path.join(dir,'private','mapbox.token');
+    fs.writeFileSync(file,String.fromCharCode(0xFEFF)+' pk.TEST-ONLY.fake_token-1\r\n');
+    assert.equal(readMapboxToken(dir),'pk.TEST-ONLY.fake_token-1');
+    for(const invalid of ['sk.TEST-ONLY.secret_token','https://api.mapbox.com/styles/v1/a/b?access_token=pk.TESTONLYfake','pk.TEST ONLY','pk.x','pk.'+'x'.repeat(5000)]){
+      fs.writeFileSync(file,invalid);assert.equal(readMapboxToken(dir),'',invalid.slice(0,40));
+    }
+    assert.equal(mapboxTokenOk(undefined),'');assert.equal(mapboxTokenOk('pk.TESTONLYfake'),'pk.TESTONLYfake');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
 test('private key IPC accepts only the local main app frame',()=>{

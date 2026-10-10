@@ -12,6 +12,19 @@ function readDataPortalKey(desktopDir) {
     return /^[A-Za-z0-9+/%=_-]{16,2048}$/.test(key) ? key : '';
   } catch (_) { return ''; } // 오류/로그에 파일 내용·키를 싣지 않는다.
 }
+// Mapbox 기본 토큰(desktop/private/mapbox.token — 한 줄). 가벼운 지도 위성 사진의 기본 출처(js/gl-basemap.js glbSatBuiltinUrl — 개인 주소가 없을 때).
+// 웹앱(렌더러)에 넘기므로 공개용 토큰(pk.)만 받는다 — 비밀 토큰(sk.)·다른 글은 ''. 데이터 키처럼 설치 파일에서 꺼낼 수는 있다(Mapbox에서 URL 제한 권장).
+function mapboxTokenOk(v) {
+  const t = String(v == null ? '' : v).trim();   // trim은 맨 앞 BOM(U+FEFF)도 지운다
+  return /^pk\.[A-Za-z0-9._-]{8,2048}$/.test(t) ? t : '';
+}
+function readMapboxToken(desktopDir) {
+  try {
+    const file = path.join(desktopDir, 'private', 'mapbox.token');
+    if (fs.statSync(file).size > 4096) return '';
+    return mapboxTokenOk(fs.readFileSync(file, 'utf8'));
+  } catch (_) { return ''; } // 오류/로그에 파일 내용·토큰을 싣지 않는다.
+}
 function privateKeyCallerOk(e, win) {
   try {
     const frame = e.senderFrame;
@@ -19,4 +32,4 @@ function privateKeyCallerOk(e, win) {
       String(frame.url || '').startsWith('app://weathercg/');
   } catch (_) { return false; }
 }
-module.exports = { readDataPortalKey, privateKeyCallerOk };
+module.exports = { readDataPortalKey, readMapboxToken, mapboxTokenOk, privateKeyCallerOk };

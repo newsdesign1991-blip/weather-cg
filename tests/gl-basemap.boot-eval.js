@@ -32,12 +32,17 @@ const alignNow = () => {
   return +worst.toFixed(4);
 };
 try {
-  // 1) 오프라인이면: 곧바로 파란 지도로 + 까닭 + 다시 시도 단추
+  // 1) 오프라인이고 이 PC에 받아 둔 타일도 없으면: (데스크톱 디스크 캐시 길은 한 번 해 본 뒤) 파란 지도로 + 까닭 + 다시 시도 단추
+  //    받기(tileFetch)를 전부 실패로 — 점검 창은 실제로는 온라인이라 그대로 두면 받아 버린다
   Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
-  await pickBm('gl');
-  out.offline = { state: _glb.state, why: _glb.why, blue: q('#typhoonOcean').style.display !== 'none' && q('#typhoonLand').style.display !== 'none',
-    glHidden: q('#glMap').style.display === 'none', retryBtn: q('#bmGlRetry').style.display !== 'none', ui: q('#bmGlState').textContent, status: q('#status').textContent };
-  delete navigator.onLine;   // 원래 값으로
+  const origTF = window.tileFetch;
+  window.tileFetch = async () => { throw new Error('net'); };
+  try {
+    await pickBm('gl');
+    await waitGl(30000);
+    out.offline = { state: _glb.state, why: _glb.why, blue: q('#typhoonOcean').style.display !== 'none' && q('#typhoonLand').style.display !== 'none',
+      glHidden: q('#glMap').style.display === 'none', retryBtn: q('#bmGlRetry').style.display !== 'none', ui: q('#bmGlState').textContent, status: q('#status').textContent, proto: _glb.proto };
+  } finally { window.tileFetch = origTF; delete navigator.onLine; }   // 원래 값으로
   // 2) 다시 시도 → 엔진·타일을 받아 준비
   const t0 = performance.now();
   q('#bmGlRetry').click();
@@ -47,6 +52,10 @@ try {
   if (out.net) {
     out.ready = { state: _glb.state, ms: Math.round(_glb.readyMs), wall: Math.round(performance.now() - t0), dataGlb: q('#bgMapT').getAttribute('data-glb'),
       hidden: ['#typhoonOcean', '#typhoonLand', '#typhoonKrBase', '#typhoonRelief'].map((s) => s + ':' + (q(s).style.display || 'show') + ':' + q(s).getAttribute('data-glbhid')) };
+    // 위성 사진(기본)을 골랐는데 Mapbox 주소도 기본 토큰도 없음(점검 = 토큰 안 줌) → 벡터만 + 까닭 한 줄·주소 칸·흐린 위성 칸·알림
+    glbUi();
+    out.ready.noSrc = { note: q('#bmGlSatNote').textContent, mbxBox: q('#bmMbxBox').style.display, miss: q('#bmGlSat button[data-glsat="1"]').classList.contains('miss'),
+      status: q('#status').textContent, sat: _glb.live.__sat, basemap: S.typhoon.basemap, tok: typeof wcgDesktop.mapboxToken === 'function' ? wcgDesktop.mapboxToken() : null };
     closePop();
     // 3) 정렬 — 앱 typhoonXY(아트보드 px)와 MapLibre 화면 투영. 끌기·휠은 그 호출 직후(같은 프레임) 바로 잰다
     out.align = { live: alignNow() };

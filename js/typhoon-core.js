@@ -73,6 +73,7 @@ function _camUnprojectRaw(sx, sy) {
 // 태풍 데이터 시드(샘플: 2022년 11호 '힌남노'). 실제 연동 시 기상청 API가 issues를 채운다.
 const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'satdark', nowIdx: null, labelSel: null,
   trackMode: 'full', lineColor: '#E5231E', lineWidth: 5,
+  glSat: 1,   // 가벼운 지도(basemap 'gl') 바탕: 1 = 위성 사진(넣어 둔 Mapbox 주소 — 없으면 벡터만) / 0 = 벡터만 (js/gl-basemap.js glbSetSat)
   iconMode: 'image', iconScale: 1.25,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 125%)
   glowOn: 1, glowStr: 0.5, glowCol: '',   // 아이콘 글로우: 켜기 / 강도(0~1) / 색('' 이면 아이콘색 따라감)
   sidoShow: 1, sidoCol: '', sidoW: 0.8, sidoOp: 0.55,   // 남한 시도 구분선: 켜기 / 색('' 이면 강조 선색 따라감) / 굵기 / 투명도
@@ -125,7 +126,8 @@ function typhoonRangeWindow(pts) {
 }
 // 경위도 격자 켜기 — 지도 배경마다 따로(사용자 10-10: 밝은·어두운 위성지도는 기본 끔, 파란 지도 등은 기본 켬).
 // 위성이면 T.gridShowSat(없으면 0), 그 밖은 T.gridShow(없으면 1). 눈 단추는 지금 배경의 값만 바꾼다.
-function typhoonGridIsSat(T) { const bm = (T && T.basemap) || 'blue'; return bm === 'satellite' || bm === 'satdark'; }
+// 가벼운 지도(gl)는 위성 사진을 깔 때(고른 값 + Mapbox 주소 — js/gl-basemap.js glbSatOn)만 위성과 같게, 벡터만이면 파란 지도처럼.
+function typhoonGridIsSat(T) { const bm = (T && T.basemap) || 'blue'; return bm === 'satellite' || bm === 'satdark' || (bm === 'gl' && glbSatOn(T)); }
 function typhoonGridOn(T) { if (!T) return 0; return typhoonGridIsSat(T) ? (T.gridShowSat == null ? 0 : T.gridShowSat) : (T.gridShow == null ? 1 : T.gridShow); }
 function typhoonGridToggle(T) { const k = typhoonGridIsSat(T) ? 'gridShowSat' : 'gridShow'; T[k] = typhoonGridOn(T) ? 0 : 1; return T[k]; }
 // 라인 모드(비교 지도 제외) — 경로 시각 라벨·반경 없이 단색선(지난 길 실선 → 예상 점선) + 움직이는 선두 아이콘 하나.
@@ -144,7 +146,7 @@ function typhoonStyleDefaults() {
   if (baked.lineWidth == null) { out.iconScale = TYPHOON_DEFAULTS.iconScale; out.lineColor = '#E5231E'; out.lineWidth = TYPHOON_DEFAULTS.lineWidth; }
   return out;
 }
-const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'bands', 'iconMode', 'iconScale', 'trackMode', 'lineColor', 'lineWidth', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridShowSat', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
+const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'glSat', 'bands', 'iconMode', 'iconScale', 'trackMode', 'lineColor', 'lineWidth', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridShowSat', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
 // 34노트(=r15) 위험구역 여유(버퍼) km — JTWC의 '34 KNOT WIND DANGER AREA'는 풍역+오차버퍼라 실제 풍역보다 크다. 이 값을 r15에 더해 크게 그린다.
 // 태풍 스타일(색·반경·지형·남한강조)을 굽힌 기본값으로 맞춘다 — 모든 해상도가 같은 색을 쓰게(진입·부팅 시).
 // 단, 작업마다 정하는 값(라인 모드·선 색/굵기·아이콘 크기)은 이미 있으면 보존 — F5·지도 전환에도 유지(파일 열기와 같게).

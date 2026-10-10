@@ -144,6 +144,11 @@
   .basemapPop .bmGlState[data-state="ready"] { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
   .basemapPop .bmGlState[data-state="fail"] { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, transparent); }
   .basemapPop .bmGl .bmApply { margin-bottom: 2px; }
+  /* 바탕 [위성 사진 | 벡터만](glbSetSat) — 사이드바 공용 세그먼트(.mode)를 팝오버 크기로. 아래 한 줄 = 위성 사진을 못 까는 까닭 */
+  .basemapPop .bmGlSat { margin: 0 0 4px; }
+  .basemapPop .bmGlSat button { flex: 1 1 0; min-width: 0; height: 28px; min-height: 0; padding: 0 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .basemapPop .bmGlSat button.miss { opacity: .55; }   /* 위성 사진을 골랐지만 지금은 벡터(출처 없음·못 받음) — 까닭은 아래 한 줄 */
+  .basemapPop .bmGlSatNote { margin: 4px 2px 2px; color: var(--on-surface, #eef); opacity: .85; }
   #exportMask { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--surface-c, #0e1626) 88%, #000);
     opacity: 0; pointer-events: none; transition: opacity .32s cubic-bezier(.4,0,.2,1); }
   #exportMask.on { opacity: 1; pointer-events: auto; }

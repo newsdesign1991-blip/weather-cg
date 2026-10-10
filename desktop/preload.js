@@ -5,6 +5,10 @@ let helper = { url: null, kind: null, ver: 0 };
 try { helper = ipcRenderer.sendSync('wcg:helper') || helper; } catch (e) {}
 let dataPortalKey = '';
 try { dataPortalKey = ipcRenderer.sendSync('wcg:data-key') || ''; } catch (e) {}
+// Mapbox 기본 공개 토큰(desktop/private/mapbox.token) — 비동기로 한 번(받는 곳 없는 옛 메인이면 곧바로 거절 → ''. sendSync는 그때 창이 멈춘다).
+// 보통은 앱 스크립트보다 먼저 온다. 늦으면 js/boot.js가 mapboxTokenReady()를 기다려 가벼운 지도를 다시 맞춘다
+let mapboxToken = '';
+const mapboxTokenReady = ipcRenderer.invoke('wcg:mapbox-token').then((t) => { mapboxToken = typeof t === 'string' ? t : ''; return !!mapboxToken; }, () => false);
 
 // 창 닫기 전 묻기(main.js·desktop/close-guard.js) — 메인이 닫기를 막고 물으면 웹앱이 건 콜백(onCloseAsk)을 부른다.
 // 웹앱이 아직 안 걸었으면(부팅 전·로드 실패 안내 화면) 물을 작업이 없으니 바로 'close' — 메인의 시간 제한(5초)을 기다리지 않게.
@@ -18,6 +22,8 @@ ipcRenderer.on('wcg:close-ask', (_e, id) => {
 contextBridge.exposeInMainWorld('wcgDesktop', {
   isDesktop: true,
   dataPortalKey,              // 비공개 번들 설정에서 읽은 기본 키(화면·프로젝트·로그에 출력하지 않음)
+  mapboxToken: () => mapboxToken,             // Mapbox 기본 공개 토큰(pk. — 가벼운 지도 위성 사진, js/gl-basemap.js glbSatBuiltinUrl). 아직 안 왔거나 없으면 ''. 화면·프로젝트·로그에 출력하지 않음
+  mapboxTokenReady: () => mapboxTokenReady,   // 토큰이 오면 true(없음·옛 메인 = false) — 약속은 함수 반환값이어야 contextBridge를 건넌다
   helperUrl: helper.url,       // 내장 헬퍼면 http://127.0.0.1:3721
   helperKind: helper.kind,     // 'embedded' | 'external'
   platform: process.platform,

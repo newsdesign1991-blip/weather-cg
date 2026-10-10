@@ -5,6 +5,9 @@ MapLibre GL JS 5.24.0 (오픈소스, BSD-3-Clause — 같은 폴더 LICENSE.txt)
 - 쓰는 곳: js/gl-basemap.js — 태풍 지도 배경 '가벼운 지도 (WebGL · 시험)'을 고를 때만 불러온다(부팅 때는 안 읽음).
 - 지도 자료: OpenFreeMap 벡터 타일(https://tiles.openfreemap.org/planet — 키·가입 없음).
   출처 표기: © OpenMapTiles · 지도 자료 © OpenStreetMap 기여자 · OpenFreeMap
+- 위성 사진(선택, 2026-10-10): 사용자가 넣어 둔 Mapbox 주소의 그림 타일(Static Tiles·v4 래스터 — 토큰은 그 주소에만).
+  출처 표기: 지도 © Mapbox © OpenStreetMap · 위성 사진 © Maxar
 - 판 올리기: 새 판의 dist/maplibre-gl.js 와 LICENSE.txt 로 바꾸고 위 판·sha256 을 고친 뒤
-  WCG_BOOT_CHECK=1 node --test tests/gl-basemap.test.cjs 로 확인한다.
+  WCG_BOOT_CHECK=1 node --test tests/gl-basemap.test.cjs tests/tile-prefetch.test.cjs 로 확인한다
+  (tile-prefetch는 MapLibre의 타일 배율 규칙 코드가 그대로인지 본다 — 바뀌면 js/gl-basemap.js glbPrefetchUrls를 다시 맞춘다).
 - 설치판을 만들 때 vendor/ 폴더를 함께 담아야 한다(없으면 가벼운 지도만 못 쓰고 파란 지도로 그린다).
