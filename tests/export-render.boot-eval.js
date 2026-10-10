@@ -159,6 +159,16 @@ function refOf(key, labelId) {
 
 // ===== 작업 꾸미기 =====
 const COLS = ['#FA2E1E', '#3A6FEE', '#FFC800'], BRUSH_COL = '#00E81E', SEA_COL = '#0C46DC';
+// 태풍 경로는 시험이 직접 넣는다(옛 샘플 '장미' 경로) — 앱의 첫 샘플(지금은 힌남노)은 한반도를 크게 보여 주려고
+// 끝 예상점·반경이 일부러 화면 밖으로 나가서, '태풍 장은 프레임 끝에 닿지 않는다' 점검을 할 수 없다.
+const TY_PTS = [
+  { lon: 137.2, lat: 19.4, label: '28일 03시', cat: 1, ws: 19, ps: 998, r15: 180, r25: 0, r70: 0, fcst: false },
+  { lon: 136.3, lat: 20.6, label: '28일 15시', cat: 1, ws: 21, ps: 996, r15: 200, r25: 0, r70: 60, fcst: true },
+  { lon: 135.0, lat: 22.3, label: '29일 03시', cat: 2, ws: 27, ps: 990, r15: 240, r25: 70, r70: 90, fcst: true },
+  { lon: 133.4, lat: 24.2, label: '29일 15시', cat: 2, ws: 29, ps: 985, r15: 260, r25: 90, r70: 130, fcst: true },
+  { lon: 131.7, lat: 26.0, label: '30일 03시', cat: 2, ws: 30, ps: 980, r15: 280, r25: 100, r70: 170, fcst: true },
+  { lon: 130.2, lat: 27.8, label: '31일 03시', cat: 2, ws: 28, ps: 984, r15: 270, r25: 90, r70: 220, fcst: true },
+];
 function rootPt(node) { const bb = node.getBBox(); const m = svg.getScreenCTM().inverse().multiply(node.getScreenCTM()); const p = new DOMPoint(bb.x + bb.width / 2, bb.y + bb.height / 2).matrixTransform(m); return [p.x, p.y, bb]; }
 const frameRect = () => (S.res === '1920x1080-vf' && _vfPanelRect) ? _vfPanelRect : { x: 0, y: 0, w: 1920, h: 1080 };
 const onFrame = (p, pad) => { const r = frameRect(); return p[0] > r.x + pad && p[0] < r.x + r.w - pad && p[1] > r.y + pad && p[1] < r.y + r.h - pad; };
@@ -171,6 +181,10 @@ async function setup(cfg) {
   S.sggOn = 1; S.realOn = 1; S.sidoOn = 1; S.showBg = 1;
   (S.anim ||= {}).reveal = 'dissolve'; S.anim.tracks = [];
   const typh = isTyphoon();
+  if (typh && S.typhoon) {   // 시험 경로 + 경로 전체가 여백 두고 들어오는 화면(샘플이 아니라고 표시해야 자동 맞춤을 쓴다)
+    Object.assign(S.typhoon, { issues: [{ tmfc: '', label: '시험 경로', points: TY_PTS.map((p) => ({ ...p })) }], sel: 0, nowIdx: null, fromApi: true });
+    setTyphoonDefaultView();
+  }
   const F = fills(); for (const k of Object.keys(F)) delete F[k];
   S.seaFills = {};
   brushStrokes().length = 0;
