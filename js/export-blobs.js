@@ -75,7 +75,9 @@ const keepLayers = (clone, keep) => { for (const k of ALL_LAYERS) if (!keep.incl
 
 // ── 프로젝트를 '그림(PNG)'으로 저장 — 파일 탐색기에서 지도 미리보기가 뜨고, 그 PNG를 그대로 다시 불러온다.
 // 작업 JSON을 PNG의 tEXt 청크(keyword 'wcgwork')에 base64로 숨겨 넣는다. 한 파일로 미리보기+편집 둘 다.
-async function previewPng(maxW) {
+// opt.badge = 오른쪽 아래에 앱 아이콘(icon-512.png)을 얹는다 — 탐색기에서 그냥 그림이 아니라 '우리 작업 파일'인 걸 알아보게(사용자 10-10).
+// 그림은 미리보기일 뿐(불러오기는 tEXt 의 작업 JSON)이라 아이콘이 작업 내용에 섞이지 않는다. 아이콘을 못 읽으면 아이콘 없이 저장.
+async function previewPng(maxW, opt) {
   const [W, H] = RES[S.res].size;
   const k = Math.min(1, maxW / W), w = Math.round(W * k), h = Math.round(H * k);
   brushFinalize();   // 브러쉬 이미지 갱신이 남았으면 먼저 끝낸다
@@ -87,7 +89,16 @@ async function previewPng(maxW) {
   const xml = new XMLSerializer().serializeToString(clone);
   const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml); await img.decode();   // data: URL — 폰트 확실 적용
   const c = document.createElement('canvas'); c.width = w; c.height = h;
-  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0, w, h);
+  if (opt && opt.badge) {
+    try {
+      const ic = new Image(); ic.src = 'icon-512.png'; await ic.decode();
+      const s = Math.round(Math.min(w, h) * 0.2), m = Math.round(Math.min(w, h) * 0.035);   // 탐색기 작은 썸네일에서도 보이게 짧은 변의 20%
+      g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = Math.round(s * 0.12); g.shadowOffsetY = Math.round(s * 0.04);
+      g.drawImage(ic, w - m - s, h - m - s, s, s); g.restore();
+    } catch (e) { /* 아이콘 없이 */ }
+  }
   return await new Promise((r) => c.toBlob(r, 'image/png'));
 }
 const _b64enc = (s) => { const u = new TextEncoder().encode(s); let b = ''; for (const x of u) b += String.fromCharCode(x); return btoa(b); };

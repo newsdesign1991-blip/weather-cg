@@ -108,7 +108,7 @@ async function saveProjectRun(saveAs) {
   const day = (() => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`; })();
   let blob, suggested = `날씨CG_${day}.wcg.png`, types = [{ description: '날씨 CG 작업 파일(그림)', accept: { 'image/png': ['.png'] } }];
   try {
-    const png = new Uint8Array(await (await previewPng(1280)).arrayBuffer());
+    const png = new Uint8Array(await (await previewPng(1280, { badge: true })).arrayBuffer());   // 오른쪽 아래 앱 아이콘 — 우리 작업 파일 표시
     blob = new Blob([pngEmbed(png, 'wcgwork', _b64enc(JSON.stringify(snap)))], { type: 'image/png' });
   } catch (e) {
     blob = new Blob([JSON.stringify(snap, null, 1)], { type: 'application/json' });
