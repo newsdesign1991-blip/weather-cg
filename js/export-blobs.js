@@ -94,7 +94,7 @@ async function previewPng(maxW, opt) {
   if (opt && opt.badge) {
     try {
       const ic = new Image(); ic.src = 'icon-512.png'; await ic.decode();
-      const s = Math.round(Math.min(w, h) * 0.2), m = Math.round(Math.min(w, h) * 0.035);   // 탐색기 작은 썸네일에서도 보이게 짧은 변의 20%
+      const s = Math.round(Math.min(w, h) * 0.32), m = Math.round(Math.min(w, h) * 0.04);   // 탐색기 작은 썸네일에서도 잘 보이게 짧은 변의 32%(사용자 10-10: 더 크게)
       g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = Math.round(s * 0.12); g.shadowOffsetY = Math.round(s * 0.04);
       g.drawImage(ic, w - m - s, h - m - s, s, s); g.restore();
     } catch (e) { /* 아이콘 없이 */ }
