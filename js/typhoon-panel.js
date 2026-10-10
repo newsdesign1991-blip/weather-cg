@@ -287,7 +287,7 @@ function buildTyphoonPanel() {
   const gridW = $('#typGridW'); if (gridW) gridW.value = (T.gridW == null ? 0.6 : T.gridW);
   const gridOp = $('#typGridOp'), gridOpV = $('#typGridOpV'); const gov = (T.gridOp == null ? 0.18 : T.gridOp);
   if (gridOp) gridOp.value = gov; if (gridOpV) gridOpV.textContent = Math.round(gov * 100) + '%';
-  const gridEye = $('#typGridEye'); if (gridEye) gridEye.classList.toggle('off', (T.gridShow == null ? 1 : T.gridShow) === 0);
+  const gridEye = $('#typGridEye'); if (gridEye) gridEye.classList.toggle('off', !typhoonGridOn(T));   // 지금 지도 배경의 격자(위성지도는 기본 끔)
   // 3D 기울임 (전역 S.map3d)
   { const m = S.map3d || {}; const on = $('#tilt3dOn'); if (on) on.checked = !!m.on;
     const dg = $('#tilt3dDeg'), dv = $('#tilt3dDegV'); const d = (m.deg == null ? 14 : m.deg); if (dg) dg.value = d; if (dv) dv.textContent = d + '°';
@@ -689,7 +689,7 @@ function wireTyphoonPanel() {
   bindCol('#typGridCol', '#typGridColHex', (v) => T().gridCol = v);
   const gridW = $('#typGridW'); if (gridW) gridW.oninput = () => { pushUndo('typgridw'); T().gridW = +gridW.value; renderTyphoon(); };
   const gridOp = $('#typGridOp'); if (gridOp) gridOp.oninput = () => { pushUndo('typgridop'); T().gridOp = +gridOp.value; const v = $('#typGridOpV'); if (v) v.textContent = Math.round(gridOp.value * 100) + '%'; renderTyphoon(); };
-  const gridEye = $('#typGridEye'); if (gridEye) gridEye.onclick = () => { pushUndo(); const t = T(); const cur = (t.gridShow == null ? 1 : t.gridShow); t.gridShow = cur === 0 ? 1 : 0; gridEye.classList.toggle('off', t.gridShow === 0); renderTyphoon(); };
+  const gridEye = $('#typGridEye'); if (gridEye) gridEye.onclick = () => { pushUndo(); const on = typhoonGridToggle(T()); gridEye.classList.toggle('off', !on); renderTyphoon(); };   // 지금 배경의 격자만
   // 3D 기울임 (전역)
   const t3On = $('#tilt3dOn'); if (t3On) t3On.onchange = () => { pushUndo(); (S.map3d ||= { deg: 14, persp: 2.2 }).on = t3On.checked ? 1 : 0; applyTilt(); };
   const t3Deg = $('#tilt3dDeg'); if (t3Deg) t3Deg.oninput = () => { pushUndo('tilt3d'); (S.map3d ||= {}).deg = +t3Deg.value; const v = $('#tilt3dDegV'); if (v) v.textContent = t3Deg.value + '°'; applyTilt(); };

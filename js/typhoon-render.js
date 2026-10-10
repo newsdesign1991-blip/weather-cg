@@ -684,7 +684,7 @@ function _renderTyphoon() {
   // 경위도 격자선(바다) — bgMapT 첫 자식이라 육지에 가려 바다에만 보인다. 10도 간격 직선(메르카토르).
   const grid = $('#typhoonGrid');
   if (grid) {
-    const showG = on && T && (T.gridShow == null ? 1 : T.gridShow);
+    const showG = on && T && typhoonGridOn(T);   // 위성지도는 기본 끔(typhoon-core.js)
     if (showG) {
       const step = 10;
       if (grid.getAttribute('data-step') !== String(step)) {

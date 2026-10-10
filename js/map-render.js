@@ -174,6 +174,7 @@ function wireBasemap() {
     if (!S.typhoon) return;
     pushUndo(); S.typhoon.basemap = b.dataset.bm;
     renderTyphoon();
+    { const eye = $('#typGridEye'); if (eye) eye.classList.toggle('off', !typhoonGridOn(S.typhoon)); }   // 격자 켜기는 배경마다 따로(위성은 기본 끔)
     if (b.dataset.bm === 'mapbox') { syncOpts(); updateMapboxTiles(); status('Mapbox 실시간 타일' + (mapboxTileTemplate() ? '' : ' — URL을 붙여넣으세요'), true); }
     else { pop.style.display = 'none'; status({ satellite: '밝은 위성지도', satdark: '어두운 위성지도' }[b.dataset.bm] || '파란 지도', true); }
   }; });

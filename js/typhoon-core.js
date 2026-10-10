@@ -123,6 +123,11 @@ function typhoonRangeWindow(pts) {
   }
   return { lo, hi };
 }
+// 경위도 격자 켜기 — 지도 배경마다 따로(사용자 10-10: 밝은·어두운 위성지도는 기본 끔, 파란 지도 등은 기본 켬).
+// 위성이면 T.gridShowSat(없으면 0), 그 밖은 T.gridShow(없으면 1). 눈 단추는 지금 배경의 값만 바꾼다.
+function typhoonGridIsSat(T) { const bm = (T && T.basemap) || 'blue'; return bm === 'satellite' || bm === 'satdark'; }
+function typhoonGridOn(T) { if (!T) return 0; return typhoonGridIsSat(T) ? (T.gridShowSat == null ? 0 : T.gridShowSat) : (T.gridShow == null ? 1 : T.gridShow); }
+function typhoonGridToggle(T) { const k = typhoonGridIsSat(T) ? 'gridShowSat' : 'gridShow'; T[k] = typhoonGridOn(T) ? 0 : 1; return T[k]; }
 // 라인 모드(비교 지도 제외) — 경로 시각 라벨·반경 없이 단색선(지난 길 실선 → 예상 점선) + 움직이는 선두 아이콘 하나.
 function typhoonLineMode() { return !isTyphoonCompare() && !!(S.typhoon && S.typhoon.trackMode === 'line'); }
 // 애니가 실제로 훑을 구간 — 두 모드 같음('표시 날짜 범위'). 10-09 사용자: 라인 모드도 일반 모드처럼 지나온 길 다음에
@@ -139,7 +144,7 @@ function typhoonStyleDefaults() {
   if (baked.lineWidth == null) { out.iconScale = TYPHOON_DEFAULTS.iconScale; out.lineColor = '#E5231E'; out.lineWidth = TYPHOON_DEFAULTS.lineWidth; }
   return out;
 }
-const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'bands', 'iconMode', 'iconScale', 'trackMode', 'lineColor', 'lineWidth', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
+const TYPHOON_STYLE_KEYS = ['landFill', 'landStroke', 'krShow', 'krFill', 'krStroke', 'krStrokeW', 'krOpacity', 'krStrokeOp', 'terrain', 'iconCol', 'basemap', 'bands', 'iconMode', 'iconScale', 'trackMode', 'lineColor', 'lineWidth', 'glowOn', 'glowStr', 'glowCol', 'sidoShow', 'sidoCol', 'sidoW', 'sidoOp', 'gridShow', 'gridShowSat', 'gridCol', 'gridW', 'gridOp', 'legendOrder', 'legendHidden', 'r15Buf'];
 // 34노트(=r15) 위험구역 여유(버퍼) km — JTWC의 '34 KNOT WIND DANGER AREA'는 풍역+오차버퍼라 실제 풍역보다 크다. 이 값을 r15에 더해 크게 그린다.
 // 태풍 스타일(색·반경·지형·남한강조)을 굽힌 기본값으로 맞춘다 — 모든 해상도가 같은 색을 쓰게(진입·부팅 시).
 // 단, 작업마다 정하는 값(라인 모드·선 색/굵기·아이콘 크기)은 이미 있으면 보존 — F5·지도 전환에도 유지(파일 열기와 같게).
