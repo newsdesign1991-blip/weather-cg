@@ -1,4 +1,4 @@
-/* [모듈] js/export-dialog.js — '이미지로 추출' 팝업(CG 구성 모양: 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 저장(폴더 고르기 → 오늘날짜_날씨CG메이커 폴더 → 카드 이름 그대로 PNG, 폴더 고르기를 못 쓰면 ZIP) */
+/* [모듈] js/export-dialog.js — '이미지로 추출' 팝업(CG 구성 모양: 묶음 3판·아이콘 카드·빠른 선택·고른 것 기억)과 저장(폴더 고르기 → 오늘날짜_날씨CG메이커 폴더 → 카드 이름 그대로 PNG, 폴더 고르기를 못 쓰면 ZIP)·저장 뒤 폴더 열기 */
 'use strict';
 
 // ===================== 이미지로 추출 팝업 =====================
@@ -30,6 +30,9 @@ const EX_PICK_KEY = 'wcg_export_pick';   // 고른 항목(이 PC의 편의 기�
 const EX_GROUP_BOX = { one: '#exChoicesOne', base: '#exChoicesBase', mark: '#exChoicesMark' };
 let exPick = null;                       // 고른 항목 key Set
 let _exOpener = null, _exLastDir = null, _exBusy = false, _exStop = false, _exToastT = 0, _exDone = null;
+// 마지막으로 저장한 그림(첫 장) 경로 — 바닥 요약의 [폴더 열기](데스크톱 — js/cg-setup.js outRevealFind). 다음 이미지 렌더를 시작하면 비운다.
+// _exRevealSeq: 렌더마다 올림 — ZIP 내려받기(저장창 뒤에 끝남)의 늦은 경로가 다음 렌더 자리에 끼지 않게
+let _exReveal = '', _exRevealSeq = 0;
 
 function exportIsOpen() { const ov = document.getElementById('exportOv'); return !!(ov && ov.classList.contains('on')); }
 function exLoadPick() {
@@ -102,14 +105,15 @@ function syncExport() {
   const sum = $('#exSummary'); if (!sum || _exBusy) return;
   sum.textContent = ''; sum.classList.remove('exSumWarn');
   if (_exDone) { exSummaryDone(sum, _exDone); return; }
-  if (!plan.length) { sum.textContent = '뽑을 것을 골라 주세요'; return; }
+  if (!plan.length) { sum.textContent = '뽑을 것을 골라 주세요'; exRevealBtn(sum); return; }
   const b = document.createElement('b'); b.textContent = `${keys.length}개 · ${plan.length}장`;
   const pickTxt = typeof window.showDirectoryPicker === 'function'
     ? ` — 렌더하면 폴더를 골라 그 안에 ${exportFolderName()} 폴더를 만들어요` + (_exLastDir && _exLastDir.name ? ` · 지난번: ${_exLastDir.name}` : '')
     : ` — 렌더하면 ${exportFolderName()}.zip 으로 받아요(풀면 같은 폴더)`;
   sum.append(b, document.createTextNode(pickTxt));
+  exRevealBtn(sum);
 }
-// 완료 표시(체크 아이콘 + 저장한 곳)
+// 완료 표시(체크 아이콘 + 저장한 곳 + [폴더 열기])
 function exSummaryDone(sum, d) {
   sum.textContent = '';
   const ic = document.createElement('span'); ic.className = 'exSumIcon'; ic.setAttribute('aria-hidden', 'true');
@@ -119,6 +123,17 @@ function exSummaryDone(sum, d) {
   sum.classList.toggle('exSumWarn', !d.ok);
   const b = document.createElement('b'); b.textContent = d.head;
   sum.append(ic, b, document.createTextNode(d.tail || ''));
+  exRevealBtn(sum);
+}
+// 바닥 요약 끝의 [폴더 열기] — 마지막 저장 경로를 알 때만(데스크톱). 누르면 탐색기에서 그 폴더를 열고 첫 장을 골라 둔다. 못 열면(옮김·지움) 거둔다
+function exRevealBtn(sum) {
+  if (!_exReveal || _exBusy) return;
+  const p = _exReveal;
+  const ob = document.createElement('button');
+  ob.type = 'button'; ob.className = 'exSumOpen'; ob.title = '탐색기에서 열기 — ' + p;
+  ob.innerHTML = OUT_OPEN_ICON + '<span>폴더 열기</span>';   // 정적 아이콘 문자열
+  ob.onclick = async () => { if (!(await outRevealOpen(p)) && _exReveal === p) { _exReveal = ''; syncExport(); } };
+  sum.append(ob);
 }
 
 function openExport() {
@@ -198,9 +213,11 @@ function exErrText(e) {
   return (e && m[e.name]) || (e && e.message) || String(e);
 }
 // 저장 대상 — 폴더(한 장씩 바로 쓰기) 또는 ZIP(끝에 한 번 내려받기, 안 이름 '폴더/파일.png' → 풀면 같은 폴더)
+// hint(파일) = 저장한 뒤 그 파일 경로를 메인에 물을 단서(js/cg-setup.js outRevealFind — 고른 폴더 이름 + 하위 폴더, ZIP은 내려받기 이름)
 function exDirTarget(dir, rootName, folder) {
   return {
     label: `${rootName || '고른 폴더'} › ${folder}`,
+    hint: (file) => ({ name: file, dir: rootName, sub: [folder] }),
     // 'file' = 같은 이름 파일, 'dir' = 같은 이름 폴더(덮어쓸 수 없다 — 그 장은 번호를 붙인다), false = 없음
     exists: async (name) => { try { await dir.getFileHandle(name); return 'file'; } catch (e) { return (e && e.name === 'TypeMismatchError') ? 'dir' : false; } },
     write: async (name, blob) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(blob); await w.close(); },
@@ -210,6 +227,7 @@ function exZipTarget(folder) {
   const files = [];
   return {
     zip: true, label: `${folder}.zip (다운로드 폴더)`,
+    hint: () => ({ name: `${folder}.zip`, download: true }),
     exists: async () => false,
     write: async (name, blob) => { files.push({ name: `${folder}/${name}`, data: await blobBytes(blob) }); },
     finish: async () => { if (files.length) download(zipStore(files, new Date()), `${folder}.zip`); },
@@ -299,6 +317,7 @@ async function renderExport(opt) {
     else if (dirClash.length) await exRenumber(dirClash, target, plan);   // 같은 이름 '폴더'는 덮어쓸 수 없다 — 그 장만 번호
   }
   _exStop = false; _exDone = null;
+  _exReveal = ''; const rvSeq = ++_exRevealSeq;   // 지난 [폴더 열기]는 이번 렌더부터 안 보인다
   exSetBusy(true);
   // 작업 중 효과(js/busy-fx.js) — 제목줄 '이미지로 추출' 색 띠·팝업 본문 흐름. 렌더 버튼은 '중지'로 써야 해서 비활성으로 안 바꾼다
   const fx = ['#exportBtn', $('#exportOv .cgsBody')];
@@ -328,6 +347,13 @@ async function renderExport(opt) {
   if (err) _exDone = { ok: false, head: '렌더 실패', tail: ` — ${exErrText(err)}` + (n ? ` · ${n}장은 저장됨(${where})` : '') };
   else if (_exStop && n < plan.length) _exDone = { ok: n > 0, head: n ? `중지 · ${n}장 저장했어요` : '중지했어요', tail: n ? ` · ${where}` : '' };
   else _exDone = { ok: true, head: '저장했어요', tail: ` · ${where} · ${n}장` };
+  // 저장한 곳 — 첫 장의 경로를 메인에 물어 바닥 요약에 [폴더 열기](데스크톱). n > 0이면 plan[0]을 썼다(한 장씩 차례로 쓰고, 실패·중지는 그 뒤에서 멈춘다).
+  // 폴더에 바로 쓴 것은 곧바로 답이 와서 요약과 함께 뜬다. ZIP은 내려받기 저장창에서 저장을 마친 뒤에 뜬다(실패로 ZIP을 안 받았으면 묻지 않음).
+  if (n > 0 && target.hint && !(target.zip && err)) {
+    const h = target.hint(plan[0].file);
+    const got = outRevealFind(h).then((p) => { if (p && rvSeq === _exRevealSeq) { _exReveal = p; if (exportIsOpen() && !_exBusy) syncExport(); } return p; });
+    if (!h.download) await got;
+  }
   syncExport();
   if (!exportIsOpen()) { if (_exDone.ok) flashDone('이미지 저장 완료'); else status(_exDone.head + _exDone.tail, true, 'err'); }
   else if (_exDone.ok) fxArrive(['#exportBtn', $('#exSummary')]);   // 도착 — 제목줄 버튼 빛 + 저장 안내 떠오름

@@ -1,4 +1,4 @@
-/* [모듈] js/cg-setup.js — 해상도(RES)·CG 구성 창, 상태 표시(status·flash), 출력 폴더(IndexedDB·prepareOutput) */
+/* [모듈] js/cg-setup.js — 해상도(RES)·CG 구성 창, 상태 표시(status·flash), 출력 폴더(IndexedDB·prepareOutput), 렌더 결과 폴더 열기(outReveal*) */
 'use strict';
 
 // ===================== 추출 =====================
@@ -294,17 +294,75 @@ async function uniqueName(dir, base, ext) {
 }
 // 저장 대상 준비(렌더 전에 호출) — 1) 저장 폴더 바로쓰기, 2) 저장 대화상자, 3) 다운로드.
 // 반환 {name, write(bytes)} 또는 null(사용자 취소).
+// 저장할 곳이 정해지면 지난 [폴더 열기]를 숨기고(outRevealStart), 다 쓰면 그 파일 경로를 찾아 다시 띄운다(outRevealSaved — 아래).
 async function prepareOutput(base, ext, mime, label) {
   const dir = await getOutDir();   // 지정해 둔 폴더가 있을 때만(폴더 선택창은 안 띄움)
   if (dir) {
     const name = await uniqueName(dir, base, ext);
-    return { name, write: async (bytes) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(bytes); await w.close(); } };
+    const rv = outRevealStart();
+    return { name, write: async (bytes) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(bytes); await w.close(); await outRevealSaved(rv, { name, dir: dir.name }); } };
   }
   if (window.showSaveFilePicker) {
     try {
       const h = await window.showSaveFilePicker({ id: 'cgOut', suggestedName: base + '.' + ext, types: [{ description: label || '파일', accept: { [mime || 'application/octet-stream']: ['.' + ext] } }] });
-      return { name: h.name, write: async (bytes) => { const w = await h.createWritable(); await w.write(bytes); await w.close(); } };
+      const rv = outRevealStart();
+      return { name: h.name, write: async (bytes) => { const w = await h.createWritable(); await w.write(bytes); await w.close(); await outRevealSaved(rv, { name: h.name }); } };
     } catch (e) { if (e.name === 'AbortError') return null; }
   }
-  return { name: base + '.' + ext + ' (다운로드 폴더)', write: async (bytes) => download(new Blob([bytes], { type: mime || 'application/octet-stream' }), base + '.' + ext) };
+  const rv = outRevealStart();
+  // 내려받기는 데스크톱에서 저장창이 뒤따른다 — 끝날 때까지 기다리지 않고, 저장되면 그때 버튼을 띄운다
+  return { name: base + '.' + ext + ' (다운로드 폴더)', write: async (bytes) => { download(new Blob([bytes], { type: mime || 'application/octet-stream' }), base + '.' + ext); outRevealSaved(rv, { name: base + '.' + ext, download: true }); } };
+}
+
+// ── 렌더 결과 '폴더 열기'(데스크톱, 2026-10-12) ──
+// 영상·이미지를 저장하면 완료 안내 옆에 [폴더 열기] — 누르면 탐색기에서 그 폴더를 열고 방금 만든 파일을 골라 둔다.
+// 웹앱은 저장한 파일의 실제 경로를 모른다(저장 폴더·저장창 핸들은 이름만 준다) → 메인이 기록해 둔 경로에서 이름으로 찾는다
+// (desktop/reveal.js — 고른 폴더·저장창 파일·내려받기 완료). 찾은 경로만 열 수 있고(메인이 다시 확인), 여는 건 탐색기 표시뿐이다.
+// 웹판·옛 데스크톱(main/preload를 안 바꾼 판 — Ctrl+R만 한 개발판 포함)은 경로를 알 길이 없어 버튼을 띄우지 않는다. 경로를 못 찾은 저장도 그렇다.
+//  · 영상 렌더(MP4·PNG 시퀀스·MXF·MOV) — 타임라인 #tlInfo 옆 #tlOpenDir. 마지막 저장 위치를 다음 렌더(저장할 곳을 정한 순간)까지 기억한다.
+//  · 이미지로 렌더 — 팝업 바닥 요약(js/export-dialog.js — 같은 outRevealFind·outRevealOpen).
+const OUT_OPEN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5V7a2 2 0 012-2h3.6l2 2.2h7.4a2 2 0 012 2v1.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M3.6 18.4l2.6-7a1.6 1.6 0 011.5-1h12.6a1.1 1.1 0 011 1.5l-2.4 6.4a1.6 1.6 0 01-1.5 1H4.6a1 1 0 01-1-.9z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>';
+let _outLast = null;   // 마지막 영상 저장 { path, name } — #tlOpenDir
+let _outSeq = 0;       // 영상 렌더마다 올림 — 늦게 찾은 경로(내려받기 끝)가 다음 렌더의 자리에 끼지 않게
+function outRevealOk() { const d = window.wcgDesktop; return !!(d && typeof d.savedPath === 'function' && typeof d.revealPath === 'function'); }
+// 방금 저장한 파일 경로 — hint { name, dir?(고른 폴더 핸들 이름), sub?[하위 폴더], download? }. 모르면 ''.
+// 폴더·저장창에 바로 쓴 것은 메인이 곧바로 답한다(3초 넘으면 모름 — 렌더 끝 안내를 붙잡지 않게). 내려받기는 저장될 때까지(최대 15분) 기다린다.
+async function outRevealFind(hint) {
+  if (!outRevealOk() || !hint || !hint.name) return '';
+  const h = Object.assign({}, hint, hint.download ? { waitMs: 15 * 60 * 1000 } : {});
+  try {
+    const ask = window.wcgDesktop.savedPath(h);
+    const p = hint.download ? await ask : await Promise.race([ask, new Promise((r) => setTimeout(() => r(''), 3000))]);
+    return typeof p === 'string' ? p : '';
+  } catch (e) { return ''; }
+}
+// 탐색기에서 열기(그 파일을 골라 둔 채). 못 열면 까닭을 알리고 false
+async function outRevealOpen(p) {
+  if (!p || !outRevealOk()) return false;
+  let r = null;
+  try { r = await window.wcgDesktop.revealPath(p); } catch (e) { r = null; }
+  if (r && r.ok) { status('탐색기에서 열었어요 · ' + p, false, 'ok'); return true; }
+  status(r && r.err === 'gone' ? '저장한 파일이 그 자리에 없어요 — 옮기거나 지웠나요?' : '폴더를 열지 못했어요', true, 'warn');
+  return false;
+}
+// 영상 렌더가 저장할 곳을 정했다 — 지난 버튼은 숨긴다. 이 렌더의 번호를 돌려준다(prepareOutput)
+function outRevealStart() { _outSeq++; _outLast = null; outRevealSync(); return _outSeq; }
+// 영상 저장 끝 — 경로를 찾아 버튼을 띄운다(그새 다음 렌더가 시작됐으면 버림). 찾은 경로 또는 ''
+async function outRevealSaved(seq, hint) {
+  const p = await outRevealFind(hint);
+  if (seq !== _outSeq || !p) return '';
+  _outLast = { path: p, name: hint.name };
+  outRevealSync();
+  return p;
+}
+function outRevealSync() {
+  const b = $('#tlOpenDir'); if (!b) return;
+  const p = _outLast ? _outLast.path : '';
+  b.hidden = !p;
+  b.title = p ? '탐색기에서 열기 — ' + p : '';
+}
+// #tlOpenDir 누름(wire) — 못 열면(옮김·지움) 버튼을 거둔다
+async function outRevealClick() {
+  const last = _outLast; if (!last) return;
+  if (!(await outRevealOpen(last.path)) && _outLast === last) { _outLast = null; outRevealSync(); }
 }

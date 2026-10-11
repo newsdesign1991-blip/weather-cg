@@ -328,6 +328,50 @@ ipcMain.handle('wcg:tile-get', (e, u) => {
   return tileCacheGet().get(String(u || ''));
 });
 
+// ---------- 렌더 결과 '폴더 열기'(2026-10-12) ----------
+// 영상·이미지를 저장하면 웹앱이 완료 안내 옆에 [폴더 열기]를 띄운다(js/cg-setup.js outReveal*·js/export-dialog.js). 웹앱은 저장한 파일의 실제 경로를 모르므로
+// (저장 폴더·저장창은 File System Access 핸들 — 이름만 준다) 메인이 경로를 기록해 두었다가 이름으로 찾아 준다(desktop/reveal.js):
+//  · File System Access 권한 확인('fileSystem' — 고른 폴더·저장창 파일의 경로가 같이 온다. 하위 파일은 폴더 권한을 같이 써서 폴더 경로만)
+//  · 내려받기 완료(데스크톱 내려받기는 저장창이 뜬다 — 이미지 ZIP 받기 등)
+// 여는 것은 이번 실행에 저장한 곳(저장창 파일·고른 폴더 아래·내려받은 파일)이면서 지금 실제로 있는 것만, shell.showItemInFolder로만(실행 파일 열기 없음).
+// 부르는 쪽은 메인 창 주 프레임만. 점검 모드(WCG_TEST)는 탐색기를 열지 않고 기록만('[reveal-test]' 줄 — desktop/test/reveal-flow-check.cjs).
+const { createRevealRegistry } = require('./reveal');
+const reveals = createRevealRegistry();
+function watchSavedPaths(ses) {
+  // 권한 확인 처리기를 두면 'fileSystem' 상태는 이 답이 정한다 → 늘 허용. 처리기가 없을 때도 Electron은 요청을 묻는 창 없이 모두 허용했다
+  // (앱을 다시 켠 뒤 저장 폴더를 다시 허락받는 단계가 있었을 뿐 — 이제는 그 단계 없이 곧바로). 크로미움이 막는 폴더(AppData 등) 규칙은 따로라 그대로.
+  // 다른 권한은 처리기가 없을 때(Electron 기본)와 같은 답: 'deprecated-sync-clipboard-read'만 거절(electron_permission_manager.cc CheckPermissionWithDetails).
+  ses.setPermissionCheckHandler((_wc, permission, origin, d) => {
+    if (permission === 'fileSystem') {
+      if (d && d.fileAccessType === 'writable' && String(origin || '').replace(/\/+$/, '') === APP_ORIGIN) reveals.noteGrant(String(d.filePath || ''), !!d.isDirectory);
+      return true;
+    }
+    return permission !== 'deprecated-sync-clipboard-read';
+  });
+  // 내려받기 — 저장 경로를 바꾸지 않는다(그대로 저장창). 끝나면 실제 경로를 기록
+  ses.on('will-download', (_e, item, wc) => {
+    if (!win || win.isDestroyed() || !wc || wc.id !== win.webContents.id) return;
+    let done = null;
+    try { done = reveals.noteDownloadStart(item.getFilename()); } catch (err) { return; }
+    item.once('done', (_ev, state) => { let p = ''; try { p = item.getSavePath(); } catch (err) { /* 없음 */ } done(state, p); });
+  });
+}
+// 방금 저장한 파일 경로 — { name, dir?, sub?, download?, waitMs? } → 경로 또는 ''
+ipcMain.handle('wcg:saved-path', (e, h) => {
+  if (!privateKeyCallerOk(e, win)) return '';
+  return reveals.find(h);
+});
+// 탐색기에서 그 폴더를 열고 파일을 골라 둔다 → { ok: true, path } 또는 { ok: false, err: 'denied'|'gone'|'not-allowed' }
+ipcMain.handle('wcg:reveal-path', (e, p) => {
+  if (!privateKeyCallerOk(e, win)) return { ok: false, err: 'denied' };
+  const fp = typeof p === 'string' ? p : '';
+  if (!fp || !path.isAbsolute(fp) || !exists(fp)) return { ok: false, err: 'gone' };
+  if (!reveals.allowed(fp)) return { ok: false, err: 'not-allowed' };
+  if (TEST_MODE) { console.log('[reveal-test] ' + JSON.stringify(fp)); return { ok: true, path: fp, test: true }; }
+  shell.showItemInFolder(fp);
+  return { ok: true, path: fp };
+});
+
 // ---------- 닫기 전 묻기(저장하지 않은 변경·렌더 중) ----------
 // 메인 창 닫기(X·Alt+F4·작업표시줄 닫기·앱 종료)는 막고 웹앱에 묻는다. 무엇을 물을지·팝업은 웹앱(js/project-io.js closeAsk),
 // 순서와 안전장치(웹앱이 5초 안에 답이 없으면 그냥 닫기, 팝업 하나)는 desktop/close-guard.js.
@@ -417,6 +461,7 @@ if (!TEST_MODE && !app.requestSingleInstanceLock()) {
     buildMenu();
     protocol.handle('app', serveApp);
     session.defaultSession.on('file-system-access-restricted', (_e, d, cb) => cb(fsPickAllowed(d && d.path) ? 'allow' : 'tryAgain'));   // 폴더 고르기 — 위 fsPickAllowed
+    watchSavedPaths(session.defaultSession);   // 렌더 결과 '폴더 열기' — 저장한 경로 기록(위)
     if (TEST_MODE) { createWindow(); return; }   // 점검 모드: 헬퍼 없이 화면만
     if (!(await startEmbeddedHelper())) {   // 내장 실패 → 웹판과 같은 Python 헬퍼를 켜서 쓴다
       helperUrl = `http://127.0.0.1:${EXT_PORT}`; helperKind = 'external';

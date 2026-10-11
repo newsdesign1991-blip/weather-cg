@@ -46,6 +46,14 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
   // 지도 타일 받기(디스크 캐시 — desktop/tile-cache.js). 지도 타일 서버 주소만, 그 밖은 'denied'(웹앱이 그냥 fetch로).
   // 돌려주는 것: { ok: true, status, type, body(Uint8Array), hit, stale? } 또는 { ok: false, err: 'denied'|'net'|'timeout'|'http'|'too-big', status? }
   tileGet: (u) => ipcRenderer.invoke('wcg:tile-get', String(u || '')),
+  // 렌더 결과 '폴더 열기'(main.js·desktop/reveal.js) — 방금 저장한 파일 경로 찾기와 탐색기에서 골라 보이기.
+  // savedPath({ name, dir?(고른 폴더 이름), sub?[하위 폴더], download?, waitMs? }) → 경로 또는 ''(모름)
+  // revealPath(경로) → { ok: true, path } 또는 { ok: false, err: 'denied'|'gone'|'not-allowed' } — 이번 실행에 저장한 곳만, 실행 파일 열기 없음
+  savedPath: (h) => ipcRenderer.invoke('wcg:saved-path', {
+    name: String((h && h.name) || ''), dir: h && h.dir != null ? String(h.dir) : '',
+    sub: Array.isArray(h && h.sub) ? h.sub.slice(0, 8).map(String) : [], download: !!(h && h.download), waitMs: Math.floor(+(h && h.waitMs)) || 0,
+  }),
+  revealPath: (p) => ipcRenderer.invoke('wcg:reveal-path', String(p || '')),
   // 창 닫기 전 묻기 — cb(번호)는 곧바로 closeReply(번호, 'close'|'wait')로, 팝업에서 고르면 closeReply(번호, 'close'|'stay')로 답한다(한 번만 건다)
   onCloseAsk: (cb) => { closeAskCb = typeof cb === 'function' ? cb : null; },
   closeReply: (id, act) => closeReply(id, act),

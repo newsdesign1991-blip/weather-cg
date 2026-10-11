@@ -19,3 +19,6 @@ Thumbs.db
 
 # 사용자 PC 바로 가기
 *.lnk
+
+# 시험이 잠깐 만드는 폴더(desktop/test/reveal-flow-check.cjs — 끝나면 지움)
+/desktop/test/.tmp-reveal-*/
