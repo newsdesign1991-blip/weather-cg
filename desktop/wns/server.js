@@ -11,6 +11,8 @@
 //   POST /api/ae {sid,aePath,...}      -> jsx 만들고 AfterFX -r 로 실행 → {"ok":true,"ae":..,"fontsOk":bool}, 본문 16MB까지
 //                                         mode:'geolayers' + geo 가 있으면 GEOlayers 길(geo-jsx.js — GeoJSON 파일도 보내기 폴더에), 없으면 지금 jsx 그대로
 //   GET  /api/geo-caps                 -> {"ok":true,"geolayers":{"installed":bool,"version":"1.17.0"|null,"ae":[13.6,26.9]|null}} (내장판만 — 파이썬 헬퍼엔 없어 404 = 앱은 지금 방식만)
+//   POST /api/cancel?sid=              -> {"ok":true} 렌더 취소(앱의 [렌더 취소]·Esc, 10-12): 그 세션 프레임 폴더를 지우고, 뒤에 늦게 온 프레임·인코딩은 409,
+//                                         돌던 ffmpeg 는 멈춘다. 'ae…' 세션(AE 보내기 원본)은 400. 본문은 읽지 않음(내장판만 — 파이썬 헬퍼엔 없어 404, 앱은 무시)
 // 출처(Origin): 없음=허용('*'), GitHub Pages·app://weathercg·localhost/127.0.0.1/[::1]=허용(반사+Vary), 'null'=GET만, 그 밖 403(CORS 헤더 없음).
 // 본문 길이: Transfer-Encoding 이 있거나 Content-Length 가 숫자 하나가 아니면 모든 요청 400(본문 안 읽음), 상한 있는 POST 는 길이 없으면 411 · 넘으면 413.
 // 외부 npm 패키지 없이 Node 내장 모듈만 쓴다.
@@ -249,21 +251,25 @@ function movArgs(pattern, tail, out, ffmpeg = 'ffmpeg') {
 
 // ── 자식 프로세스 ──
 
-// subprocess.run(capture_output) 흉내 — 실행 실패만 reject, 종료코드는 그대로 돌려준다
-function runCapture(cmd, args, timeoutMs = 0) {
+// subprocess.run(capture_output) 흉내 — 실행 실패만 reject, 종료코드는 그대로 돌려준다.
+// signal(AbortSignal)이 끊기면 프로세스를 멈춘다(렌더 취소 — 종료코드는 null 로 돌아온다)
+function runCapture(cmd, args, timeoutMs = 0, signal = null) {
   return new Promise((resolve, reject) => {
     let cp;
     try { cp = spawn(cmd, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }); } catch (e) { reject(e); return; }
     const out = [], err = [];
     let timer = null;
+    const stop = () => { try { cp.kill(); } catch (e) { /* 무시 */ } };
+    const done = () => { if (timer) clearTimeout(timer); if (signal) signal.removeEventListener('abort', stop); };
     cp.stdout.on('data', (b) => out.push(b));
     cp.stderr.on('data', (b) => err.push(b));
-    cp.on('error', (e) => { if (timer) clearTimeout(timer); reject(e); });
+    cp.on('error', (e) => { done(); reject(e); });
     cp.on('close', (code) => {
-      if (timer) clearTimeout(timer);
+      done();
       resolve({ code, stdout: Buffer.concat(out), stderr: Buffer.concat(err) });
     });
-    if (timeoutMs > 0) timer = setTimeout(() => { try { cp.kill(); } catch (e) { /* 무시 */ } }, timeoutMs);
+    if (timeoutMs > 0) timer = setTimeout(stop, timeoutMs);
+    if (signal) { if (signal.aborted) stop(); else signal.addEventListener('abort', stop, { once: true }); }
   });
 }
 
@@ -495,7 +501,7 @@ function createWnsServer(opts = {}) {
     findRunningAfterFx: opts.findRunningAfterFx || findRunningAfterFx,
     buildAeJsx: opts.buildAeJsx || null,
     ensureSuiteFonts: opts.ensureSuiteFonts || ensureSuiteFonts,
-    runFfmpeg: opts.runFfmpeg || ((args) => runCapture(args[0], args.slice(1))),   // windowsHide = CREATE_NO_WINDOW
+    runFfmpeg: opts.runFfmpeg || ((args, o) => runCapture(args[0], args.slice(1), 0, o && o.signal)),   // windowsHide = CREATE_NO_WINDOW · o.signal = 렌더 취소
     spawnAe: opts.spawnAe || null,
     kmaTimeout: opts.kmaTimeout || 20000,
     kmaProxyConfig: opts.kmaProxyConfig || undefined,
@@ -550,6 +556,13 @@ function createWnsServer(opts = {}) {
 
   const ffExists = () => !!cfg.ffmpegPath && fs.existsSync(cfg.ffmpegPath);
 
+  // 렌더 취소(POST /api/cancel — 10-12): 취소한 sid(최근 64개)와 인코딩 중인 sid → AbortController.
+  // 앱은 워커를 멈춘 뒤 부르지만 이미 출발한 프레임 요청이 뒤늦게 올 수 있다 → 그 sid 의 프레임0 이 아닌 프레임·인코딩은 받지 않고(409) 폴더를 다시 지운다.
+  // 같은 sid 의 프레임0(새 세션)이 오면 취소 표시를 푼다(앱의 sid 는 'wns'+시각이라 다시 쓰이지 않는다)
+  const cancelled = new Set(), encoding = new Map();
+  const CANCELLED = { ok: false, error: '취소된 렌더' };
+  const markCancelled = (sid) => { cancelled.delete(sid); cancelled.add(sid); if (cancelled.size > 64) cancelled.delete(cancelled.values().next().value); };
+
   async function doGet(req, res, p, query) {
     req.resume();
     if (p === '/ping') return send(res, 200, { ok: true, ff: ffExists(), ver: cfg.helperVer, embedded: true });
@@ -594,17 +607,41 @@ function createWnsServer(opts = {}) {
         if (ext !== 'png' && ext !== 'jpg') ext = 'png';
         const d = path.join(cfg.framesDir, checkSid(sid));
         if (idx === 0n) {
+          cancelled.delete(sid);   // 새 세션 — 취소 표시를 푼다
           await pruneFrames(cfg.framesDir, sid);   // 새 세션 시작 — 오래된 세션 폴더 정리(지금 sid 는 제외)
           if (isDir(d)) await rmTree(d);
+        } else if (cancelled.has(sid)) {   // 취소한 렌더의 늦은 프레임 — 쓰지 않는다
+          req.resume();
+          return send(res, 409, CANCELLED);
         }
         await fsp.mkdir(d, { recursive: true });
-        await pipeline(req, fs.createWriteStream(path.join(d, 'f_' + fmt05(idx) + '.' + ext)));   // 큰 본문도 스트리밍 저장
+        try {
+          await pipeline(req, fs.createWriteStream(path.join(d, 'f_' + fmt05(idx) + '.' + ext)));   // 큰 본문도 스트리밍 저장
+        } finally {
+          if (cancelled.has(sid)) await rmTree(d);   // 받는 사이 취소됐으면(앱이 끊어 반쯤 쓴 파일 포함) 방금 만든 폴더째 지운다
+        }
+        if (cancelled.has(sid)) return send(res, 409, CANCELLED);
+        return send(res, 200, { ok: true });
+      }
+
+      if (p === '/api/cancel') {
+        req.resume();   // 본문은 쓰지 않는다(쌓지 않고 읽어 버림)
+        const q = PU.parseQs(query);
+        const sid = checkSid(safe((q.sid || ['s'])[0]));
+        if (sid.startsWith('ae')) return send(res, 400, { ok: false, error: '렌더 세션만 취소할 수 있습니다' });   // AE 보내기 원본(저장한 AE 프로젝트가 참조)은 지우지 않는다
+        markCancelled(sid);
+        const ac = encoding.get(sid); if (ac) ac.abort();   // 인코딩 중이면 ffmpeg 를 멈춘다(finalize 가 409 로 마무리·결과 파일 지움)
+        await rmTree(path.join(cfg.framesDir, sid));
         return send(res, 200, { ok: true });
       }
 
       if (p === '/api/finalize') {
         const obj = pyLoadsObj(await readBody(req));
         const sid = safe(P.or(obj.sid, 's'));
+        if (cancelled.has(sid)) {   // 취소한 렌더 — 인코딩하지 않고 남은 프레임만 지운다
+          await rmTree(path.join(cfg.framesDir, sid));
+          return send(res, 409, CANCELLED);
+        }
         if (!ffExists()) {
           if (!badSid(sid)) await rmTree(path.join(cfg.framesDir, sid));   // 인코딩을 못 해도 올라온 프레임은 지운다
           return send(res, 500, { ok: false, error: 'ffmpeg.exe 없음 (헬퍼 옆에 두세요)' });
@@ -622,8 +659,15 @@ function createWnsServer(opts = {}) {
         const out = path.join(cfg.tmpDir || os.tmpdir(), 'wns_' + sid + '.' + ext);
         const pattern = path.join(d, 'f_%05d.' + fext);
         const args = mode === 'mov' ? movArgs(pattern, tail, out, cfg.ffmpegPath) : mxfArgs(pattern, tail, out, cfg.ffmpegPath);
-        const r = await cfg.runFfmpeg(args);
+        const ac = new AbortController();
+        encoding.set(sid, ac);
+        let r;
+        try { r = await cfg.runFfmpeg(args, { signal: ac.signal }); } finally { if (encoding.get(sid) === ac) encoding.delete(sid); }
         await rmTree(d);
+        if (ac.signal.aborted || cancelled.has(sid)) {   // 인코딩 중 취소 — 반쯤 만든 결과 파일을 지우고 보내지 않는다
+          await fsp.rm(out, { force: true }).catch(() => {});
+          return send(res, 409, CANCELLED);
+        }
         if (r.code !== 0 || !fs.existsSync(out)) {
           const tailErr = Array.from(pyText(r.stderr)).slice(-700).join('');
           return send(res, 500, { ok: false, error: 'ffmpeg 실패\n' + tailErr });
@@ -786,7 +830,7 @@ function createWnsServer(opts = {}) {
 module.exports = {
   createWnsServer,
   mxfArgs, movArgs, safe, afxName, listAfterFx, findRunningAfterFx, ensureSuiteFonts,
-  urlopen, decodeKmaBody, kmaHostOk, pyParseQs, pyDumps, rmTree, ntJoin, resolveFfmpeg, parseRegQuery,
+  urlopen, decodeKmaBody, kmaHostOk, pyParseQs, pyDumps, rmTree, ntJoin, resolveFfmpeg, parseRegQuery, runCapture,
   corsFor, listedAfterFx, pruneFrames, dirAlive, geoCaps, geoDirs,
   HELPER_VER, FPS, CORS, SUITE_FONTS, PY_UA, ALLOWED_ORIGINS, BODY_MAX, DEFAULT_FONTS_DIRS, PRUNE_AE_DAYS, FONT_PROBE_MS,
 };

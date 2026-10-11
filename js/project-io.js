@@ -395,7 +395,7 @@ function workMarkBoot(resumed) {
 // reply(act, 번호)는 시험에서 바꿔 끼운다 — 실제 창을 닫지 않고 흐름을 본다(tests/close-ask.boot-eval.js).
 let _closePop = null;   // { id, reply, ov, saving } — 떠 있는(또는 [저장] 중인) 닫기 물음 하나
 function closeBusyWhat() {
-  if (_exportingFrames) return 'render';
+  if (_exportingFrames && !exportCancelled()) return 'render';   // [렌더 취소]를 누른 뒤(멈추는 중)는 렌더 중이 아니다 — 끄면 이미 멈추려던 렌더라 안 묻는다
   if (_exBusy) return 'image';   // 이미지로 추출 — 한 장씩 굽고 쓰는 중(js/export-dialog.js)
   const ae = $('#aeSend'); if (ae && ae.disabled) return 'ae';   // 보내는 중 + AE 여는 중(재전송 잠금)
   return '';

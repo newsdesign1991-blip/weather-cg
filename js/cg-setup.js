@@ -293,18 +293,24 @@ async function uniqueName(dir, base, ext) {
   for (; ;) { try { await dir.getFileHandle(name); name = base + '-' + i + '.' + ext; i++; } catch (e) { return name; } }
 }
 // 저장 대상 준비(렌더 전에 호출) — 1) 저장 폴더 바로쓰기, 2) 저장 대화상자, 3) 다운로드.
-// 반환 {name, write(bytes)} 또는 null(사용자 취소).
+// 반환 {name, write(bytes), discard()} 또는 null(사용자 취소).
+// discard() = 렌더를 취소해 안 쓸 때(10-12) — 저장 대화상자는 고르는 순간 빈 파일을 만들어 두므로 그 빈 파일을 지운다.
+// 저장 폴더는 write 때 처음 만들고, 쓰기는 다 쓴 뒤 한 번에 바뀌므로(createWritable) 반쯤 쓴 파일도 안 남는다.
 async function prepareOutput(base, ext, mime, label) {
   const dir = await getOutDir();   // 지정해 둔 폴더가 있을 때만(폴더 선택창은 안 띄움)
   if (dir) {
     const name = await uniqueName(dir, base, ext);
-    return { name, write: async (bytes) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(bytes); await w.close(); } };
+    return { name, write: async (bytes) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(bytes); await w.close(); }, discard: async () => {} };
   }
   if (window.showSaveFilePicker) {
     try {
       const h = await window.showSaveFilePicker({ id: 'cgOut', suggestedName: base + '.' + ext, types: [{ description: label || '파일', accept: { [mime || 'application/octet-stream']: ['.' + ext] } }] });
-      return { name: h.name, write: async (bytes) => { const w = await h.createWritable(); await w.write(bytes); await w.close(); } };
+      return {
+        name: h.name, write: async (bytes) => { const w = await h.createWritable(); await w.write(bytes); await w.close(); },
+        // 비어 있을 때만 지운다(내용이 있으면 사용자 파일 — 건드리지 않음). 지우기를 못 하는 판이면 빈 파일 그대로
+        discard: async () => { try { if (typeof h.remove === 'function' && (await h.getFile()).size === 0) await h.remove(); } catch (e) { /* 무시 */ } },
+      };
     } catch (e) { if (e.name === 'AbortError') return null; }
   }
-  return { name: base + '.' + ext + ' (다운로드 폴더)', write: async (bytes) => download(new Blob([bytes], { type: mime || 'application/octet-stream' }), base + '.' + ext) };
+  return { name: base + '.' + ext + ' (다운로드 폴더)', write: async (bytes) => download(new Blob([bytes], { type: mime || 'application/octet-stream' }), base + '.' + ext), discard: async () => {} };
 }

@@ -1,4 +1,4 @@
-/* [모듈] js/export-video.js — 정확 MP4(베이킹)·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더(wnsRender) */
+/* [모듈] js/export-video.js — 정확 MP4(베이킹)·PNG 시퀀스, 로컬 헬퍼(WNS) 연결·상태(렌치 빨간 점·기능 확장팩 줄)·렌더(wnsRender), 렌더 취소 마무리(renderCancelled) */
 'use strict';
 
 // ===== 정확 MP4 (베이킹) =====
@@ -53,6 +53,7 @@ function buildMp4(W, H, timescale, frameDur, samples, avcc) {
 // 프레임은 원래도 그 프레임 타일을 기다려 굽지만(awaitMapboxTilesReady·glbSnap) 프레임마다 받으며 기다리면 느리고 시간 제한에 걸리면 빈 칸 — 미리 받아 두면 렌더 중엔 기다림이 없다.
 // 받은 타일은 디스크 캐시(desktop/tile-cache.js)에도 남아 다음 렌더·화면은 이 PC에서 바로. 카메라 키가 없으면(지도 고정) 그 화면 타일만이라 할 일 없음.
 // 프레임 렌더 루프(bakeMp4·exportPngSeq·exportWns)가 _exportingFrames를 켠 뒤 부른다 — 진행은 렌더 진행 막대에 '지도 미리 받는 중'.
+// [렌더 취소](10-12)면 새 타일은 더 안 받고 exportCancelCheck()가 던진다(받는 중이던 것은 캐시에만 남는다).
 async function prefetchRenderTiles(n, fps) {
   if (!isTyphoon() || !camKeys().length) return;
   const T = S.typhoon || {};
@@ -62,19 +63,37 @@ async function prefetchRenderTiles(n, fps) {
   const cams = [];
   for (let i = 0; i <= n; i++) { const c = camAt(i / fps); if (c) cams.push(c); }
   const urls = mbx ? mapboxPrefetchUrls(cams) : await glbPrefetchUrls(cams);
+  exportCancelCheck();   // 가벼운 지도는 주소 만들기(지도 준비 기다림)가 길 수 있다
   const todo = mbx ? urls.filter((u) => !_tileData[u]) : urls;
   if (!todo.length) return;
   const one = mbx ? (u) => fetchTileData(u, true) : (u) => tileFetch(u).then(() => 1, () => null);
-  let k = 0, done = 0, fail = 0;
+  let k = 0, done = 0, fail = 0, stop = false, unhook = () => {};
+  // 취소면 받던 타일(느리거나 시간 제한을 기다리는 것)을 기다리지 않고 곧바로 — 그 타일은 뒤에서 마저 받아 캐시에만, 진행 표시는 안 건드린다
+  const sig = exportCancelSignal();
+  const halted = sig ? new Promise((r) => {
+    const f = () => { stop = true; r(); };
+    if (sig.aborted) f(); else { sig.addEventListener('abort', f, { once: true }); unhook = () => sig.removeEventListener('abort', f); }
+  }) : null;
   exportProgress(0, todo.length, '지도 미리 받는 중');
-  await Promise.all(Array.from({ length: Math.min(mbx ? 12 : 8, todo.length) }, async () => {
-    while (k < todo.length) {
+  const all = Promise.all(Array.from({ length: Math.min(mbx ? 12 : 8, todo.length) }, async () => {
+    while (k < todo.length && !stop && !exportCancelled()) {
       const u = todo[k++];
       if (!(await one(u))) fail++;
-      exportProgress(++done, todo.length, '지도 미리 받는 중');
+      if (!stop) exportProgress(++done, todo.length, '지도 미리 받는 중');
     }
   }));
+  await (halted ? Promise.race([all, halted]) : all);
+  unhook();
+  exportCancelCheck();
   if (fail) status(`지도 타일 ${fail}개를 미리 못 받았어요 — 그 프레임은 렌더하면서 다시 받아요`, true, 'warn');
+}
+
+// 렌더를 취소했을 때 공통 마무리(10-12) — 저장 대상 버리기(저장 대화상자가 미리 만든 빈 파일), 정보 줄·상태 줄은 실패 알림과 다른 문구.
+// 가리개 닫기·_exportingFrames 끄기·버튼 되돌리기·미리보기 복귀는 부르는 루프의 finally(animOff·fxBusy·tlRefreshPreview)가 한다.
+async function renderCancelled(out) {
+  if (out && typeof out.discard === 'function') { try { await out.discard(); } catch (e) { /* 무시 */ } }
+  const info = $('#tlInfo'); if (info) info.textContent = '렌더를 취소했어요';
+  status('렌더를 취소했어요 — 파일은 만들지 않았어요', true);
 }
 
 async function bakeMp4() {
@@ -113,33 +132,42 @@ async function bakeMp4() {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha: false });
   const t0 = performance.now();
+  exportCancelReset();   // [렌더 취소] 신호를 새로(js/modals-notices.js) — 가리개의 버튼·Esc가 켠다
   _exportingFrames = true; showExportMask(true);
   fxBusy(fx, true);   // try 바로 앞 — 끄는 finally와 짝이 어긋나지 않게
   try {
     await prefetchRenderTiles(n, fps);   // 카메라 키가 있으면 모든 프레임 지도 타일을 먼저
     for (let i = 0; i < n; i++) {
+      exportCancelCheck();   // [렌더 취소] — 프레임마다(누르면 다음 프레임을 안 그린다)
       if (encErr) throw encErr;
       renderAnimFrame(i / fps);
       await drawExportFrame(cx, W, H);
+      exportCancelCheck();   // 한 프레임 굽기가 길 수 있다(지도·틸트) — 구운 뒤에도
       const frame = new VideoFrame(c, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       encoder.encode(frame, { keyFrame: i % (Math.round(fps) * 2) === 0 });
       frame.close();
       exportProgress(i + 1, n, 'MP4 만드는 중');
-      while (encoder.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 4));
+      while (encoder.encodeQueueSize > 8 && !exportCancelled()) await new Promise((r) => setTimeout(r, 4));
     }
     await encoder.flush();
     encoder.close();
+    exportCancelCheck();   // 마지막 인코딩 마무리 중에 눌렀어도 — 파일을 쓰기 전이면 멈춘다
     if (encErr) throw encErr;
     if (!avcc) throw new Error('디코더 설정(avcC)을 못 받았습니다');
     const blob = buildMp4(W, H, timescale, frameDur, samples, avcc);
-    await out.write(await blob.arrayBuffer()); const name = out.name;   // 저장 폴더/저장창/다운로드 (prepareOutput)
+    const bytes = await blob.arrayBuffer();
+    exportCancelCheck();
+    await out.write(bytes); const name = out.name;   // 저장 폴더/저장창/다운로드 (prepareOutput)
     const secs = (n * frameDur / timescale).toFixed(2), real = ((performance.now() - t0) / 1000).toFixed(1);
     $('#tlInfo').textContent = `${vlabel} 저장됨: ${name} · ${n}프레임 = ${secs}초 (굽는데 ${real}초)`;
     status(`${vlabel} 저장 완료 · ${name} · 정확히 ${secs}초`);
     flashDone('영상 저장 완료'); saved = true;
   } catch (e) {
-    status(`${vlabel} 저장 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${vlabel} 저장 실패`;
+    if (exportCancelled()) await renderCancelled(out);   // 취소 — 파일 안 씀(저장 창이 만든 빈 파일도 지움), 실패 알림 아님
+    else { status(`${vlabel} 저장 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${vlabel} 저장 실패`; }
   } finally {
+    if (encoder.state !== 'closed') { try { encoder.close(); } catch (_) { /* 이미 닫힘 */ } }   // 취소·실패 — 인코더를 닫아 반납
+    exportCancelReset();   // 다음 렌더 전까지 취소 표시를 내린다
     fxBusy(fx, false);
     if (btn) btn.disabled = false;
     animOff();
@@ -164,6 +192,7 @@ async function exportPngSeq() {
   if (!out) return;
 
   animStop();
+  exportCancelReset();   // [렌더 취소] 신호를 새로(js/modals-notices.js)
   _exportingFrames = true; showExportMask(true);
   const btn = $('#tlExportPng');
   btn.disabled = true;
@@ -176,20 +205,25 @@ async function exportPngSeq() {
   try {
     await prefetchRenderTiles(n, A.fps);   // 카메라 키가 있으면 모든 프레임 지도 타일을 먼저
     for (let i = 0; i <= n; i++) {
+      exportCancelCheck();   // [렌더 취소] — 프레임마다
       renderAnimFrame(i / A.fps);
       await drawExportFrame(cx, W, H);            // 카메라 3D면 지도만 워프+오버레이 평면 합성
+      exportCancelCheck();
       const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
       zipFrames.push({ name: `${defName}_${String(i).padStart(4, '0')}.png`, data: await blobBytes(blob) });
       exportProgress(i, n, 'PNG 프레임 만드는 중');
     }
+    exportCancelCheck();   // zip을 묶고 쓰기 전 마지막 확인
     const zip = zipStore(zipFrames);
     await out.write(zip); const where = out.name;
     $('#tlInfo').textContent = `${n + 1}장을 ${where} 에 저장 — 압축 풀어 ${A.fps}fps로 합치세요`;
     status(`PNG ${n + 1}장 저장 완료 → ${where}`);
     flashDone('PNG 시퀀스 저장 완료'); saved = true;
   } catch (e) {
-    status('PNG 저장 실패: ' + (e.message || e), true); $('#tlInfo').textContent = 'PNG 저장 실패';
+    if (exportCancelled()) { zipFrames.length = 0; await renderCancelled(out); }   // 취소 — 모은 프레임은 버리고 zip 안 씀
+    else { status('PNG 저장 실패: ' + (e.message || e), true); $('#tlInfo').textContent = 'PNG 저장 실패'; }
   } finally {
+    exportCancelReset();   // 다음 렌더 전까지 취소 표시를 내린다
     fxBusy(fx, false);
     btn.disabled = false;
     animOff();
@@ -382,6 +416,8 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
   if (mv) mv.disabled = true;
   const fx = [mv, '#tlToggle']; let saved = false;   // 작업 중 효과(js/busy-fx.js) — bakeMp4와 같게
   fxBusy(fx, true);
+  exportCancelReset();   // [렌더 취소] 신호를 새로(js/modals-notices.js)
+  const sig = exportCancelSignal();   // 누르면 헬퍼로 가는 요청(프레임·인코딩)을 곧바로 끊는다
   _exportingFrames = true; showExportMask(true);
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const cx = c.getContext('2d', { alpha });
@@ -393,15 +429,18 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
     // 한 프레임을 메인 스레드에서 직접 인코딩·전송(프레임0 = 헬퍼 세션 리셋용 + 워커 미지원 폴백).
     // 알파는 프리멀티플라이드(AE 동일)로 굽는다 — Uint32로 반투명 픽셀만 곱해 빠르게.
     const sendFrameMain = async (i) => {
+      exportCancelCheck();   // [렌더 취소] — 프레임마다
       renderAnimFrame(i / RF);
       await drawExportFrame(cx, W, H);
+      exportCancelCheck();
       if (alpha) {
         const id = cx.getImageData(0, 0, W, H), d = id.data, u32 = new Uint32Array(d.buffer);
         for (let q = 0; q < u32.length; q++) { const v = u32[q], a = v >>> 24; if (a === 255) continue; if (a === 0) { u32[q] = 0; continue; } const p = q << 2; d[p] = (d[p] * a + 127) / 255 | 0; d[p + 1] = (d[p + 1] * a + 127) / 255 | 0; d[p + 2] = (d[p + 2] * a + 127) / 255 | 0; }
         cx.putImageData(id, 0, 0);
       }
       const blob = await new Promise((r) => c.toBlob(r, fmt, alpha ? undefined : 0.92));
-      const resp = await fetch(WNS_HELPER + '/api/frame?sid=' + sid + '&index=' + i + '&ext=' + fext, { method: 'POST', body: blob });
+      exportCancelCheck();
+      const resp = await fetch(WNS_HELPER + '/api/frame?sid=' + sid + '&index=' + i + '&ext=' + fext, { method: 'POST', body: blob, signal: sig });
       if (!resp.ok) throw new Error('프레임 전송 실패(' + i + ')');
     };
 
@@ -426,36 +465,52 @@ async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
         const waiter = waiters.shift(); if (waiter) waiter(w); else free.push(w);
       };
       const acquire = () => (free.length ? Promise.resolve(free.pop()) : new Promise((res) => waiters.push(res)));
+      const onCancel = () => { for (const res of waiters.splice(0)) res(null); };   // 취소 — 빈 워커를 기다리던 루프를 곧바로 깨운다
+      if (sig) sig.addEventListener('abort', onCancel);
       try {
         const base = WNS_HELPER + '/api/frame?sid=' + sid + '&ext=' + fext + '&index=';
         for (let i = 1; i < n; i++) {
+          exportCancelCheck();   // [렌더 취소] — 프레임마다
           if (perr) throw perr;
           renderAnimFrame(i / RF);
           await drawExportFrame(cx, W, H);
+          exportCancelCheck();
           const buf = cx.getImageData(0, 0, W, H).data.buffer;
           const w = await acquire();
+          exportCancelCheck();
           if (perr) throw perr;
           w.postMessage({ index: i, W, H, buf, premul: alpha, url: base + i, mime: fmt, quality: alpha ? undefined : 0.92 }, [buf]);
         }
-        while (done < n && !perr) await new Promise((r) => setTimeout(r, 15));   // 남은 인코딩 마무리(프레임0 포함 n장)
+        while (done < n && !perr && !exportCancelled()) await new Promise((r) => setTimeout(r, 15));   // 남은 인코딩 마무리(프레임0 포함 n장)
+        exportCancelCheck();
         if (perr) throw perr;
-      } finally { workers.forEach((w) => w.terminate()); URL.revokeObjectURL(wURL); }
+      } finally {   // 취소·실패면 보내던 워커도 여기서 멈춘다(헬퍼 세션 지우기는 그 뒤 — 바깥 catch)
+        if (sig) sig.removeEventListener('abort', onCancel);
+        workers.forEach((w) => w.terminate()); URL.revokeObjectURL(wURL);
+      }
     } else {
       for (let i = 1; i < n; i++) { await sendFrameMain(i); exportProgress(i + 1, n, label + ' 전송 중'); }
     }
+    exportCancelCheck();   // 다 보냈어도 인코딩(/api/finalize)을 부르기 전이면 멈춘다
     exportProgress(n, n, label + ' 인코딩 중 (헬퍼)');
     const fr = await fetch(WNS_HELPER + '/api/finalize', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sid, mode, tail: 0 }),
+      body: JSON.stringify({ sid, mode, tail: 0 }), signal: sig,   // 인코딩 중에 누르면 기다림을 끊는다(헬퍼의 ffmpeg는 /api/cancel이 멈춤)
     });
     if (!fr.ok) { let er = {}; try { er = await fr.json(); } catch (_) {} throw new Error(er.error || ('헬퍼 오류 ' + fr.status)); }
     const buf = await fr.arrayBuffer();   // 인코딩된 파일 바이트
+    exportCancelCheck();
     await out.write(buf); const where = out.name;
     $('#tlInfo').textContent = `${label} 저장됨: ${where} · ${n}프레임 @29.97fps`; status(`${label} 저장 완료 → ${where}` + (fpsDiff ? ' (29.97fps로 변환됨)' : ''));
     flashDone(`${label} 렌더 완료`); saved = true;
   } catch (e) {
-    status(`${label} 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${label} 실패`;
+    if (exportCancelled()) {   // 취소 — /api/finalize는 안 부르고(불렀으면 끊음), 헬퍼에 이미 보낸 프레임(세션 폴더)을 지우게 한다.
+      // 내장 헬퍼만 아는 길 — 옛 헬퍼(파이썬)는 404라 실패해도 무시(남은 폴더는 헬퍼가 하루 뒤 정리)
+      fetch(WNS_HELPER + '/api/cancel?sid=' + sid, { method: 'POST' }).catch(() => {});
+      await renderCancelled(out);
+    } else { status(`${label} 실패: ` + (e.message || e), true); $('#tlInfo').textContent = `${label} 실패`; }
   } finally {
+    exportCancelReset();   // 다음 렌더 전까지 취소 표시를 내린다
     fxBusy(fx, false);
     if (mv) mv.disabled = false;
     animOff();
