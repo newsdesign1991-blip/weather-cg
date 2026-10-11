@@ -318,6 +318,7 @@ async function awaitMapboxTilesReady(timeout = 8000) {
   const t0 = performance.now();
   while (urls.some((u) => _tileData[u] == null)) {   // null(진행중)·undefined(미시작) 둘 다
     if (performance.now() - t0 > timeout) break;
+    if ((typeof exportCancelled === 'function' && exportCancelled())) break;   // 렌더 취소 — 타일을 더 기다리지 않는다
     await new Promise((r) => setTimeout(r, 50));
   }
 }

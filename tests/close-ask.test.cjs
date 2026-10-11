@@ -56,7 +56,8 @@ function makeCtx(o = {}) {
     },
   };
   vm.createContext(ctx);
-  vm.runInContext(`let lastWork = '', _failedWork = '', _exportingFrames = false, _exBusy = false, projFileHandle = null;
+  vm.runInContext(`let lastWork = '', _failedWork = '', _exportingFrames = false, _exBusy = false, projFileHandle = null, _exportCancel = false;
+    function exportCancelled() { return _exportCancel; }   // [렌더 취소](js/modals-notices.js) — 누른 뒤 멈추는 중
     function saveWork() { __log.autosaves++; }
     function updateUndoBtns() {} function status(m) { __status(m); }`, Object.assign(ctx, { __log: log, __status: ctx.status }));
   vm.runInContext(UNDO_SRC, ctx, { filename: 'map-build-undo.js' });
@@ -64,7 +65,7 @@ function makeCtx(o = {}) {
   ctx.applyState = (next) => { ctx.S = next; };   // 되돌리기 적용 = S 갈아끼우기만
   ctx.tossModal = fakeModal(log);
   ctx.saveProject = async () => { log.saves++; const ok = typeof ctx.saveResult === 'function' ? ctx.saveResult() : ctx.saveResult; if (ok) ctx.workMarkSaved(JSON.stringify(ctx.S), ctx.rev()); return ok; };
-  vm.runInContext('globalThis.rev = () => _workRev; globalThis.setFailed = (v) => { _failedWork = v; }; globalThis.setExporting = (v) => { _exportingFrames = v; }; globalThis.setExBusy = (v) => { _exBusy = v; }; globalThis.setLastWork = (v) => { lastWork = v; };', ctx);
+  vm.runInContext('globalThis.rev = () => _workRev; globalThis.setFailed = (v) => { _failedWork = v; }; globalThis.setExporting = (v) => { _exportingFrames = v; }; globalThis.setCancel = (v) => { _exportCancel = v; }; globalThis.setExBusy = (v) => { _exBusy = v; }; globalThis.setLastWork = (v) => { lastWork = v; };', ctx);
   const ask = (id) => ctx.closeAsk(id, (act, n) => log.replies.push([n, act]));
   const edit = (fn, tag) => { ctx.pushUndo(tag); fn(ctx.S); };
   // 키 누르기 — 창 캡처 단계 리스너에 먼저 준다. 반환: 아래(확인창·지도 단축키)로 내려가는가
@@ -269,6 +270,13 @@ test('물음 — 렌더(영상·AE 보내기) 중이면 변경이 없어도 묻�
   assert.match(md.btns.cancel.cls, /\bpri\b/, '렌더 중엔 취소가 주 버튼');
   md.btns.discard.onclick();
   assert.deepEqual(log.replies.at(-1), [1, 'close']);
+  // [렌더 취소]를 누른 뒤(멈추는 중) — 렌더 중이 아니다: 변경이 없으면 묻지 않고 바로 닫는다(10-12)
+  ctx.setCancel(true);
+  const nm = log.modals.length;
+  ask(10);
+  assert.equal(log.modals.length, nm, '물음 팝업 없음');
+  assert.deepEqual(log.replies.at(-1), [10, 'close']);
+  ctx.setCancel(false);
   ctx.setExporting(false); ctx.busyAe = true;
   ask(2); assert.equal(log.modals[1].opt.title, 'AE로 보내는 중이에요'); log.modals[1].esc();
   assert.deepEqual(log.replies.at(-1), [2, 'stay']);

@@ -21,6 +21,7 @@ function ctx(extra) {
     MAP: { proj: PROJ }, RES: { '1920x1080': { size: [1920, 1080] }, '1920x1080-vf': { size: [1920, 1080] } },
     CAM_BLEED: 1.0, Math, JSON, Promise, Set, Array, Uint8Array, TextDecoder, TextEncoder, performance: { now: () => 0 }, setTimeout,
     window: {}, _exportingFrames: false, _mbxCacheBust: '', _tileData: {}, glbActive: () => false,
+    exportCancelled: () => false, exportCancelCheck: () => {}, exportCancelSignal: () => undefined,   // [렌더 취소](js/modals-notices.js) — 여기선 안 누름(누를 때는 tests/render-cancel.test.cjs)
     camActive3d: () => false, mapboxTileTemplate: () => TMPL, isTyphoon: () => true,
     mapboxUrlRaw: () => '',   // 가벼운 지도 위성 사진 출처(넣어 둔 Mapbox 주소) — 기본은 없음(벡터만)
   }, extra || {});

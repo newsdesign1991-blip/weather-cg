@@ -1,4 +1,4 @@
-/* [모듈] js/modals-notices.js — 팝업 공통(닫힘 애니메이션·포커스 — popAnimClose·popFocusIn), 토스 카드 모달(tossModal), 공지사항(시드·작성·삭제·부팅 확인), 내보내기 진행 마스크, 확인/입력 모달(tossConfirm·tossPrompt) */
+/* [모듈] js/modals-notices.js — 팝업 공통(닫힘 애니메이션·포커스 — popAnimClose·popFocusIn), 토스 카드 모달(tossModal), 공지사항(시드·작성·삭제·부팅 확인), 내보내기 진행 마스크·렌더 취소(exportCancelReq·Esc), 확인/입력 모달(tossConfirm·tossPrompt) */
 'use strict';
 
 // ===================== 팝업 닫힘 애니메이션 (근무표 .nd-closing 과 같은 결) =====================
@@ -293,6 +293,7 @@ function exportProgress(done, total, label) {
   fxProgress(['#tlToggle', '#aeSend'], pct / 100);
 }
 // 렌더 중 스테이지 가리개 — 프레임마다 라이브 SVG를 갱신해 깜빡이므로 덮어 둔다(추출 결과엔 영향 없음).
+// 진행 막대 아래 [렌더 취소](10-12) — 누르거나 Esc면 exportCancelReq(). 가리개가 떠 있는 동안만 Esc를 받는다(exportCancelKey).
 function showExportMask(on) {
   let m = document.getElementById('exportMask');
   if (on) {
@@ -300,23 +301,77 @@ function showExportMask(on) {
     if (!m) {
       m = document.createElement('div'); m.id = 'exportMask';
       m.innerHTML = '<div class="emCard">렌더 중…<div class="emSub">미리보기는 잠시 멈춥니다 · 결과물엔 영향 없어요</div>'
-        + '<div class="emBar"><span class="emBarFill"></span></div><div class="emPct">준비 중…</div></div>';
+        + '<div class="emBar"><span class="emBarFill"></span></div><div class="emPct">준비 중…</div>'
+        + '<button type="button" class="tossBtn ghost emCancel" title="렌더 취소 (Esc)">렌더 취소</button></div>';
+      m.querySelector('.emCancel').onclick = () => exportCancelReq();
     }
     if (stage && getComputedStyle(stage).position === 'static') stage.style.position = 'relative';
     if (m.parentNode !== stage) (stage || document.body).appendChild(m);
     if (_maskHideT) { clearTimeout(_maskHideT); _maskHideT = 0; }
     const f = m.querySelector('.emBarFill'), p = m.querySelector('.emPct');
     if (f) f.style.width = '0%'; if (p) p.textContent = '준비 중…';   // 매번 0에서 시작
+    exportCancelSync();             // [렌더 취소]를 지금 상태로(새 렌더면 다시 누를 수 있게)
+    window.addEventListener('keydown', exportCancelKey, true);   // 같은 함수라 두 번 붙지 않는다
     m.style.display = 'flex';
     void m.offsetWidth;              // 리플로우 강제 → 다음 프레임에 opacity 전환이 걸린다(부드러운 페이드인)
     m.classList.add('on');
-  } else if (m) {
+  } else {
+    window.removeEventListener('keydown', exportCancelKey, true);
+    if (!m) return;
     m.classList.remove('on');       // 부드러운 페이드아웃 후 display:none
     if (_maskHideT) clearTimeout(_maskHideT);
     _maskHideT = setTimeout(() => { m.style.display = 'none'; _maskHideT = 0; }, 340);
   }
 }
 let _maskHideT = 0;
+
+// ── 렌더 취소(10-12 — 사용자: MP4·MXF 렌더를 중간에 멈추고 싶다) ──
+// 가리개의 [렌더 취소]·Esc → exportCancelReq() → 렌더 루프(js/export-video.js bakeMp4·exportPngSeq·wnsRender·prefetchRenderTiles)가
+// 프레임마다·긴 기다림 뒤에 exportCancelCheck()로 멈춘다(던지는 오류의 cancelled = true — 루프의 catch는 exportCancelled()로 실패와 가른다).
+// 헬퍼 요청엔 exportCancelSignal()(AbortSignal)을 달아 누르면 곧바로 끊는다. 정리(파일 안 씀·헬퍼 세션 지우기)는 각 루프가,
+// 가리개 닫기·_exportingFrames 끄기는 루프의 finally(animOff)가 한다. 렌더 시작과 끝에 exportCancelReset().
+let _exportCancel = false, _exportCancelAc = null;
+function exportCancelReset() {
+  _exportCancel = false;
+  _exportCancelAc = typeof AbortController === 'function' ? new AbortController() : null;
+}
+function exportCancelled() { return _exportCancel; }
+function exportCancelSignal() { return _exportCancelAc ? _exportCancelAc.signal : undefined; }
+// 렌더 중일 때 한 번만(두 번 눌러도·Esc를 누르고 있어도) — 받았으면 true
+function exportCancelReq() {
+  if (!_exportingFrames || _exportCancel) return false;
+  _exportCancel = true;
+  exportCancelSync();
+  if (_exportCancelAc) { try { _exportCancelAc.abort(); } catch (e) { /* 무시 */ } }
+  return true;
+}
+function exportCancelCheck() {
+  if (!_exportCancel) return;
+  const e = new Error('렌더를 취소했어요'); e.cancelled = true; throw e;
+}
+// [렌더 취소] 버튼 모양 — 누른 뒤엔 '취소하는 중…'(다시 안 눌림), 새 렌더면 원래대로
+function exportCancelSync() {
+  const b = document.querySelector('#exportMask .emCancel'); if (!b) return;
+  b.disabled = _exportCancel;
+  b.textContent = _exportCancel ? '취소하는 중…' : '렌더 취소';
+}
+// 렌더 중 Esc = [렌더 취소]. 창 캡처 단계라 타임라인(선택 풀기)·펜툴의 Esc보다 먼저 받고, 받으면 아래로 안 보낸다.
+// 위에 뜬 창·목록이나 글자 칸에서 누른 Esc는 그쪽 것(닫기·입력 취소)이라 건드리지 않는다 — exportEscOwner.
+function exportCancelKey(e) {
+  if (e.key !== 'Escape' || e.isComposing || !_exportingFrames || exportEscOwner(e)) return;
+  e.preventDefault(); e.stopPropagation();
+  exportCancelReq();
+}
+// Esc를 먼저 받을 것이 있나 — 글자 칸, 토스 모달(닫기 전 묻기 포함)·확인/입력창·배치 지정하기·둘러보기·장면 설정·이미지로 추출·특보 색·
+// 태풍 불러오기 창·드롭다운 목록·날짜 고르기·제목줄 메뉴·카메라 키 팝오버·통보문 안내(닫히는 중인 창은 빼고)
+function exportEscOwner(e) {
+  const t = e && e.target;
+  if (t && t.nodeType === 1 && (t.isContentEditable || /^(TEXTAREA|SELECT)$/.test(t.tagName)
+    || (t.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|reset|color|file|image)$/i.test(t.type || '')))) return true;
+  if (_ddNow || _dpNow || cgSetupIsOpen() || exportIsOpen() || wrnColPopIsOpen()) return true;
+  return !!document.querySelector('#tossOv:not(.popClosing), #confirmOverlay.on:not(.popClosing), #slotOverlay.on:not(.popClosing), #tourWrap.on, '
+    + '#typLoadOv.on, #menuDrop.on, #camKeyPop, .imgPop.on:not(.popClosing)');
+}
 // 렌더 진행바 갱신 — exportProgress 가 하단 정보줄과 함께 가리개 안 바도 함께 채운다.
 function exportMaskProgress(pct, label) {
   const m = document.getElementById('exportMask'); if (!m) return;

@@ -161,6 +161,9 @@
   #exportMask .emBarFill { display: block; height: 100%; width: 0%; border-radius: 999px;
     background: linear-gradient(90deg, #5B8CFF, #7C5CFF); transition: width .25s cubic-bezier(.4,0,.2,1); }
   #exportMask .emPct { margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--on-surface, #eef); font-variant-numeric: tabular-nums; }
+  /* [렌더 취소](10-12 — js/modals-notices.js exportCancelReq) — 토스 모달 .tossBtn.ghost 그대로, 진행 막대 아래. 누른 뒤('취소하는 중…')는 흐리게·안 눌림 */
+  #exportMask .emCancel { margin-top: 18px; min-width: 120px; }
+  #exportMask .emCancel:disabled { opacity: .6; cursor: default; background: var(--surface-hi); }
   /* 작성 폼 — 라벨은 근무표 섹션 라벨처럼 12.5px/700 강조색, 칸은 흰(다크=#272727) 바탕 반경 12 */
   .ntForm label { display: block; font-size: 12.5px; font-weight: 700; margin: 0 0 6px; color: var(--pop-label); }
   .tossHead[data-tone="green"] + .tossBody .ntForm label { color: var(--ok); }   /* 라벨 색 = 머리 톤(근무표 공지 작성처럼) */
