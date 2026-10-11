@@ -114,11 +114,11 @@ function createRevealRegistry(opt = {}) {
     });
   }
 
-  // 열어도 되는 경로인가 — 실제로 있고, ① 저장창 파일 그 자체·① 고른 폴더(그 아래)·② 내려받은 파일
+  // 열어도 되는 경로인가 — ① 저장창 파일 그 자체·① 고른 폴더(그 아래)·② 내려받은 파일. 글자로만 맞춰 본다(디스크·네트워크를 안 건드림):
+  // 허용 밖 경로는 있든 없든 같은 답(false)이라 파일 유무가 드러나지 않고, \\서버\공유 같은 경로도 기록된 것과 맞을 때만 받는다(맞기 전엔 접속하지 않음).
+  // 실제로 있는지는 맞은 뒤에 메인(main.js 'wcg:reveal-path')이 본다
   function allowed(p) {
     if (!absOk(p)) return false;
-    const st = stat(p);
-    if (!st || !(st.isFile() || st.isDirectory())) return false;
     const k = key(p);
     for (const g of grants.values()) {
       const gk = key(g.p);
@@ -127,8 +127,10 @@ function createRevealRegistry(opt = {}) {
     }
     return downloads.some((r) => r.state === 'completed' && r.p && key(r.p) === k);
   }
+  // 허용된 경로가 지금 있는가(파일·폴더) — allowed 뒤에만 부른다
+  function present(p) { const st = stat(p); return !!st && (st.isFile() || st.isDirectory()); }
 
-  return { noteGrant, noteDownloadStart, find, allowed, _grants: grants, _downloads: downloads };
+  return { noteGrant, noteDownloadStart, find, allowed, present, _grants: grants, _downloads: downloads };
 }
 
 module.exports = { createRevealRegistry, nameOk };

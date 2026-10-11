@@ -100,7 +100,13 @@ test('열어도 되는 경로 — 실제로 있고, 저장창 파일 그 자체�
   assert.equal(r.allowed('D:\\pick\\b.zip'), false, '저장창 파일 옆 다른 파일');
   assert.equal(r.allowed('D:\\pick'), false, '저장창 파일의 폴더(그 자체는 고르지 않음)');
   assert.equal(r.allowed('C:\\Windows\\notepad.exe'), false);
-  assert.equal(r.allowed('R:\\Upload\\없음.mp4'), false, '없는 파일');
+  // 허용 판정은 글자로만(디스크·네트워크를 안 건드림) — 고른 폴더 아래면 없는 파일도 '허용', 있는지는 present가 따로(메인이 allowed 뒤에만 부름)
+  assert.equal(r.allowed('R:\\Upload\\없음.mp4'), true, '고른 폴더 아래 없는 파일 — 글자로는 허용');
+  assert.equal(r.present('R:\\Upload\\없음.mp4'), false, '없는 파일');
+  assert.equal(r.present('R:\\Upload\\1012.mp4'), true);
+  assert.equal(r.allowed('C:\\Windows\\no-such.exe'), false, '허용 밖은 있든 없든 같은 답');
+  { const seen = []; const r3 = createRevealRegistry({ fs: { statSync: (p) => { seen.push(p); throw new Error('ENOENT'); }, existsSync: () => false }, path: W });
+    assert.equal(r3.allowed('\\\\attacker.example\\share\\x.mp4'), false); assert.deepEqual(seen, [], '기록 없는 네트워크 경로는 건드리지 않는다'); }
   for (const bad of ['', 'Upload\\1012.mp4', '..\\x', null, 5, 'R:\\Upload\\a\u0000b']) assert.equal(r.allowed(bad), false, String(bad));
   assert.equal(r.allowed('C:\\Users\\me\\Downloads\\z.zip'), false, '내려받기 전');
   const done = r.noteDownloadStart('z.zip'); done('completed', 'C:\\Users\\me\\Downloads\\z.zip');
@@ -172,7 +178,8 @@ test('배선 — main.js: fileSystem 쓰기 권한 확인만 기록(메인 출�
   const s = main.slice(main.indexOf("ipcMain.handle('wcg:saved-path'"), main.indexOf('// ---------- 닫기 전 묻기'));
   assert.match(s, /ipcMain\.handle\('wcg:saved-path', \(e, h\) => \{\n\s+if \(!privateKeyCallerOk\(e, win\)\) return '';\n\s+return reveals\.find\(h\);/);
   assert.match(s, /ipcMain\.handle\('wcg:reveal-path', \(e, p\) => \{\n\s+if \(!privateKeyCallerOk\(e, win\)\) return \{ ok: false, err: 'denied' \};/);
-  assert.match(s, /if \(!fp \|\| !path\.isAbsolute\(fp\) \|\| !exists\(fp\)\) return \{ ok: false, err: 'gone' \};\n\s+if \(!reveals\.allowed\(fp\)\) return \{ ok: false, err: 'not-allowed' \};/);
+  // 허용 목록(글자 비교)을 먼저 — 허용 밖이면 디스크·네트워크를 안 건드리고 같은 답, 있는지는 그다음
+  assert.match(s, /if \(!fp \|\| !path\.isAbsolute\(fp\) \|\| !reveals\.allowed\(fp\)\) return \{ ok: false, err: 'not-allowed' \};\n\s+if \(!reveals\.present\(fp\)\) return \{ ok: false, err: 'gone' \};/);
   assert.match(s, /if \(TEST_MODE\) \{ console\.log\('\[reveal-test\] ' \+ JSON\.stringify\(fp\)\); return \{ ok: true, path: fp, test: true \}; \}\n\s+shell\.showItemInFolder\(fp\);/);
   assert.doesNotMatch(s, /openPath|openExternal/, '실행 파일 열기 없음');
   assert.equal((main.match(/shell\.openPath/g) || []).length, 0);

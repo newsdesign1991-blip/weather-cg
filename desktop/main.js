@@ -365,8 +365,9 @@ ipcMain.handle('wcg:saved-path', (e, h) => {
 ipcMain.handle('wcg:reveal-path', (e, p) => {
   if (!privateKeyCallerOk(e, win)) return { ok: false, err: 'denied' };
   const fp = typeof p === 'string' ? p : '';
-  if (!fp || !path.isAbsolute(fp) || !exists(fp)) return { ok: false, err: 'gone' };
-  if (!reveals.allowed(fp)) return { ok: false, err: 'not-allowed' };
+  // 허용 목록(글자 비교)을 먼저 — 허용 밖이면 디스크·네트워크를 건드리지 않고 같은 답(있는지 여부가 안 드러남)
+  if (!fp || !path.isAbsolute(fp) || !reveals.allowed(fp)) return { ok: false, err: 'not-allowed' };
+  if (!reveals.present(fp)) return { ok: false, err: 'gone' };
   if (TEST_MODE) { console.log('[reveal-test] ' + JSON.stringify(fp)); return { ok: true, path: fp, test: true }; }
   shell.showItemInFolder(fp);
   return { ok: true, path: fp };
