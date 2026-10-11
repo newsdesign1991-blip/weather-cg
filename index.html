@@ -125,7 +125,7 @@
 <link rel="stylesheet" href="css/titlebar.css?v=84d2c35e">
 <link rel="stylesheet" href="css/start-tour.css?v=87e8f3ff">
 <link rel="stylesheet" href="css/cg-setup.css?v=7c445748">
-<link rel="stylesheet" href="css/export-dialog.css?v=5e5e68b3">
+<link rel="stylesheet" href="css/export-dialog.css?v=580f4b9c">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
 <link rel="stylesheet" href="css/timeline.css?v=2c679cec">
 <link rel="stylesheet" href="css/dialogs.css?v=3f11d014">
@@ -1190,6 +1190,8 @@
        </div>
        </div>
        <span class="tlTime" id="tlInfo"></span>
+       <!-- 렌더 결과 '폴더 열기'(데스크톱) — 영상을 저장하면 보이고, 누르면 탐색기에서 방금 만든 파일을 골라 둔다(js/cg-setup.js outReveal*). 다음 렌더가 저장할 곳을 정하면 숨는다 -->
+       <button id="tlOpenDir" class="tlBtn tlDirBtn tlOpenDir" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5V7a2 2 0 012-2h3.6l2 2.2h7.4a2 2 0 012 2v1.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M3.6 18.4l2.6-7a1.6 1.6 0 011.5-1h12.6a1.1 1.1 0 011 1.5l-2.4 6.4a1.6 1.6 0 01-1.5 1H4.6a1 1 0 01-1-.9z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg><span>폴더 열기</span></button>
        <button id="tlReset" class="tlBtn tlResetBtn" title="타임라인의 모든 키·트랙·효과·길이 설정을 지워 처음 상태로 되돌립니다 (되돌리기 Ctrl+Z)">초기화</button>
        </div>
        <!-- 닫기 = 앱 공통 유리 원 + 얇은 X(팝업 .cgsX·.tossX와 같은 모양 — css/toss-modal.css). 버튼 묶음(.tlBarMain) 밖 오른쪽 위에 따로 — 좁은 창에서 줄이 바뀌어도 늘 그 자리 -->
@@ -1567,7 +1569,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/data-maps.js?v=f68fd9c7"></script>
 <script src="js/data-load.js?v=2308587a"></script>
 <script src="js/presets.js?v=31abe4c7"></script>
-<script src="js/cg-setup.js?v=d7ef5e9d"></script>
+<script src="js/cg-setup.js?v=cf2ae1e2"></script>
 <script src="js/modals-notices.js?v=9f6e6669"></script>
 <script src="js/dropdown.js?v=feecce61"></script>
 <script src="js/date-picker.js?v=98c0a274"></script>
@@ -1576,11 +1578,11 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/export-image.js?v=e26e7d3e"></script>
 <script src="js/export-video.js?v=3424384d"></script>
 <script src="js/export-blobs.js?v=0a2939a0"></script>
-<script src="js/ae-export.js?v=73adb9b6"></script>
+<script src="js/ae-export.js?v=e77df7ea"></script>
 <script src="js/ae-geo.js?v=baec6d18"></script>
-<script src="js/export-dialog.js?v=704c001e"></script>
+<script src="js/export-dialog.js?v=449ed04a"></script>
 <script src="js/project-io.js?v=727be0b2"></script>
-<script src="js/wiring.js?v=1cbb4317"></script>
+<script src="js/wiring.js?v=9a58f790"></script>
 <script src="js/anim.js?v=3f7ec170"></script>
 <script src="js/timeline-plan.js?v=d051c4b7"></script>
 <script src="js/timeline-ui.js?v=8c3c0a46"></script>

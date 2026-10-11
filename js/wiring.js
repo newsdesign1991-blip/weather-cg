@@ -528,6 +528,8 @@ function wire() {
     else { const p = await pickOutDir(); if (!p) return; status('영상 저장 폴더: ' + p.name + ' — 이제 여기로 바로 저장됩니다'); }
     updateOutDirBtn();
   };
+  // 렌더 결과 '폴더 열기'(#tlInfo 옆 — 영상을 저장하면 보인다, js/cg-setup.js outReveal*) — 탐색기에서 방금 만든 파일을 골라 둔다
+  if ($('#tlOpenDir')) $('#tlOpenDir').onclick = outRevealClick;
   // AE로 보내기 — 모두에게 노출(로컬 헬퍼로 동작, 헬퍼 꺼져 있으면 안내창).
   // GEOlayers 3가 있는 PC면 보내는 방식(지금 방식 / GEOlayers 지도로)을 묻고, 아니면 지금처럼 바로 보낸다(js/ae-geo.js aeSendClick).
   if ($('#aeSend')) { $('#aeSend').onclick = aeSendClick; $('#aeSend').style.display = ''; }

@@ -322,7 +322,8 @@ test('prepareOutput — discard(): 저장 창이 만든 빈 파일만 지우고(
     if (hasRemove) h.remove = async () => { calls.push('remove:' + size); };
     return h;
   };
-  const ctx = { Blob, window: {}, getOutDir: async () => null, uniqueName: async (d, b, e) => b + '.' + e, download: () => calls.push('download') };
+  const ctx = { Blob, window: {}, getOutDir: async () => null, uniqueName: async (d, b, e) => b + '.' + e, download: () => calls.push('download'),
+    outRevealStart: () => 1, outRevealSaved: async () => '' };   // 렌더 결과 '폴더 열기'(js/cg-setup.js) — 여기선 경로 찾기 없음
   vm.createContext(ctx);
   vm.runInContext(fn('prepareOutput'), ctx);
   for (const [size, rm] of [[0, true], [5, true], [0, false]]) {

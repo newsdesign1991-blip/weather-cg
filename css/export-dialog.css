@@ -63,6 +63,16 @@
   .tlDirBtn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
   .tlDirBtn svg { width: 15px; height: 15px; flex: none; }
   .tlDirBtn.on { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, var(--btn-line)); }
+  /* 렌더 결과 '폴더 열기'(#tlOpenDir — #tlInfo 옆, 영상을 저장한 뒤에만 — js/cg-setup.js outReveal*). 모양은 .tlBtn·.tlDirBtn, 누를 수 있는 일이라 파란 글자(저장 폴더 지정됨과 같은 결).
+     .tlBtn이 display를 정해서 [hidden]을 따로 지켜 준다 */
+  .tlBtn.tlOpenDir { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, var(--btn-line)); }
+  .tlOpenDir[hidden] { display: none; }
+  /* 이미지로 렌더 바닥 요약의 '폴더 열기'(js/export-dialog.js) — 창 안 알림 버튼(.exToastBtn)과 같은 결, 요약 글줄 끝에 */
+  .exSumOpen { display: inline-flex; align-items: center; gap: 5px; height: 26px; margin-left: 10px; padding: 0 10px; vertical-align: middle; border: none; border-radius: 9px;
+    font-size: 12px; font-weight: 800; color: var(--primary); background: var(--surface-c); cursor: pointer; white-space: nowrap; }
+  .exSumOpen svg { width: 15px; height: 15px; flex: none; }
+  .exSumOpen:hover { filter: brightness(1.06); }
+  .exSumOpen:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   /* AE로 보내기 — 보내는 방식 고르기(js/ae-geo.js aeAskMode, 토스 모달 안). 장면 설정 카드(.cgsCard)·고름 표시(.choicePending)·흐린 카드(aria-disabled) 그대로 */
   .aeModeCards { --acc: var(--cgs-res); --acc-on: var(--cgs-res-on); }
   .tossBody .aeModeNote { margin: 12px 2px 2px; word-break: keep-all; }

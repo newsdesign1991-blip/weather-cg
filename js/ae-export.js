@@ -393,6 +393,7 @@ async function sendToAE() {
   // 매개변수 대신 arguments[0]으로 받는다. 버튼 클릭 이벤트·인자 없음 = 지금 방식.
   const geoMode = !!(arguments[0] && arguments[0].aeMode === 'geolayers');
   if (geoMode && (!isTyphoon() || S.res === '1920x1080-vf')) { status('GEOlayers 지도로는 태풍 지도(노말 VF 제외)에서만 보낼 수 있어요', true); return; }
+  if (typeof outRevealStart === 'function') outRevealStart();   // AE 결과가 #tlInfo를 덮으므로 지난 영상의 [폴더 열기]는 거둔다(AE 결과의 버튼처럼 보이지 않게)
   let geoKr = null;   // GEOlayers 길: 남한 강조 PNG 파일 이름(스크린 혼합)
   let up = false, hv = 0;
   try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; if (up) { const j = await r.json().catch(() => ({})); hv = +((j && j.ver) || 0); } } catch (e) { up = false; }
