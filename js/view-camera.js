@@ -406,7 +406,7 @@ svg.addEventListener('pointerdown', (e) => {
       if (!panRAF) panRAF = requestAnimationFrame(() => { panRAF = 0; lightPanZoom(m0); });
     } else {                            // 3D 회전(구글지도식) — 위=기울임, 좌우=방위. 초경량: 캔버스 transform만.
       const tilt = Math.max(0, Math.min(72, r0.rx + (sy - ev.clientY) * 0.22));
-      const bearing = r0.rz + (ev.clientX - sx) * 0.3;
+      const bearing = r0.rz - (ev.clientX - sx) * 0.3;   // 오른쪽으로 끌면 지도가 왼쪽(반시계)으로 돈다(사용자 10-12: 반대로 느껴짐)
       setCamRot(tilt, 0, bearing);
       const on = camActive3d();   // 평면↔틸트가 바뀔 때마다 applyTilt(캔버스 표시·mapTilt), 아니면 CSS 회전만
       if (!rotReady || on !== rotOn) { applyTilt(); rotReady = true; rotOn = on; } else updateCamCanvasTransform();
