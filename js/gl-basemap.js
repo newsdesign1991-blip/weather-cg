@@ -473,6 +473,7 @@ async function glbSnap(cam, vb, pw, ph, fast, lenient) {
     }
     if (done) break;
     if (performance.now() - t1 > GLB_SNAP_MS) break;
+    if ((typeof exportCancelled === 'function' && exportCancelled())) break;   // 렌더 취소 — 이 장을 더 기다리지 않는다(루프가 곧 멈춘다)
     await glbSleep(30);
   }
   _glb.expT = setTimeout(glbDropExp, 30000);
@@ -524,7 +525,7 @@ async function glbInlineClone(clone, W, H, viewBox, fast) {
   const { reg, pw, ph } = sb;
   let url = await glbQueue(() => glbSnap(cam, reg, pw, ph, !!fast));
   // 타일 하나가 잠깐 실패해도 영상 한 프레임만 파란 지도로 튀지 않게 — 추출용 지도를 새로 만들어 한 번 더(받은 타일은 HTTP 캐시)
-  if (!url && navigator.onLine !== false) url = await glbQueue(() => { glbDropExp(); return glbSnap(cam, reg, pw, ph, !!fast, true); });
+  if (!url && navigator.onLine !== false && !(typeof exportCancelled === 'function' && exportCancelled())) url = await glbQueue(() => { glbDropExp(); return glbSnap(cam, reg, pw, ph, !!fast, true); });
   if (!url) { glbCloneFallback(clone); return false; }
   const s = cam.s || 1;
   const im = document.createElementNS('http://www.w3.org/2000/svg', 'image');
@@ -541,7 +542,7 @@ async function glbSettle() {
   if (!glbActive()) return;
   if (_glb.state === 'off') glbSync(true);
   const t0 = performance.now();
-  while ((_glb.state === 'loading' || _glb.state === 'off') && glbActive() && performance.now() - t0 < GLB_WAIT_MS + 1000) await glbSleep(60);
+  while ((_glb.state === 'loading' || _glb.state === 'off') && glbActive() && performance.now() - t0 < GLB_WAIT_MS + 1000 && !(typeof exportCancelled === 'function' && exportCancelled())) await glbSleep(60);   // 렌더 취소면 그만 기다림
 }
 const glbPending = () => glbActive() && (_glb.state === 'loading' || _glb.state === 'off') && S.res !== '1920x1080-vf';
 

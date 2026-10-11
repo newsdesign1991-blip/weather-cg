@@ -97,6 +97,7 @@ async function renderCancelled(out) {
 }
 
 async function bakeMp4() {
+  if (typeof _exportingFrames !== 'undefined' && _exportingFrames) { status('이미 렌더하는 중이에요 — 끝나거나 [렌더 취소] 뒤에 다시 눌러 주세요', true); return; }
   if (S.res === '1920x1080-vf') { status('노말 VF의 MOV(알파) 렌더는 아직 준비 중입니다 — "PNG 시퀀스로 렌더"를 쓰세요', true); return; }
   const A = anim();
   if (!hasAnim()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
@@ -179,6 +180,7 @@ async function bakeMp4() {
 // PNG 시퀀스. MediaRecorder와 달리 벽시계와 무관해서 프레임이 정확하다.
 // 느려도 상관없다 — 한 장씩 확실히 뽑아 편집 툴(프리미어/AE)에서 fps 지정해 합친다.
 async function exportPngSeq() {
+  if (typeof _exportingFrames !== 'undefined' && _exportingFrames) { status('이미 렌더하는 중이에요 — 끝나거나 [렌더 취소] 뒤에 다시 눌러 주세요', true); return; }
   const A = anim();
   if (!hasAnim()) { status('트랙이 없습니다 — 자동 구성을 먼저 누르세요', true); return; }
   const [W, H] = RES[S.res].size;
@@ -391,6 +393,7 @@ async function showHelperStatus() {
   m.foot.querySelector('[data-ok]').onclick = m.close;
 }
 async function wnsRender(mode) {   // mode: 'mxf' | 'mov'(알파)
+  if (typeof _exportingFrames !== 'undefined' && _exportingFrames) { status('이미 렌더하는 중이에요 — 끝나거나 [렌더 취소] 뒤에 다시 눌러 주세요', true); return; }
   const A = anim();
   if (!hasAnim()) { status('트랙이 없습니다 — “지금 화면으로 자동 구성”을 먼저 누르세요', true); return; }
   // 헬퍼 살아있는지 확인 — 꺼져 있으면 큰 팝업 안내
