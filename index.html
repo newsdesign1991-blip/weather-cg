@@ -127,7 +127,7 @@
 <link rel="stylesheet" href="css/cg-setup.css?v=7c445748">
 <link rel="stylesheet" href="css/export-dialog.css?v=5e5e68b3">
 <link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
-<link rel="stylesheet" href="css/timeline.css?v=6fbaac69">
+<link rel="stylesheet" href="css/timeline.css?v=2c679cec">
 <link rel="stylesheet" href="css/dialogs.css?v=3f11d014">
 <link rel="stylesheet" href="css/panel-misc.css?v=df9eac86">
 <link rel="stylesheet" href="css/data-maps.css?v=11a3cd7a">
@@ -1191,9 +1191,9 @@
        </div>
        <span class="tlTime" id="tlInfo"></span>
        <button id="tlReset" class="tlBtn tlResetBtn" title="타임라인의 모든 키·트랙·효과·길이 설정을 지워 처음 상태로 되돌립니다 (되돌리기 Ctrl+Z)">초기화</button>
-       <!-- 닫기 = 앱 공통 유리 원 + 얇은 X(팝업 .cgsX·.tossX와 같은 모양 — css/toss-modal.css) -->
-       <button class="tlClose" id="tlClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
        </div>
+       <!-- 닫기 = 앱 공통 유리 원 + 얇은 X(팝업 .cgsX·.tossX와 같은 모양 — css/toss-modal.css). 버튼 묶음(.tlBarMain) 밖 오른쪽 위에 따로 — 좁은 창에서 줄이 바뀌어도 늘 그 자리 -->
+       <button class="tlClose" id="tlClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
      </div>
      <p class="tlNote" id="tlNote"></p>
      <div class="tlBody" id="tlBody">

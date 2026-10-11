@@ -82,8 +82,9 @@
   /* 초기화 — 다른 버튼과 같은 모양(.tlBtn: 높이 28·반경 9·테두리 1px). 다 지우는 동작이라 빨간 글자 + 옅은 빨강 테두리만(꽉 찬 빨강은 안 씀) */
   .tlResetBtn { margin-left: auto; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--btn-line)); }
   .tlResetBtn:hover { background: color-mix(in srgb, var(--danger) 12%, var(--btn)); border-color: color-mix(in srgb, var(--danger) 58%, var(--btn-line)); }
-  /* 닫기 — 모양(유리 원·얇은 X)은 팝업 닫기와 같은 규칙(css/toss-modal.css .cgsX·.tossX…), 여기선 자리만 */
-  .tlClose { margin-left: 2px; }
+  /* 닫기 — 모양(유리 원·얇은 X)은 팝업 닫기와 같은 규칙(css/toss-modal.css .cgsX·.tossX…), 여기선 자리만.
+     버튼 묶음 밖(.tlBar의 마지막 칸)이라 창이 좁아 묶음이 여러 줄이 돼도 늘 도구 줄 오른쪽 위(첫 줄 높이 가운데)에 있다(사용자 10-12: 아래로 내려가 없어진 줄 앎) */
+  .tlBar > .tlClose { flex: none; align-self: flex-start; margin: 9px 10px 0 0; }
   .tlEmpty { display: none; color: var(--on-surface-var); padding: 14px; margin: 0; }
   #timeline.empty .tlEmpty { display: block; }
   #timeline.empty .tlBody, #timeline.empty .tlFoot { display: none; }
