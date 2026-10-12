@@ -276,13 +276,14 @@ test('MXF — 옛 헬퍼(/api/cancel 404·연결 실패)여도 취소는 조용�
 });
 
 // ---------- 렌더 전 미리 받기 ----------
-function prefetchCtx(fetchTileData, noAbort) {
+// Mapbox 실시간 타일도 10-12부터 WebGL — 미리 받기는 가벼운 지도와 같은 길(glbPrefetchUrls → tileFetch). fetchTile이 null이면 그 타일은 실패
+function prefetchCtx(fetchTile, noAbort) {
   const ctx = {
     S: { res: '1920x1080', typhoon: { basemap: 'mapbox' } }, Math, Promise, Array, Error, setTimeout, AbortController: noAbort ? undefined : AbortController,
-    isTyphoon: () => true, camKeys: () => [{ t: 0 }], mapboxTileTemplate: () => 'x', glbActive: () => false, camAt: () => ({}),
-    mapboxPrefetchUrls: () => Array.from({ length: 100 }, (_, i) => 'u' + i), _tileData: {},
+    isTyphoon: () => true, camKeys: () => [{ t: 0 }], glbActive: () => true, camAt: () => ({}),
+    glbPrefetchUrls: async () => Array.from({ length: 100 }, (_, i) => 'u' + i),
     progress: [], exportProgress(d, t, l) { ctx.progress.push(d); }, statusMsgs: [], status(m) { ctx.statusMsgs.push(m); },
-    fetchTileData: (u) => fetchTileData(u, ctx),
+    tileFetch: async (u) => { const r = await fetchTile(u, ctx); if (!r) throw new Error('tile http 404'); return { data: new Uint8Array(1), type: '' }; },
   };
   vm.createContext(ctx);
   vm.runInContext(`let _exportingFrames = true; function exportEscOwner() { return false; } function exportCancelSync() {}

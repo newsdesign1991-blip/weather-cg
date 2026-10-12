@@ -66,7 +66,7 @@
   T.acc = {}; T.on = false;
   const FN = ['renderAnimFrame', 'renderAnimFrameBody', 'applyTilt', 'rasterTiltCanvas', 'svgToImage', 'renderTyphoon', 'drawTyphoonTrack', 'drawCompareTracks', 'drawCompareLabels', 'drawTyphoonPlaces', 'typhoonBandInto', 'fillLabelBox',
     'renderMapTransform', 'renderSea', 'renderMtns', 'renderLabels', 'renderAll', 'buildTimeline', 'animSeek', 'applyCam', 'ensureTyphoonKeys', 'syncTyphoonSpan', 'timelineSnapTimes',
-    'brushFinalize', 'applyVfEnter', 'pushUndo', 'saveWork', 'teardownBlind', 'ensureBlind', 'paintBlindClip', 'updatePlaceMarkers', 'scheduleMapboxTiles', 'renderRefImg', 'syncMapPosUI', 'bumpMapContent', 'tlPxPerSec', 'tlFrame', 'tlSync', 'tlLayoutBars', 'tlDrawRuler', 'tlPlaceHead', 'buildTimeline', 'tlLayerPlan', 'animFastOn', 'animFastOff'];
+    'brushFinalize', 'applyVfEnter', 'pushUndo', 'saveWork', 'teardownBlind', 'ensureBlind', 'paintBlindClip', 'updatePlaceMarkers', 'glbSync', 'renderRefImg', 'syncMapPosUI', 'bumpMapContent', 'tlPxPerSec', 'tlFrame', 'tlSync', 'tlLayoutBars', 'tlDrawRuler', 'tlPlaceHead', 'buildTimeline', 'tlLayerPlan', 'animFastOn', 'animFastOff'];
   T.wrapped = [];
   for (const name of FN) {
     const o = window[name]; if (typeof o !== 'function' || o.__tlw) continue;

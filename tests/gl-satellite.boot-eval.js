@@ -3,7 +3,7 @@
 // 그 그림 타일은 우리 받기(tileFetch — wcgtile:// 길)에서 합성 그림(초록 바탕 + 정해 둔 경위도의 빨간 선)으로 준다. 데스크톱 기본 토큰도 가짜(WCG_TEST_MAPBOX_TOKEN).
 // 고르기·준비(위성 타일만 — 벡터 타일 안 받음)·격자 기본값·출처·실제 GPU 픽셀 정렬(화면·추출 그림, 합성 선 = 앱 좌표)·추출 그림에 위성,
 // [벡터만]·되돌리기, 카메라 키 2개 렌더 전 미리 받기 뒤 프레임 렌더 중 미리 받은 것 밖 요청 0, 전부 실패 → 벡터만 + 알림, 렌더 중 불러오다 전부 실패 → 곧 벡터로,
-// 위성·벡터 모두 실패 → 경고 하나, 일부 실패 → 받은 데까지, 오프라인 + 받아 둔 타일 → 위성, 주소 없음 → 기본 토큰, 가벼운 지도 칸에서 주소 [적용], 다른 4모드 흔적 없음.
+// 위성·벡터 모두 실패 → 경고 하나, 일부 실패 → 받은 데까지, 오프라인 + 받아 둔 타일 → 위성, 주소 없음 → 기본 토큰, 가벼운 지도 칸에서 주소 [적용], 다른 3모드 흔적 없음.
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const q = (s) => document.querySelector(s);
 try { closeTossModal(); } catch (e) { /* 없음 */ } try { closeCgSetup(); } catch (e) { /* 없음 */ }
@@ -201,9 +201,9 @@ try {
       const old = JSON.parse(JSON.stringify(saved)); delete old.typhoon.glSat; loadProjectData(old, null); await sleep(800);
       out.save.old = glbSatPref(S.typhoon); out.save.oldSat = _glb.live ? _glb.live.__sat : null; }
   }
-  // 10) 다른 4모드 — GL 흔적 없음, 격자 규칙 그대로(위성 둘 = 끔 칸)
+  // 10) 다른 3모드(파란·밝은/어두운 위성) — GL 흔적 없음, 격자 규칙 그대로(위성 둘 = 끔 칸)
   out.old = {};
-  for (const bm of ['blue', 'satellite', 'satdark', 'mapbox']) {
+  for (const bm of ['blue', 'satellite', 'satdark']) {
     await pickBm(bm); closePop(); await sleep(250);
     inl.length = 0; await frame();
     out.old[bm] = { glMap: q('#glMap').style.display, marks: q('#L_bg').querySelectorAll('[data-glb],[data-glbhid],[data-glbimg]').length, img: inl.length, gridSat: typhoonGridIsSat(S.typhoon) };

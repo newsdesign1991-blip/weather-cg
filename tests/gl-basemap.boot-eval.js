@@ -1,6 +1,6 @@
 // boot-check --eval 본문(async 함수 본문, return 으로 결과). tests/gl-basemap.test.cjs 가 WCG_BOOT_CHECK=1 일 때 돌린다.
 // 실제 앱(숨은 Electron, 실제 OpenFreeMap 타일): 가벼운 지도(WebGL · 시험) 고르기·준비, 화면 정렬(끌기·휠·재생 프레임·아트보드 크기),
-// 추출(평면 프레임·틸트 미리보기·틸트 프레임·AE 블리드 영역), 저장·불러오기, 대체(오프라인·그림 실패·노말 VF), 다른 4모드에 GL 흔적 없음.
+// 추출(평면 프레임·틸트 미리보기·틸트 프레임·AE 블리드 영역), 저장·불러오기, 대체(오프라인·그림 실패·노말 VF), 다른 3모드에 GL 흔적 없음(Mapbox 실시간 타일도 10-12부터 WebGL — tests/gl-mapbox.boot-eval.js).
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const q = (s) => document.querySelector(s);
 try { closeTossModal(); } catch (e) { /* 없음 */ } try { closeCgSetup(); } catch (e) { /* 없음 */ }
@@ -122,9 +122,9 @@ try {
       try { renderTyphoon(); glbUi(); out.vf = { blue: q('#typhoonOcean').style.display !== 'none', glHidden: q('#glMap').style.display === 'none' || q('#glMap').style.visibility === 'hidden', ui: q('#bmGlState').textContent }; }
       finally { S.res = r0; renderTyphoon(); glbUi(); } }
   }
-  // 7) 다른 4모드 — GL을 쓴 뒤에도 흔적 없음(캔버스 숨김·표시 없음·추출이 GL을 안 부름)
+  // 7) 다른 3모드(파란·밝은/어두운 위성) — GL을 쓴 뒤에도 흔적 없음(캔버스 숨김·표시 없음·추출이 GL을 안 부름). Mapbox 실시간 타일은 이제 같은 WebGL 길
   out.old = {};
-  for (const bm of ['blue', 'satellite', 'satdark', 'mapbox']) {
+  for (const bm of ['blue', 'satellite', 'satdark']) {
     await pickBm(bm); closePop(); await sleep(200);
     inl.length = 0; await frame();
     out.old[bm] = { glMap: q('#glMap').style.display, marks: q('#L_bg').querySelectorAll('[data-glb],[data-glbhid],[data-glbimg]').length, img: inl.length };

@@ -149,6 +149,27 @@
   .basemapPop .bmGlSat button { flex: 1 1 0; min-width: 0; height: 28px; min-height: 0; padding: 0 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
   .basemapPop .bmGlSat button.miss { opacity: .55; }   /* 위성 사진을 골랐지만 지금은 벡터(출처 없음·못 받음) — 까닭은 아래 한 줄 */
   .basemapPop .bmGlSatNote { margin: 4px 2px 2px; color: var(--on-surface, #eef); opacity: .85; }
+  /* 내 Mapbox 지도 주소 칸(10-12 — 'Mapbox 실시간 타일'도 WebGL): 상태 줄은 가벼운 지도 것과 같은 모양, 못 쓰는 까닭 한 줄(빨강),
+     [?] 주소 안내(펼치면 단계 목록 — 영문 버튼 이름은 굵게), [열기] = Mapbox Studio를 기본 브라우저로 */
+  #basemapPop { overflow-y: auto; overscroll-behavior: contain; }   /* 최대 높이는 js/map-render.js wireBasemap fitPop(창에 남은 높이) */
+  #basemapPop::-webkit-scrollbar { width: 10px; }   /* 앱 스크롤바(윈도 기본 흰 바탕·화살표 대신 — 두 테마 --scrollbar, 드롭다운과 같게) */
+  #basemapPop::-webkit-scrollbar-track { background: transparent; }
+  #basemapPop::-webkit-scrollbar-thumb { background-color: var(--scrollbar); background-clip: padding-box; border: 3px solid transparent; border-radius: 6px; }
+  #basemapPop::-webkit-scrollbar-thumb:hover { background-color: var(--on-surface-var); }
+  #basemapPop::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .basemapPop #bmMbxBox { max-width: 268px; }
+  .basemapPop #bmMbxBox .bmGlState { margin-top: 0; }
+  .basemapPop .bmRetry { margin-bottom: 6px; }
+  .basemapPop .bmMbxWhy { margin: -2px 2px 6px; color: var(--danger); font-weight: 600; }
+  .basemapPop .bmHelpBtn { display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; margin: 8px 0 0; padding: 6px 4px; border: none; border-radius: 8px;
+    background: transparent; color: var(--primary, #5B8CFF); font-family: inherit; font-size: 11.5px; font-weight: 700; text-align: left; cursor: pointer; }
+  .basemapPop .bmHelpBtn:hover { background: color-mix(in srgb, var(--primary, #5B8CFF) 12%, transparent); }
+  .basemapPop .bmHelpBtn svg { flex: 0 0 auto; }
+  .basemapPop .bmMbxHelp { margin: 4px 0 0; padding: 8px 10px 8px 24px; border-radius: 10px; background: color-mix(in srgb, var(--on-surface, #fff) 6%, transparent);
+    font-size: 11px; line-height: 1.5; color: var(--on-surface, #eef); }
+  .basemapPop .bmMbxHelp li + li { margin-top: 3px; }
+  .basemapPop .bmMbxHelp code { font-size: 10.5px; padding: 0 3px; border-radius: 4px; background: color-mix(in srgb, var(--on-surface, #fff) 10%, transparent); word-break: break-all; }
+  .basemapPop .bmLink { border: none; background: none; padding: 0 2px; color: var(--primary, #5B8CFF); font-family: inherit; font-size: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
   #exportMask { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--surface-c, #0e1626) 88%, #000);
     opacity: 0; pointer-events: none; transition: opacity .32s cubic-bezier(.4,0,.2,1); }
   #exportMask.on { opacity: 1; pointer-events: auto; }

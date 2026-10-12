@@ -1,5 +1,6 @@
-// 지도 타일 — 디스크 캐시 길(tileFetch·가벼운 지도 wcgtile://)과 렌더 전 미리 받기(사용자 10-10: 버튼 없이 렌더를 누르면 알아서).
-// 카메라 키가 있으면 모든 프레임에 필요한 타일(Mapbox 그림 타일·가벼운 지도 벡터 타일)을 먼저 받고, 렌더 루프 셋(MP4·PNG·MXF/MOV)이 다 부른다.
+// 지도 타일 — 디스크 캐시 길(tileFetch·WebGL 지도 wcgtile://)과 렌더 전 미리 받기(사용자 10-10: 버튼 없이 렌더를 누르면 알아서).
+// 카메라 키가 있으면 모든 프레임에 필요한 타일(가벼운 지도 벡터·위성 그림 타일, Mapbox 실시간 타일의 그림 타일 — 10-12부터 같은 WebGL 길)을 먼저 받고,
+// 렌더 루프 셋(MP4·PNG·MXF/MOV)이 다 부른다.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -10,65 +11,72 @@ const html = appSource(path.join(__dirname, '..', 'index.html'));
 const fn = (name) => { const m = new RegExp(`(?:async )?function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}`).exec(html); assert.ok(m, name); return m[0]; };
 const cst = (name) => { const m = new RegExp(`const ${name} = [^\\n]*;`).exec(html); assert.ok(m, name); return m[0]; };
 const PROJ = { cx0: 2.2223878893370497, cy0: 0.6813549253753549, scale: 9730.769123924629 };   // map-data.js 그대로
-const TMPL = 'https://api.mapbox.com/styles/v1/u/s/tiles/256/{z}/{x}/{y}@2x?access_token=pk.T';
 const OFM = 'https://tiles.openfreemap.org/planet/v1/{z}/{x}/{y}.pbf';
 const KOREA = { x: 860, y: 377, s: 0.307, rx: 0, ry: 0, rz: 0 };   // 힌남노 샘플 첫 화면
 const ZOOMED = { x: -2300, y: -400, s: 1.4, rx: 0, ry: 0, rz: 0 };
 
 function ctx(extra) {
   const c = Object.assign({
-    S: { res: '1920x1080', map: { ...KOREA }, typhoon: { basemap: 'mapbox' } },
+    S: { res: '1920x1080', map: { ...KOREA }, typhoon: { basemap: 'gl' } },
     MAP: { proj: PROJ }, RES: { '1920x1080': { size: [1920, 1080] }, '1920x1080-vf': { size: [1920, 1080] } },
     CAM_BLEED: 1.0, Math, JSON, Promise, Set, Array, Uint8Array, TextDecoder, TextEncoder, performance: { now: () => 0 }, setTimeout,
-    window: {}, _exportingFrames: false, _mbxCacheBust: '', _tileData: {}, glbActive: () => false,
+    window: {}, _exportingFrames: false, _mbxCacheBust: '', glbActive: () => true,
     exportCancelled: () => false, exportCancelCheck: () => {}, exportCancelSignal: () => undefined,   // [렌더 취소](js/modals-notices.js) — 여기선 안 누름(누를 때는 tests/render-cancel.test.cjs)
-    camActive3d: () => false, mapboxTileTemplate: () => TMPL, isTyphoon: () => true,
-    mapboxUrlRaw: () => '',   // 가벼운 지도 위성 사진 출처(넣어 둔 Mapbox 주소) — 기본은 없음(벡터만)
+    camActive3d: () => false, isTyphoon: () => true,
+    mapboxUrlRaw: () => '',   // 넣어 둔 Mapbox 주소(가벼운 지도 위성 사진·Mapbox 실시간 타일 출처) — 기본은 없음
   }, extra || {});
   vm.createContext(c);
   vm.runInContext([
-    cst('_lon2xt'), cst('_lat2yt'), fn('mapboxTileSet'), fn('mapboxTileUrl'), cst('camTilted'), fn('mapboxPrefetchUrls'),
-    cst('GLB_TILES'), cst('GLB_SAT_MAXZ'), cst('GLB_SAT_STYLE'), cst('GLB_SNAP_MAX'), cst('GLB_MERC_LAT'), cst('GLB_PROTO'), cst('GLB_WAIT_MS'), cst('glbSleep'),
-    "const _glb = { state: 'ready', proto: false, tj: null, tjAt: 0, satBad: '', mbRaw: null, mbBust: null, mbDef: null, mbSrc: null };",
-    fn('glbSatBuiltinUrl'), fn('glbSatSrc'), fn('glbSatSrcNow'), cst('glbSatPref'), fn('glbSatNow'), fn('glbSnapBox'), cst('glbPending'), fn('glbSettle'),
+    cst('_lon2xt'), cst('_lat2yt'),
+    cst('GLB_TILES'), cst('GLB_ATTR'), cst('GLB_ATTR_MBX'), cst('GLB_ATTR_MBXS'), cst('GLB_ATTR_XYZ'), cst('GLB_SAT_MAXZ'), cst('GLB_XYZ_MAXZ'), cst('GLB_SAT_STYLE'),
+    cst('GLB_SNAP_MAX'), cst('GLB_MERC_LAT'), cst('GLB_PROTO'), cst('GLB_WAIT_MS'), cst('glbSleep'),
+    "const _glb = { state: 'ready', proto: false, tj: null, tjAt: 0, satBad: '', mbRaw: null, mbBust: null, mbDef: null, mbSrc: null, mxRaw: null, mxBust: null, mxSrc: null };",
+    fn('glbMode'), cst('glbIsMbx'),
+    fn('glbSatBuiltinUrl'), fn('glbSatSrc'), fn('glbMbxSrc'), fn('glbMbxSrcNow'), fn('glbSatSrcNow'), cst('glbSatPref'), fn('glbSatNow'), fn('glbSnapBox'), cst('glbPending'), fn('glbSettle'),
     fn('glbView'), fn('glbBand'), fn('glbTransform'), fn('glbProtoLoad'), fn('glbTileJson'), fn('glbPrefetchUrls'), fn('prefetchRenderTiles'),
   ].join('\n'), c);
   return c;
 }
 const plain = (o) => JSON.parse(JSON.stringify(o));   // vm 안 객체(다른 realm) 비교용
-const zxy = (u) => { const m = /\/(\d+)\/(\d+)\/(\d+)(?:@2x|\.pbf)/.exec(u); return m ? m.slice(1).map(Number) : null; };
+const zxy = (u) => { const m = /\/(\d+)\/(\d+)\/(\d+)(?:@2x|\.pbf|\.png)/.exec(u); return m ? m.slice(1).map(Number) : null; };
 const tileOf = (lon, lat, z) => { const n = 2 ** z, r = lat * Math.PI / 180; return [Math.floor((lon + 180) / 360 * n), Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n)]; };
 
-test('Mapbox 타일 범위 — 화면(여백 포함)을 덮고, 상한을 넘으면 배율을 낮춘다', () => {
-  const c = ctx();
-  const a = c.mapboxTileSet(KOREA, 0.3, 140);
-  assert.ok(a.z >= 2 && a.z <= 9);
-  assert.ok((a.x1 - a.x0 + 1) * (a.y1 - a.y0 + 1) <= 140);
-  // 한반도(127E·37N)와 샘플 현재 위치(124.6E·27.7N)는 화면 안 → 그 타일이 범위 안
-  for (const [lo, la] of [[127, 37], [124.6, 27.7]]) { const [tx, ty] = tileOf(lo, la, a.z); assert.ok(tx >= a.x0 && tx <= a.x1 && ty >= a.y0 && ty <= a.y1, lo + ',' + la); }
-  const b = c.mapboxTileSet(ZOOMED, 0.3, 140);
-  assert.ok(b.z > a.z, '확대하면 배율이 오른다');
-  const wide = c.mapboxTileSet(KOREA, 1.0, 300);   // 추출 여백(CAM_BLEED)
-  assert.ok((wide.x1 - wide.x0 + 1) * (wide.y1 - wide.y0 + 1) <= 300);
-  assert.ok(wide.y0 >= 0 && wide.y1 < wide.n);
-});
+// ---------- Mapbox 실시간 타일(10-12 — WebGL, 가짜 토큰 pk.T만) ----------
+const MBX_CARTO = 'https://api.mapbox.com/styles/v1/u/s/tiles/256/{z}/{x}/{y}@2x?access_token=pk.T';   // Studio Share → Third party → CARTO 꼴
+const MBX_512 = 'https://api.mapbox.com/styles/v1/u/s/tiles/512/';
+const XYZ = 'https://tiles.example.com/{z}/{x}/{y}.png';
 
-test('Mapbox 미리 받기 주소 — 카메라 프레임마다의 추출 범위를 합친 것(중복 없음, 토큰·재publish 표시 유지)', () => {
-  const c = ctx();
-  const one = c.mapboxPrefetchUrls([KOREA]);
-  const both = c.mapboxPrefetchUrls([KOREA, ZOOMED, KOREA]);
-  assert.ok(one.length > 0);
-  assert.equal(new Set(both).size, both.length);
-  assert.ok(one.every((u) => both.includes(u)));
-  assert.ok(both.length > one.length);
-  assert.ok(both.every((u) => u.includes('access_token=pk.T')));
-  const t = c.mapboxTileSet(KOREA, 0.3, 300);   // 평면 프레임 = 화면 여백(0.3)
-  assert.equal(one.length, (t.x1 - t.x0 + 1) * (t.y1 - t.y0 + 1));
-  const tilt = c.mapboxPrefetchUrls([{ ...KOREA, rx: 40 }]), tb = c.mapboxTileSet(KOREA, 1.0, 300);   // 기울인 프레임 = 블리드(CAM_BLEED)
-  assert.equal(tilt.length, (tb.x1 - tb.x0 + 1) * (tb.y1 - tb.y0 + 1));
-  assert.ok(tilt.length > one.length);
+test('Mapbox 실시간 타일 미리 받기 주소 — 가벼운 지도 위성 사진과 같은 길(Static Tiles 512 = MapLibre 반올림 배율), 넣어 둔 주소만(기본 토큰 안 씀), 재publish 표시, 다른 서버 {z}/{x}/{y} 틀은 256(+1)', async () => {
+  let url = MBX_CARTO;
+  const got = [];
+  const c = ctx({ mapboxUrlRaw: () => url, window: { wcgDesktop: { mapboxToken: () => 'pk.TESTDEFAULT.fake' } }, tileFetch: async (u) => { got.push(u); return { data: new TextEncoder().encode(JSON.stringify({ tiles: [OFM], maxzoom: 14 })), type: '' }; } });
+  c.S.typhoon = { basemap: 'mapbox' };
+  const z = Math.round(Math.log2(2 * Math.PI * PROJ.scale * KOREA.s * 1 / 512));   // 평면 1920 px = 화면 배율 그대로, 래스터 = 반올림
+  const one = await c.glbPrefetchUrls([KOREA]);
+  assert.ok(one.length > 0 && one.every((u) => u.startsWith(MBX_512) && u.endsWith('@2x?access_token=pk.T')), one[0]);
+  assert.ok(one.every((u) => zxy(u)[0] === z), '배율 ' + zxy(one[0])[0] + ' = ' + z);
+  const [tx, ty] = tileOf(127, 37, z);
+  assert.ok(one.some((u) => { const [, x, y] = zxy(u); return x === tx && y === ty; }), '한반도 타일 포함');
+  const both = await c.glbPrefetchUrls([KOREA, ZOOMED, KOREA]);
+  assert.equal(new Set(both).size, both.length, '중복 없음');
+  assert.ok(one.every((u) => both.includes(u)) && both.length > one.length);
+  const tilt = await c.glbPrefetchUrls([{ ...KOREA, rx: 40 }]);
+  assert.ok(tilt.length > one.length, '기울인 프레임 = 블리드까지');
+  assert.equal(got.length, 0, 'TileJSON·벡터 타일 안 받음');
   vm.runInContext("_mbxCacheBust = '42'", c);
-  assert.ok(c.mapboxPrefetchUrls([KOREA]).every((u) => u.endsWith('&_cb=42')));
+  assert.ok((await c.glbPrefetchUrls([KOREA])).every((u) => u.endsWith('&_cb=42')), "'적용'(재publish) = 새 주소");
+  vm.runInContext("_mbxCacheBust = ''", c);
+  // 다른 지도 서버의 타일 틀(옛 Mapbox 모드가 받던 것) — 256 → 배율 +1, 토큰 없어도
+  url = XYZ;
+  const x = await c.glbPrefetchUrls([KOREA]);
+  assert.ok(x.length > 0 && x.every((u) => u.startsWith('https://tiles.example.com/') && zxy(u)[0] === Math.round(Math.log2(2 * Math.PI * PROJ.scale * KOREA.s / 512) + 1)), x[0]);
+  // 넣어 둔 주소 없음·못 알아봄·한 장도 못 받은 주소 = 0장(파란 지도로 그림 — 기본 토큰·벡터 타일도 안 받음)
+  for (const bad of ['', 'https://api.mapbox.com/styles/v1/u/s/wmts', 'mapbox://styles/u/s', 'https://api.mapbox.com/styles/v1/u/s/wmts?access_token=sk.SECRET']) {
+    url = bad; assert.deepEqual(plain(await c.glbPrefetchUrls([KOREA])), [], JSON.stringify(bad));
+  }
+  url = MBX_CARTO; vm.runInContext("_glb.satBad = glbMbxSrcNow().tiles[0]", c);
+  assert.deepEqual(plain(await c.glbPrefetchUrls([KOREA])), []);
+  assert.equal(got.length, 0);
 });
 
 test('가벼운 지도 — 데스크톱이면 OpenFreeMap 주소만 wcgtile://(디스크 캐시 길), 목록은 JSON·타일은 ArrayBuffer로', async () => {
@@ -103,32 +111,33 @@ test('가벼운 지도 미리 받기 주소 — 추출 그림과 같은 배율(�
   assert.ok(many.length > flat.length && new Set(many).size === many.length);
 });
 
-test('렌더 전 미리 받기 — 카메라 키가 있을 때만, 동시 12개, 진행 표시, 실패는 알림만(렌더 중 다시 받기)', async () => {
+test('렌더 전 미리 받기(Mapbox 실시간 타일) — 카메라 키가 있을 때만, 동시 8개, 진행 표시, 실패는 알림만(렌더 중 다시 받기), 다른 배경·노말 VF는 안 함', async () => {
   const prog = [], st = [];
-  let live = 0, peak = 0;
+  let live = 0, peak = 0, bm = 'mapbox';
   const fetched = [];
   const keys = [{ t: 0, ...KOREA }, { t: 2, ...ZOOMED }];
   const c = ctx({
+    mapboxUrlRaw: () => MBX_CARTO,
     camKeys: () => keys, camAt: (t) => { const p = Math.min(1, t / 2); return { x: KOREA.x + (ZOOMED.x - KOREA.x) * p, y: KOREA.y + (ZOOMED.y - KOREA.y) * p, s: KOREA.s + (ZOOMED.s - KOREA.s) * p, rx: 0, ry: 0, rz: 0 }; },
-    glbActive: () => false,
+    glbActive: () => bm === 'mapbox' || bm === 'gl',
     exportProgress: (d, n, l) => prog.push([d, n, l]), status: (m) => st.push(m),
-    fetchTileData: async (u, quiet) => { assert.equal(quiet, true); live++; peak = Math.max(peak, live); await new Promise((r) => setTimeout(r, 2)); live--; fetched.push(u); return u.includes('/9/') ? null : 'data:x'; },
+    tileFetch: async (u) => { live++; peak = Math.max(peak, live); await new Promise((r) => setTimeout(r, 2)); live--; fetched.push(u); if (/\/512\/9\//.test(u)) throw new Error('tile http 404'); return { data: new Uint8Array([1]), type: 'image/jpeg' }; },
   });
+  c.S.typhoon = { basemap: 'mapbox' };
   await c.prefetchRenderTiles(60, 30);
-  const want = c.mapboxPrefetchUrls(Array.from({ length: 61 }, (_, i) => c.camAt(i / 30)));
-  assert.equal(fetched.length, want.length);
-  assert.ok(peak <= 12 && peak >= 2, 'peak ' + peak);
+  const want = await c.glbPrefetchUrls(Array.from({ length: 61 }, (_, i) => c.camAt(i / 30)));
+  assert.deepEqual([...fetched].sort(), [...want].sort(), '카메라 키 프레임마다의 그림 타일 = 추출 때 숨은 지도가 쓸 것');
+  assert.ok(fetched.every((u) => u.startsWith(MBX_512)));
+  assert.ok(peak <= 8 && peak >= 2, 'peak ' + peak);
   assert.deepEqual(prog[0], [0, want.length, '지도 미리 받는 중']);
   assert.deepEqual(prog[prog.length - 1], [want.length, want.length, '지도 미리 받는 중']);
-  const nFail = fetched.filter((u) => u.includes('/9/')).length;
+  const nFail = fetched.filter((u) => /\/512\/9\//.test(u)).length;
   if (nFail) assert.match(st[0], new RegExp(`지도 타일 ${nFail}개를 미리 못 받았어요`)); else assert.equal(st.length, 0);
-  // 이미 받은 건 건너뛴다
-  fetched.length = 0; for (const u of want) c._tileData[u] = 'data:x';
-  await c.prefetchRenderTiles(60, 30);
-  assert.equal(fetched.length, 0);
-  // 카메라 키가 없으면(지도 고정) 아무것도 안 한다 · 파란/위성 지도도
+  // 카메라 키가 없으면(지도 고정) 아무것도 안 한다 · 파란/위성 지도·노말 VF도
+  fetched.length = 0;
   keys.length = 0; await c.prefetchRenderTiles(60, 30); assert.equal(fetched.length, 0);
-  keys.push({ t: 0, ...KOREA }); c.S.typhoon.basemap = 'satdark'; await c.prefetchRenderTiles(60, 30); assert.equal(fetched.length, 0);
+  keys.push({ t: 0, ...KOREA }); bm = 'satdark'; c.S.typhoon.basemap = 'satdark'; await c.prefetchRenderTiles(60, 30); assert.equal(fetched.length, 0);
+  bm = 'mapbox'; c.S.typhoon.basemap = 'mapbox'; c.S.res = '1920x1080-vf'; await c.prefetchRenderTiles(60, 30); assert.equal(fetched.length, 0);
 });
 
 test('가벼운 지도 렌더 전 미리 받기 — 벡터 타일을 tileFetch로(디스크 캐시에 남김)', async () => {
@@ -182,7 +191,7 @@ test('tileFetch — 디스크 캐시 길이 안 되면 그냥 fetch로(옛 메�
   assert.equal(calls, 3); assert.equal(c.st().off, true);
 });
 
-test('배선 — 렌더 루프 셋(MP4·PNG 시퀀스·MXF/MOV)이 _exportingFrames를 켠 뒤 미리 받기, Mapbox 화면 타일은 받은 data URI로(디스크 캐시 경유)', () => {
+test('배선 — 렌더 루프 셋(MP4·PNG 시퀀스·MXF/MOV)이 _exportingFrames를 켠 뒤 미리 받기, 옛 SVG Mapbox 타일 길(<image> 타일·data URI 캐시)은 없음(10-12 — WebGL)', () => {
   for (const f of ['bakeMp4', 'exportPngSeq', 'wnsRender']) {
     const src = fn(f);
     const a = src.indexOf('_exportingFrames = true'), b = src.indexOf('await prefetchRenderTiles(');
@@ -190,11 +199,13 @@ test('배선 — 렌더 루프 셋(MP4·PNG 시퀀스·MXF/MOV)이 _exportingFra
     const first = f === 'wnsRender' ? src.indexOf('await sendFrameMain(0)') : src.indexOf('await drawExportFrame(');
     assert.ok(b < first, f + ': 첫 프레임 전에');
   }
-  const up = fn('updateMapboxTiles');
-  assert.doesNotMatch(up, /setAttribute\('href', url\)/, '화면 <image>가 타일 서버로 따로 받지 않는다');
-  assert.match(up, /im\.setAttribute\('href', _tileData\[url\]\)/);
-  assert.match(fn('fetchTileData'), /tileFetch\(url\)/);
+  for (const gone of ['updateMapboxTiles', 'scheduleMapboxTiles', 'mapboxTileTemplate', 'mapboxTileSet', 'mapboxTileUrl', 'mapboxPrefetchUrls', 'fetchTileData', 'mbxTileShow', 'mbxDropStale', 'inlineMapboxTiles', 'awaitMapboxTilesReady']) {
+    assert.ok(!new RegExp(`\\b${gone}\\b`).test(html), '옛 이름이 남음: ' + gone);
+  }
+  assert.ok(!/_tileData|id="typhoonTiles"|#typhoonTiles/.test(html), '옛 <image> 타일 그룹·data URI 캐시 없음');
   assert.match(html, /transformRequest: glbTransform/);
+  assert.match(fn('prefetchRenderTiles'), /if \(!glbActive\(\) \|\| S\.res === '1920x1080-vf'\) return;/);
+  assert.match(fn('prefetchRenderTiles'), /const todo = await glbPrefetchUrls\(cams\);/);
 });
 
 // ---------- 가벼운 지도 위성 사진(10-10) — 가짜 토큰(pk.TEST)만 ----------

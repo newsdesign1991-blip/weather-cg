@@ -1,10 +1,13 @@
-/* [모듈] js/gl-basemap.js — 태풍 지도 배경 '가벼운 지도 (WebGL · 시험)': 벡터 타일(OpenFreeMap) 또는 위성 사진(넣어 둔 Mapbox 주소의 그림 타일)을 MapLibre GL(vendor/)이 GPU로 그린다 — 화면은 아트보드 뒤 캔버스(지도 위치·투영 1:1), 추출·틸트·영상·AE는 그 프레임 그림을 복제본에 넣고, 못 쓰면 파란 지도로 */
+/* [모듈] js/gl-basemap.js — 태풍 지도 배경 '가벼운 지도 (WebGL · 시험)'·'Mapbox 실시간 타일': 벡터 타일(OpenFreeMap) 또는 Mapbox 주소의 그림 타일을 MapLibre GL(vendor/)이 GPU로 그린다 — 화면은 아트보드 뒤 캔버스(지도 위치·투영 1:1), 추출·틸트·영상·AE는 그 프레임 그림을 복제본에 넣고, 못 쓰면 파란 지도로 */
 'use strict';
 
-// ===================== 가벼운 지도(WebGL · 시험) =====================
+// ===================== 가벼운 지도(WebGL · 시험) · Mapbox 실시간 타일 =====================
 // 구글 지도·Mapbox GL과 같은 방식 — 지도 '그림'(래스터 타일)을 받지 않고 도형 자료(벡터 타일)를 받아 브라우저의 WebGL(웹용 OpenGL)로 그린다.
-// (Mapbox 실시간 타일 모드는 그림 타일을 SVG <image>로 까는 것이라 다르다 — js/map-render.js updateMapboxTiles.)
-// 다른 지도 배경(파란·위성·Mapbox)의 코드 길은 건드리지 않는다: 이 모드일 때만 renderTyphoon이 glbMarkHidden·glbSync를 부르고,
+// 'Mapbox 실시간 타일'(basemap 'mapbox')도 2026-10-12부터 이 엔진으로 그린다(옛 SVG <image> 타일 길은 없앴다): 넣어 둔 Mapbox 주소의 그림 타일을
+//   가벼운 지도의 위성 사진과 같은 래스터 소스로(glbMbxSrc) — 화면·끌기·휠·카메라 재생·틸트·추출·렌더 전 미리 받기·디스크 캐시·출처가 같은 길이다.
+//   다른 점: 넣어 둔 주소만(기본 출처 없음), 벡터로 바꾸지 않는다(주소 없음·못 알아봄·타일 실패 = 파란 지도 + 까닭), 다른 서버의 {z}/{x}/{y} 타일 틀도 받는다.
+//   두 모드는 glbMode()로 가르고, 모드가 바뀌면(메뉴·되돌리기·작업 열기) 지도를 새로 만들어 처음 표시처럼 다시 불러온다(_glbSync → glbReset).
+// 다른 지도 배경(파란·밝은/어두운 위성)의 코드 길은 건드리지 않는다: 이 두 모드일 때만 renderTyphoon이 GL을 보이고(glbMarkHidden·glbSync),
 // 추출은 복제본의 #bgMapT에 data-glb가 있을 때만(glbInlineClone) 그림을 넣는다.
 //
 // 화면: .fit 안 #glMap(바다색 바탕) > #glMapIn(MapLibre 캔버스) — #cg(SVG) 뒤(z-index 0). 준비되면 renderTyphoon이 파란 바다·육지·지형을 숨겨
@@ -25,7 +28,10 @@ const GLB_LIB = 'vendor/maplibre-gl/maplibre-gl.js';           // MapLibre GL JS
 const GLB_TILES = 'https://tiles.openfreemap.org/planet';      // OpenFreeMap 벡터 타일(TileJSON — 키·가입 없음, 무료, 출처 표기)
 const GLB_ATTR = '지도 자료 © OpenStreetMap 기여자 · © OpenMapTiles · OpenFreeMap';
 const GLB_ATTR_MBX = '지도 © Mapbox © OpenStreetMap · 위성 사진 © Maxar';   // 위성 사진을 깔 때(Mapbox 출처 표기 문서 — 위성은 Maxar)
+const GLB_ATTR_MBXS = '지도 © Mapbox © OpenStreetMap (위성 사진이 들어 있으면 © Maxar)';   // Mapbox 실시간 타일 — 사용자 스타일(위성인지 모름)
+const GLB_ATTR_XYZ = '지도 타일 © 넣어 둔 주소의 지도 제공자';                              // Mapbox 실시간 타일에 다른 서버 {z}/{x}/{y} 틀을 넣었을 때
 const GLB_SAT_MAXZ = 22;          // Mapbox 그림 타일 최대 배율
+const GLB_XYZ_MAXZ = 19;          // 다른 서버 타일 틀의 최대 배율(모름 — 흔한 값. 더 당기면 MapLibre가 늘려 그린다)
 const GLB_SAT_STYLE = 'supermanpasa/cmsg6825m002h01r6eufdeg24';   // 기본 위성 사진 스타일(사용자 Mapbox Studio) — 토큰은 코드에 없고 데스크톱 비공개 파일에만(glbSatBuiltinUrl)
 const GLB_SEA = '#0b2240';        // 바다 — 파란 지도 바다 그라디언트(#0e2a4e → #081a30)의 가운데
 const GLB_BORDER = '#8fb3dc';     // 나라 경계(옅게)
@@ -37,27 +43,42 @@ const GLB_WHY = {
   offline: '인터넷 연결이 없어요', lib: '지도 엔진 파일(vendor/maplibre-gl)을 못 읽었어요', webgl: '이 PC에서 WebGL을 쓸 수 없어요',
   tiles: '지도 서버(OpenFreeMap)에서 타일을 못 받았어요', timeout: '지도 서버 응답이 너무 늦어요', lost: 'GPU가 초기화돼 지도를 잃었어요',
   net: '위성 사진과 벡터 지도를 모두 못 받았어요. 인터넷(지도 서버) 연결을 확인해 주세요',   // 위성 사진을 골랐는데 둘 다 실패(glbFail이 tiles·timeout을 바꿈)
+  // Mapbox 실시간 타일(10-12) — 벡터로 바꾸지 않고 파란 지도로
+  nourl: 'Mapbox 주소가 없어요 — 지도 배경 메뉴 아래 칸에 넣고 [적용]을 눌러 주세요',
+  badurl: '넣어 둔 Mapbox 주소를 알아보지 못했어요',   // 무엇이 틀렸는지는 glbFail이 glbUrlWhy로 덧붙인다
+  mbxauth: 'Mapbox가 타일을 막았어요(401·403) — 토큰이나 URL 제한을 확인해 주세요',
+  mbxtiles: 'Mapbox(넣어 둔 주소의 지도 서버)에서 타일을 못 받았어요',
 };
 // 상태: off(아직) · loading(불러오는 중 — 화면은 파란 지도) · ready(GL로 그림) · fail(파란 지도로 대체, why)
 // satBad = 한 장도 못 받은 위성 타일 주소(이번 실행 동안 벡터만 — 다시 시도·위성 사진 다시 고르기·주소가 바뀌면 풂), satWhy = 그 까닭
+// mode = 지금 지도를 만든 배경 종류('gl' · 'mapbox' — glbStart), mx* = Mapbox 실시간 타일 출처 해석 캐시, help = 주소 안내를 사용자가 펼치거나 접었나(null = 아직)
 const _glb = { lib: null, live: null, exp: null, state: 'off', why: '', t0: 0, readyMs: 0, view: '', col: '', poll: 0, expT: 0, warnAt: 0, online: false, snaps: 0, snapMs: 0, proto: false, tj: null, tjAt: 0,
-  tw: 0, satBad: '', satWhy: '', satW: 0, satT0: 0, mbRaw: null, mbBust: null, mbDef: null, mbSrc: null };
+  tw: 0, satBad: '', satWhy: '', satW: 0, satT0: 0, mbRaw: null, mbBust: null, mbDef: null, mbSrc: null, mode: '', mxRaw: null, mxBust: null, mxSrc: null, help: null };
 let _glbQ = Promise.resolve();
 
-// 지금 태풍 지도 배경이 이 모드인가(준비와 상관없이)
-function glbActive() { return !!(isTyphoon() && S.typhoon && S.typhoon.basemap === 'gl'); }
+// 지금 태풍 지도 배경이 이 엔진으로 그리는 종류인가 — 'gl'(가벼운 지도) · 'mapbox'(Mapbox 실시간 타일) · ''(다른 배경)
+function glbMode() {
+  if (!isTyphoon() || !S.typhoon) return '';
+  const b = S.typhoon.basemap;
+  return b === 'gl' || b === 'mapbox' ? b : '';
+}
+const glbIsMbx = () => glbMode() === 'mapbox';
+const glbName = () => (glbIsMbx() ? 'Mapbox 지도' : '가벼운 지도');   // 알림 글의 이름
+// 지금 태풍 지도 배경이 이 엔진인가(준비와 상관없이)
+function glbActive() { return !!glbMode(); }
 // 화면에 GL을 보이는가 — 준비됐고 노말 VF가 아님(VF는 패널 자르기·진입 슬라이드가 SVG 래퍼에 걸려 뒤 캔버스로는 못 맞춘다 → 파란 지도)
-function glbShowing() { return glbActive() && _glb.state === 'ready' && S.res !== '1920x1080-vf'; }
+// 지도를 만든 배경 종류와 지금 종류가 같아야 한다(가벼운 지도 ↔ Mapbox 실시간 타일로 바꾼 직후엔 아직 옛 지도 — _glbSync가 새로 만든다)
+function glbShowing() { return glbActive() && _glb.state === 'ready' && _glb.mode === glbMode() && S.res !== '1920x1080-vf'; }
 
 // 자체 스타일 — 방송 지도 결(어두운 남색 바다·육지, 옅은 나라 경계, 글자 없음 → 글꼴·아이콘 요청 없음). 육지 색은 태풍 패널의 육지 색(T.landFill).
 // OpenMapTiles에는 '육지' 면이 없어 바탕 = 육지, water(바다·호수) = 바다로 칠한다. 해안선 줄은 안 긋는다(물 면 테두리는 타일·날짜변경선 경계에서 줄이 생긴다).
-// sat(glbSatSrc 결과)가 있으면 위성 사진 스타일 — 바탕(바다색: 못 받은 칸·받기 전) + 그림 타일 하나. 벡터 타일은 안 받는다(육지·바다 면·경계를 다 빼므로).
-//   raster-fade-duration 0 = 받자마자 다 보인다(추출 그림이 반쯤 비친 타일을 담지 않게).
+// sat(glbSatSrc·glbMbxSrc 결과)가 있으면 그림 타일 스타일 — 바탕(바다색: 못 받은 칸·받기 전) + 그림 타일 하나. 벡터 타일은 안 받는다(육지·바다 면·경계를 다 빼므로).
+//   raster-fade-duration 0 = 받자마자 다 보인다(추출 그림이 반쯤 비친 타일을 담지 않게). 최대 배율·출처는 출처마다(없으면 Mapbox 위성 값)
 function glbStyle(T, sat) {
   if (sat) {
     return {
       version: 8, name: 'wcg-light-sat',
-      sources: { sat: { type: 'raster', tiles: sat.tiles.slice(), tileSize: sat.tileSize, maxzoom: GLB_SAT_MAXZ, attribution: GLB_ATTR_MBX } },
+      sources: { sat: { type: 'raster', tiles: sat.tiles.slice(), tileSize: sat.tileSize, maxzoom: sat.maxzoom || GLB_SAT_MAXZ, attribution: glbAttrOf(sat) } },
       layers: [
         { id: 'bg', type: 'background', paint: { 'background-color': GLB_SEA } },
         { id: 'sat', type: 'raster', source: 'sat', paint: { 'raster-fade-duration': 0 } },
@@ -82,10 +103,11 @@ function glbStyle(T, sat) {
 //  - 스타일 주소(styles/v1/{user}/{style} — 스타일·WMTS·공유 .html·타일 틀 모두, 또는 mapbox://styles/{user}/{style}) →
 //    Static Tiles 512px @2x(Studio에서 꾸민 그대로 서버가 그린 그림, tileSize 512)
 //  - v4 래스터(/v4/mapbox.satellite 등) → 그 그림 타일(256px @2x, tileSize 256)
-//  토큰(access_token)은 주소에서 그대로 옮긴다(코드·저장소엔 없음). bust = '적용'으로 다시 받기(js/map-render.js _mbxCacheBust — Mapbox 모드와 같은 표시).
+//  토큰(access_token)은 주소에서 그대로 옮긴다(코드·저장소엔 없음). 비밀 토큰(sk.)은 안 받는다(앱 쪽에 두면 안 되는 토큰 — Mapbox 문서).
+//  bust = '적용'으로 다시 받기(js/map-render.js _mbxCacheBust — Mapbox 모드와 같은 표시).
 function glbSatSrc(raw, bust) {
   const u = String(raw || '').trim(); if (!u) return null;
-  const tok = (u.match(/access_token=([^&\s#]+)/) || [])[1] || ''; if (!tok) return null;
+  const tok = (u.match(/access_token=([^&\s#]+)/) || [])[1] || ''; if (!tok || /^sk\./i.test(tok)) return null;
   const tail = 'access_token=' + tok + (bust ? '&_cb=' + bust : '');
   const st = u.match(/styles\/v1\/([^\/?#\s]+)\/([^\/?#\s]+)/) || u.match(/^mapbox:\/\/styles\/([^\/?#\s]+)\/([^\/?#\s]+)/);
   if (st) {
@@ -95,6 +117,41 @@ function glbSatSrc(raw, bust) {
   const v4 = u.match(/\/v4\/([\w.-]+)/);
   if (v4) return { kind: 'v4', tileSize: 256, tiles: ['https://api.mapbox.com/v4/' + v4[1].replace(/\.json$/, '') + '/{z}/{x}/{y}@2x.jpg90?' + tail] };   // TileJSON 주소(….json)도
   return null;
+}
+// 'Mapbox 실시간 타일' 배경의 출처(10-12 — WebGL로 바꾸며): 위 해석 그대로(Studio의 Share → Third party 주소 — WMTS·CARTO·ArcGIS Online 모두
+// …/styles/v1/{user}/{style}… 꼴이라 Static Tiles 512 @2x로) + 옛 SVG 길이 받던 다른 지도 서버의 {z}/{x}/{y} 타일 틀(https만, 토큰 없어도 — 256으로 본다).
+// 출처 표기를 함께 단다(attr). 못 알아보면 null — 까닭은 glbUrlWhy.
+function glbMbxSrc(raw, bust) {
+  const s = glbSatSrc(raw, bust);
+  if (s) { s.attr = GLB_ATTR_MBXS; return s; }
+  const u = String(raw || '').trim();
+  if (!/^https:[/][/]\S+$/i.test(u) || !/\{z\}/.test(u) || !/\{x\}/.test(u) || !/\{y\}/.test(u) || /mapbox\.com[/]/i.test(u)) return null;   // Mapbox 주소인데 위에서 못 알아봄(토큰 없음·비밀 토큰) = 못 씀
+  let t = u.replace(/\{r\}/g, '@2x').replace(/\{s\}/g, 'a');   // 레티나 표시·서브도메인 자리(MapLibre가 모르는 칸)
+  if (bust) t += (t.indexOf('?') >= 0 ? '&' : '?') + '_cb=' + bust;
+  return { kind: 'xyz', tileSize: 256, maxzoom: GLB_XYZ_MAXZ, tiles: [t], attr: GLB_ATTR_XYZ };
+}
+// 넣은 주소를 왜 못 쓰는지 한 줄(지도 배경 메뉴 주소 칸 아래 — glbUrlNote) · 쓸 수 있거나 비었으면 ''.
+// xyzOk = Mapbox 실시간 타일(다른 서버 {z}/{x}/{y} 틀도 받음) — 아니면 가벼운 지도 위성 사진(Mapbox 스타일·v4 래스터만)
+function glbUrlWhy(raw, xyzOk) {
+  const u = String(raw || '').trim();
+  if (!u || (xyzOk ? glbMbxSrc(u) : glbSatSrc(u))) return '';
+  const tok = (u.match(/access_token=([^&\s#]+)/) || [])[1] || '';
+  if (/^sk\./i.test(tok)) return '비밀 토큰(sk.)이 든 주소예요 — 공개 토큰(pk.)이 든 주소를 넣어 주세요';
+  if (/studio\.mapbox\.com/i.test(u)) return 'Mapbox Studio 화면 주소예요 — 스타일의 Share → Third party에서 Integration URL을 복사해 넣어 주세요';
+  const mb = /mapbox\.com[/]/i.test(u) || /^mapbox:[/][/]/i.test(u);   // ([/] — 시험의 코드 자르기가 '//'를 주석으로 읽지 않게)
+  if (mb && !tok) return '토큰(access_token)이 빠졌어요 — Integration URL을 끝까지 통째로 복사해 넣어 주세요';
+  if (/^mapbox:[/][/]/i.test(u)) return 'mapbox:// 타일셋 주소는 못 써요 — 스타일의 Integration URL(https://api.mapbox.com/styles/v1/…)을 넣어 주세요';
+  if (mb) return 'Mapbox 주소지만 스타일(…/styles/v1/…)이나 v4 래스터 주소가 아니에요 — 스타일의 Integration URL을 넣어 주세요';
+  if (!/^https?:[/][/]/i.test(u)) return '주소 모양이 아니에요 — https://로 시작하는 주소를 통째로 붙여 넣어 주세요';
+  if (!xyzOk) return 'Mapbox 주소가 아니에요 — 가벼운 지도의 위성 사진은 Mapbox 스타일 주소만 써요';
+  if (/^http:/i.test(u)) return 'http 주소는 못 써요 — https:// 주소를 넣어 주세요';
+  return '알아보지 못한 주소예요 — Mapbox 스타일 주소(…/styles/v1/…)나 {z}/{x}/{y}가 든 타일 주소를 넣어 주세요';
+}
+// Mapbox 실시간 타일 — 지금 쓸 출처(넣어 둔 주소만, 기본 출처 없음). 주소·다시 받기 표시가 같으면 다시 해석하지 않는다
+function glbMbxSrcNow() {
+  const raw = mapboxUrlRaw(), bust = _mbxCacheBust || '';
+  if (raw !== _glb.mxRaw || bust !== _glb.mxBust) { _glb.mxRaw = raw; _glb.mxBust = bust; _glb.mxSrc = glbMbxSrc(raw, bust); }
+  return _glb.mxSrc;
 }
 // 데스크톱 기본 출처 — 개인 주소가 없을 때 쓸 기본 스타일 주소(비공개 공개용 토큰 pk. — desktop/private/mapbox.token, Git 제외. 메인이 preload로 넘긴다).
 // 웹·자동 점검·파일 없음 = ''. 토큰은 화면·프로젝트·로그에 내지 않는다(오류 글은 glbMake가 가린다)
@@ -118,16 +175,19 @@ const glbSatPref = (T) => (T && T.glSat != null ? (+T.glSat ? 1 : 0) : 1);   // 
 // 이 작업의 가벼운 지도가 위성 사진을 까는가(고른 값 + 쓸 수 있는 Mapbox 출처, 노말 VF 아님 — VF는 늘 파란 지도) — 격자 기본값(js/typhoon-core.js typhoonGridIsSat)이 쓴다.
 // 불러오는 중·실패와는 무관하다(그때그때 눈 단추가 다른 칸을 바꾸지 않게).
 function glbSatOn(T) { return !!(T && T.basemap === 'gl' && S.res !== '1920x1080-vf' && glbSatPref(T) && glbSatSrcNow()); }
-// 지금 그릴 위성 출처 — 끈 경우·주소 없음·한 장도 못 받은 주소(satBad)면 null(벡터만)
+// 지금 그릴 그림 타일 출처 — 끈 경우·주소 없음·한 장도 못 받은 주소(satBad)면 null(벡터만).
+// Mapbox 실시간 타일이면 넣어 둔 주소(glbMbxSrcNow) — null이면 그리지 않는다(파란 지도 — glbStart·glbSatFail이 실패로)
 function glbSatNow() {
+  if (glbIsMbx()) { const m = glbMbxSrcNow(); return m && m.tiles[0] !== _glb.satBad ? m : null; }
   if (!glbSatPref(S.typhoon)) return null;
   const s = glbSatSrcNow();
   return s && s.tiles[0] !== _glb.satBad ? s : null;
 }
-// 위성 사진을 골랐고 출처도 있는데 한 장도 못 받아 벡터만 그리는 중인가(알림·안내 한 줄)
-function glbSatMissed() { const s = glbSatPref(S.typhoon) ? glbSatSrcNow() : null; return !!(s && _glb.satBad === s.tiles[0]); }
+// 위성 사진을 골랐고 출처도 있는데 한 장도 못 받아 벡터만 그리는 중인가(알림·안내 한 줄) — 가벼운 지도만(Mapbox 실시간 타일은 벡터로 안 바꾼다)
+function glbSatMissed() { if (glbIsMbx()) return false; const s = glbSatPref(S.typhoon) ? glbSatSrcNow() : null; return !!(s && _glb.satBad === s.tiles[0]); }
 const glbKeyOf = (sat) => (sat ? sat.tiles[0] : 'vec');   // 지도 하나의 스타일 표시(바뀌면 setStyle)
-const glbAttrNow = () => ((_glb.live && _glb.state !== 'fail' ? _glb.live.__sat : !!glbSatNow()) ? GLB_ATTR_MBX : GLB_ATTR);
+const glbAttrOf = (sat) => (sat ? sat.attr || GLB_ATTR_MBX : GLB_ATTR);   // 그 스타일의 출처 표기
+const glbAttrNow = () => (_glb.live && _glb.state !== 'fail' && _glb.live.__attr ? _glb.live.__attr : glbAttrOf(glbSatNow()));
 
 // 앱 지도 위치 → MapLibre 카메라. cam = {x,y,s}(S.map), proj = MAP.proj, k = 화면 px / 뷰박스 단위,
 // (ox, oy) = 그림 왼쪽 위의 뷰박스 좌표, (cw, ch) = 그림 크기(px). MapLibre는 그림 가운데에 center를 둔다.
@@ -188,7 +248,7 @@ function glbMake(ml, box, exp) {
     cancelPendingTileRequestsWhileZooming: false,
     transformRequest: glbTransform,   // 데스크톱이면 디스크 캐시 길로(위 GLB_PROTO)
   });
-  m.__key = glbKeyOf(sat); m.__sat = !!sat; glbCount0(m);
+  m.__key = glbKeyOf(sat); m.__sat = !!sat; m.__attr = glbAttrOf(sat); glbCount0(m);
   // 받은 타일·오류를 소스마다 센다(omt = 벡터, sat = 위성 그림). 오류 글에서 토큰은 지운다(주소가 실려 올 수 있다)
   m.on('sourcedata', (e) => { if (e && e.tile && (e.sourceId === 'omt' || e.sourceId === 'sat')) { m.__ok++; m.__okS[e.sourceId]++; } });
   m.on('error', (e) => {
@@ -208,7 +268,7 @@ function glbMake(ml, box, exp) {
 function glbCount0(m) { m.__ok = 0; m.__err = 0; m.__okS = { omt: 0, sat: 0 }; m.__errS = { omt: 0, sat: 0 }; m.__errMsg = ''; m.__errSt = 0; }
 // 위성 사진 켜기·끄기·주소가 바뀌면 스타일을 통째로 바꾼다(diff 없이 — 소스가 바뀐다). 카메라는 그대로. __key·__sat = 지금 이 지도의 스타일
 function glbRestyle(m, sat) {
-  m.__key = glbKeyOf(sat); m.__sat = !!sat; glbCount0(m);
+  m.__key = glbKeyOf(sat); m.__sat = !!sat; m.__attr = glbAttrOf(sat); glbCount0(m);
   if (m === _glb.live && _glb.state === 'loading') _glb.tw = performance.now();   // 불러오는 중에 바꾸면 기다린 시간도 처음부터(앞 스타일에서 기다린 시간으로 새 스타일을 실패 판정하지 않게)
   try { m.setStyle(glbStyle(S.typhoon, sat), { diff: false }); } catch (e) { /* 다음 동기화에 */ }
 }
@@ -221,8 +281,14 @@ function glbSatCheck(m, el) {
   return el > GLB_WAIT_MS ? 'fail' : 'wait';
 }
 // 위성 타일을 한 장도 못 받았다 — 이 주소는 이번 실행 동안 벡터만(다시 시도·위성 사진 다시 고르기로 풂), 화면 지도도 벡터로, 알림 한 번
+// Mapbox 실시간 타일은 벡터로 바꾸지 않는다 — 그 주소 표시만 남기고 파란 지도 + 까닭(glbFail — 다시 시도·[적용]으로 풂)
 function glbSatFail(m) {
   const st = m.__errSt;
+  if (glbIsMbx()) {
+    _glb.satBad = m.__key; _glb.satWhy = '';
+    glbFail(navigator.onLine === false ? 'offline' : (st === 401 || st === 403) ? 'mbxauth' : 'mbxtiles');
+    return;
+  }
   const why = navigator.onLine === false ? GLB_WHY.offline : (st === 401 || st === 403) ? 'Mapbox 토큰이나 URL 제한을 확인해 주세요' : 'Mapbox에서 위성 사진 타일을 못 받았어요';
   const first = _glb.satBad !== m.__key;
   _glb.satBad = m.__key; _glb.satWhy = why;
@@ -250,13 +316,15 @@ function glbSatPoll() {
 // 화면 지도 시작(고를 때·이 모드인 작업을 열었을 때 — glbSync가 부른다)
 async function glbStart() {
   if (_glb.state !== 'off') return;
-  _glb.state = 'loading'; _glb.why = ''; _glb.t0 = _glb.tw = performance.now(); _glb.view = '';
+  _glb.state = 'loading'; _glb.why = ''; _glb.t0 = _glb.tw = performance.now(); _glb.view = ''; _glb.mode = glbMode();
   glbUi();
-  if (!_glb.online) {   // 한 번만 — 다시 연결되면 다시 시도, 아트보드 크기가 바뀌면(창·타임라인·사이드바) 배율을 다시
+  if (!_glb.online) {   // 한 번만 — 다시 연결되면 다시 시도(주소 문제·엔진·WebGL은 연결과 무관), 아트보드 크기가 바뀌면(창·타임라인·사이드바) 배율을 다시
     _glb.online = true;
-    window.addEventListener('online', () => { if (glbActive() && _glb.state === 'fail' && _glb.why !== 'lib' && _glb.why !== 'webgl') glbRetry(); });
+    window.addEventListener('online', () => { if (glbActive() && _glb.state === 'fail' && !['lib', 'webgl', 'nourl', 'badurl'].includes(_glb.why)) glbRetry(); });
     try { new ResizeObserver(() => { if (_glb.live && glbActive()) glbSync(true); }).observe(fit); } catch (e) { /* 창 크기 'resize'로도 맞춘다 */ }
   }
+  // Mapbox 실시간 타일 — 넣어 둔 주소가 없거나 못 알아보면 엔진·타일을 받지 않고 곧바로 파란 지도(까닭 + 메뉴 주소 칸·안내)
+  if (_glb.mode === 'mapbox' && !glbMbxSrcNow()) { glbFail(mapboxUrlRaw().trim() ? 'badurl' : 'nourl'); return; }
   // 오프라인 — 웹은 곧바로 파란 지도. 데스크톱(디스크 캐시 길)은 한 번 해 본다: 한 번 본 타일은 이 PC에 있다(기한 지난 것도 준다). 못 받으면 glbPoll이 'offline'으로
   if (navigator.onLine === false && !glbCacheOn()) { glbFail('offline'); return; }
   const ml = await glbLoadLib();
@@ -281,9 +349,9 @@ function glbPoll() {
   try { m.redraw(); } catch (e) { /* 그리기 실패는 아래 판정으로 */ }
   const el = performance.now() - _glb.tw;   // 기다린 시간(위성 → 벡터로 바꾸면 다시 0부터)
   if (m.__sat) {   // 위성 사진 — 그 그림 타일을 기다린다. 한 장도 못 받으면 벡터만으로 바꿔 처음부터 다시 기다린다(영상 렌더 중에도 — glbSatFail이 스타일을 바꾼다)
-    const r = glbSatCheck(m, el);
+    const r = glbSatCheck(m, el);   // Mapbox 실시간 타일도 같은 판정 — 한 장도 못 받으면 벡터 대신 파란 지도(glbSatFail → glbFail)
     if (r === 'ok') { glbReadyNow(); return; }
-    if (r === 'fail') { glbSatFail(m); _glb.tw = performance.now(); _glb.poll = setTimeout(glbPoll, 60); return; }
+    if (r === 'fail') { glbSatFail(m); if (_glb.state !== 'loading') return; _glb.tw = performance.now(); _glb.poll = setTimeout(glbPoll, 60); return; }
     if (el > GLB_WAIT_MS) { glbFail('timeout'); return; }   // 받고는 있는데 너무 늦다(벡터와 같은 규칙)
     _glb.poll = setTimeout(glbPoll, 100);
     return;
@@ -301,6 +369,7 @@ function glbReadyNow() {
   tiltInvalidate(); if (camActive3d()) applyTilt();  // 틸트 그림에도 GL을
   glbUi();
   if (!glbActive()) return;
+  if (glbIsMbx()) { status(`Mapbox 실시간 타일 (WebGL) 준비됨 — ${(_glb.readyMs / 1000).toFixed(1)}초`, true, 'ok'); return; }
   const sat = !!(_glb.live && _glb.live.__sat);
   // 위성 사진을 골랐는데 벡터로 준비됨 — 못 받음(불러오는 중엔 알리지 않았다 — glbSatFail) · 출처(Mapbox 주소) 없음. 까닭을 같은 줄에
   if (!sat && glbSatMissed()) status(`가벼운 지도 준비됨 — 위성 사진을 못 받아 벡터만 그려요(${_glb.satWhy})`, true, 'warn');
@@ -315,14 +384,27 @@ function glbFail(why) {
   if (isTyphoon()) renderTyphoon();                 // 파란 지도로 대체
   tiltInvalidate(); if (camActive3d()) applyTilt();
   glbUi();
-  if (glbActive()) status('가벼운 지도를 못 불러와 파란 지도로 그려요 — ' + (GLB_WHY[why] || why), true, 'warn');
+  if (!glbActive()) return;
+  if (why === 'nourl') status('Mapbox 실시간 타일 — 주소가 없어 파란 지도로 그려요(지도 배경 메뉴 아래 칸에 넣고 [적용] · 어디서 복사하는지 안내가 있어요)', true, 'warn');
+  else status(glbName() + '를 못 불러와 파란 지도로 그려요 — ' + glbWhyText(why), true, 'warn');
 }
-// 다시 시도 — 지도 엔진은 두고 지도를 새로 만든다(실패한 타일을 다시 받게 — 못 받은 위성 사진도 다시)
-function glbRetry() {
+// 실패 까닭 글 — 주소를 못 알아봤으면 무엇이 틀렸는지(glbUrlWhy)도
+function glbWhyText(why) {
+  const t = GLB_WHY[why] || why;
+  if (why !== 'badurl') return t;
+  const w = glbUrlWhy(mapboxUrlRaw(), true);
+  return w ? t + ': ' + w : t;
+}
+// 지도를 버리고 처음 상태로(엔진은 둔다) — 다시 시도·배경 종류가 바뀜(가벼운 지도 ↔ Mapbox 실시간 타일)
+function glbReset() {
   clearTimeout(_glb.poll); _glb.poll = 0; clearTimeout(_glb.satW); _glb.satW = 0;
   for (const k of ['live', 'exp']) { const m = _glb[k]; _glb[k] = null; if (m) { try { m.remove(); } catch (e) { /* 이미 잃음 */ } } }
   const ex = $('#glMapExp'); if (ex) ex.remove();
   _glb.state = 'off'; _glb.why = ''; _glb.satBad = ''; _glb.satWhy = '';
+}
+// 다시 시도 — 지도 엔진은 두고 지도를 새로 만든다(실패한 타일을 다시 받게 — 못 받은 위성 사진도 다시)
+function glbRetry() {
+  glbReset();
   glbSync(true);
 }
 // 지도 배경 팝오버의 [위성 사진 | 벡터만](S.typhoon.glSat — 되돌리기·저장에 따라간다). 다시 '위성 사진'을 누르면 못 받았던 주소도 다시 시도
@@ -338,21 +420,24 @@ function glbSetSat(v) {
   glbUi();
   status(!v ? '가벼운 지도 — 벡터만' : glbSatNow() ? '가벼운 지도 — 위성 사진(Mapbox)' : '가벼운 지도 — Mapbox 주소가 없어 벡터만 그려요', true);
 }
-// 지도 배경 팝오버 주소 칸(#bmMbxBox)의 [적용]을 이 모드에서 눌렀다(js/map-render.js wireBasemap — 배경은 가벼운 지도 그대로) — 새 주소로 위성 사진을 다시(실패 중이었으면 처음부터)
+// 지도 배경 팝오버 주소 칸(#bmMbxBox)의 [적용]을 눌렀다(js/map-render.js wireBasemap — 배경은 그대로) — 가벼운 지도면 새 주소로 위성 사진을 다시(실패 중이었으면 처음부터),
+// Mapbox 실시간 타일이면 새 주소로 처음부터(못 알아보면 곧바로 파란 지도 + 까닭 — glbStart)
 function glbUrlApplied() {
   _glb.satBad = ''; _glb.satWhy = '';
+  if (glbIsMbx()) { glbRetry(); glbUi(); return; }
   if (_glb.state === 'fail') glbRetry();
   renderTyphoon();   // 스타일(glbSync — 새 주소면 위성 사진으로)·격자 기본값
   { const eye = $('#typGridEye'); if (eye) eye.classList.toggle('off', !typhoonGridOn(S.typhoon)); }
   glbUi();
 }
-// 메뉴에서 고름(js/map-render.js wireBasemap) — 실패했던 거면 다시 시도
+// 메뉴에서 고름(js/map-render.js wireBasemap — 가벼운 지도·Mapbox 실시간 타일) — 실패했던 거면 다시 시도
 function glbPicked() {
   if (_glb.state === 'fail') glbRetry(); else glbSync(true);
   glbUi();
-  if (_glb.state === 'ready') status('가벼운 지도 (WebGL · 시험)' + (glbSatPref(S.typhoon) && !glbSatSrcNow() ? ' — Mapbox 주소가 없어 벡터만 그려요' : ''), true);
-  else if (S.res !== '1920x1080-vf') status('가벼운 지도 (WebGL · 시험) — 불러오는 중…', true);   // 곧 시작(glbStart) — 끝나면 준비·실패 알림이 덮는다
-  else status('노말 VF 화면에서는 가벼운 지도를 아직 못 써요 — 파란 지도로 그려요', true, 'warn');
+  const mbx = glbIsMbx(), nm = mbx ? 'Mapbox 실시간 타일' : '가벼운 지도 (WebGL · 시험)';
+  if (_glb.state === 'ready') status(nm + (!mbx && glbSatPref(S.typhoon) && !glbSatSrcNow() ? ' — Mapbox 주소가 없어 벡터만 그려요' : ''), true);
+  else if (S.res !== '1920x1080-vf') status(nm + ' — 불러오는 중…', true);   // 곧 시작(glbStart) — 끝나면 준비·실패 알림이 덮는다(주소가 없으면 곧바로 그 안내)
+  else status(`노말 VF 화면에서는 ${mbx ? 'Mapbox 실시간 타일' : '가벼운 지도'}를 아직 못 써요 — 파란 지도로 그려요`, true, 'warn');
 }
 
 // renderTyphoon이 GL을 보일 때 숨기는 파란 지도 조각에 표시 — 추출 복제본이 GL 그림을 못 얻으면 이 표시로 되살린다(glbCloneFallback).
@@ -374,6 +459,8 @@ function _glbSync(force) {
   const host = $('#glMap'), box = $('#glMapIn'), attr = $('#glMapAttr');
   if (!host || !box) return;
   const act = glbActive();
+  // 배경 종류가 바뀌었다(가벼운 지도 ↔ Mapbox 실시간 타일 — 메뉴·되돌리기·작업 열기) — 지도를 새로 만들어 처음 표시처럼(불러오는 동안 파란 지도, 끝에 준비·실패 알림·까닭)
+  if (act && _glb.mode && _glb.mode !== glbMode() && _glb.state !== 'off') glbReset();
   // 시작은 지금 그리기(renderTyphoon)가 끝난 뒤에 — 곧바로 실패(오프라인)하면 glbFail이 renderTyphoon을 다시 부르므로 겹치지 않게. glbStart가 다시 부른다(노말 VF는 못 쓰니 안 불러온다)
   if (act && _glb.state === 'off' && S.res !== '1920x1080-vf') { Promise.resolve().then(glbStart); return; }
   const m = _glb.live;
@@ -386,6 +473,11 @@ function _glbSync(force) {
   // 위성 사진 켜기·끄기·Mapbox 주소가 바뀌었으면(되돌리기 포함) 스타일을 바꾼다 — 준비된 화면이면 그대로 보이며 타일이 차오르고, 지켜보다 다 받으면 틸트 그림을 다시(glbSatWatch).
   // 영상 렌더 중에도 바꾼다(불러오는 중에 위성 타일을 한 장도 못 받으면 벡터로 바꿔야 준비가 끝난다 — 아니면 프레임마다 glbSettle이 끝까지 기다린다)
   const sat = glbSatNow();
+  if (!sat && glbIsMbx()) {   // Mapbox 실시간 타일인데 쓸 주소가 없어졌다 — 벡터로 바꾸지 않고 파란 지도로(지금 그리기가 끝난 뒤)
+    host.style.visibility = 'hidden';
+    Promise.resolve().then(() => { if (glbIsMbx() && _glb.state !== 'fail' && _glb.state !== 'off' && !glbSatNow()) glbFail(mapboxUrlRaw().trim() ? 'badurl' : 'nourl'); });
+    return;
+  }
   if (m.__key !== glbKeyOf(sat)) {
     glbRestyle(m, sat); _glb.col = col; force = true;
     if (attr) attr.textContent = glbAttrNow();
@@ -448,6 +540,7 @@ const glbSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // 한 장 — 뷰박스 영역(vb)을 pw×ph px로. 타일을 다 받을 때까지(시간 제한) 기다린 뒤 그 그림(data URL). 못 받으면 null.
 // lenient = 다시 해 보는 두 번째(glbInlineClone) — 위성 사진은 몇 칸만 못 받았으면 받은 데까지 쓴다(그 칸은 바다색, 알림). 영상이 위성 ↔ 파란 지도로 튀지 않게
 async function glbSnap(cam, vb, pw, ph, fast, lenient) {
+  if (glbIsMbx() && !glbSatNow()) return null;   // Mapbox 실시간 타일 — 쓸 주소가 없거나 한 장도 못 받은 주소(벡터로 그리지 않는다 → 그 그림은 파란 지도)
   const ml = await glbLoadLib(); if (!ml) return null;
   let m;
   try { m = glbExpMap(ml); } catch (e) { return null; }
@@ -467,7 +560,9 @@ async function glbSnap(cam, vb, pw, ph, fast, lenient) {
     try { m.redraw(); done = m.loaded() && m.areTilesLoaded(); } catch (e) { done = false; }
     // 위성 타일을 한 장도 못 받음(토큰·주소 제한·서버) → 이번부터 벡터만(알림 한 번)으로 바꿔 이 그림도 벡터로 기다린다(파란 지도로 떨어지지 않게)
     if (m.__sat && !m.__okS.sat && m.__err > e0 && (done || performance.now() - t1 > 2500)) {
-      glbSatFail(m); glbRestyle(m, glbSatNow()); m.__col = col;
+      glbSatFail(m);
+      if (glbIsMbx()) { done = false; break; }   // Mapbox 실시간 타일은 벡터로 안 바꾼다 — 화면도 파란 지도로(glbFail), 이 그림도
+      glbRestyle(m, glbSatNow()); m.__col = col;
       e0 = m.__err; t1 = performance.now(); done = false;
       continue;
     }
@@ -479,7 +574,7 @@ async function glbSnap(cam, vb, pw, ph, fast, lenient) {
   _glb.expT = setTimeout(glbDropExp, 30000);
   const part = lenient && m.__sat && m.__okS.sat > 0 && m.__err > e0;   // 위성 사진 일부만 못 받음 — 받은 데까지
   if (!done || (m.__err > e0 && !part) || !m.__ok) return null;
-  if (part) { const now = performance.now(); if (now - _glb.warnAt > 8000) { _glb.warnAt = now; status('위성 사진 타일 몇 칸을 못 받아 그 칸은 바다색으로 그렸어요', true, 'warn'); } }
+  if (part) { const now = performance.now(); if (now - _glb.warnAt > 8000) { _glb.warnAt = now; status((glbIsMbx() ? 'Mapbox 지도' : '위성 사진') + ' 타일 몇 칸을 못 받아 그 칸은 바다색으로 그렸어요', true, 'warn'); } }
   let url = null;
   try { m.redraw(); url = m.getCanvas().toDataURL(fast ? 'image/jpeg' : 'image/png', fast ? 0.92 : undefined); } catch (e) { url = null; }
   _glb.snaps++; _glb.snapMs = performance.now() - t0;
@@ -497,7 +592,7 @@ function glbCamOf(bg) {
 function glbCloneFallback(clone) {
   clone.querySelectorAll('[data-glbhid]').forEach((n) => { n.style.display = ''; });
   const now = performance.now();
-  if (now - _glb.warnAt > 8000) { _glb.warnAt = now; status('가벼운 지도 타일을 못 받아 이번 그림은 파란 지도로 그렸어요', true, 'warn'); }
+  if (now - _glb.warnAt > 8000) { _glb.warnAt = now; status(glbName() + ' 타일을 못 받아 이번 그림은 파란 지도로 그렸어요', true, 'warn'); }
 }
 // 추출 한 장의 GL 그림 영역(reg — 뷰박스 vb에서 타일이 있는 위도 띠만, 밖은 바다)·크기(pw×ph — vb 너비를 W px로, 한 변 GLB_SNAP_MAX로 줄임).
 // 띠가 비면 null. glbInlineClone과 렌더 전 미리 받기(glbPrefetchUrls)가 같이 써서 배율(→ MapLibre가 고를 타일)이 똑같다
@@ -562,14 +657,15 @@ async function glbTileJson() {
 // 3D로 기울인 프레임은 블리드 영역(camBleedViewBox), 평면은 프레임. MapLibre coveringZoomLevel(소스 코드 그대로):
 //   z = (roundZoom ? 반올림 : 내림)(zoom + log2(512 / 소스 tileSize)), 0 아래면 0, 소스 maxzoom 위면 maxzoom.
 //   벡터 타일(512) = 내림, 그림 타일(raster — roundZoom) = 반올림 — Static Tiles 512면 round(zoom), v4 256이면 round(zoom + 1).
-// 위성 사진이면 그림 타일만(벡터 타일은 안 쓴다), 아니면 벡터 타일만. 화면 지도가 불러오는 중이면 끝을 보고(위성 → 벡터만으로 바뀔 수 있다),
+// 위성 사진·Mapbox 실시간 타일이면 그림 타일만(벡터 타일은 안 쓴다), 아니면 벡터 타일만. 화면 지도가 불러오는 중이면 끝을 보고(위성 → 벡터만으로 바뀔 수 있다),
 // 실패(파란 지도로 그림 — 엔진·WebGL·GPU·타일·시간)면 아무것도 안 받는다(쓰지 않을 위성 그림 타일 = 요청마다 Mapbox 사용량).
 async function glbPrefetchUrls(cams) {
   if (glbPending()) await glbSettle();
   if (_glb.state === 'fail') return [];
   const sat = glbSatNow();
+  if (!sat && glbIsMbx()) return [];   // Mapbox 실시간 타일인데 쓸 주소가 없다(파란 지도로 그림) — 벡터 타일도 안 받는다
   let tmpl, zmin, zmax, zOf;
-  if (sat) { tmpl = sat.tiles[0]; zmin = 0; zmax = GLB_SAT_MAXZ; zOf = (zm) => Math.round(zm + Math.log2(512 / sat.tileSize)); }
+  if (sat) { tmpl = sat.tiles[0]; zmin = 0; zmax = sat.maxzoom || GLB_SAT_MAXZ; zOf = (zm) => Math.round(zm + Math.log2(512 / sat.tileSize)); }   // 위성 사진·Mapbox 실시간 타일(glbStyle과 같은 최대 배율)
   else {
     const tj = await glbTileJson(); if (!tj) return [];
     tmpl = tj.tiles[0]; zmin = +tj.minzoom || 0; zmax = tj.maxzoom == null ? 14 : +tj.maxzoom; zOf = Math.floor;
@@ -601,19 +697,24 @@ async function glbPrefetchUrls(cams) {
 }
 
 // ---------- 메뉴 ----------
-// 지도 배경 팝오버의 상태 줄·다시 시도(js/map-render.js wireBasemap이 열 때·고를 때 부른다)
+const GLB_STUDIO = 'https://studio.mapbox.com/';   // 주소 안내의 [열기] — 데스크톱은 기본 브라우저로(desktop/main.js 창 열기 처리)
+// 지도 배경 팝오버의 상태 줄·다시 시도(js/map-render.js wireBasemap이 열 때·고를 때 부른다). 상태 줄은 지금 배경 칸에 —
+// 가벼운 지도 = #bmGlBox(#bmGlState·#bmGlRetry), Mapbox 실시간 타일 = 주소 칸 #bmMbxBox(#bmMbxState·#bmMbxRetry)
 function glbUi() {
-  const st = $('#bmGlState'), rt = $('#bmGlRetry');
-  if (!st) return;
+  const mbx = glbIsMbx(), vf = S.res === '1920x1080-vf';
   let t;
-  if (S.res === '1920x1080-vf') t = '노말 VF 화면에서는 아직 못 써요 — 파란 지도로 그려요';
-  else if (_glb.state === 'loading') t = '불러오는 중… (처음엔 지도 엔진·타일을 받아요)';
-  else if (_glb.state === 'ready') t = `WebGL로 그리는 중${_glb.live && _glb.live.__sat ? ' · 위성 사진' : ''} · 처음 표시 ${(_glb.readyMs / 1000).toFixed(1)}초`;
-  else if (_glb.state === 'fail') t = '못 불러와 파란 지도로 그려요 — ' + (GLB_WHY[_glb.why] || _glb.why);
-  else t = '고르면 지도 엔진과 타일을 불러와요';
-  st.textContent = t;
-  st.dataset.state = _glb.state;
-  if (rt) rt.style.display = _glb.state === 'fail' && S.res !== '1920x1080-vf' ? '' : 'none';
+  if (vf) t = '노말 VF 화면에서는 아직 못 써요 — 파란 지도로 그려요';
+  else if (_glb.state === 'loading') t = mbx ? '불러오는 중… (처음엔 지도 엔진·Mapbox 타일을 받아요)' : '불러오는 중… (처음엔 지도 엔진·타일을 받아요)';
+  else if (_glb.state === 'ready') t = `WebGL로 그리는 중${!mbx && _glb.live && _glb.live.__sat ? ' · 위성 사진' : ''} · 처음 표시 ${(_glb.readyMs / 1000).toFixed(1)}초`;
+  else if (_glb.state === 'fail') t = _glb.why === 'nourl' ? 'Mapbox 주소가 없어 파란 지도로 그려요 — 아래 칸에 넣고 [적용]' : '못 불러와 파란 지도로 그려요 — ' + glbWhyText(_glb.why);
+  else t = mbx ? '주소를 넣고 [적용]하면 WebGL로 그려요' : '고르면 지도 엔진과 타일을 불러와요';
+  const retry = _glb.state === 'fail' && !vf && _glb.why !== 'nourl' && _glb.why !== 'badurl';   // 주소 문제는 다시 시도로 안 풀린다(주소 칸·까닭 한 줄)
+  { const st = $('#bmGlState'), rt = $('#bmGlRetry');
+    if (st) { st.textContent = t; st.dataset.state = _glb.state; }
+    if (rt) rt.style.display = !mbx && retry ? '' : 'none'; }
+  { const st = $('#bmMbxState'), rt = $('#bmMbxRetry');
+    if (st) { st.textContent = mbx ? t : ''; st.dataset.state = _glb.state; st.style.display = mbx ? '' : 'none'; }
+    if (rt) rt.style.display = mbx && retry ? '' : 'none'; }
   // [위성 사진 | 벡터만] — 고른 값. 위성 사진인데 못 까는 까닭(주소 없음·못 알아봄·못 받음)은 아래 한 줄로 + 그 칸을 흐리게(골랐지만 지금은 벡터)
   const pref = glbSatPref(S.typhoon), src = pref ? glbSatSrcNow() : null, raw = mapboxUrlRaw().trim();
   const missed = !!src && _glb.satBad === src.tiles[0];
@@ -629,23 +730,45 @@ function glbUi() {
     }
     note.textContent = n; note.style.display = n ? '' : 'none';
   }
-  // 주소 칸(#bmMbxBox — 'Mapbox 실시간 타일'과 같은 칸)을 이 모드에서도: 위성 사진을 골랐는데 출처가 없거나 넣어 둔 주소로 못 받을 때만(적용해도 배경은 가벼운 지도 그대로 — js/map-render.js wireBasemap)
-  { const mb = $('#bmMbxBox'); if (mb && glbActive()) mb.style.display = pref && S.res !== '1920x1080-vf' && (!src || (missed && !src.def)) ? '' : 'none'; }
+  // 주소 칸(#bmMbxBox — 'Mapbox 실시간 타일'과 같은 칸)을 가벼운 지도에서도: 위성 사진을 골랐는데 출처가 없거나 넣어 둔 주소로 못 받을 때만(적용해도 배경은 가벼운 지도 그대로 — js/map-render.js wireBasemap).
+  // Mapbox 실시간 타일에선 늘 보인다(wireBasemap syncOpts)
+  { const mb = $('#bmMbxBox'); if (mb && glbMode() === 'gl') mb.style.display = pref && !vf && (!src || (missed && !src.def)) ? '' : 'none'; }
+  glbUrlNote();
   const at = glbAttrNow();
   { const a = $('#bmGlAttr'); if (a) a.textContent = at; }
   { const b = $('#glMapAttr'); if (b) b.textContent = at; }
 }
+// 주소 칸 아래 한 줄(#bmMbxWhy — 칸에 넣은 주소를 왜 못 쓰는지, 고치는 동안에도 바로)·주소 안내(#bmMbxHelp — 넣어 둔 주소가 없으면 펼쳐 둠, 사용자가 접거나 펼치면 그대로)
+function glbUrlNote() {
+  const mode = glbMode(), urlIn = $('#bmMbxUrl'), why = $('#bmMbxWhy');
+  const w = mode ? glbUrlWhy(urlIn ? urlIn.value : mapboxUrlRaw(), mode === 'mapbox') : '';
+  if (why) { why.textContent = w; why.style.display = w ? '' : 'none'; }
+  const open = _glb.help != null ? _glb.help : !mapboxUrlRaw().trim();
+  const hp = $('#bmMbxHelp'), hb = $('#bmMbxHelpBtn');
+  if (hp) hp.hidden = !open;
+  if (hb) hb.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 function glbWire() {
   const rt = $('#bmGlRetry');
   if (rt) rt.onclick = (e) => { e.stopPropagation(); glbRetry(); glbUi(); };
+  const mr = $('#bmMbxRetry');
+  if (mr) mr.onclick = (e) => { e.stopPropagation(); glbRetry(); glbUi(); };
   document.querySelectorAll('#bmGlSat button').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); glbSetSat(+b.dataset.glsat); }; });
+  // 주소 안내 [?] 펼치기·접기, Mapbox Studio 열기, 칸을 고치는 동안 까닭 한 줄
+  const hb = $('#bmMbxHelpBtn');
+  if (hb) hb.onclick = (e) => { e.stopPropagation(); const hp = $('#bmMbxHelp'); _glb.help = !!(hp && hp.hidden); glbUrlNote(); };
+  const so = $('#bmMbxStudio');
+  if (so) so.onclick = (e) => { e.stopPropagation(); window.open(GLB_STUDIO, '_blank', 'noopener'); };
+  const urlIn = $('#bmMbxUrl');
+  if (urlIn) urlIn.addEventListener('input', glbUrlNote);
   const at = glbAttrNow();
   const a = $('#bmGlAttr'); if (a) a.textContent = at;
   const b = $('#glMapAttr'); if (b) b.textContent = at;
 }
-// 데스크톱 기본 토큰이 왔다(preload가 비동기로 받는다 — js/boot.js가 부른다. 보통은 앱 스크립트보다 먼저 온다) — 이 모드면 스타일(glbSync)·격자 기본값·안내를 다시
+// 데스크톱 기본 토큰이 왔다(preload가 비동기로 받는다 — js/boot.js가 부른다. 보통은 앱 스크립트보다 먼저 온다) — 가벼운 지도면 스타일(glbSync)·격자 기본값·안내를 다시
+// (Mapbox 실시간 타일은 기본 토큰을 안 쓴다)
 function glbTokenArrived() {
-  if (!glbActive() || _glb.mbDef === glbSatBuiltinUrl()) return;   // 이 모드가 아니거나 이미 그 토큰으로 정한 화면(출처는 glbSatSrcNow가 토큰이 바뀌면 다시 해석)
+  if (glbMode() !== 'gl' || _glb.mbDef === glbSatBuiltinUrl()) return;   // 가벼운 지도가 아니거나 이미 그 토큰으로 정한 화면(출처는 glbSatSrcNow가 토큰이 바뀌면 다시 해석)
   renderTyphoon();
   { const eye = $('#typGridEye'); if (eye) eye.classList.toggle('off', !typhoonGridOn(S.typhoon)); }
   glbUi();

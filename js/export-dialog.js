@@ -325,7 +325,6 @@ async function renderExport(opt) {
   let n = 0, err = null;
   try {
     await withStaticFrame(async () => {
-      await awaitMapboxTilesReady();   // 태풍 실시간 타일 — 렌더 전에 캐시
       for (const p of plan) {
         if (_exStop) break;
         exProgress(n, plan.length, p.name);

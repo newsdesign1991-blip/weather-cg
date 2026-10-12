@@ -49,24 +49,20 @@ function buildMp4(W, H, timescale, frameDur, samples, avcc) {
 }
 
 // 렌더 전 지도 타일 미리 받기(사용자 10-10: 버튼 없이 렌더를 누르면 알아서) — 카메라 키가 있으면 모든 프레임 화면에 필요한 타일을
-// 먼저 한꺼번에(동시 12개 — 가벼운 지도는 타일이 적어 8개) 받아 둔다: Mapbox 실시간 그림 타일(js/map-render.js mapboxPrefetchUrls → _tileData)·가벼운 지도 벡터 타일(js/gl-basemap.js glbPrefetchUrls).
-// 프레임은 원래도 그 프레임 타일을 기다려 굽지만(awaitMapboxTilesReady·glbSnap) 프레임마다 받으며 기다리면 느리고 시간 제한에 걸리면 빈 칸 — 미리 받아 두면 렌더 중엔 기다림이 없다.
+// 먼저 한꺼번에(동시 8개) 받아 둔다: WebGL 배경 둘(가벼운 지도 벡터·위성 그림 타일, Mapbox 실시간 타일의 그림 타일 — 10-12부터 같은 엔진) 모두 js/gl-basemap.js glbPrefetchUrls.
+// 프레임은 원래도 그 프레임 타일을 기다려 굽지만(glbSnap) 프레임마다 받으며 기다리면 느리고 시간 제한에 걸리면 빈 칸 — 미리 받아 두면 렌더 중엔 기다림이 없다.
 // 받은 타일은 디스크 캐시(desktop/tile-cache.js)에도 남아 다음 렌더·화면은 이 PC에서 바로. 카메라 키가 없으면(지도 고정) 그 화면 타일만이라 할 일 없음.
 // 프레임 렌더 루프(bakeMp4·exportPngSeq·exportWns)가 _exportingFrames를 켠 뒤 부른다 — 진행은 렌더 진행 막대에 '지도 미리 받는 중'.
 // [렌더 취소](10-12)면 새 타일은 더 안 받고 exportCancelCheck()가 던진다(받는 중이던 것은 캐시에만 남는다).
 async function prefetchRenderTiles(n, fps) {
   if (!isTyphoon() || !camKeys().length) return;
-  const T = S.typhoon || {};
-  const mbx = T.basemap === 'mapbox' && !!mapboxTileTemplate();
-  const gl = !mbx && glbActive() && S.res !== '1920x1080-vf';
-  if (!mbx && !gl) return;
+  if (!glbActive() || S.res === '1920x1080-vf') return;   // 가벼운 지도·Mapbox 실시간 타일만(노말 VF는 파란 지도)
   const cams = [];
   for (let i = 0; i <= n; i++) { const c = camAt(i / fps); if (c) cams.push(c); }
-  const urls = mbx ? mapboxPrefetchUrls(cams) : await glbPrefetchUrls(cams);
-  exportCancelCheck();   // 가벼운 지도는 주소 만들기(지도 준비 기다림)가 길 수 있다
-  const todo = mbx ? urls.filter((u) => !_tileData[u]) : urls;
+  const todo = await glbPrefetchUrls(cams);
+  exportCancelCheck();   // 주소 만들기(지도 준비 기다림)가 길 수 있다
   if (!todo.length) return;
-  const one = mbx ? (u) => fetchTileData(u, true) : (u) => tileFetch(u).then(() => 1, () => null);
+  const one = (u) => tileFetch(u).then(() => 1, () => null);   // 디스크 캐시(데스크톱)·HTTP 캐시로 — 프레임의 숨은 지도가 거기서 읽는다
   let k = 0, done = 0, fail = 0, stop = false, unhook = () => {};
   // 취소면 받던 타일(느리거나 시간 제한을 기다리는 것)을 기다리지 않고 곧바로 — 그 타일은 뒤에서 마저 받아 캐시에만, 진행 표시는 안 건드린다
   const sig = exportCancelSignal();
@@ -75,7 +71,7 @@ async function prefetchRenderTiles(n, fps) {
     if (sig.aborted) f(); else { sig.addEventListener('abort', f, { once: true }); unhook = () => sig.removeEventListener('abort', f); }
   }) : null;
   exportProgress(0, todo.length, '지도 미리 받는 중');
-  const all = Promise.all(Array.from({ length: Math.min(mbx ? 12 : 8, todo.length) }, async () => {
+  const all = Promise.all(Array.from({ length: Math.min(8, todo.length) }, async () => {
     while (k < todo.length && !stop && !exportCancelled()) {
       const u = todo[k++];
       if (!(await one(u))) fail++;

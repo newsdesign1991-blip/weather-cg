@@ -635,11 +635,10 @@ function _renderTyphoon() {
       sat.style.display = '';
     } else sat.style.display = 'none';
   }
-  const isMbx = !!(on && T && T.basemap === 'mapbox' && mapboxTileTemplate());   // Mapbox 실시간 타일(URL 있을 때만; 없으면 파란 지도 유지)
   const isDarkSat = bmMode === 'satdark';
-  const isGl = !!(on && T && T.basemap === 'gl' && glbShowing());   // 가벼운 지도(WebGL · 시험, js/gl-basemap.js) — 준비됐을 때만(그 전·실패면 파란 지도로 대체)
+  const isGl = !!(on && T && glbShowing());   // 가벼운 지도·Mapbox 실시간 타일(WebGL — js/gl-basemap.js) — 준비됐을 때만(그 전·실패·주소 없음이면 파란 지도로 대체)
   glbMarkHidden(isGl, [ocean, land, krBase, relief]);   // GL이면 숨길 파란 지도 조각 표시(추출이 GL 그림을 못 얻으면 되살린다), 아니면 표시 지움
-  if (isSat || isMbx || isGl) {   // 위성/타일/GL 모드: 파란 육지/바다/지형 숨김(위성이 실제 지형 보여줌). 격자는 아래에서 바다에만 클립.
+  if (isSat || isGl) {   // 위성/GL 모드: 파란 육지/바다/지형 숨김(위성이 실제 지형 보여줌). 격자는 아래에서 바다에만 클립.
     if (ocean) ocean.style.display = 'none';
     if (land) land.style.display = 'none';
     if (krBase) krBase.style.display = 'none';
@@ -647,9 +646,8 @@ function _renderTyphoon() {
     for (const id of ['#typhoonSido', '#nbrNW', '#nbrJP']) { const nn = $(id); if (nn) nn.style.display = 'none'; }
   }
   { const coast = $('#typhoonCoast'); if (coast) coast.style.display = 'none'; }   // 해안선 외곽선 미사용(위성이 실제 해안선을 보여줌)
-  scheduleMapboxTiles();   // 타일 그룹 표시/갱신(모드 아니면 숨김 처리)
   glbSync();               // 가벼운 지도 캔버스 — 이 모드면 지금 지도 위치로(같은 프레임), 아니면 숨김
-  { const bmb = $('#basemapBtn'); if (bmb) { bmb.style.display = on ? '' : 'none'; bmb.classList.toggle('sat', isSat || isMbx || isGl); } if (!on) { const bp = $('#basemapPop'); if (bp) bp.style.display = 'none'; } }
+  { const bmb = $('#basemapBtn'); if (bmb) { bmb.style.display = on ? '' : 'none'; bmb.classList.toggle('sat', isSat || isGl); } if (!on) { const bp = $('#basemapPop'); if (bp) bp.style.display = 'none'; } }
   // 줌아웃하면 남한이 작아져 상세 외곽선/시도선이 겹쳐 뭉친다 → 많이 축소할수록 선을 가늘게(화면폭 축소).
   const lineZf = Math.max(0.28, Math.min(1, (S.map.s || 1) / 0.6));
   // 남한 강조 — 상세 외곽선(MAP.outline, 고해상도) + 반투명 오버레이로 뒤 음영기복이 비쳐 보이게
@@ -703,9 +701,9 @@ function _renderTyphoon() {
       grid.setAttribute('stroke', T.gridCol || '#7FA8CC');
       if (!_tyLiteDraw) grid.setAttribute('stroke-width', (T.gridW == null ? 0.6 : T.gridW) / (S.map.s || 1));
       grid.setAttribute('stroke-opacity', T.gridOp == null ? 0.18 : T.gridOp);
-      // 위성/타일 모드엔 파란 육지가 없어 격자가 육지에도 보인다 → '바다만'으로 클립(큰 사각형 − 육지 evenodd).
+      // 위성/GL 모드엔 파란 육지가 없어 격자가 육지에도 보인다 → '바다만'으로 클립(큰 사각형 − 육지 evenodd).
       //  클립 path(수백 KB)는 바뀔 때만 다시 넣는다 — 애니 매 프레임 재설정하면 거대 path 재파싱으로 버벅임.
-      if (isSat || isMbx || isGl) {
+      if (isSat || isGl) {
         const scp = $('#typhoonSeaClipP');
         if (scp) { const ck = (window.TYPHOON_MAP ? 1 : 0) + ':' + (MAP.outline || '').length; if (scp.getAttribute('data-k') !== ck) { scp.setAttribute('d', 'M-1000000 -1000000H1000000V1000000H-1000000Z' + typhoonLandNoKorea() + (MAP.outline || '')); scp.setAttribute('data-k', ck); } }
         if (grid.getAttribute('clip-path') !== 'url(#typhoonSeaClip)') grid.setAttribute('clip-path', 'url(#typhoonSeaClip)');

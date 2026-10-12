@@ -186,15 +186,6 @@ function syncSeoulExport(clone) {
   }
   if (![...zf.values()].some((f) => f !== 'none')) clone.querySelector('#seoulRiver')?.remove();
 }
-// 실시간 Mapbox 타일: 외부 URL은 래스터(<img> 안 SVG)에서 안 뜨므로 캐시된 data URI로 바꿔 끼운다. 없으면 제거(빈 참조 방지).
-// 영상 프레임(svgToImage)과 이미지·AE 추출(svgBlob)이 같이 쓴다 — 렌더 전에 awaitMapboxTilesReady()로 캐시를 채워 둔다.
-function inlineMapboxTiles(clone) {
-  clone.querySelectorAll('#typhoonTiles image[data-url]').forEach((im) => {
-    const durl = _tileData[im.getAttribute('data-url')];
-    if (durl) { im.setAttribute('href', durl); try { im.removeAttribute('crossorigin'); } catch (e) {} }
-    else im.remove();
-  });
-}
 // 지금 SVG를 그림 한 장으로. 영상 추출이 프레임마다 부른다. keep 주면 그 레이어만, viewBox 주면 그 영역으로.
 // stripText=true면 <text>를 빼고 래스터(글자는 drawExportTextOverlay가 캔버스에 직접 그린다).
 async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
@@ -211,8 +202,7 @@ async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
   stripExportUi(clone);
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
   if (keep && !keep.includes('L_map')) clone.querySelector('#L_mapBase')?.remove();   // 블라인드 베이스 지도는 L_map과 같이 빠진다(3D 오버레이·정적 캐시)
-  inlineMapboxTiles(clone);
-  if (clone.querySelector('#bgMapT[data-glb]')) await glbInlineClone(clone, W, H, viewBox, fontsUsedOnly);   // 가벼운 지도(WebGL) 화면이었으면 이 영역의 GL 그림을 지도 맨 아래에(미리보기는 JPEG로 빨리)
+  if (clone.querySelector('#bgMapT[data-glb]')) await glbInlineClone(clone, W, H, viewBox, fontsUsedOnly);   // 가벼운 지도·Mapbox 실시간 타일(WebGL) 화면이었으면 이 영역의 GL 그림을 지도 맨 아래에(미리보기는 JPEG로 빨리)
   clone.querySelector('#fontStyle').textContent = fontsUsedOnly ? await suiteFontCssFor(clone) : await suiteFontCss();   // fontsUsedOnly = 미리보기 래스터(쓰는 굵기만)
   const xml = new XMLSerializer().serializeToString(clone);
   // data: URL로 렌더 — blob: URL은 브라우저에 따라 <img> 안 SVG의 base64 @font-face(SUITE)가 첫 렌더에 안 먹어 폴백 폰트로 새는 일이 있다. data:는 자체완결이라 폰트까지 확실히 적용된다.
@@ -307,23 +297,8 @@ async function _rasterCanvasLayers(W, H, layers) {
   return c;
 }
 // 추출 한 프레임을 캔버스에 그린다. 카메라 3D 회전이 있으면 '지도 레이어만'(블리드 포함) 워프하고 오버레이(제목·범례)는 평면으로 덮는다.
-// 렌더 전 Mapbox 실시간 타일을 data URI로 확보(현재 뷰). 준비될 때까지 대기 → 타일 미로딩 채로 렌더되는 것 방지.
-async function awaitMapboxTilesReady(timeout = 8000) {
-  const T = S.typhoon;
-  if (!(isTyphoon() && T && T.basemap === 'mapbox' && mapboxTileTemplate())) return;
-  updateMapboxTiles();   // 디바운스 우회 — 현재 뷰 타일 즉시 채움
-  const g = $('#typhoonTiles'); if (!g) return;
-  const urls = [...g.querySelectorAll('image[data-url]')].map((im) => im.getAttribute('data-url'));
-  urls.forEach((u) => fetchTileData(u));
-  const t0 = performance.now();
-  while (urls.some((u) => _tileData[u] == null)) {   // null(진행중)·undefined(미시작) 둘 다
-    if (performance.now() - t0 > timeout) break;
-    if ((typeof exportCancelled === 'function' && exportCancelled())) break;   // 렌더 취소 — 타일을 더 기다리지 않는다
-    await new Promise((r) => setTimeout(r, 50));
-  }
-}
+// (Mapbox 실시간 타일도 2026-10-12부터 WebGL — 그 프레임 지도 그림은 svgToImage의 glbInlineClone이 타일을 다 받을 때까지 기다려 넣는다)
 async function drawExportFrame(cx, W, H) {
-  await awaitMapboxTilesReady();   // 실시간 타일이면 그 프레임 뷰의 타일이 로드된 뒤 캡처
   cx.clearRect(0, 0, W, H);
   if (!camActive3d()) {
     // 카메라 애니(지도 이동)가 없으면 지도·제목·범례는 매 프레임 동일 → 1회만 굽고, 변하는 태풍 레이어만 프레임마다 합성(전체 재래스터 ~100ms → ~40ms).
