@@ -33,7 +33,7 @@ function env() {
     MutationObserver:class {constructor(cb){this.cb=cb;observers.push(this);}observe(){}disconnect(){this.off=true;}},
     jtwcModal:()=>{const m={list:new El(),note:new El(),open:true,alive:()=>m.open,close:()=>{m.open=false;m.onGone?.();}};modals.push(m);return m;},
     jtwcModalHead:()=>{},jtwcModalFoot:(m,f)=>m.buttons=f,
-    apiKey:()=> 'test',_kmaDropRecent:()=>{},enrichTyphoonNames:async list=>list,WNS_HELPER:'http://fixture',
+    apiKey:()=> 'test',_kmaDropRecent:()=>{},_kmaHelperMark:()=>{},enrichTyphoonNames:async list=>list,WNS_HELPER:'http://fixture',
     typhoonApiUrl:()=>{},typhoonTdUrl:()=>{},attachEdgeTD:async()=>{},
     fetch:async()=>({ok:true}),_typScanRecent:async(url,td)=>td?null:{text:row(1)+'\n'+row(2)},
   };

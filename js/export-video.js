@@ -249,16 +249,18 @@ let _helperVer = null;   // 마지막으로 확인한 헬퍼 버전(null = 아�
 // 지금 헬퍼가 AE 확장을 아는가 — 확인한 버전(/ping) 기준, 아직 모르면(확인 전) 새것으로 본다(보낼 때 다시 확인).
 // 데스크톱도 버전으로 본다: 내장 헬퍼를 못 띄우면 웹판 파이썬 헬퍼(옛 버전일 수 있음)에 대신 붙는다(desktop/main.js helperKind 'external').
 function aeHelperExt() { return _helperVer == null || _helperVer >= AE_EXT_VER; }
-// 헬퍼 상태: {up, ver, old}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
+// 헬퍼 상태: {up, ver, old, hedge}. old=켜져 있지만 구버전(ver 없음 또는 < MIN).
+// hedge=기상청 받기에서 늦으면 스스로 다른 연결로 하나 더 보내는 헬퍼(내장 헬퍼 10-12 — /ping 머리 'X-WCG-Kma: hedge'). 특보 불러오기가 늦을 때 문구를 고른다.
 async function pingHelper() {
   try {
     const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' });
-    if (!r.ok) return { up: false, ver: 0, old: false };
+    if (!r.ok) return { up: false, ver: 0, old: false, hedge: false };
+    const hedge = !!(r.headers && typeof r.headers.get === 'function' && r.headers.get('X-WCG-Kma') === 'hedge');
     const j = await r.json().catch(() => ({}));
     const ver = +(j.ver || 0);
     _helperVer = ver;
-    return { up: true, ver, old: ver < HELPER_VER_MIN };
-  } catch (e) { return { up: false, ver: 0, old: false }; }
+    return { up: true, ver, old: ver < HELPER_VER_MIN, hedge };
+  } catch (e) { return { up: false, ver: 0, old: false, hedge: false }; }
 }
 // 헬퍼 상태를 화면에 반영 — 제목줄 렌치(설정) 버튼의 빨간 점(구버전, 웹판만) + 설정 메뉴 맨 아래 '기능 확장팩' 한 줄.
 // 데스크톱 앱은 확장팩이 앱에 내장이라 점을 띄우지 않고, 한 줄도 '앱에 내장됨'만(누를 것 없음).

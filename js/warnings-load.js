@@ -52,6 +52,16 @@ function wrnRefreshResult() {
   showWrnResult({ ...r, ...wrnPaintStats() }, true);
 }
 
+// 늦을 때 결과 카드 진행 문구(10-12 — '특보 없을 때 기상청 응답이 너무 늦어요' 신고): 헬퍼 응답이 WRN_SLOW_MS[0] 안에 안 오면
+// '기상청 응답이 늦어 다시 요청하는 중'(내장 헬퍼는 1.5초에 다른 연결로 하나 더 보낸다 — pingHelper().hedge) 또는 '기다리는 중'(옛 헬퍼),
+// WRN_SLOW_MS[1]이 지나면 '많이 늦어요'. 반환 = 멈추기 함수 — 응답 머리가 오면 바로 부른다(결과 카드를 진행 문구로 덮지 않게). 밀린 요청이면 안 바꾼다.
+const WRN_SLOW_MS = [1600, 8000];
+function wrnSlowNote(hp, stale) {
+  const hedge = !!(hp && hp.hedge);
+  const ts = WRN_SLOW_MS.map((ms, i) => setTimeout(() => { if (!stale()) showWrnResult({ kind: 'busy', slow: i + 1, hedge }); }, ms));
+  return () => { for (const t of ts) clearTimeout(t); };
+}
+
 // 반환: 칠했으면(발효 0건 포함) true, 못 불러왔으면 false, 더 새 요청에 밀려 버려졌으면 null.
 // retry: 결과 카드 '다시 시도'가 부를 함수(통보문 목록에서 고른 경우 그 고르기를 다시 하게). 없으면 같은 인자로 다시 부른다.
 // opts.back: 실패하면 호출한 쪽이 날짜·시각 표시를 되돌린다 — 되돌린 시각 표시('지금' 또는 'YYYY.MM.DD HH:MM')를 카드에 함께 쓴다.
@@ -72,15 +82,17 @@ async function fetchWrn(keepSel, retry, opts) {
   // 겹친 요청(날짜를 빨리 바꿈)은 센다 — 버려진 요청·실패도 finally에서 끄고, 마지막 요청이 끝나야 꺼진다.
   const fx = [fxSec('wrn'), $('#wrnFetch'), $('#wrnList')];
   fxBusy(fx, true, { lines: 5, maxMs: 90000 });
-  let ok = false;
+  let ok = false, slowOff = null;
   try {
     // 헬퍼가 떠 있는지 확인 — 꺼져 있으면 카드 + MXF와 같은 친절한 안내 모달
     const hp = await pingHelper();
     if (stale()) return (ok = null);
     if (!hp.up) { fail({ kind: 'helperOff' }); wnsHelperOffNotice(); return false; }
+    slowOff = wrnSlowNote(hp, stale);
     let r;
     try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(requestUrl)); }
     catch (e) { return fail(wrnHttpFail(0, e && e.message)); }   // 확인 직후 연결이 끊김(확장팩 멈춤 등)
+    finally { slowOff(); }
     if (!r.ok) { let b = ''; try { b = await r.text(); } catch (e) { /* 본문 없음 */ } return fail(wrnHttpFail(r.status, b)); }
     let t;
     try {
@@ -99,6 +111,7 @@ async function fetchWrn(keepSel, retry, opts) {
     if (ok) reflectWhenToPicker(); else wrnWhen = prevWhen;
     return ok;
   } finally {
+    if (slowOff) slowOff();
     fxBusy(fx, false);
     // 도착 효과 — 칠했으면(발효 0건 포함) 섹션 머리에 한 번 빛 + 결과 카드·들어온 특보 줄이 위에서부터 떠오른다
     if (ok === true) fxArrive([fxSec('wrn'), $('#wrnResult'), ...fxRows($('#wrnList'))]);
@@ -144,10 +157,13 @@ async function fetchWrnDay() {
   showWrnResult({ kind: 'busy' });
   const fx = [fxSec('wrn'), $('#wrnFetch')]; fxBusy(fx, true);
   const fail = result => { if (!stale()) showWrnResult({ ...result, ...extra }); return false; };
+  let slowOff = null;
   try {
     const hp = await pingHelper(); if (stale()) return null;
     if (!hp.up) { fail({ kind: 'helperOff' }); wnsHelperOffNotice(); return false; }
-    const r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(url));
+    slowOff = wrnSlowNote(hp, stale);
+    let r;
+    try { r = await fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(url)); } finally { slowOff(); }
     if (!r.ok) return fail(wrnHttpFail(r.status, await r.text()));
     const buf = await r.arrayBuffer(); if (stale()) return null;
     let text = new TextDecoder('utf-8').decode(buf);
@@ -160,7 +176,7 @@ async function fetchWrnDay() {
     status(times.length ? '발표 목록을 불러왔어요 — 시각을 골라 주세요' : '이날 새 발표가 없어요 — 현황은 확인할 수 있어요');
     return true;
   } catch (e) { return fail(wrnHttpFail(0, e && e.message)); }
-  finally { fxBusy(fx, false); }
+  finally { if (slowOff) slowOff(); fxBusy(fx, false); }
 }
 async function wrnSelectTime(value) {
   if (!value) return;

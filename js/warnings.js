@@ -313,8 +313,14 @@ function wrnResultView(r) {
   r = r || {};
   const k = r.kind, paste = r.src === 'paste';
   if (k === 'busy') {
-    const t = '기상청에서 특보를 불러오는 중…';
-    return { tone: 'busy', title: t, meta: '', lines: [], detail: '', actions: [], toast: t };
+    // slow(10-12): 응답이 늦을 때 진행 문구 — 1 = 조금 늦음(hedge = 헬퍼가 다른 연결로 하나 더 보내는 중), 2 = 많이 늦음.
+    // 특보 유무와는 상관없다(기상청이 가끔 요청 하나를 응답 없이 붙잡는다 — '특보 없음' 응답이라 늦는 게 아니다, 10-12 실측)
+    const t = r.slow === 2 ? '기상청 응답이 많이 늦어요 — 조금만 더 기다려 주세요'
+      : r.slow === 1 ? (r.hedge ? '기상청 응답이 늦어 다시 요청하는 중…' : '기상청 응답을 기다리는 중…')
+        : '기상청에서 특보를 불러오는 중…';
+    const lines = r.slow === 1 && r.hedge ? ['늦은 연결 대신 새 연결로 한 번 더 보냈어요. 먼저 오는 답을 씁니다.']
+      : r.slow === 2 ? [(r.hedge ? '여러 연결로 보냈는데 아직 답이 없어요. ' : '') + '20초가 지나도 안 오면 멈추고 알려 드려요.'] : [];
+    return { tone: 'busy', title: t, meta: '', lines, detail: '', actions: [], toast: t };
   }
   if (k === 'ok' || k === 'none') {
     const meta = wrnBasisText(r);

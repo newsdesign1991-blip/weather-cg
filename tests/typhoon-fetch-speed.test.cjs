@@ -34,30 +34,32 @@ function pick(name) {
 const NAMES = [
   '_tnum', '_cnum', 'fmtKST', 'typPointFromRow', 'parseTypNow', 'typTdPointFromRow', 'parseTdRows', '_dtm', '_tmBack',
   '_scanEdgeReal', '_scanEdgeBoth', 'typhoonHasRows',
-  'KMA_INFLIGHT_MAX', 'KMA_HEDGE_MS', 'KMA_TTL_PAST', '_kmaQ', '_kmaTmMs', '_kmaTmUnseen', '_kmaTtl', '_kmaDropRecent', 'kmaRequest', '_kmaPumpSoon', '_kmaPump',
+  'KMA_INFLIGHT_MAX', 'KMA_HEDGE_MS', 'KMA_TTL_PAST', '_kmaQ', '_kmaHelperMark', '_kmaTmMs', '_kmaTmUnseen', '_kmaTtl', '_kmaDropRecent', 'kmaRequest', '_kmaPumpSoon', '_kmaPump',
   '_kmaFirst', '_kmaCoverTm', '_typScanRecent', '_typPastFind',
   '_kmaTm', 'typhoonApiUrlTm', 'typhoonApiUrl', 'typhoonTdUrlTm', 'typhoonTdUrl',
 ];
-const EXPORT = ['_scanEdgeReal', '_scanEdgeBoth', 'typhoonHasRows', 'kmaRequest', '_kmaFirst', '_kmaCoverTm', '_typScanRecent', '_typPastFind', '_kmaDropRecent',
+const EXPORT = ['_scanEdgeReal', '_scanEdgeBoth', 'typhoonHasRows', 'kmaRequest', '_kmaHelperMark', '_kmaFirst', '_kmaCoverTm', '_typScanRecent', '_typPastFind', '_kmaDropRecent',
   'typhoonApiUrl', 'typhoonTdUrl', 'typhoonApiUrlTm', 'typhoonTdUrlTm', '_kmaTm', '_tmBack', '_dtm', '_kmaTmMs', 'parseTypNow', 'parseTdRows', 'typPointFromRow', 'typTdPointFromRow'];
 
-// 앱 코드를 vm에 올린다. server(url, n번째) → { text, ms | hops, fail } 로 가짜 헬퍼를 정한다. hedgeMs로 다시 보내기 대기를 줄여 시험.
+// 앱 코드를 vm에 올린다. server(url, n번째) → { text, ms | hops, fail, hedge } 로 가짜 헬퍼를 정한다. hedgeMs로 다시 보내기 대기를 줄여 시험.
 // ms가 있으면 그만큼(타이머), 없으면 hops번 setImmediate 뒤에 응답(빠르게 — 도착 순서만 뒤섞는다).
+// hedge: 응답 머리 'X-WCG-Kma: hedge'(스스로 하나 더 보내는 내장 헬퍼 10-12) — 없으면 옛 헬퍼처럼 표시 없음.
 // o.names: 더 잘라 올릴 앱 이름들, o.ctx: 더 넣을 전역(가짜 $·status 등). /ping은 늘 살아 있음.
 function sandbox(server, o = {}) {
-  const log = { sent: [], active: 0, maxActive: 0, aborted: [] };
+  const log = { sent: [], urls: [], active: 0, maxActive: 0, aborted: [] };
   const fetch = (url, opts) => new Promise((resolve, reject) => {
     const u = new URL(url);
     if (u.pathname === '/ping') return resolve({ ok: true, status: 200, text: async () => '{"ok": true}' });
     const k = u.searchParams.get('u');
-    log.sent.push(k);
+    log.sent.push(k); log.urls.push(url);
     log.active++; log.maxActive = Math.max(log.maxActive, log.active);
     const r = server(k, log.sent.filter((x) => x === k).length);
     let fin = false;
     const done = (fn) => { if (fin) return; fin = true; log.active--; fn(); };
     const reply = () => done(() => {
       if (r.fail === 'net') reject(new TypeError('Failed to fetch'));
-      else resolve({ ok: !r.fail, status: r.fail ? 502 : 200, text: async () => (r.fail ? '{"ok": false}' : r.text) });
+      else resolve({ ok: !r.fail, status: r.fail ? 502 : 200, text: async () => (r.fail ? '{"ok": false}' : r.text),
+        headers: { get: (n) => (r.hedge && String(n).toLowerCase() === 'x-wcg-kma' ? 'hedge' : null) } });
     });
     let t = null;
     if (r.ms) t = setTimeout(reply, r.ms);
@@ -374,6 +376,57 @@ test('다시 보내기: 늦으면 같은 주소를 한 번 더 보내 먼저 온
   assert.ok(W.log.aborted.includes(u1) && W.log.aborted.includes(u2), '늦은 쪽은 끊음');
   assert.ok(at.a < 250, '급한 쪽은 곧 다시 보내 빨리 받음: ' + at.a);
   assert.ok(at.b >= 280 && at.b < 900, '발생·소멸 쪽은 더 기다렸다가 다시 보냄: ' + at.b);
+});
+
+test('다시 보내기: 헬퍼가 스스로 하나 더 보내면(X-WCG-Kma: hedge — 내장 헬퍼 10-12) 여기서는 다시 보내지 않는다(같은 주소가 겹겹이 늘지 않게)', async () => {
+  const W = sandbox((u, nth) => (u.includes('0000') ? { text: 'first', ms: 1, hedge: true } : { text: 'slow-' + nth, ms: 300, hedge: true }), { hedgeMs: 30, bgMs: 60 });
+  W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4);
+  assert.equal(W.ctx._kmaQ.helperHedge, false, '헬퍼 응답을 받기 전엔 모름');
+  assert.equal(await W.ctx.kmaRequest(W.ctx.typhoonApiUrlTm('202610010000'), 0).p, 'first');
+  assert.equal(W.ctx._kmaQ.helperHedge, true);
+  const u = W.ctx.typhoonApiUrlTm('202610010600');
+  assert.equal(await W.ctx.kmaRequest(u, 0).p, 'slow-1', '늦어도 기다린다(헬퍼가 하나 더 보낸다)');
+  assert.equal(W.log.sent.filter((x) => x === u).length, 1);
+  assert.equal(W.log.aborted.length, 0);
+  // 표시 없는 헬퍼(파이썬·옛 내장)는 예전처럼 다시 보낸다 — 위 '늦으면 같은 주소를 한 번 더' 시험이 본다
+});
+
+// 10-12 검증 뒤: 표시는 불러오기 시작 때 /ping 머리로 미리 안다(첫 묶음에서 앱·헬퍼 '한 번 더'가 겹치지 않게), 응답마다 다시 보고(프록시 PC 면 표시 없음 → 앱이 다시 보냄),
+// 급한 조회는 첫 하나 더 시각(&hedge=KMA_HEDGE_MS)을 헬퍼에 넘긴다(헬퍼 기본 1.5초 대신 예전 0.9초 — 보내는 수는 그대로)
+test('다시 보내기: /ping 머리로 미리 알면 첫 조회부터 겹치지 않고, 급한 조회는 첫 하나 더 시각을 헬퍼에 넘긴다 · 표시가 없어지면 다시 예전처럼', async () => {
+  // 1200 = 뒤에서 도는 확인(빠름), 1800 = 프록시 PC 처럼 표시 없는 응답(늦음), 나머지 = 표시 있는 늦은 응답
+  const W = sandbox((u, nth) => (u.includes('1200') ? { text: 'bg', ms: 1 } : u.includes('1800') ? { text: 'px-' + nth, ms: 200 } : { text: 'slow-' + nth, ms: 200, hedge: true }), { hedgeMs: 30, bgMs: 60 });
+  W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4);
+  const mark = (v) => ({ headers: { get: (n) => (String(n).toLowerCase() === 'x-wcg-kma' ? v : null) } });
+  W.ctx._kmaHelperMark(mark('hedge'));   // fetchTyphoon 의 /ping 응답
+  assert.equal(W.ctx._kmaQ.helperHedge, true);
+  W.ctx._kmaHelperMark({});              // 머리를 못 읽는 응답(가짜)은 그대로
+  assert.equal(W.ctx._kmaQ.helperHedge, true);
+  const u = W.ctx.typhoonApiUrlTm('202610010600');
+  assert.equal(await W.ctx.kmaRequest(u, 0).p, 'slow-1', '첫 조회도 여기서 다시 보내지 않는다');
+  assert.equal(W.log.sent.filter((x) => x === u).length, 1);
+  assert.ok(W.log.urls[0].endsWith('&hedge=30'), '급한 조회 = 첫 하나 더 시각을 넘김: ' + W.log.urls[0].slice(-20));
+  // 뒤에서 도는 확인(prio ≥ KMA_HEDGE_PRIO)은 헬퍼 기본 시각 그대로 — 넘기지 않는다
+  const ub = W.ctx.typhoonApiUrlTm('202610011200');
+  assert.equal(await W.ctx.kmaRequest(ub, 100).p, 'bg');
+  assert.ok(!W.log.urls[1].includes('&hedge='), W.log.urls[1].slice(-20));
+  // 표시 없는 응답(프록시 PC — 헬퍼가 옛 길로 한 번만 보냄)이면 다시 예전처럼: 넘기지 않고 여기서 한 번 더
+  assert.equal(W.log.urls.length, 2);
+  W.ctx._kmaHelperMark(mark(null));
+  assert.equal(W.ctx._kmaQ.helperHedge, false);
+  const u2 = W.ctx.typhoonApiUrlTm('202610011800');
+  assert.equal(await W.ctx.kmaRequest(u2, 0).p, 'px-1', '먼저 온 쪽을 쓴다');
+  const sent2 = W.log.urls.slice(2);
+  assert.equal(sent2.length, 2, '늦어서 여기서 한 번 더 보냈다');
+  assert.ok(sent2.every((x) => !x.includes('&hedge=')));
+  assert.equal(W.ctx._kmaQ.helperHedge, false, '표시 없는 응답이면 계속 예전처럼');
+});
+
+test('다시 보내기: 태풍 불러오기(지금·과거)·TD 붙이기 버튼은 /ping 응답으로 헬퍼 표시를 미리 읽는다', () => {
+  for (const name of ['fetchTyphoon', 'fetchTyphoonPast', 'attachEdgeTD']) {
+    const src = pick(name);
+    assert.match(src, /fetch\(WNS_HELPER \+ '\/ping'[^\n]*up = r\.ok; if \(up\) _kmaHelperMark\(r\);/, name);
+  }
 });
 
 test('다시 보내기: 한쪽이 실패해도 다른 쪽 성공을 기다려 쓴다 / 둘 다 실패면 null', async () => {

@@ -875,4 +875,5 @@ module.exports = {
   kmaUrlAllowed, decodeKmaBody, pyEucKrDecode, urlopen, makeRequest,
   envProxies, parseRegistryProxy, proxyBypass, parseProxy, fnmatchWin,
   systemProxyConfig, caList,   // 데스크톱 메인의 공공데이터포털 받기(desktop/data-fetch.js)가 같은 프록시·인증서 기준을 쓴다
+  osErrText,   // 헬퍼 /api/kma 빠른 길(server.js)이 연결 오류를 urllib 과 같은 글로 알린다
 };
