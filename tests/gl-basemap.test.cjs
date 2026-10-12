@@ -358,7 +358,8 @@ test('추출 복제본: 그 영역 GL 그림을 #bgMapT 맨 아래에(지도 로
 
 test('다른 3모드(파란·밝은/어두운 위성) 길 그대로 + Mapbox 실시간 타일 = 같은 WebGL 길(정적): 판정·격자 규칙·추출 진입은 GL 표시가 있을 때만', () => {
   const rt = pick('_renderTyphoon');
-  assert.ok(rt.includes("const isSat = !!((bmMode === 'satellite' || bmMode === 'satdark') && SAT && SAT.img);"), '위성 판정 그대로');
+  assert.ok(rt.includes('const SAT = satMipSatOf(bmMode);'), '밝은·어두운 고정 위성만 축소 단계 사용');
+  assert.ok(rt.includes('const isSat = !!(SAT && SAT.img);'), '실제 그림이 있어야 위성');
   assert.ok(!/isMbx|mapboxTileTemplate|scheduleMapboxTiles/.test(rt), '옛 SVG Mapbox 타일 판정·갱신 없음(10-12 — WebGL)');
   assert.ok(rt.includes("const isGl = !!(on && T && glbShowing());"), 'GL(가벼운 지도·Mapbox 실시간 타일)은 준비됐을 때만');
   assert.ok(rt.includes('glbMarkHidden(isGl, [ocean, land, krBase, relief]);'));

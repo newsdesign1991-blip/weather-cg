@@ -623,17 +623,17 @@ function _renderTyphoon() {
   // 위성 basemap(밝은/어두운) — projLL 정렬(relief와 동일). 켜지면 파란 지도(바다·육지·지형) 숨김.
   const sat = $('#typhoonSat');
   const bmMode = (on && T) ? T.basemap : '';
-  const SAT = bmMode === 'satdark' ? window.TYPHOON_SATELLITE_DARK : window.TYPHOON_SATELLITE;
-  const isSat = !!((bmMode === 'satellite' || bmMode === 'satdark') && SAT && SAT.img);
+  const SAT = satMipSatOf(bmMode);
+  const isSat = !!(SAT && SAT.img);
   if (sat) {
     if (isSat) {
-      if (sat.getAttribute('href') !== SAT.img) sat.setAttribute('href', SAT.img);
       const [lo0, la0, lo1, la1] = SAT.bbox;
       const tl = projLL(lo0, la1), br = projLL(lo1, la0);
       sat.setAttribute('x', tl[0]); sat.setAttribute('y', tl[1]);
       sat.setAttribute('width', br[0] - tl[0]); sat.setAttribute('height', br[1] - tl[1]);
       sat.style.display = '';
     } else sat.style.display = 'none';
+    satMipShow(isSat, bmMode);
   }
   const isDarkSat = bmMode === 'satdark';
   const isGl = !!(on && T && glbShowing());   // 가벼운 지도·Mapbox 실시간 타일(WebGL — js/gl-basemap.js) — 준비됐을 때만(그 전·실패·주소 없음이면 파란 지도로 대체)

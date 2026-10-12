@@ -30,6 +30,7 @@ async function svgBlob(mutate, overlayText, opt) {
     const tl = !!(opt.tilt && camActive3d());
     await glbInlineClone(clone, tl ? Math.round(W * (1 + 2 * CAM_BLEED)) : W, tl ? Math.round(H * (1 + 2 * CAM_BLEED)) : H, tl ? camBleedViewBox() : (box ? `${box.x} ${box.y} ${box.w} ${box.h}` : null));
   }
+  await satMipClone(clone, W / (box ? box.w : 1920));
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const cx = c.getContext('2d');
@@ -90,6 +91,7 @@ async function previewPng(maxW, opt) {
   clone.setAttribute('preserveAspectRatio', 'none');   // 가로·세로 배율이 조금 달라도 위·아래 빈 줄 없이
   stripExportUi(clone);
   if (clone.querySelector('#bgMapT[data-glb]')) await glbInlineClone(clone, w, h, null, true);   // 가벼운 지도(WebGL) 화면이면 미리보기에도 그 그림(작은 그림 — JPEG)
+  await satMipClone(clone, w / 1920);
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   const xml = new XMLSerializer().serializeToString(clone);
   const img = new Image(); img.decoding = 'sync'; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml); await img.decode();   // data: URL — 폰트 확실 적용

@@ -26,6 +26,7 @@ function sizeFit() {
   const startBoard = document.querySelector('.startBoard');
   if (startBoard) { startBoard.style.width = w.toFixed(2) + 'px'; startBoard.style.height = h.toFixed(2) + 'px'; }
   applyToolbarPos();
+  satMipShowNow();
 }
 function applyView() {
   brushViewRev++;   // 화면 확대·이동이 바뀌면 칠하는 중 화면→지도 좌표 변환을 다시 구하게

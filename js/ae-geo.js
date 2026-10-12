@@ -184,7 +184,7 @@ function aeGeoCamSpec(pt, m0) {
   return { anchor: [a.x, a.y], sBaked: s0, keys, ease: aeEaseOf(EASE_BEZIER), pivot: [W / 2, H / 2] };
 }
 // 지도 바탕 노드 — GEOlayers가 그리므로 겹 PNG에서 뺀다(바다·배경 그림·위성·육지·해안선·남한 바탕·지형·이웃 나라 — 가벼운 지도·Mapbox 실시간 타일 그림은 data-glb를 지워 안 넣는다)
-const GEO_BASE_IDS = ['#typhoonOcean', '#bgImg', '#typhoonSat', '#typhoonLand', '#typhoonCoast', '#typhoonKrBase', '#typhoonRelief', '#nbrNW', '#nbrJP'];
+const GEO_BASE_IDS = ['#typhoonOcean', '#bgImg', '#typhoonSat', '#typhoonSatB', '#typhoonLand', '#typhoonCoast', '#typhoonKrBase', '#typhoonRelief', '#nbrNW', '#nbrJP'];
 function aeGeoStripBase(c) {
   for (const id of GEO_BASE_IDS) c.querySelector(id)?.remove();
   c.querySelector('#bgMapT')?.removeAttribute('data-glb');   // 가벼운 지도(GL) 그림을 넣지 않게 — svgBlob이 이 표시를 보고 넣는다

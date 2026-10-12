@@ -203,6 +203,7 @@ async function svgToImage(W, H, keep, viewBox, stripText, fontsUsedOnly) {
   if (keep) for (const k of ALL_LAYERS) if (!keep.includes(k)) clone.querySelector('#' + k)?.remove();
   if (keep && !keep.includes('L_map')) clone.querySelector('#L_mapBase')?.remove();   // 블라인드 베이스 지도는 L_map과 같이 빠진다(3D 오버레이·정적 캐시)
   if (clone.querySelector('#bgMapT[data-glb]')) await glbInlineClone(clone, W, H, viewBox, fontsUsedOnly);   // 가벼운 지도·Mapbox 실시간 타일(WebGL) 화면이었으면 이 영역의 GL 그림을 지도 맨 아래에(미리보기는 JPEG로 빨리)
+  await satMipClone(clone, W / ((viewBox ? +String(viewBox).split(/[\s,]+/)[2] : 0) || 1920));
   clone.querySelector('#fontStyle').textContent = fontsUsedOnly ? await suiteFontCssFor(clone) : await suiteFontCss();   // fontsUsedOnly = 미리보기 래스터(쓰는 굵기만)
   const xml = new XMLSerializer().serializeToString(clone);
   // data: URL로 렌더 — blob: URL은 브라우저에 따라 <img> 안 SVG의 base64 @font-face(SUITE)가 첫 렌더에 안 먹어 폴백 폰트로 새는 일이 있다. data:는 자체완결이라 폰트까지 확실히 적용된다.

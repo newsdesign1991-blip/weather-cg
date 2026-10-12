@@ -50,6 +50,7 @@ const MAP = {
     { file: 'map-build.js', start: '// ===================== 실행 취소', desc: '실행 취소(pushUndo·undo/redo·applyState) + SVG 뼈대 구성(buildFrame·buildZones), 지도 스타일 전환(setStyle)·CG 종류/배경 버튼' },
     { file: 'map-render.js', start: '// ===================== 렌더 =====================', desc: '지도 렌더: 위치/잠금, 예보지도 연결, Mapbox 타일·위성 basemap, 인셋, 칠(renderFills), 경계선, 바다, 배경(renderBg)' },
     { file: 'gl-basemap.js', start: '// ===================== 가벼운 지도(WebGL · 시험)', desc: "태풍 지도 배경 '가벼운 지도 (WebGL · 시험)': 벡터 타일(OpenFreeMap)을 MapLibre GL(vendor/)로 — 화면(아트보드 뒤 캔버스, 투영 1:1 glbView·glbSync), 추출·틸트·영상·AE(복제본에 그 영역 GL 그림 glbInlineClone), 실패면 파란 지도로" },
+    { file: 'sat-mip.js', start: '// ===================== 위성 바탕 축소 단계(밉맵)', desc: '밝은·어두운 위성 축소 단계: 넓이 평균·연속 혼합, 화면·영상·AE·프로젝트 미리보기 공용' },
     { file: 'vf-legend.js', start: 'function renderVfBar() {', desc: 'VF 막대·VF 패널 배율, 그림자, 제목 텍스트(renderTexts), 범례(renderLegend·특보·태풍 범례 목록)' },
     { file: 'labels-mountains.js', start: 'const newLabel = (o) => Object.assign({', desc: '수치 라벨(글자·글래스·지시선), 칠한 색 계열 바꾸기·자동 라벨, 산 표시, 선택 상자, renderAll' },
     { file: 'typhoon-core.js', start: '// ===================== 태풍 지도', desc: '태풍: 좌표·카메라 투영, 기본값·등급·날짜 범위, 스타일(applyTyphoonStyle), 데이터 초기화, 범례 카탈로그, 애니 상태, 아이콘·지시선·반경(밴드)' },
