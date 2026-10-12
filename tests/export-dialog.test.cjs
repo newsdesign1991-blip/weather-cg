@@ -141,7 +141,7 @@ test('렌더 — 클릭 직후 첫 await가 폴더 창, 영상 출력 폴더(pre
   assert.match(r, /root\.getDirectoryHandle\(folder, \{ create: true \}\)/);
   assert.doesNotMatch(r, /prepareOutput|getOutDir|'outDir'|showSaveFilePicker/);
   assert.match(r, /await withStaticFrame\(/);
-  assert.match(r, /await awaitMapboxTilesReady\(\)/);
+  assert.doesNotMatch(r, /awaitMapboxTilesReady/, 'Mapbox 실시간 타일도 WebGL(10-12) — 옛 SVG 타일 기다리기 없음, 지도 그림은 svgBlob의 glbInlineClone이');
   assert.match(r, /if \(_exportingFrames\) \{ exToast\('영상 렌더가 끝난 뒤에 할 수 있어요'\); return; \}/);
   assert.match(r, /e\.name === 'AbortError'\) \{ exToast\([^)]*\{ zip: true \}\)/, '취소·막힌 폴더 → 안내 + ZIP 받기');
   // 권한 거절·보안 오류는 말없이 ZIP 을 내려받지 않는다(까닭 + ZIP 버튼), 폴더 창을 다시 띄우는 것은 시작 위치가 무효일 때만
@@ -184,15 +184,17 @@ test('ZIP 항목 날짜·시각(DOS) — mtime 을 주면 채우고, 안 주면 
   })();
 });
 
-test('굽기 정확도 — 색칠만 선 0·이음새 메움, 미리보기 잔재 안전망, 터치 가장자리, 실시간 타일, 3D 기울기(이미지만)', () => {
+test('굽기 정확도 — 색칠만 선 0·이음새 메움, 미리보기 잔재 안전망, 터치 가장자리, WebGL 지도 그림, 3D 기울기(이미지만)', () => {
   const sb = fnSrc('svgBlob');
   assert.match(sb, /clone\.setAttribute\('preserveAspectRatio', 'none'\)/);
   assert.match(sb, /stripAnimState\(clone\)/);
-  assert.match(sb, /inlineMapboxTiles\(clone\)/);
+  assert.doesNotMatch(sb, /inlineMapboxTiles/, '옛 SVG Mapbox 타일 넣기 없음(10-12 — Mapbox 실시간 타일도 WebGL)');
+  assert.match(sb, /if \(clone\.querySelector\('#bgMapT\[data-glb\]'\)\) \{/, 'WebGL 지도(가벼운 지도·Mapbox 실시간 타일) 그림은 glbInlineClone');
   assert.match(sb, /if \(opt\.tilt && camActive3d\(\)\)/, '기울기는 opt.tilt 일 때만(AE는 기존 그대로)');
   assert.match(fnSrc('previewPng'), /preserveAspectRatio', 'none'/);
   assert.match(fnSrc('svgToImage'), /preserveAspectRatio', 'none'/);
-  assert.match(fnSrc('svgToImage'), /inlineMapboxTiles\(clone\)/);
+  assert.match(fnSrc('svgToImage'), /if \(clone\.querySelector\('#bgMapT\[data-glb\]'\)\) await glbInlineClone\(/);
+  assert.doesNotMatch(fnSrc('svgToImage') + fnSrc('drawExportFrame'), /inlineMapboxTiles|awaitMapboxTilesReady/);
   // 영상 공용 stripExportUi 에는 애니 정리가 들어가지 않는다(영상은 그 상태를 그려야 한다)
   assert.doesNotMatch(fnSrc('stripExportUi'), /L_mapBase|bclip|L_vfWrap/);
   const sa = fnSrc('stripAnimState');
@@ -268,7 +270,7 @@ test('데스크톱 — 폴더 고르기에서 막히는 사용자 폴더(바탕�
 });
 
 test('새 이름은 한 번씩만 정의된다', () => {
-  for (const n of ['openExport', 'closeExport', 'exportIsOpen', 'renderExport', 'withStaticFrame', 'exportFolderName', 'setupExportDialog', 'syncExport', 'exportPlan', 'exportWhyNot', 'exportBake', 'exportLabelBlob', 'fillOnlyLayer', 'exSeamless', 'exSolidUnderlay', 'exSeaUnderLand', 'safeFileName', 'stripAnimState', 'inlineMapboxTiles', 'svgCloneImage', 'exAskOverwrite', 'exRenumber', 'exZipTarget', 'exDirTarget', 'exPickRoot', 'exErrText']) {
+  for (const n of ['openExport', 'closeExport', 'exportIsOpen', 'renderExport', 'withStaticFrame', 'exportFolderName', 'setupExportDialog', 'syncExport', 'exportPlan', 'exportWhyNot', 'exportBake', 'exportLabelBlob', 'fillOnlyLayer', 'exSeamless', 'exSolidUnderlay', 'exSeaUnderLand', 'safeFileName', 'stripAnimState', 'svgCloneImage', 'exAskOverwrite', 'exRenumber', 'exZipTarget', 'exDirTarget', 'exPickRoot', 'exErrText']) {
     assert.equal(html.split(`function ${n}(`).length - 1, 1, n);
   }
   for (const n of ['EXPORT_ICON', 'EXPORT_STACK', 'EXPORT_TARGETS', 'EX_PICK_KEY']) assert.equal(html.split(`const ${n} =`).length - 1, 1, n);

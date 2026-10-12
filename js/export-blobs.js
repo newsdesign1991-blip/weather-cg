@@ -22,12 +22,11 @@ async function svgBlob(mutate, overlayText, opt) {
   if (box) clone.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
   stripExportUi(clone);
   stripAnimState(clone);      // 타임라인 미리보기 잔재(블라인드 베이스 지도·슬랫 클립·VF 진입)가 남았어도 굽지 않게(안전망)
-  inlineMapboxTiles(clone);   // 태풍 실시간 타일 — 외부 URL은 래스터에서 안 뜬다
   clone.querySelector('#fontStyle').textContent = await suiteFontCss();
   if (opt.noVfClip) clone.querySelector('#L_vfScale')?.removeAttribute('clip-path');
   mutate(clone);
   syncSeoulExport(clone);   // 서울 칠 오버레이·한강을 남은 존 칠에 맞춘다
-  if (clone.querySelector('#bgMapT[data-glb]')) {   // 가벼운 지도(WebGL) 화면이었으면 그 영역의 GL 그림 — 기울이면 블리드까지(아래 지도 계열 복제본이 이걸 물려받는다)
+  if (clone.querySelector('#bgMapT[data-glb]')) {   // 가벼운 지도·Mapbox 실시간 타일(WebGL) 화면이었으면 그 영역의 GL 그림 — 기울이면 블리드까지(아래 지도 계열 복제본이 이걸 물려받는다)
     const tl = !!(opt.tilt && camActive3d());
     await glbInlineClone(clone, tl ? Math.round(W * (1 + 2 * CAM_BLEED)) : W, tl ? Math.round(H * (1 + 2 * CAM_BLEED)) : H, tl ? camBleedViewBox() : (box ? `${box.x} ${box.y} ${box.w} ${box.h}` : null));
   }
