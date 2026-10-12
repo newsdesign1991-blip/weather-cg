@@ -221,7 +221,7 @@ async function main() {
     const r2 = publish(B, ['업데이트 끝에서 끝 점검 — 판만 올린 설치 시험판', '설치 뒤 저절로 다시 켜져야 함']);
     const latest = fs.existsSync(path.join(upd, 'latest.json')) ? JSON.parse(fs.readFileSync(path.join(upd, 'latest.json'), 'utf8')) : null;
     out.steps.publish = { exitA: r2a.status, exitB: r2.status, version: latest && latest.version, history: latest && arr(latest.history).map((h) => h.version), files: fs.readdirSync(upd).sort(),
-      err: (r2a.status ? String(r2a.stderr).slice(-300) : '') + (r2.status ? String(r2.stderr).slice(-300) : '') };
+      err: (r2a.status ? String(r2a.stderr).slice(0, 800) : '') + (r2.status ? String(r2.stderr).slice(0, 800) : '') };
     if (r2a.status !== 0 || r2.status !== 0) { fail('올리기 실패'); return out; }
 
     // 3) A 를 점검 모드 + 시험 업데이트 폴더로 — 팝업·깜빡임·메뉴 → [지금 설치]
@@ -271,7 +271,7 @@ async function main() {
 
     // 6) 되돌린 A — '나중에'를 골라도 메뉴 [업데이트하기]로 다시 최신(시험 — 실행 직전까지)
     const Lc = await launch('A2', { WCG_UPDATE_DRYRUN: '1' });
-    if (Lc.err) { fail('되돌린 A 화면을 못 찾음'); return out; }
+    if (Lc.err) { fail('되돌린 A 화면을 못 찾음'); out.mainLog = { exited: Lc.exited, code: Lc.code, log: Lc.log.slice(-3000), procs: procs(EXE) }; return out; }
     const popup2 = await settle(Lc, '새 업데이트가 있습니다');
     out.steps.again = { popup: popup2 && popup2.title, appVersion: await Lc.evalJs('window.wcgDesktop.appVersion') };
     await Lc.evalJs(`(() => { const b = document.querySelector('#tossOv [data-later]'); if (b) b.click(); })()`);
