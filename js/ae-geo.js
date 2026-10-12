@@ -237,7 +237,8 @@ function aeModeCards(caps, saved) {
   const why = aeGeoWhyNot(caps), gl = (caps && caps.geolayers) || {}, ver = gl.version ? ' ' + gl.version : '';
   const cards = [
     { id: 'layers', name: '레이어 그림으로', sub: '지금 방식 — 지도·태풍을 앱 그림 레이어로, AE 카메라로 움직여요', why: '' },
-    { id: 'geolayers', name: 'GEOlayers 지도로', sub: why || ('GEOlayers 3' + ver + ' 맵 컴프에 위성 지도 — 보기·태풍은 앱 그대로 따라가요'), why },
+    // 실제 AE에서 아직 다 맞춰 보지 못한 길이라 '시험 중'을 이름에 붙인다(사용자 10-12)
+    { id: 'geolayers', name: 'GEOlayers 지도로 (시험 중)', sub: why || ('GEOlayers 3' + ver + ' 맵 컴프에 위성 지도 — 보기·태풍은 앱 그대로 따라가요 · 아직 시험 중이라 결과가 어긋날 수 있어요'), why },
   ];
   const pick = saved === 'geolayers' && !why ? 'geolayers' : 'layers';
   const ae = Array.isArray(gl.ae) && gl.ae.length === 2 && gl.ae.every((x) => Number.isFinite(+x)) ? gl.ae : null;
