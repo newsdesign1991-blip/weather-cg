@@ -32,7 +32,7 @@
   로컬 커밋은 경로를 적어서(`-A` 금지), `index.html`·`js/`·`css/`를 한 커밋에 함께. 설치판 제작을 요청받으면 비공개 키 파일도 로컬 빌드에 포함하되 Git 추적에는 넣지 않는다.
   설치판은 `node tools/build-installer.cjs`(커밋을 굽는다 — 판은 `desktop/package.json` version, 키·ffmpeg는 빌드가 담음) → `node tools/check-installed.cjs <폴더>`가 `"ok": true` (MODULES.md 10장 '설치판 만들기').
   appId·제품 이름 '날씨 CG'·설치 폴더 이름은 바꾸지 않는다(바꾸면 기존 설치판 위에 안 올라가고, 사용자 데이터 폴더가 바뀐다). 빌드 도구는 저장소 밖에 — `desktop\node_modules`에 설치하지 않는다.
-  **앱 업데이트**(10-12): 새 판 = 판 올려 커밋 → 굽기 → 점검 → `node tools/publish-update.cjs --note="바뀐 점"…`(업데이트 폴더 `R:\[F]_Util\WNS\Ver` — **사람이 확인한 뒤에만**). 앱(`desktop/updater.js`·`js/app-update.js`)이 `latest.json`을 보고 알림·조용히 덮어 설치한다(MODULES.md 10장 '앱 업데이트').
+  **앱 업데이트 — 사용자 상시 승인(2026-10-12)**: 버전을 올려 설치판을 만들 때는 판 올려 커밋 → 굽기 → 필수 검사·패키지 점검 → `node tools/publish-update.cjs --setup=<검증한 설치 파일> --note="바뀐 점"…`까지 매번 마무리한다. 지정 업데이트 폴더 `R:\[F]_Util\WNS\Ver`에 설치 파일과 `latest.json`·업데이트 내역을 게시하고, 원격 파일의 버전·크기·sha256까지 재확인해야 배포 완료다. 별도로 재승인받지 않는다. 연결·권한 문제면 게시 미완료라고 알리고 로컬 파일만 만든 것을 배포 완료로 말하지 않는다. `--force` 재게시·판 내리기와 사용자 앱의 실제 설치/재시작은 이 승인에 포함되지 않는다. 일반 코드 수정마다 임의로 버전을 올리라는 뜻은 아니다. 앱(`desktop/updater.js`·`js/app-update.js`)이 `latest.json`을 보고 알린다(MODULES.md 10장 '앱 업데이트').
   설정(렌치) 메뉴 = '앱 업데이트'(지금 판·새 판 바뀐 점·[업데이트하기]·업데이트 내역·이전 판으로 되돌리기 — `latest.json`의 `history`와 업데이트 폴더에 남은 옛 설치 파일 5개). 새 판이면 렌치가 깜빡인다.
   '배치'·'설정 옮기기' 묶음은 메뉴에서만 숨겼다(`hidden` — 버튼 id·연결은 지우지 말 것).
   설치·업데이트 시험은 설치 시험판(`--installtest`, 새 판은 `--version=`)과 임시 폴더(`WCG_UPDATE_DIR`·`publish-update --dir=`)로만 — 실제 `Ver` 폴더·사용자 설치판·그 데이터는 건드리지 않는다(`desktop/test/update-e2e-check.cjs`).

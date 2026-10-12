@@ -306,7 +306,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `node tools/split-app.cjs` | 분할 도구(한 파일 → 지금 구조, 기준표 MAP). `--like=index.html`로 지금 분할본과 같은 구조로 재분할(11·12장) |
 | `node tools/build-installer.cjs [--ref=HEAD] [--dist=…] [--ffmpeg=…] [--private=…] [--electron-zip=…] [--stage-only] [--installtest [--version=x.y.z]]` | **설치 파일 굽기**(10장 '설치판 만들기') → `desktop\dist\WeatherCG-Setup-<판>.exe`. 요청받을 때만. `--installtest` = 이름만 다른 설치 시험판(설치판이 깔린 PC에서 설치·제거·업데이트 시험), `--version` = 시험판만 판 바꾸기(업데이트 시험의 '새 판') |
 | `node tools/check-installed.cjs <설치 폴더 또는 out\win-unpacked> [--shot=<png>] [--json=<파일>]` | **설치판 점검**(담긴 것·asar 밖 ffmpeg·키 있음·Electron pak 둘·담긴 로그 없음·내장 헬퍼·점검 모드로 실제 부팅) — `"ok": true`여야 |
-| `node tools/publish-update.cjs [--setup=…] [--dir=…] --note="…"… [--notes-file=…] [--keep=5] [--force] [--dry-run]` | **앱 업데이트 올리기**(10장 '앱 업데이트') — 설치 파일 + `latest.json`(내역 `history` 쌓기)을 업데이트 폴더(기본 `R:\[F]_Util\WNS\Ver`)에, 설치 파일은 이번 판 + 낮은 판 최근 4개(되돌리기용). 사람이 확인한 뒤에만 |
+| `node tools/publish-update.cjs [--setup=…] [--dir=…] --note="…"… [--notes-file=…] [--keep=5] [--force] [--dry-run]` | **앱 업데이트 올리기**(10장 '앱 업데이트') — 설치 파일 + `latest.json`(내역 `history` 쌓기)을 업데이트 폴더(기본 `R:\[F]_Util\WNS\Ver`)에, 설치 파일은 이번 판 + 낮은 판 최근 4개(되돌리기용). 사용자 상시 승인(2026-10-12): 버전업 설치판은 검사 통과 후 게시·원격 확인까지 마무리. `--force`·판 내리기는 별도 승인 |
 | `node --test desktop/test/updater.test.cjs desktop/test/publish-update.test.cjs tests/app-update.test.cjs` | **앱 업데이트**(10-12): 메인(`desktop/updater.js` — 판 비교·이름 꼴·latest.json 검사(내역 항목 하나하나·거둬들인 새 판 빼기·30판)·공유 폴더 없음/느림 시간 제한·매달린 읽기 안 쌓기·복사 중 크기/sha256·취소·실행 직전 다시 확인·실행 인자·'나중에'(설치는 안 막음)·확인 하나만·켜짐 조건·점검 모드는 공유 폴더 안 읽음·되돌릴 수 있는 판(파일 남음·크기)·되돌리기 설치(빠진 판·높은 판·없는 파일·sha 다름 거절)·배선), 올리기 도구(임시 폴더 — 거절·설치 파일 정리(5개·판 내리기)·내역 쌓기·1차 latest.json 이어받기·크기 한도·올린 것을 앱이 받아 실행 직전까지(새 판·되돌리기)), 웹앱(vm — 팝업·나중에·렌더 뒤·밀려나면 다시·저장 묻기·진행·실패·취소·메뉴 그림(상태별)·렌치 깜빡임(본 판·되돌린 판)·메뉴 [업데이트하기]·되돌리기 확인·실패·시험·마크업). `WCG_BOOT_CHECK=1`이면 `app-update.boot-eval.js`: 개발판 + 시험 폴더(`WCG_UPDATE_DIR`·`WCG_UPDATE_DRYRUN` — 새 판 9.9.9 + 옛 판 0.0.1)로 실제 앱 팝업·렌치 깜빡임·나중에·메뉴(새 판·내역·되돌릴 판, 열면 깜빡임 멈춤)·[업데이트하기] 받기 100%·되돌리기 확인·받기 100%·확인값 다르면 빨간 실패 |
 | `node desktop/test/update-e2e-check.cjs --a=<…1.0.0-installtest.exe> --b=<…1.0.1-installtest.exe> --work=<임시 폴더> [--shot=<폴더>]` | **업데이트 끝에서 끝**(사람이·AI가 손으로 — 설치 시험판 둘이 필요): A 조용히 설치 → A·B 를 시험 폴더에 올리기(내역 둘) → A(점검 모드 + CDP) 팝업·렌치 깜빡임·메뉴 → [지금 설치] → A 꺼짐 → 설치 프로그램이 같은 자리에 B 를 깔고 다시 켬(판 1.0.1·`--updated`) → B(점검 모드) 메뉴 [이 판으로 설치](1.0.0) → 확인 → B 꺼짐 → 같은 자리에 A 가 깔려 다시 켜짐(1.0.0) → 되돌린 A 에서 '나중에' 뒤 메뉴 [업데이트하기](시험) → 제거(폴더까지) → 정리. 사용자 '날씨 CG' 프로세스는 앞뒤 같은지 본다 |
 
@@ -332,7 +332,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 2. 로컬 기록이 필요하면 `git add index.html js css <고친 다른 파일>` — **경로를 적어서**(`git add -A` 금지). `index.html`·`js/`·`css/`는 **한 커밋**에 함께.
 3. **웹판은 더 이상 사용하지 않는다. 사용자의 명시적 요청 없이 push·웹 배포 준비를 하지 않는다.** 위 검사는 데스크톱 동작 검증이지 웹 배포 준비가 아니다.
 4. 설치판 제작·배포도 요청받을 때만. 개발판 소스 변경만으로 기존 설치판이 교체되지는 않는다.
-   굽는 법은 10장 '설치판 만들기'(`node tools/build-installer.cjs` → `node tools/check-installed.cjs`). R: 공유 폴더 복사·업로드는 사람이.
+   굽는 법은 10장 '설치판 만들기'(`node tools/build-installer.cjs` → `node tools/check-installed.cjs`). 버전업 설치판은 사용자 상시 승인(2026-10-12)에 따라 아래 '앱 업데이트'의 지정 공유 폴더 게시까지 마무리한다.
 - 문서·코드 주석에 비밀번호·API 키를 쓰지 않는다(공개 저장소).
 
 ## 10. 데스크톱 앱 영향
@@ -382,10 +382,10 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 
 - **앱 업데이트**(2026-10-12 사용자 요청 — '업데이트될 때마다 R:\[F]_Util\WNS\Ver 에 올려 주고, 새 설치 파일이 나오면 앱에서 감지해 팝업, 설치 누르면 자동으로 새로 설치'.
   같은 날 2차 요청 — '업데이트가 있으면 렌치를 깜빡이고, 드롭다운의 배치·설정 옮기기는 빼고 업데이트 내역·몇 판인지·업데이트하기 버튼, 그 밑에 과거 판으로 교체(최신 판에 예상 못 한 오류가 있을 수 있어서)'):
-  - **올리기**(사람이 확인한 뒤): 판을 올려(`desktop/package.json` version) 커밋 → `node tools/build-installer.cjs` → `node tools/check-installed.cjs …\out\win-unpacked` →
+  - **올리기 — 사용자 상시 승인(2026-10-12)**: 버전업 설치판은 별도 재승인 없이 지정 폴더 게시까지 마무리한다. 일반 코드 수정마다 임의로 판을 올리지 않으며, `--force`·판 내리기·사용자 앱 실제 설치/재시작은 별도 요청이 필요하다. 판을 올려(`desktop/package.json` version) 커밋 → 필수 전체 검사·부팅 검사 → `node tools/build-installer.cjs` → `node tools/check-installed.cjs …\out\win-unpacked` →
     `node tools/publish-update.cjs --note="바뀐 점 한 줄" --note="…"`(또는 `--notes-file=<글 파일>` — 한 줄에 하나, `#` 줄은 뺌). 기본은 `desktop\dist\WeatherCG-Setup-<그 판>.exe`를
     `R:\[F]_Util\WNS\Ver`(R: 가 없으면 같은 공유 `\\10.10.105.25\cg\[F]_Util\WNS\Ver` — 폴더는 미리 있어야)에 올린다. 순서: 설치 파일을 임시 이름(`.WeatherCG-Setup-….exe.uploading-<pid>`)으로 복사 →
-    복사본을 다시 읽어 크기·sha256 확인 → 진짜 이름으로 바꾸기 → `latest.json`을 임시 이름으로 쓰고(fsync) 다시 읽어 앱 검사 통과 확인 → 바꾸기(읽는 PC 때문에 막히면 잠깐 뒤 다시).
+    복사본을 다시 읽어 크기·sha256 확인 → 진짜 이름으로 바꾸기 → `latest.json`을 임시 이름으로 쓰고(fsync) 다시 읽어 앱 검사 통과 확인 → 바꾸기(읽는 PC 때문에 막히면 잠깐 뒤 다시). 마지막에 공유 폴더의 latest.json과 설치 파일 버전·크기·sha256을 재확인한다. 폴더 연결/권한 문제면 게시 미완료로 보고한다(로컬 파일 제작만으로 완료라고 하지 않는다).
     `latest.json` = `{ version, file, sha256, size, date, notes[], commit, history[] }` — **`history` = 올라간 판들**(이번 판 포함·새 판 먼저·최근 30판, 항목마다 판·파일·sha256·크기·날짜·바뀐 점·커밋 —
     앱 설정 메뉴의 '업데이트 내역'·'이전 판으로 되돌리기'가 읽는다. 1차 latest.json(history 없음)을 이어받으면 그 판 하나로 시작, 앱 검사를 못 넘는 항목은 뺌, 바뀐 점이 아주 길면 앱 한도 256KB 안으로 옛 내역부터 뺌).
     이미 올라간 판보다 낮거나 같으면 거절(`--force` — 판 내리기·다시 올리기: **판을 내리면 그보다 새 판은 거둬들인 것** — 내역에서 빼고 설치 파일도 지운다), 옆 `.build.json`의 크기·sha256·판과 다르면 거절,
