@@ -419,3 +419,19 @@ test('결과 카드 숫자는 지도 전환·눈 켜고 끄기 뒤 다시 센다
   const apply = sliceBetween('function applyWrn(', "// 고른 '발표시각(통보문)' 기준으로");
   assert.match(apply, /if \(read\.unread\) \{[\s\S]*?kind: 'format', partial: true/);
 });
+
+// 10-12 '특보 없을 때 기상청 응답이 너무 늦어요' — 늦을 때 진행 문구(결과 카드). 특보 유무가 아니라 응답이 늦은 것만 말한다
+test('불러오는 중 카드 — 늦으면 다시 요청하는 중(헬퍼가 하나 더)·기다리는 중(옛 헬퍼)·많이 늦음', () => {
+  const { wrnResultView } = ctx();
+  const base = wrnResultView({ kind: 'busy' });
+  assert.equal(base.tone, 'busy'); assert.equal(base.title, '기상청에서 특보를 불러오는 중…'); assert.deepEqual(plain(base.lines), []);
+  const s1 = wrnResultView({ kind: 'busy', slow: 1, hedge: true });
+  assert.equal(s1.tone, 'busy'); assert.equal(s1.title, '기상청 응답이 늦어 다시 요청하는 중…'); assert.equal(s1.toast, s1.title);
+  assert.match(s1.lines[0], /새 연결로 한 번 더/);
+  assert.equal(wrnResultView({ kind: 'busy', slow: 1 }).title, '기상청 응답을 기다리는 중…');
+  assert.deepEqual(plain(wrnResultView({ kind: 'busy', slow: 1 }).lines), []);
+  const s2 = wrnResultView({ kind: 'busy', slow: 2, hedge: true });
+  assert.match(s2.title, /많이 늦어요/); assert.match(s2.lines[0], /^여러 연결로 보냈는데 .*20초/);
+  assert.match(wrnResultView({ kind: 'busy', slow: 2 }).lines[0], /^20초가 지나도/);
+  for (const v of [s1, s2]) { assert.deepEqual(plain(v.actions), []); assert.doesNotMatch(v.title + v.lines.join(''), /특보가 없/); }
+});

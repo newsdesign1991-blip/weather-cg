@@ -41,8 +41,9 @@ const NAMES = [
 const EXPORT = ['_scanEdgeReal', '_scanEdgeBoth', 'typhoonHasRows', 'kmaRequest', '_kmaFirst', '_kmaCoverTm', '_typScanRecent', '_typPastFind', '_kmaDropRecent',
   'typhoonApiUrl', 'typhoonTdUrl', 'typhoonApiUrlTm', 'typhoonTdUrlTm', '_kmaTm', '_tmBack', '_dtm', '_kmaTmMs', 'parseTypNow', 'parseTdRows', 'typPointFromRow', 'typTdPointFromRow'];
 
-// 앱 코드를 vm에 올린다. server(url, n번째) → { text, ms | hops, fail } 로 가짜 헬퍼를 정한다. hedgeMs로 다시 보내기 대기를 줄여 시험.
+// 앱 코드를 vm에 올린다. server(url, n번째) → { text, ms | hops, fail, hedge } 로 가짜 헬퍼를 정한다. hedgeMs로 다시 보내기 대기를 줄여 시험.
 // ms가 있으면 그만큼(타이머), 없으면 hops번 setImmediate 뒤에 응답(빠르게 — 도착 순서만 뒤섞는다).
+// hedge: 응답 머리 'X-WCG-Kma: hedge'(스스로 하나 더 보내는 내장 헬퍼 10-12) — 없으면 옛 헬퍼처럼 표시 없음.
 // o.names: 더 잘라 올릴 앱 이름들, o.ctx: 더 넣을 전역(가짜 $·status 등). /ping은 늘 살아 있음.
 function sandbox(server, o = {}) {
   const log = { sent: [], active: 0, maxActive: 0, aborted: [] };
@@ -57,7 +58,8 @@ function sandbox(server, o = {}) {
     const done = (fn) => { if (fin) return; fin = true; log.active--; fn(); };
     const reply = () => done(() => {
       if (r.fail === 'net') reject(new TypeError('Failed to fetch'));
-      else resolve({ ok: !r.fail, status: r.fail ? 502 : 200, text: async () => (r.fail ? '{"ok": false}' : r.text) });
+      else resolve({ ok: !r.fail, status: r.fail ? 502 : 200, text: async () => (r.fail ? '{"ok": false}' : r.text),
+        headers: { get: (n) => (r.hedge && String(n).toLowerCase() === 'x-wcg-kma' ? 'hedge' : null) } });
     });
     let t = null;
     if (r.ms) t = setTimeout(reply, r.ms);
@@ -374,6 +376,19 @@ test('다시 보내기: 늦으면 같은 주소를 한 번 더 보내 먼저 온
   assert.ok(W.log.aborted.includes(u1) && W.log.aborted.includes(u2), '늦은 쪽은 끊음');
   assert.ok(at.a < 250, '급한 쪽은 곧 다시 보내 빨리 받음: ' + at.a);
   assert.ok(at.b >= 280 && at.b < 900, '발생·소멸 쪽은 더 기다렸다가 다시 보냄: ' + at.b);
+});
+
+test('다시 보내기: 헬퍼가 스스로 하나 더 보내면(X-WCG-Kma: hedge — 내장 헬퍼 10-12) 여기서는 다시 보내지 않는다(같은 주소가 겹겹이 늘지 않게)', async () => {
+  const W = sandbox((u, nth) => (u.includes('0000') ? { text: 'first', ms: 1, hedge: true } : { text: 'slow-' + nth, ms: 300, hedge: true }), { hedgeMs: 30, bgMs: 60 });
+  W.ctx.NOW.v = Date.UTC(2026, 9, 8, 4);
+  assert.equal(W.ctx._kmaQ.helperHedge, false, '헬퍼 응답을 받기 전엔 모름');
+  assert.equal(await W.ctx.kmaRequest(W.ctx.typhoonApiUrlTm('202610010000'), 0).p, 'first');
+  assert.equal(W.ctx._kmaQ.helperHedge, true);
+  const u = W.ctx.typhoonApiUrlTm('202610010600');
+  assert.equal(await W.ctx.kmaRequest(u, 0).p, 'slow-1', '늦어도 기다린다(헬퍼가 하나 더 보낸다)');
+  assert.equal(W.log.sent.filter((x) => x === u).length, 1);
+  assert.equal(W.log.aborted.length, 0);
+  // 표시 없는 헬퍼(파이썬·옛 내장)는 예전처럼 다시 보낸다 — 위 '늦으면 같은 주소를 한 번 더' 시험이 본다
 });
 
 test('다시 보내기: 한쪽이 실패해도 다른 쪽 성공을 기다려 쓴다 / 둘 다 실패면 null', async () => {

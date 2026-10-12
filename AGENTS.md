@@ -9,6 +9,7 @@
 - **지도 종류**: `S.style` = 지도 도형 키, 장면 설정 카드 = `MAP_CARDS`(js/map-build.js — 데이터별, `cardOf(S.style)`). 데이터 섹션은 자기 지도에서만(`secModeHidden`) — 다른 구분으로 옮겨 칠하지 않는다(MODULES.md 7-1).
   공공데이터포털 자료(생활기상·미세먼지)의 주소·오퍼레이션·응답 이름은 `js/data-maps.js`의 `DATA_API` 한 곳에만.
   요청은 데스크톱 메인 프로세스(`desktop/data-fetch.js` — 연결 재사용·늦은 새 연결엔 하나 더, 2026-10-10)가 먼저, 못 쓰면 헬퍼 `/api/kma`. 포털은 새 연결 첫 요청의 약 1/3을 30초 넘게 붙잡으니 요청마다 새 연결로 바꾸지 말 것(MODULES.md 7-1·10장). 키는 개인 설정(`wcg_datakey`) 우선, 없으면 데스크톱 비공개 `desktop/private/data-go.key`(Git 제외)를 쓴다. 키 값은 코드·문서·프로젝트·로그에 넣지 말 것.
+  기상청(특보·태풍·통보문)도 같다 — 내장 헬퍼 `/api/kma`가 같은 받기(`createDataFetcher`)로 연결 재사용·늦으면 1.5·3·6초에 하나 더·5xx면 한 번 더(2026-10-12, MODULES.md 10장 '기상청 받기'). apihub가 가끔 요청 하나를 30초 붙잡으니 urllib 흉내 한 번(옛 길)으로 되돌리지 말 것.
   데이터 지도 도형 `region-map-data.js`는 손으로 고치지 말고 `node tools/build-data-maps.cjs --src=<원본 data 폴더>`로 다시 굽는다.
 - **같은 이름 함수를 두 파일에 만들지 말 것.** 최상위 `let/const/class`·`var`도 파일 사이에 겹치면 안 된다. 예약 이름(`top` `location` `window` `document` `wcgDesktop` `_per` `_mas` 등)·window 내장 이름도 금지.
 - 각 js 파일 머리 2줄(`/* [모듈] js/이름.js — 설명 */` + `'use strict';`)과 css 머리 1줄을 지우지 않는다.

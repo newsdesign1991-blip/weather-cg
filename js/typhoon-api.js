@@ -588,10 +588,14 @@ function typhoonHasRows(t) { return String(t).split(/\r?\n/).some((l) => l && l[
 //    뒤에서 도는 발생·소멸 확인은 KMA_HEDGE_BG_MS 뒤. 기상청 응답이 가끔 0.7~2.3초 늦고, 드물게 15초 넘게 멈춘다
 //    (2026-10 실측: 보통 0.2~0.35초, 62건 중 2~3건이 0.7~2.3초, 16건 중 1건 15초+). 같은 주소를 몇 초 사이에 다시 묻는 것이라 답은 같다.
 //    늦은 쪽은 끊는다(브라우저 연결을 비우게). 기다리는 쪽이 다 떠난(답이 정해져 아무도 안 쓰는) 진행 중 요청은 다시 보내지 않는다.
+//  - 단, 헬퍼가 스스로 '하나 더'를 하면(내장 헬퍼 10-12 — 응답 머리 'X-WCG-Kma: hedge', desktop/wns/server.js) 여기서는 다시 보내지 않는다:
+//    헬퍼가 1.5·3·6초에 다른 연결로 하나씩 더 보내므로 여기서도 보내면 같은 주소가 최대 2×4번 나가 인증키 사용량만 는다.
+//    헬퍼 응답을 한 번이라도 받으면 안다(_kmaQ.helperHedge). 그 전(첫 조회들) 0.9초 안에 답이 없을 때만 예전처럼 한 번 더.
+//    파이썬 헬퍼·옛 내장 헬퍼는 표시가 없어 예전 그대로.
 const KMA_INFLIGHT_MAX = 6;
 const KMA_HEDGE_MS = 900, KMA_HEDGE_BG_MS = 1500, KMA_HEDGE_PRIO = 100;
 const KMA_TTL_PAST = 10 * 60e3, KMA_TTL_RECENT = 30e3;
-const _kmaQ = { active: 0, seq: 0, wait: [], jobs: new Map(), cache: new Map(), soon: false };
+const _kmaQ = { active: 0, seq: 0, wait: [], jobs: new Map(), cache: new Map(), soon: false, helperHedge: false };
 // 기상청 typ_now·td_now의 tm은 UTC로 해석된다(응답의 분석 시각 열과 같은 기준) — 주소·tm 문자열 → ms
 function _kmaTmMs(tm) { const s = String(tm); return Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +(s.slice(10, 12) || 0)); }
 // typ_now·td_now는 tm 기준 '12시간 안에 분석이 있는 스톰'만 준다(2026-10 실측: 마지막 분석 12시간 뒤 tm까지 포함, 13시간 뒤 제외).
@@ -654,10 +658,13 @@ function _kmaPump() {
       ctrls.push(ac); live++;
       // no-store: 브라우저 HTTP 캐시를 거치지 않는다 — 같은 주소 두 번째 요청이 첫 요청 끝까지 '캐시 잠금'으로 묶이지 않게(다시 보내기가 실제로 나가게)
       fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(job.u), ac ? { cache: 'no-store', signal: ac.signal } : { cache: 'no-store' })
-        .then((r) => (r.ok ? r.text() : null)).catch(() => null).then((text) => end(text, ac));
+        .then((r) => {
+          if (r.headers && typeof r.headers.get === 'function' && r.headers.get('X-WCG-Kma') === 'hedge') Q.helperHedge = true;   // 헬퍼가 '하나 더'를 한다
+          return r.ok ? r.text() : null;
+        }).catch(() => null).then((text) => end(text, ac));
     };
     go();
-    timer = setTimeout(() => { if (!fin && job.refs > 0) go(); }, job.prio < KMA_HEDGE_PRIO ? KMA_HEDGE_MS : KMA_HEDGE_BG_MS);
+    timer = setTimeout(() => { if (!fin && job.refs > 0 && !Q.helperHedge) go(); }, job.prio < KMA_HEDGE_PRIO ? KMA_HEDGE_MS : KMA_HEDGE_BG_MS);
   }
 }
 // 후보 주소들 중 '앞에서부터 처음으로 accept(본문, i)가 값을 돌려주는 것'을 찾는다 → { i, text, v } | null.
