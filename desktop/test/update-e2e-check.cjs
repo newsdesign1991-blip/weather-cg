@@ -59,10 +59,11 @@ function asarRead(file, rel) {
 }
 const killPid = (pid) => { try { execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) { /* 이미 꺼짐 */ } };
 
+const OUT = { ok: false, steps: {}, errors: [] };   // 전체 시간 초과 때도 지금까지를 내보낸다
 async function main() {
   const A = path.resolve(opt('a', '')), B = path.resolve(opt('b', '')), work = path.resolve(opt('work', path.join(os.tmpdir(), 'wcg-upd-e2e')));
   const SHOT = opt('shot', '');
-  const out = { ok: false, steps: {}, errors: [] };
+  const out = OUT;
   const fail = (m) => { out.errors.push(m); };
   for (const f of [A, B]) if (!/-installtest\.exe$/i.test(f) || !fs.existsSync(f)) { fail('설치 시험판 파일이 아님: ' + f); return out; }
   const inst = path.join(work, 'install'), upd = path.join(work, 'upd');
@@ -104,8 +105,10 @@ async function main() {
     await new Promise((r, j) => { ws.addEventListener('open', r); ws.addEventListener('error', j); });
     let id = 0; const pending = new Map();
     ws.addEventListener('message', (ev) => { const m = JSON.parse(ev.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } });
-    ws.addEventListener('close', () => { for (const [, r] of pending) r({ closed: true }); pending.clear(); });
-    const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); try { ws.send(JSON.stringify({ id: i, method, params })); } catch (e) { r({ closed: true }); } });
+    // 앱이 스스로 꺼지면(설치 시작) 소켓이 닫힌다 — 그 뒤 보낸 것은 곧바로 closed 로(답 없는 약속만 남으면 node 가 말없이 끝난다 — 10-12 첫 실행)
+    let wsClosed = false;
+    ws.addEventListener('close', () => { wsClosed = true; for (const [, r] of pending) r({ closed: true }); pending.clear(); });
+    const send = (method, params = {}) => new Promise((r) => { if (wsClosed || ws.readyState !== 1) { r({ closed: true }); return; } const i = ++id; pending.set(i, r); try { ws.send(JSON.stringify({ id: i, method, params })); } catch (e) { pending.delete(i); r({ closed: true }); } });
     const evalJs = async (expr) => { const r = await send('Runtime.evaluate', { returnByValue: true, awaitPromise: true, expression: expr }); return r.closed ? { closed: true } : r.result.exceptionDetails ? { error: r.result.exceptionDetails.text } : r.result.result.value; };
     const POP = `(() => { const ov = document.querySelector('#tossOv:not(.popClosing)'); if (!ov) return null; return { title: ov.querySelector('.tossTitle').textContent, body: ov.querySelector('.tossBody').innerText, buttons: [...ov.querySelectorAll('.tossFoot button')].map((b) => b.textContent.trim()), bar: (ov.querySelector('.updBar i') || { style: {} }).style.width || '' }; })()`;
     // 부팅 팝업(공지·둘러보기)을 닫으며 업데이트 팝업을 기다린다
@@ -194,7 +197,7 @@ async function main() {
   want(s.desk && s.desk.appVersion === '1.0.0' && s.desk.packaged === true && s.desk.updCheckVisible, 'A 다리·설정 메뉴 버튼');
   want(s.popup && /새 판 1\.0\.1/.test(s.popup.body) && /판만 올린 설치 시험판/.test(s.popup.body), '팝업 내용');
   want(s.aQuit && s.aQuit.exited, 'A 가 안 꺼짐');
-  want(s.relaunch && s.relaunch.exeVersion === '1.0.1' && s.relaunch.asarVersion === '1.0.1', '다시 켜진 앱 판이 1.0.1 이 아님');
+  want(s.relaunch && /^1\.0\.1(\.0)?$/.test(String(s.relaunch.exeVersion)) && s.relaunch.asarVersion === '1.0.1', '다시 켜진 앱 판이 1.0.1 이 아님');
   want(s.relaunch && /--updated/.test(s.relaunch.commandLine || ''), '설치 프로그램이 켠 것(--updated)이 아님');
   want(s.relaunch && arr(s.relaunch.reg).some((r) => r.DisplayVersion === '1.0.1' && path.resolve(String(r.InstallLocation || '')).toLowerCase() === inst.toLowerCase()
     && String(r.UninstallString || '').toLowerCase().includes(inst.toLowerCase())), '같은 자리에 1.0.1 로 등록 안 됨');
@@ -207,5 +210,6 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().then((o) => { console.log(JSON.stringify(o, null, 2)); process.exit(o.ok ? 0 : 1); }, (e) => { console.log(JSON.stringify({ ok: false, errors: ['점검기 오류: ' + (e && e.stack || e)] })); process.exit(2); });
+  const guard = setTimeout(() => { OUT.errors.push('점검 전체 시간 초과(15분)'); console.log(JSON.stringify(OUT, null, 2)); process.exit(1); }, 15 * 60 * 1000);   // 기다림이 남아 있게도 한다
+  main().then((o) => { clearTimeout(guard); console.log(JSON.stringify(o, null, 2)); process.exit(o.ok ? 0 : 1); }, (e) => { console.log(JSON.stringify({ ok: false, errors: ['점검기 오류: ' + (e && e.stack || e)] })); process.exit(2); });
 }

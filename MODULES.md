@@ -401,6 +401,10 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
     main/preload 변경이라 개발판은 **앱 재실행 필요**. **임시판 0.2.0에는 이 기능이 없다** — 1.0.0(이 기능 든 판)은 PC마다 손으로 한 번 설치하고, 그 뒤 판부터 알림·자동 설치.
   - **끝에서 끝 점검**: `node desktop/test/update-e2e-check.cjs --a=…1.0.0-installtest.exe --b=…1.0.1-installtest.exe --work=<임시>`(8장). 설치 프로그램이 다시 켠 앱은 explorer 를 거쳐 켜져
     점검 모드 환경 변수가 안 넘어가므로 보통 실행으로 잠깐 뜬다(그래서 위 설치 시험판 분리). 판은 그 프로세스의 exe·asar 로 본다.
+    10-12 실측(커밋 1ae5a7c로 구운 A 1.0.0·B 1.0.1, 이 사용자 설치): A 설치 7.7초 → 팝업(판·바뀐 점·173.8MB) → [지금 설치] → 받기 막대 0→98→100% → '설치를 시작했어요' → A 1.3초 뒤 꺼짐 →
+    약 16초 뒤 B 가 같은 자리에서 `--updated`로 다시 켜짐(부모 = explorer, exe 1.0.1.0·asar 1.0.1, 레지스트리 1.0.1·InstallLocation 같음, 프레임 폴더는 `WeatherCG-installtest`) → 제거 2.5초(폴더까지 없어짐) →
+    흔적 0, 켜져 있던 사용자 '날씨 CG'(0.2.0) 프로세스 그대로 — `"ok": true`. 첫 실행에서 부팅 공지가 받기 진행 팝업을 덮는 것을 찾아 고침(`UPD_BOOT_QUIET_MS`). 다시 켜진 앱의 첫 확인이 받아 둔 사본을 지움.
+    '모든 사용자' 설치의 관리자 확인 창 길은 이 PC 에서 시험하지 않았다(사용자 0.2.0 이 그렇게 깔려 켜져 있어서) — 템플릿(installer.nsi 'install' 섹션: 조용한 설치 + HKLM 설치 = UAC_RunElevated)으로 확인.
 
 - **공공데이터포털 기본 키**(2026-10-10 사용자 요청): `desktop/private-config.js`가 `desktop/private/data-go.key`를 읽는다(Git 제외, app://에서는 desktop/ 전체 접근 차단). `wcg:data-key` 동기 IPC는 메인 앱 창의 app://weathercg 주 프레임만 허용하고 preload가 `wcgDesktop.dataPortalKey`로 넘긴다. 개인 키가 없으면 자동 사용하며 입력칸에는 키를 채우지 않고 '기본 키 내장' 안내만 표시한다. 개인 키를 비우면 기본 키로 복귀. 키 두 종류 모두 오류에서 가린다.
   설치판을 만들 때 이 비공개 파일을 desktop/private/ 경로에 함께 담아야 한다(`tools/build-installer.cjs`가 담는다 — 아래 '설치판 만들기'). 클라이언트에 포함된 키는 설치 파일 소유자가 추출할 수 있으므로 강한 비밀 보관 수단은 아니다. 기본 자동 점검에는 실제 키를 넘기지 않으며 `WCG_TEST_DATA_KEY=1`을 명시한 별도 `tests/data-key.boot-eval.js`만 실제 내장 연결을 검사한다(값은 출력 안 함). main/preload 변경이므로 **앱 재실행 필요**.
