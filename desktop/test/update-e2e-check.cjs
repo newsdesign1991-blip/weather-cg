@@ -42,7 +42,15 @@ function ps(cmd) {
 const arr = (x) => (x == null ? [] : Array.isArray(x) ? x : [x]);
 const procs = (exe) => arr(ps(`@(Get-CimInstance Win32_Process -Filter "Name='${exe}'" | Select-Object ProcessId,ParentProcessId,ExecutablePath,CommandLine) | ConvertTo-Json -Compress`));
 const mainProcs = (exe) => procs(exe).filter((p) => !/--type=/.test(p.CommandLine || ''));
-const exeVersion = (file) => ps(`(Get-Item -LiteralPath '${file.replace(/'/g, "''")}').VersionInfo.ProductVersion | ConvertTo-Json`);
+// exe 판(파일 버전 정보) — 설치 프로그램이 막 놓은 파일은 잠깐 못 읽을 때가 있어(10-12 되돌리기 실측에서 한 번 null) 몇 번 다시
+function exeVersion(file) {
+  for (let i = 0; i < 6; i++) {
+    const v = ps(`[System.Diagnostics.FileVersionInfo]::GetVersionInfo('${file.replace(/'/g, "''")}').ProductVersion | ConvertTo-Json`);
+    if (v) return v;
+    spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Milliseconds 700'], { windowsHide: true });
+  }
+  return null;
+}
 // 이 사용자 설치 등록 — 제어판 항목(Uninstall\<키>) + 설치 프로그램이 다음 설치 자리로 읽는 Software\<키> InstallLocation(electron-builder multiUser.nsh)
 const regEntry = () => arr(ps(`@(Get-ChildItem HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall | ForEach-Object { $p = Get-ItemProperty $_.PSPath; if ("$($p.DisplayName)" -like '${NAME}*') { $k = $_.PSChildName; $loc = (Get-ItemProperty -LiteralPath "HKCU:\\Software\\$k" -ErrorAction SilentlyContinue).InstallLocation; [pscustomobject]@{ DisplayName = $p.DisplayName; DisplayVersion = $p.DisplayVersion; UninstallString = $p.UninstallString; InstallLocation = $loc } } }) | ConvertTo-Json -Compress`));
 // 설치 프로그램(임시 사본에서 도는 것) — 끝날 때까지 기다린다(돌고 있는 파일은 지울 수 없고, 정리가 설치를 끊지 않게)
