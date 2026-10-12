@@ -8,7 +8,10 @@
 //  크기·sha256 확인(진행 막대, [취소]) → 조용히 설치하고 앱을 끈다(설치 프로그램이 같은 자리에 덮어 깔고 새 판을 다시 켠다). 실패면 같은 팝업에 까닭.
 // 렌더(영상·이미지 추출·AE 보내기) 중이거나 다른 토스 팝업(공지 등)이 떠 있으면 끝난 뒤에 띄운다(1초마다 확인).
 // 웹판·옛 데스크톱(wcgDesktop.updateCheck 없음)은 아무것도 안 한다(설정 메뉴 버튼도 숨김). 부팅 배선은 js/boot.js 의 updWire().
-const _upd = { pending: null, waitT: 0, checking: false, busy: false, shown: '' };   // shown = 이 화면에서 띄운(고른) 판 — 메인이 같은 판을 또 건네도 한 번만
+const _upd = { pending: null, waitT: 0, checking: false, busy: false, shown: '', bootAt: 0 };   // shown = 이 화면에서 띄운(고른) 판 — 메인이 같은 판을 또 건네도 한 번만
+// 부팅 직후엔 띄우지 않는다 — 부팅 팝업(공지 0.6·1.5초, 둘러보기 0.65초, 헬퍼 안내 1.3·2.4초 — js/boot.js)이 나중에 떠서
+// 업데이트 팝업·받기 진행 팝업을 밀어내지 않게(10-12 끝에서 끝 점검에서 공지가 진행 팝업을 덮었다). updWire 부터 이만큼은 기다린다
+const UPD_BOOT_QUIET_MS = 3500;
 const updEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function updDesk() { const d = window.wcgDesktop; return d && typeof d.updateCheck === 'function' ? d : null; }
 function updSize(n) { n = +n || 0; return n >= 1048576 ? (Math.round(n / 1048576 * 10) / 10) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
@@ -46,7 +49,7 @@ function updErrText(r) {
 function updBlocked() {
   let busy = '';
   try { busy = closeBusyWhat(); } catch (e) { busy = ''; }
-  return !!busy || _upd.busy || !!document.getElementById('tossOv');
+  return !!busy || _upd.busy || !!document.getElementById('tossOv') || Date.now() - _upd.bootAt < UPD_BOOT_QUIET_MS;
 }
 // 새 판 알림 — 막혀 있으면 풀릴 때까지 1초마다 본다(마지막 알림 하나만)
 function updShow(info, manual) {
@@ -187,6 +190,7 @@ async function updCheckNow() {
 }
 // 부팅 배선(js/boot.js) — 설정 메뉴 버튼(데스크톱만 보임)·메인의 새 판 알림 받기
 function updWire() {
+  _upd.bootAt = Date.now();
   const d = updDesk();
   const b = $('#updCheck');
   if (b) { b.hidden = !d; b.onclick = d ? () => { updCheckNow(); } : null; }

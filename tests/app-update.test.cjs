@@ -76,6 +76,9 @@ function makeCtx(o = {}) {
   vm.createContext(ctx);
   ctx.tossModal = fakeModal(log);
   vm.runInContext(UPD_SRC, ctx, { filename: 'app-update.js' });
+  // 시험에서는 부팅 직후 기다림(UPD_BOOT_QUIET_MS)을 건너뛴다 — 그 기다림 자체는 따로 본다(updWireRaw)
+  ctx.updWireRaw = ctx.updWire;
+  ctx.updWire = () => { ctx.updWireRaw(); vm.runInContext('_upd.bootAt = 0', ctx); };
   const tick = async () => { for (const t of timers.filter((x) => x.on)) t.fn(); await new Promise((r) => setImmediate(r)); };
   const flush = () => new Promise((r) => setImmediate(r));
   return { ctx, log, btn, timers, tick, flush, notify: (i) => updateCb && updateCb(i), progress: (p) => progCb && progCb(p), hasProg: () => !!progCb };
@@ -117,6 +120,19 @@ test('새 판 알림 → 팝업(제목·판·지금 판·크기·올린 날·바
   log.open.close();   // X·Esc·바깥 누르기 = 나중에
   assert.deepEqual(log.later, ['1.0.1', '1.0.2']);
   assert.equal(log.installs.length, 0);
+});
+
+test('부팅 직후 3.5초는 띄우지 않는다 — 부팅 공지·둘러보기가 나중에 떠서 업데이트·받기 팝업을 밀어내지 않게', async () => {
+  const { ctx, log, notify, tick } = makeCtx();
+  ctx.updWireRaw();
+  assert.match(UPD_SRC, /const UPD_BOOT_QUIET_MS = 3500;/);
+  notify(INFO);
+  await tick();
+  assert.equal(log.modals.length, 0, '부팅 직후엔 기다림');
+  vm.runInContext('_upd.bootAt = Date.now() - UPD_BOOT_QUIET_MS - 1', ctx);
+  await tick();
+  assert.equal(log.modals.length, 1);
+  assert.equal(log.open.title, '새 업데이트가 있습니다');
 });
 
 test('렌더(영상·이미지·AE) 중이거나 다른 토스 팝업이 떠 있으면 끝난 뒤에 띄운다', async () => {

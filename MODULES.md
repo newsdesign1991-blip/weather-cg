@@ -1,7 +1,7 @@
 # 날씨 CG 메이커 — 모듈 지도 (먼저 읽을 것)
 
 이 앱은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** `index.html`은 뼈대(head·마크업·데이터 스크립트)와 태그뿐이고,
-로직은 `js/*.js`(47개), 스타일은 `css/*.css`(16개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍, 드롭다운 `dropdown` 한 쌍, 데이터 지도 `data-maps`·`data-load`·`css/data-maps.css`, 가벼운 지도(WebGL · 시험) `gl-basemap.js`, AE로 보내기 'GEOlayers 지도로' `ae-geo.js`를 더했다).
+로직은 `js/*.js`(48개), 스타일은 `css/*.css`(16개)에 있다. 나눌 때 기존 코드는 한 줄도 바꾸지 않았다(아래 '분할 이력' — 분할 때 34·11개, 뒤에 통보문 불러오기 `bulletin-load.js`, 이미지로 추출 팝업 `export-dialog`, AE식 타임라인 `timeline-plan.js`·`timeline-input.js`, 작업 중 효과 `busy-fx` 한 쌍, 틸트 WebGL 렌더러 `tilt-gl.js`, 미해군(JTWC) 자동 불러오기 `typhoon-jtwc.js`, 날짜 고르기 `date-picker` 한 쌍, 드롭다운 `dropdown` 한 쌍, 데이터 지도 `data-maps`·`data-load`·`css/data-maps.css`, 가벼운 지도(WebGL · 시험) `gl-basemap.js`, AE로 보내기 'GEOlayers 지도로' `ae-geo.js`, 앱 업데이트 `app-update.js`를 더했다).
 
 - Claude·GPT 등 AI 공용 안내는 [`AGENTS.md`](AGENTS.md). 이 문서는 그 자세한 판이다.
 - 함수 찾기: `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`
@@ -13,8 +13,8 @@
 
 ```
 index.html          뼈대: head 인라인(웹판 막기·서비스워커 등록·모듈 로드 실패 가드·배치 슬롯·글꼴 주입) + <link css/…> 16개
-                    + 마크업 + 테마 + 데이터 스크립트 13개 + <script src="js/…"> 47개(맨 끝)
-js/                 앱 로직 47개 — 아래 표 순서가 곧 로드 순서
+                    + 마크업 + 테마 + 데이터 스크립트 13개 + <script src="js/…"> 48개(맨 끝)
+js/                 앱 로직 48개 — 아래 표 순서가 곧 로드 순서
 css/                스타일 16개 — 아래 표 순서가 곧 덮어쓰기 우선순위
 *.js (루트)          데이터 스크립트(지도·글꼴·이미지·배치 — window.X = … 꼴, 앱 로직 아님)
 FontNew/            글꼴 파일(css/base.css의 @font-face가 ../FontNew/ 로 가리킴)
@@ -159,7 +159,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | | `default-presets.js` + 배치 슬롯으로 `WCG_DEFAULTS` 교체(`var _per/_mas`), `font-data.js` + `#fontEmbed`, Wanted Sans preload(UI 전용·FontNew 내장, CG 출력 SUITE는 그대로) |
 | | `<link rel="stylesheet" href="css/…?v=…">` 16개 |
 | body | 마크업(사이드바·제목줄·모달·SVG 등) |
-| 끝 | 테마(`data-theme`), 데이터 스크립트 11개(`onerror` 대체값 — 지도 `map-data.js`·`seoul-map-data.js`·`region-map-data.js`(데이터 지도, 10-10)·태풍·지명·예보·이미지), `<script src="js/…?v=…">` 47개 |
+| 끝 | 테마(`data-theme`), 데이터 스크립트 11개(`onerror` 대체값 — 지도 `map-data.js`·`seoul-map-data.js`·`region-map-data.js`(데이터 지도, 10-10)·태풍·지명·예보·이미지), `<script src="js/…?v=…">` 48개 |
 
 ## 6. 공용 도우미 위치
 
@@ -197,6 +197,7 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | `glbActive`(태풍 지도 배경이 가벼운 지도인가) `glbShowing`(지금 GL로 보이나 — 준비·노말 VF 아님) `glbSync`(화면 캔버스를 지금 지도 위치로 — 끌기·렌더마다) `glbInlineClone`(추출 복제본에 그 영역 GL 그림) `glbView`(앱 지도 위치 → MapLibre 카메라) `glbSettle`·`glbPending` `glbRetry` `glbSatOn(T)`(이 작업의 가벼운 지도가 위성 사진을 까는가 — 고른 값 + Mapbox 출처, 노말 VF 아님, 격자 기본값용) `glbSatBuiltinUrl()`(데스크톱 기본 출처 — 비공개 토큰 + 기본 스타일, 없으면 '') `glbSatNow()`(지금 그릴 위성 출처 또는 null) `glbSatSrc(주소)` | `gl-basemap.js` |
 | `saveProject`(저장했으면 true · 파일 쓰기 대신 내려받기로 넘겼으면 `'download'` · 취소면 false) `loadProjectData` `openProject` `workDirty` `workMarkSaved` `workMarkClean` `closeAsk` | `project-io.js` |
 | `setupMenus` `showStartScreen` | `floating-panels.js` |
+| `updWire`(부팅 배선) `updShow(정보, 직접?)`(새 판 팝업 — 렌더·다른 팝업 뒤에) `updCheckNow`(설정 메뉴 '업데이트 확인') `updInstall` `updResultView` `updErrText` | `app-update.js` |
 
 짧은 전역 이름(새 이름으로 쓰지 말 것): `$ el S sel mode seq view work fit snap svg anim hex clamp lerp one tip lum BGS MAP IMG RES tlH _te`,
 boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChanged slotReapply _prevDeploySig`.
@@ -301,8 +302,11 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `node tools/app-source.cjs index.html --out=<파일>` | 나뉜 앱을 '분할 전 한 파일' 텍스트로 합침(PowerShell `>` 대신 `--out`) |
 | `node tools/verify-split.cjs <전> <후>` | 분할 커밋이 텍스트 무변경인지 git 객체로 증명 |
 | `node tools/split-app.cjs` | 분할 도구(한 파일 → 지금 구조, 기준표 MAP). `--like=index.html`로 지금 분할본과 같은 구조로 재분할(11·12장) |
-| `node tools/build-installer.cjs [--ref=HEAD] [--dist=…] [--ffmpeg=…] [--private=…] [--stage-only] [--installtest]` | **설치 파일 굽기**(10장 '설치판 만들기') → `desktop\dist\WeatherCG-Setup-<판>.exe`. 요청받을 때만. `--installtest` = 이름만 다른 설치 시험판(설치판이 깔린 PC에서 설치·제거 시험) |
-| `node tools/check-installed.cjs <설치 폴더 또는 out\win-unpacked> [--shot=<png>] [--json=<파일>]` | **설치판 점검**(담긴 것·asar 밖 ffmpeg·키 있음·내장 헬퍼·점검 모드로 실제 부팅) — `"ok": true`여야 |
+| `node tools/build-installer.cjs [--ref=HEAD] [--dist=…] [--ffmpeg=…] [--private=…] [--electron-zip=…] [--stage-only] [--installtest [--version=x.y.z]]` | **설치 파일 굽기**(10장 '설치판 만들기') → `desktop\dist\WeatherCG-Setup-<판>.exe`. 요청받을 때만. `--installtest` = 이름만 다른 설치 시험판(설치판이 깔린 PC에서 설치·제거·업데이트 시험), `--version` = 시험판만 판 바꾸기(업데이트 시험의 '새 판') |
+| `node tools/check-installed.cjs <설치 폴더 또는 out\win-unpacked> [--shot=<png>] [--json=<파일>]` | **설치판 점검**(담긴 것·asar 밖 ffmpeg·키 있음·Electron pak 둘·담긴 로그 없음·내장 헬퍼·점검 모드로 실제 부팅) — `"ok": true`여야 |
+| `node tools/publish-update.cjs [--setup=…] [--dir=…] --note="…"… [--notes-file=…] [--keep=3] [--force] [--dry-run]` | **앱 업데이트 올리기**(10장 '앱 업데이트') — 설치 파일 + `latest.json`을 업데이트 폴더(기본 `R:\[F]_Util\WNS\Ver`)에. 사람이 확인한 뒤에만 |
+| `node --test desktop/test/updater.test.cjs desktop/test/publish-update.test.cjs tests/app-update.test.cjs` | **앱 업데이트**(10-12): 메인(`desktop/updater.js` — 판 비교·이름 꼴·latest.json 검사·공유 폴더 없음/느림 시간 제한·매달린 읽기 안 쌓기·복사 중 크기/sha256·취소·실행 직전 다시 확인·실행 인자·'나중에'·확인 하나만·켜짐 조건·배선), 올리기 도구(임시 폴더 — 거절·옛 판 정리·올린 것을 앱이 받아 실행 직전까지), 웹앱(vm — 팝업·나중에·렌더 뒤·밀려나면 다시·저장 묻기·진행·실패·취소·설정 메뉴·마크업). `WCG_BOOT_CHECK=1`이면 `app-update.boot-eval.js`: 개발판 + 시험 폴더(`WCG_UPDATE_DIR`·`WCG_UPDATE_DRYRUN`)로 실제 앱 팝업·나중에·설정 메뉴·받기 100%·확인값 다르면 빨간 실패 |
+| `node desktop/test/update-e2e-check.cjs --a=<…1.0.0-installtest.exe> --b=<…1.0.1-installtest.exe> --work=<임시 폴더> [--shot=<png>]` | **업데이트 끝에서 끝**(사람이·AI가 손으로 — 설치 시험판 둘이 필요): A 조용히 설치 → B 를 시험 폴더에 올리기 → A(점검 모드 + CDP) 팝업 → [지금 설치] → A 꺼짐 → 설치 프로그램이 같은 자리에 B 를 깔고 다시 켬(판 1.0.1·`--updated`) → 제거(폴더까지) → 정리. 사용자 '날씨 CG' 프로세스는 앞뒤 같은지 본다 |
 
 - **테스트에서 앱 코드를 읽을 때는 `tools/app-source.cjs`를 쓴다**: `const appSource = require('../tools/app-source.cjs'); const html = appSource(path.join(__dirname, '..', 'index.html'));`
   결과는 분할 전 `index.html`과 같은 텍스트(줄바꿈 LF)라 예전처럼 함수를 잘라 쓸 수 있다. `index.html`을 `readFileSync`로 직접 읽으면 구조 테스트가 실패한다.
@@ -337,7 +341,10 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   - **커밋을 굽는다**: `--ref`(기본 HEAD)를 `git archive`로 준비 폴더(`--work`, 기본 `%TEMP%\wcg-installer-build` — 저장소 밖)에 꺼낸다. 커밋 안 한 고침·Git 밖 파일
     (기상청 녹화 `rec-*.json`·바로 가기·`AI_HANDOFF.md`·메모)은 안 들어간다(커밋 안 한 고침이 있으면 알림만). 빌드 도구 electron-builder 24.13.3은 `--tools`
     (기본 `%LOCALAPPDATA%\WeatherCG-build\tools`)에 처음 한 번 npm으로 받는다 — 저장소·`desktop\node_modules`에는 설치하지 않는다(개발판 실행 중일 수 있음).
-    Electron은 `desktop\node_modules\electron\dist`가 같은 판(44.6.0)이면 그것을 복사만 하고, 아니면 electron-builder가 받는다(`--download-electron`으로 강제).
+    **Electron은 캐시의 공식 zip**(10-12 — `%LOCALAPPDATA%\electron\Cache\…\electron-v44.6.0-win32-x64.zip`, 개발판 설치 때 받아 둔 것)을 sha256으로 확인해 준비 폴더(`<work>\electron-dist`)에 새로 풀어 쓴다
+    (기준 = zip 옆 SHASUMS256.txt → 설치된 electron 꾸러미 checksums.json → npm 캐시의 `electron-<판>.tgz` 안 checksums.json(꾸러미 sha512 확인) → `--electron-shasums=` — 인터넷 안 씀, 다르면 멈춤).
+    개발판 `desktop\node_modules\electron\dist`를 그대로 복사하던 1.0.0 첫 빌드는 쓰며 생긴 `debug.log`가 설치판에 들어가고 `chrome_100_percent.pak`·`chrome_200_percent.pak`이 빠졌다 — 빌드는 구운 `win-unpacked`에서도 로그 없음·pak 둘을 다시 본다.
+    다른 길: `--electron-zip=<zip>`, `--electron-dist=<깨끗한 폴더>`(같은 점검), `--download-electron`(electron-builder가 받음). `.build.json`의 `electronSource`에 어디서 왔는지(zip sha256·기준)가 남는다.
   - **담는 것**(`appFileFilter`): index.html·루트 데이터 js 13개·아이콘·manifest, `js/`·`css/`·`FontNew/`·`vendor/`(maplibre-gl — 없으면 가벼운 지도가 파란 지도), `desktop/*.js`·`desktop/wns/*.js`.
     Git 밖에서 더하는 것: `desktop/private/{data-go.key, mapbox.token}`(이 저장소 → 워크트리면 본 저장소 → `--private`, 값은 출력 안 함), `ffmpeg.exe`(`%LOCALAPPDATA%\WNS_Helper` → `R:\[F]_Util\WNS` → `--ffmpeg`, 실행해 보고 담음),
     AE용 SUITE 7종(FontNew 사본) → `desktop/helper/`. **빼는 것**: tests/·tools/·docs/·desktop/test/·`*.md`·`sw.js`(http일 때만 등록 — app://에선 안 씀)·`.git…`·`*.lnk`·`rec-*.json`·`desktop/package*.json`·개발판 실행 bat.
@@ -350,7 +357,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
     단 임시판(0.2.0 — 그때는 고르는 화면이 있었다)을 **'모든 사용자'로만 깐 PC**는 그 자리(`C:\Program Files\weathercg-desktop`)에 덮어 올린다(관리자 확인 창 한 번 — 안 그러면 두 벌이 된다),
     바탕화면·시작 메뉴 '날씨 CG', 끝에 실행. 제어판에서 지워도 작업·설정(`%APPDATA%\날씨 CG`)은 남긴다. **appId `kr.co.sbs.weathercg`·제품 이름 '날씨 CG'·설치 폴더 이름 `weathercg-desktop`은 임시판(0.2.0)과 같다** —
     그 위에 덮어 설치하면 올라간다(바꾸면 따로 설치돼 둘이 생긴다). 설치 폴더 이름은 제품 이름에 한글이 있어 package 이름을 쓴다(electron-builder 규칙). main.js는 설치판이면 같은 appId로 `setAppUserModelId`(작업 표시줄 고정 아이콘과 창이 한 칸).
-    서명 인증서가 없어 받은 PC에서 SmartScreen이 막는다('추가 정보 → 실행'). 자동 업데이트 없음(새 판 = 새 설치 파일을 덮어 설치). 크롬 내장 언어 파일은 한국어·영어만.
+    서명 인증서가 없어 받은 PC에서 SmartScreen이 막는다('추가 정보 → 실행'). 업데이트는 아래 '앱 업데이트'(공유 폴더 + 앱이 알림·조용히 덮어 설치 — electron-updater 는 안 씀). 크롬 내장 언어 파일은 한국어·영어만.
     electron-builder가 설치할 때마다 남기는 설치 파일 사본(`%LOCALAPPDATA%\weathercg-desktop-updater\installer.exe` — 자동 업데이트용, 약 170MB)은 `installer.nsh`가 설치 끝·제거 때 지운다(임시판이 남긴 것도 덮어 설치 때 함께).
   - **사용자 데이터 = 개발판과 같음**: 설치판·개발판 모두 '%APPDATA%\날씨 CG'(제품 이름)와 같은 출처 `app://weathercg`를 쓴다 → 작업·배치·개인 키가 이어진다(임시판 → 1.0.0도 그대로).
     대신 한 PC에서 둘을 같이 켜면 나중에 켠 쪽이 먼저 켠 창을 앞으로 부르고 꺼진다(단일 인스턴스 잠금). 시험 배포 대상은 다른 PC들이라 이름을 나누지 않았다 — 개발 PC에서는 하나만 켠다.
@@ -359,12 +366,41 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   - **점검**: 굽고 나서 `node tools/check-installed.cjs <준비 폴더>\out\win-unpacked --shot=<png>`(설치 없이) → 실제 설치 시험은 `WeatherCG-Setup-<판>.exe /S /D=<임시 폴더>` →
     `node tools/check-installed.cjs <임시 폴더>` → `"<임시 폴더>\Uninstall 날씨 CG.exe" /S`(곧바로 돌아오니 폴더가 없어질 때까지 기다림). 점검기는 담긴 것(금지 0·키 2·asar 밖 ffmpeg 실행·SUITE 7),
     노드 모드(설치된 exe + `ELECTRON_RUN_AS_NODE` — asar 안 `private-config.js`로 두 키 읽기, 내장 헬퍼를 빈 포트에 띄워 `/ping` ff:true), 점검 모드 앱(`WCG_TEST=1` — main 경로 줄 `[wcg-paths]`(설치판·ffmpeg/폰트가 asar 밖),
-    부팅 오류 0, `#cg`·`#panel`, app:// js 47·css 16 모두 200, maplibre 200, desktop/ 403, `wcgDesktop` isDesktop·packaged·appVersion·dataPortalKey 있음)를 본다. 값은 출력하지 않는다(있음·길이만).
+    부팅 오류 0, `#cg`·`#panel`, app:// js 48·css 16 모두 200, maplibre 200, desktop/ 403, `wcgDesktop` isDesktop·packaged·appVersion·dataPortalKey 있음)를 본다. 값은 출력하지 않는다(있음·길이만).
     점검 모드는 실제 Mapbox 토큰 대신 가짜를 주므로(위 '가벼운 지도') 토큰 파일 읽기는 노드 모드로 본다. 띄운 exe는 PID로만 끈다.
     **주의**: electron-builder 설치·제거 프로그램은 실행 중인 '날씨 CG.exe'(이 사용자 것 전부)를 이름으로 끄고, 같은 appId의 기존 설치를 지우고 올린다('모든 사용자' 설치면 조용한 설치도 관리자 확인 창).
     그래서 **설치판이 깔렸거나 켜진 PC(개발 PC 포함)에서는 정식 설치 파일로 설치 시험을 하지 말고** `--installtest`로 이름만 다른 설치 시험판(`날씨 CG 설치시험`·appId `….installtest`·`out-installtest\WeatherCG-Setup-<판>-installtest.exe`
     — 앱 내용·설치 프로그램 설정은 같음, 정식 exe는 `out\win-unpacked`를 점검기로)을 굽어 설치·점검·제거한다(개발판 electron.exe는 상관없음).
-    조용한 설치도 바탕화면·시작 메뉴 바로 가기와 HKCU 등록을 만들었다가 제거 때 지운다.
+    조용한 설치도 바탕화면·시작 메뉴 바로 가기와 HKCU 등록을 만들었다가 제거 때 지운다. 조용한 제거 뒤 빈 설치 폴더가 남던 것은 `installer.nsh` `customUnInstall`이 작업 폴더를 옮긴 뒤
+    빈 폴더만 지운다(`RMDir`, /r 아님 — 10-12. 템플릿 un.onInit 의 `SetOutPath $INSTDIR` 때문에 그 폴더가 지우기 프로그램 자신의 작업 폴더였다).
+    설치 시험판은 업데이트 뒤 설치 프로그램이 **점검 모드가 아닌 보통 실행**으로 다시 켠다(환경 변수가 안 넘어감 — 아래 '앱 업데이트') — 그래서 main.js는 설치 시험판(package 이름 `weathercg-installtest`)이면
+    내장 헬퍼를 빈 포트에(3721 안 씀)·대체 Python 헬퍼 안 켬·영상 프레임·타일 캐시는 `%LOCALAPPDATA%\WeatherCG-installtest`(`INSTALL_TEST`·`LAD_APP`) — 켜져 있는 사용자 앱과 부딪히지 않는다.
+
+- **앱 업데이트**(2026-10-12 사용자 요청 — '업데이트될 때마다 R:\[F]_Util\WNS\Ver 에 올려 주고, 새 설치 파일이 나오면 앱에서 감지해 팝업, 설치 누르면 자동으로 새로 설치'):
+  - **올리기**(사람이 확인한 뒤): 판을 올려(`desktop/package.json` version) 커밋 → `node tools/build-installer.cjs` → `node tools/check-installed.cjs …\out\win-unpacked` →
+    `node tools/publish-update.cjs --note="바뀐 점 한 줄" --note="…"`(또는 `--notes-file=<글 파일>` — 한 줄에 하나, `#` 줄은 뺌). 기본은 `desktop\dist\WeatherCG-Setup-<그 판>.exe`를
+    `R:\[F]_Util\WNS\Ver`(R: 가 없으면 같은 공유 `\\10.10.105.25\cg\[F]_Util\WNS\Ver` — 폴더는 미리 있어야)에 올린다. 순서: 설치 파일을 임시 이름(`.WeatherCG-Setup-….exe.uploading-<pid>`)으로 복사 →
+    복사본을 다시 읽어 크기·sha256 확인 → 진짜 이름으로 바꾸기 → `latest.json`을 임시 이름으로 쓰고(fsync) 다시 읽어 앱 검사 통과 확인 → 바꾸기(읽는 PC 때문에 막히면 잠깐 뒤 다시).
+    `latest.json` = `{ version, file, sha256, size, date, notes[], commit }`. 이미 올라간 판보다 낮거나 같으면 거절(`--force` — 되돌리기), 옆 `.build.json`의 크기·sha256·판과 다르면 거절,
+    정식 폴더에 설치 시험판을 섞으면 거절, 옛 판 설치 파일은 **새 판 포함 최근 3개**만(`--keep`, latest.json 이 가리키는 것은 늘 남김), 하루 넘은 남은 임시 파일 정리. `--dry-run` = 보여 주기만.
+  - **앱(메인 — `desktop/updater.js`, 배선 main.js)**: 설치판(`app.isPackaged`, 점검 모드 아님)만 켠 뒤 **15초**·그다음 **3시간마다** `latest.json`을 읽는다(폴더 후보마다 **6초** 제한 — 공유 폴더가 없거나 느리면
+    조용히 넘김. 매달린 읽기는 libuv 스레드를 잡으므로 같은 폴더에 안 끝난 읽기가 있으면 새로 안 읽음). 새 판이면 웹앱에 `wcg:update`(preload가 부팅 전 알림은 들고 있다가 건넴,
+    화면이 다시 뜨면 `did-finish-load`에서 안 고른 알림을 다시 건넴). 검사: 판 x.y.z, 파일 이름 = `WeatherCG-Setup-<그 판>.exe`(설치 시험판은 `-installtest` — 갈래가 다르면 안 받음), sha256 64자, 크기 1GB 이하.
+    **[지금 설치]**(`wcg:update-install`): 개발판은 거절(`dev` — `WCG_UPDATE_DRYRUN=1`이면 실행 직전까지만) → latest.json 다시 읽어 고른 판 그대로인지 → 설치 파일(`lstat` — 바로 가기·폴더 밖 거절, 크기 먼저)을
+    `%TEMP%\wcg-update\<이름>.partial`로 복사하며 sha256(30초 동안 안 오면 멈춤, [취소] = `wcg:update-cancel`) → 맞으면 이름 바꾸기(다르면 지움) → **실행 직전 다시** 크기·sha256 →
+    `<설치 파일> /S --updated --force-run`(떨어뜨려 실행 — electron-builder 24 NSIS 템플릿이 아는 인자: `/S` 조용히, `--updated` 실행 중 앱을 기다렸다 끄고 바로 가기를 지킴,
+    `--force-run` 끝에 `StdUtils.ExecShellAsUser`로 시작 메뉴 바로 가기를 `--updated` 인자로 열어 다시 켬 — 관리자가 아닌 사용자로) → 0.4초 뒤 앱 끄기(`closeGuard.release()` — 닫기 전 묻기는 웹앱이 이미 함).
+    설치 위치는 설치 프로그램이 레지스트리 InstallLocation(이 사용자 HKCU / '모든 사용자' HKLM)에서 읽어 **같은 자리에 덮어 깐다**. '모든 사용자'(Program Files) 설치는 조용한 설치도 관리자 확인 창이
+    한 번 뜬다(맞는 동작) — 거기서 [아니요]면 설치도 다시 켜기도 안 된다(옛 판 그대로 — 바탕화면 아이콘으로 다시 켜면 다음 확인 때 또 알림). 받아 둔 사본은 다음 실행 첫 확인 때 지운다.
+    '나중에'(`wcg:update-later`)는 그 판을 이번 실행 동안 저절로 다시 안 알림(메모리만 — 다음 실행엔 다시), 더 새 판이 오면 알림. 판을 내리면(되돌리기) 더는 안 알림.
+    IPC 넷 다 메인 창 주 프레임만(`privateKeyCallerOk`). 시험: `WCG_UPDATE_DIR=<폴더>`(개발판·점검 모드에서도 저절로 확인), `WCG_UPDATE_FIRST_MS`(첫 확인 시각 — 시험 폴더일 때만), `WCG_UPDATE_DRYRUN=1`.
+  - **웹앱(`js/app-update.js`)**: '새 업데이트가 있습니다' 토스 카드 팝업(판·지금 판·크기·올린 날, 바뀐 점(글자로), [나중에]·[지금 설치]) — 렌더·이미지 추출·AE 보내는 중이거나 다른 토스 팝업이 떠 있으면
+    끝난 뒤(1초마다 확인), 부팅 공지 등에 밀려나면 그것이 닫힌 뒤 다시. [지금 설치] = 닫기 전 묻기 `closeAsk` 그대로([저장]·[저장 안 함]·[취소] — 시작 화면·변경 없음이면 안 물음) →
+    받기 진행 막대·[취소] → '설치를 시작했어요'(곧 앱이 꺼짐) / 실패면 같은 팝업에 빨간 머리·까닭(확인값 불일치·폴더에 못 닿음·보안 프로그램 등) + [다시 확인].
+    설정(렌치) 메뉴 맨 아래 줄 '앱 1.0.0 …' 오른쪽 [업데이트 확인](데스크톱만) — 곧바로 확인해 '최신 판이에요'·'올라온 업데이트가 없어요'·'업데이트 폴더에 닿지 못했어요'를 알림, 새 판이면 메뉴를 닫고 팝업(나중에 고른 판도).
+    main/preload 변경이라 개발판은 **앱 재실행 필요**. **임시판 0.2.0에는 이 기능이 없다** — 1.0.0(이 기능 든 판)은 PC마다 손으로 한 번 설치하고, 그 뒤 판부터 알림·자동 설치.
+  - **끝에서 끝 점검**: `node desktop/test/update-e2e-check.cjs --a=…1.0.0-installtest.exe --b=…1.0.1-installtest.exe --work=<임시>`(8장). 설치 프로그램이 다시 켠 앱은 explorer 를 거쳐 켜져
+    점검 모드 환경 변수가 안 넘어가므로 보통 실행으로 잠깐 뜬다(그래서 위 설치 시험판 분리). 판은 그 프로세스의 exe·asar 로 본다.
 
 - **공공데이터포털 기본 키**(2026-10-10 사용자 요청): `desktop/private-config.js`가 `desktop/private/data-go.key`를 읽는다(Git 제외, app://에서는 desktop/ 전체 접근 차단). `wcg:data-key` 동기 IPC는 메인 앱 창의 app://weathercg 주 프레임만 허용하고 preload가 `wcgDesktop.dataPortalKey`로 넘긴다. 개인 키가 없으면 자동 사용하며 입력칸에는 키를 채우지 않고 '기본 키 내장' 안내만 표시한다. 개인 키를 비우면 기본 키로 복귀. 키 두 종류 모두 오류에서 가린다.
   설치판을 만들 때 이 비공개 파일을 desktop/private/ 경로에 함께 담아야 한다(`tools/build-installer.cjs`가 담는다 — 아래 '설치판 만들기'). 클라이언트에 포함된 키는 설치 파일 소유자가 추출할 수 있으므로 강한 비밀 보관 수단은 아니다. 기본 자동 점검에는 실제 키를 넘기지 않으며 `WCG_TEST_DATA_KEY=1`을 명시한 별도 `tests/data-key.boot-eval.js`만 실제 내장 연결을 검사한다(값은 출력 안 함). main/preload 변경이므로 **앱 재실행 필요**.
