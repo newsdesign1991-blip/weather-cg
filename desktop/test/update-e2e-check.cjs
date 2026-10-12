@@ -19,6 +19,14 @@
 //  7) 조용히 제거 → 설치 폴더까지 없어지는지
 //  8) 정리: 이 점검이 만든 것만(%APPDATA%\날씨 CG 설치시험·%LOCALAPPDATA%\WeatherCG-installtest — 점검 전에 없던 때만, %TEMP%\wcg-update 에 점검 중 새로 생긴 시험 사본·진행 창 사본·글꼴·기록, 띄운 앱의 임시 사용자 폴더)
 // 결과: JSON { ok, steps… }. 사용자 '날씨 CG.exe' 프로세스 목록이 점검 앞뒤로 같은지도 본다.
+// 설치는 A·B 의 사본(<work>\setup)으로 한다 — 막 설치에 쓴 파일을 곧바로 올리면 잠겨 있어 올리기가 EBUSY 로 멈추던 것(10-13 검증). 올리기도 잠김이면 잠깐 뒤 다시.
+//
+// '모든 사용자' 설치(관리자 확인) 길 — 사람이 옆에서 관리자 확인 창의 [예]를 눌러 줄 때만(10-13 검증 뒤 추가, AI 혼자 돌리지 않는다):
+//   node desktop/test/update-e2e-check.cjs --a=… --b=… --work=… --per-machine [--decline-first] [--shot=…]
+//   A 를 /allusers 로 깔고(HKLM 등록 — 사용자 설치판과 이름·appId 가 달라 겹치지 않음) 같은 업데이트·되돌리기·제거를 한다. 관리자 확인 창은
+//   A 설치·업데이트·되돌리기·제거 때 한 번씩(넷) 뜬다 — 그때마다 [예]. --decline-first 면 첫 업데이트의 관리자 확인에서 [아니요]를 누르라고 하고,
+//   진행 창의 문제 화면(종료 코드·관리자 안내·[예전 판 그대로 켜기])을 기록한 뒤 점검기가 [다시 시도]를 눌러 준다 → 다시 뜬 관리자 확인에서 [예].
+//   진행 창 기록의 '관리자 확인 창을 봄'으로 관리자 확인 창이 떴는지를, 사람이 '앞에 떴는지'를 본다(점검기는 화면 앞뒤를 모름 — 결과 JSON 의 humanNotes 에 적어 둘 것).
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -33,6 +41,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const NAME = '날씨 CG 설치시험';                      // tools/build-installer.cjs INSTALLTEST.productName
 const EXE = NAME + '.exe';
 const USER_EXE = '날씨 CG.exe';
+const PM = args.includes('--per-machine');           // '모든 사용자' 설치(관리자 확인 — 사람이 [예])
+const DECLINE = PM && args.includes('--decline-first');
+const HIVE = PM ? 'HKLM' : 'HKCU';
+const human = (m) => { if (PM) process.stderr.write(`\n[사람] ${m}\n`); };
 const freePort = () => new Promise((res) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
 
 // PowerShell 한 줄 → JSON(한글 그대로 — 출력 UTF-8)
@@ -54,8 +66,11 @@ function exeVersion(file) {
   }
   return null;
 }
-// 이 사용자 설치 등록 — 제어판 항목(Uninstall\<키>) + 설치 프로그램이 다음 설치 자리로 읽는 Software\<키> InstallLocation(electron-builder multiUser.nsh)
-const regEntry = () => arr(ps(`@(Get-ChildItem HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall | ForEach-Object { $p = Get-ItemProperty $_.PSPath; if ("$($p.DisplayName)" -like '${NAME}*') { $k = $_.PSChildName; $loc = (Get-ItemProperty -LiteralPath "HKCU:\\Software\\$k" -ErrorAction SilentlyContinue).InstallLocation; [pscustomobject]@{ DisplayName = $p.DisplayName; DisplayVersion = $p.DisplayVersion; UninstallString = $p.UninstallString; InstallLocation = $loc } } }) | ConvertTo-Json -Compress`));
+// 설치 등록 — 제어판 항목(Uninstall\<키>) + 설치 프로그램이 다음 설치 자리로 읽는 Software\<키> InstallLocation(electron-builder multiUser.nsh)
+//  이 사용자 설치 = HKCU, '모든 사용자'(--per-machine) = HKLM(64비트 보기 — 64비트 PowerShell)
+const regEntryIn = (hive) => arr(ps(`@(Get-ChildItem ${hive}:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall | ForEach-Object { $p = Get-ItemProperty $_.PSPath; if ("$($p.DisplayName)" -like '${NAME}*') { $k = $_.PSChildName; $loc = (Get-ItemProperty -LiteralPath "${hive}:\\Software\\$k" -ErrorAction SilentlyContinue).InstallLocation; [pscustomobject]@{ DisplayName = $p.DisplayName; DisplayVersion = $p.DisplayVersion; UninstallString = $p.UninstallString; InstallLocation = $loc } } }) | ConvertTo-Json -Compress`));
+const regEntry = () => regEntryIn(HIVE);
+const regAny = () => [...regEntryIn('HKCU'), ...regEntryIn('HKLM')];
 // 설치 프로그램(임시 사본에서 도는 것) — 끝날 때까지 기다린다(돌고 있는 파일은 지울 수 없고, 정리가 설치를 끊지 않게)
 const installerProcs = (dir) => arr(ps(`@(Get-CimInstance Win32_Process -Filter "Name like 'WeatherCG-Setup-%'" | Select-Object ProcessId,ExecutablePath,CommandLine) | ConvertTo-Json -Compress`)).filter((p) => String(p.ExecutablePath || '').toLowerCase().startsWith(dir.toLowerCase()));
 // asar 안 파일 하나 읽기(머리 + 오프셋 — 의존성 없이)
@@ -72,6 +87,18 @@ function asarRead(file, rel) {
   } finally { fs.closeSync(fd); }
 }
 const killPid = (pid) => { try { execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch (e) { /* 이미 꺼짐 */ } };
+// 진행 창(pid)의 단추를 이름으로 누르기(UI 자동화 — desktop/test/update-ui-check.cjs 와 같은 방법) → 'ok' | 'no-window' | 'no-button'
+function clickUiButton(pid, name) {
+  const enc = Buffer.from(`[Console]::OutputEncoding = [Text.Encoding]::UTF8; Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+$A = [System.Windows.Automation.AutomationElement]
+$w = $null; for ($i = 0; $i -lt 20 -and -not $w; $i++) { $w = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, ${pid}))); if (-not $w) { Start-Sleep -Milliseconds 200 } }
+if (-not $w) { 'no-window'; exit }
+$c = New-Object System.Windows.Automation.AndCondition((New-Object System.Windows.Automation.PropertyCondition($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)), (New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, '${name}')))
+$b = $w.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $c)
+if (-not $b) { 'no-button'; exit }
+$b.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); 'ok'`, 'utf16le').toString('base64');
+  return String(spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', enc], { encoding: 'utf8', windowsHide: true, timeout: 60000 }).stdout || '').trim();
+}
 
 // 화면 읽기 식(CDP Runtime.evaluate) — 맨 위 토스 팝업, 설정 메뉴 '앱 업데이트' 묶음
 const POP = `(() => { const ov = document.querySelector('#tossOv:not(.popClosing)'); if (!ov) return null; return { title: ov.querySelector('.tossTitle').textContent, body: ov.querySelector('.tossBody').innerText, buttons: [...ov.querySelectorAll('.tossFoot button')].map((b) => b.textContent.trim()), bar: (ov.querySelector('.updBar i') || { style: {} }).style.width || '' }; })()`;
@@ -101,12 +128,18 @@ async function main() {
   const tempCopy = path.join(os.tmpdir(), 'wcg-update');
   const uiLog = path.join(tempCopy, 'update-ui.log');
   const preTemp = new Set(fs.existsSync(tempCopy) ? fs.readdirSync(tempCopy) : []);   // 점검 전부터 있던 것(지우지 않음)
-  const pre = { appData: fs.existsSync(appDataDir), lad: fs.existsSync(ladDir), reg: regEntry(), user: procs(USER_EXE).map((p) => p.ProcessId).sort() };
+  const pre = { appData: fs.existsSync(appDataDir), lad: fs.existsSync(ladDir), reg: regAny(), user: procs(USER_EXE).map((p) => p.ProcessId).sort() };
   out.steps.before = pre;
+  out.mode = PM ? (DECLINE ? 'per-machine + decline-first' : 'per-machine') : 'per-user';
   if (pre.reg.length) { fail('설치 시험판이 이미 깔려 있음 — 먼저 지울 것: ' + JSON.stringify(pre.reg)); return out; }
   if (procs(EXE).length) { fail('설치 시험판이 이미 켜져 있음'); return out; }
   fs.rmSync(work, { recursive: true, force: true }); fs.mkdirSync(upd, { recursive: true });
   if (SHOT) fs.mkdirSync(SHOT, { recursive: true });
+  // 설치에 쓸 사본(올리기는 원본으로 — 막 설치에 쓴 파일이 잠깐 잠겨 올리기가 EBUSY 로 멈추던 것)
+  const setupDir = path.join(work, 'setup');
+  fs.mkdirSync(setupDir, { recursive: true });
+  const aSetup = path.join(setupDir, path.basename(A));
+  fs.copyFileSync(A, aSetup);
   const aExe = path.join(inst, EXE), asarPath = path.join(inst, 'resources', 'app.asar');
   // 이 점검이 깐 exe(설치 폴더 안)로 지금 돌고 있는 그 PID 만 끈다 — 꺼진 뒤 다른 프로그램이 같은 PID 를 받았을 수 있어 매번 다시 확인
   const killOurs = (pid) => { if (procs(EXE).some((p) => p.ProcessId === pid && String(p.ExecutablePath || '').toLowerCase().startsWith(inst.toLowerCase()))) killPid(pid); };
@@ -165,9 +198,9 @@ async function main() {
   //  (창은 새 앱 창이 실제로 보일 때까지 기다리므로 그 전에 끄면 창이 '못 켰어요'가 된다)
   const uiLines = () => (fs.existsSync(uiLog) ? fs.readFileSync(uiLog, 'utf8').split(/\r?\n/).filter(Boolean).map((l) => l.slice(24)) : []);
   const uiProcs = () => procs(UI_EXE_NAME).filter((p) => String(p.ExecutablePath || '').toLowerCase().startsWith(tempCopy.toLowerCase()));
-  async function waitRelaunch(skipPids, setupName, uiPid, tag) {
+  async function waitRelaunch(skipPids, setupName, uiPid, tag, fromLine = 0) {
     let b = null; const t = Date.now();
-    for (let i = 0; i < 300 && !b; i++) {   // 최대 약 2분 30초(설치 + 다시 켜기)
+    for (let i = 0; i < (PM ? 600 : 300) && !b; i++) {   // 최대 약 2분 30초(설치 + 다시 켜기) — '모든 사용자'는 사람이 [예]를 누를 때까지 5분
       await sleep(500);
       const m = mainProcs(EXE).filter((p) => !skipPids.includes(p.ProcessId) && String(p.ExecutablePath || '').toLowerCase() === aExe.toLowerCase());
       if (m.length) b = m[0];
@@ -175,7 +208,7 @@ async function main() {
     if (!b) return { found: false, reg: regEntry(), installer: procs(setupName), ui: uiLines() };
     const foundMs = Date.now() - t;
     let lines = [];
-    for (let i = 0; i < 240; i++) { lines = uiLines(); if (lines.some((l) => /^(끝 —|문제 —)/.test(l))) break; await sleep(500); }   // 최대 2분
+    for (let i = 0; i < 240; i++) { lines = uiLines(); if (lines.slice(fromLine).some((l) => /^(끝 —|문제 —)/.test(l))) break; await sleep(500); }   // 최대 2분
     for (let i = 0; i < 40 && uiProcs().some((p) => p.ProcessId === uiPid); i++) await sleep(250);   // 창이 스스로 닫힐 때까지(끝 뒤 약 2초)
     await sleep(1500);   // 두 번 켜졌다면 둘째가 보이게
     const mains = mainProcs(EXE).filter((p) => !skipPids.includes(p.ProcessId) && String(p.ExecutablePath || '').toLowerCase() === aExe.toLowerCase());
@@ -209,18 +242,28 @@ async function main() {
   };
 
   try {
-    // 1) A 설치
+    // 1) A 설치(사본으로) — '모든 사용자'면 /allusers(관리자 확인 창 — 사람이 [예])
     const t1 = Date.now();
-    const r1 = spawnSync(A, ['/S', `/D=${inst}`], { windowsHide: true, timeout: 300000 });
+    human(`A(${vA}) '모든 사용자' 설치 — 관리자 확인 창이 뜨면 [예]를 눌러 주세요(1/4)`);
+    const r1 = spawnSync(aSetup, ['/S', ...(PM ? ['/allusers'] : []), `/D=${inst}`], { windowsHide: true, timeout: 300000 });
     out.steps.installA = { exit: r1.status, ms: Date.now() - t1, exe: fs.existsSync(aExe) };
-    if (!out.steps.installA.exe) { fail('A 설치 안 됨'); return out; }
+    if (!out.steps.installA.exe) { fail('A 설치 안 됨' + (PM ? '(관리자 확인에서 [아니요]?)' : '')); return out; }
     Object.assign(out.steps.installA, installed());
-    // 2) A 그다음 B 올리기(시험 폴더) — 내역 = 1.0.1·1.0.0, 설치 파일 둘 다
-    const publish = (setup, note) => spawnSync(process.execPath, [path.join(ROOT, 'tools', 'publish-update.cjs'), `--setup=${setup}`, `--dir=${upd}`, ...note.map((n) => '--note=' + n)], { encoding: 'utf8', timeout: 300000 });
+    // 2) A 그다음 B 올리기(시험 폴더) — 내역 = 1.0.1·1.0.0, 설치 파일 둘 다. 원본을 올리고, 잠김(EBUSY 등)이면 3초 뒤 다시(최대 4번)
+    const publish = (setup, note) => {
+      let r = null, tries = 0;
+      for (; tries < 4; tries++) {
+        r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'publish-update.cjs'), `--setup=${setup}`, `--dir=${upd}`, ...note.map((n) => '--note=' + n)], { encoding: 'utf8', timeout: 300000 });
+        if (r.status === 0 || !/\b(EBUSY|EPERM|EACCES)\b/.test(String(r.stderr))) break;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);
+      }
+      r.tries = tries + 1;
+      return r;
+    };
     const r2a = publish(A, ['끝에서 끝 점검 — 처음 올린 판(되돌리기 대상)']);
     const r2 = publish(B, ['업데이트 끝에서 끝 점검 — 판만 올린 설치 시험판', '설치 뒤 저절로 다시 켜져야 함']);
     const latest = fs.existsSync(path.join(upd, 'latest.json')) ? JSON.parse(fs.readFileSync(path.join(upd, 'latest.json'), 'utf8')) : null;
-    out.steps.publish = { exitA: r2a.status, exitB: r2.status, version: latest && latest.version, history: latest && arr(latest.history).map((h) => h.version), files: fs.readdirSync(upd).sort(),
+    out.steps.publish = { exitA: r2a.status, exitB: r2.status, tries: [r2a.tries, r2.tries], version: latest && latest.version, history: latest && arr(latest.history).map((h) => h.version), files: fs.readdirSync(upd).sort(),
       err: (r2a.status ? String(r2a.stderr).slice(0, 800) : '') + (r2.status ? String(r2.stderr).slice(0, 800) : '') };
     if (r2a.status !== 0 || r2.status !== 0) { fail('올리기 실패'); return out; }
 
@@ -236,13 +279,28 @@ async function main() {
     await La.shot('A-menu.png');
     await La.evalJs(`(() => { if (typeof _closeMenu === 'function' && _closeMenu) _closeMenu(); })()`);
     const tClick = Date.now();
+    human(DECLINE ? '업데이트 — 이번 관리자 확인 창에서는 [아니요]를 눌러 주세요(거절 시험). 점검기가 진행 창의 [다시 시도]를 누르면 그다음 창에서 [예]'
+      : '업데이트 — 관리자 확인 창이 뜨면 [예]를 눌러 주세요(2/4). 앞에 떴는지(작업 표시줄에서 깜빡이기만 했는지)도 봐 주세요');
     out.steps.installClick = await followInstall(La, `document.querySelector('#tossOv [data-install]').click()`, '설치를 시작했어요');
     La.close();
     mainLogs.push(...La.log.split(/\r?\n/).filter((l) => /\[update\]|\[wcg-paths\]/.test(l)));
     out.steps.uiA = uiPidOf(La.log);
     if (!out.steps.uiA) { fail('업데이트 진행 창을 띄우지 않음: ' + JSON.stringify(out.steps.installClick.last) + ' ' + mainLogs.filter((l) => /진행 창|설치 프로그램/.test(l)).join(' / ')); return out; }
+    // 4-0) 거절 시험(--decline-first): 진행 창 문제 화면(종료 코드·관리자 안내·단추)을 기록 → 점검기가 [다시 시도] → 사람이 [예]
+    let fromLine = 0;
+    if (DECLINE) {
+      let lines = [];
+      for (let i = 0; i < 600; i++) { lines = uiLines(); if (lines.some((l) => /^문제 —/.test(l))) break; await sleep(500); }   // 최대 5분
+      out.steps.decline = { exitLine: lines.find((l) => /^설치 프로그램 끝 —/.test(l)) || null, fail: lines.find((l) => /^문제 —/.test(l)) || null,
+        screen: lines.find((l) => /^문제 화면 —/.test(l)) || null, adminSeen: lines.some((l) => /^관리자 확인 창이 뜸/.test(l)), appVersionNow: exeVersion(aExe) };
+      if (!out.steps.decline.fail) { fail('거절 시험: 진행 창이 문제 화면을 안 보임'); return out; }
+      await sleep(1500);   // 문제 화면 캡처(--shot)가 남게
+      fromLine = uiLines().length;
+      human('진행 창의 [다시 시도]를 누릅니다 — 다시 뜨는 관리자 확인 창에서 [예]를 눌러 주세요(2/4)');
+      out.steps.decline.retryClick = clickUiButton(out.steps.uiA.pid, '다시 시도');
+    }
     // 4) 진행 창이 단계를 끝까지 가고 B 가 같은 자리에서 켜지는지
-    out.steps.relaunchB = await waitRelaunch([La.pid], `WeatherCG-Setup-${vB}-installtest.exe`, out.steps.uiA.pid, 'A');
+    out.steps.relaunchB = await waitRelaunch([La.pid], `WeatherCG-Setup-${vB}-installtest.exe`, out.steps.uiA.pid, 'A', fromLine);
     out.steps.relaunchB.msFromClick = Date.now() - tClick;
     if (!out.steps.relaunchB.found) { fail('B 가 다시 켜지지 않음'); return out; }
 
@@ -258,6 +316,7 @@ async function main() {
     out.steps.rollbackAsk = ask;
     if (!ask) { fail('되돌리기 확인 팝업이 안 뜸'); return out; }
     await Lb.shot('B-rollback-ask.png');
+    human('되돌리기 — 관리자 확인 창이 뜨면 [예]를 눌러 주세요(3/4)');
     const tRb = Date.now();
     out.steps.rollbackClick = await followInstall(Lb, `document.querySelector('#tossOv [data-go]').click()`, '되돌리기를 시작했어요');
     Lb.close();
@@ -286,7 +345,8 @@ async function main() {
     // 7) 조용히 제거 → 폴더까지
     const un = path.join(inst, `Uninstall ${NAME}.exe`);
     const t5 = Date.now();
-    spawnSync(un, ['/S'], { windowsHide: true, timeout: 120000 });
+    human('제거 — 관리자 확인 창이 뜨면 [예]를 눌러 주세요(4/4)');
+    spawnSync(un, ['/S', ...(PM ? ['/allusers'] : [])], { windowsHide: true, timeout: PM ? 300000 : 120000 });
     for (let i = 0; i < 240 && fs.existsSync(aExe); i++) await sleep(500);
     for (let i = 0; i < 20 && fs.existsSync(inst); i++) await sleep(500);
     out.steps.uninstall = { ms: Date.now() - t5, exeGone: !fs.existsSync(aExe), dirGone: !fs.existsSync(inst), left: fs.existsSync(inst) ? fs.readdirSync(inst).slice(0, 10) : [], reg: regEntry() };
@@ -300,7 +360,8 @@ async function main() {
     // 중간에 멈춰 아직 깔려 있으면 지운다(이 점검이 깐 설치 시험판만)
     const unLeft = path.join(inst, `Uninstall ${NAME}.exe`);
     if (fs.existsSync(unLeft)) {
-      spawnSync(unLeft, ['/S'], { windowsHide: true, timeout: 120000 });
+      human('정리 — 남은 설치 시험판을 지웁니다. 관리자 확인 창이 뜨면 [예]를 눌러 주세요');
+      spawnSync(unLeft, ['/S', ...(PM ? ['/allusers'] : [])], { windowsHide: true, timeout: PM ? 300000 : 120000 });
       for (let i = 0; i < 240 && fs.existsSync(path.join(inst, EXE)); i++) await sleep(500);
       out.steps.cleanupUninstall = !fs.existsSync(path.join(inst, EXE));
     }
@@ -318,8 +379,11 @@ async function main() {
     }
     try { if (fs.existsSync(tempCopy) && !fs.readdirSync(tempCopy).length) fs.rmdirSync(tempCopy); } catch (e) { /* 다른 파일 있음 */ }
     fs.rmSync(upd, { recursive: true, force: true });
-    out.steps.after = { appData: fs.existsSync(appDataDir), lad: fs.existsSync(ladDir), reg: regEntry(), user: procs(USER_EXE).map((p) => p.ProcessId).sort(), testProcs: procs(EXE).length,
-      desktopLnk: fs.existsSync(path.join(os.homedir(), 'Desktop', NAME + '.lnk')), startLnk: fs.existsSync(path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', NAME + '.lnk')),
+    try { fs.rmSync(setupDir, { recursive: true, force: true }); } catch (e) { /* 잠김 — 임시 폴더 */ }
+    out.steps.after = { appData: fs.existsSync(appDataDir), lad: fs.existsSync(ladDir), reg: regAny(), user: procs(USER_EXE).map((p) => p.ProcessId).sort(), testProcs: procs(EXE).length,
+      desktopLnk: fs.existsSync(path.join(os.homedir(), 'Desktop', NAME + '.lnk')) || fs.existsSync(path.join(process.env.PUBLIC || 'C:\\Users\\Public', 'Desktop', NAME + '.lnk')),
+      startLnk: fs.existsSync(path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', NAME + '.lnk'))
+        || fs.existsSync(path.join(process.env.ProgramData || 'C:\\ProgramData', 'Microsoft', 'Windows', 'Start Menu', 'Programs', NAME + '.lnk')),
       updaterCopy: fs.existsSync(path.join(process.env.LOCALAPPDATA, 'weathercg-installtest-updater')) };
   }
   const s = out.steps;
@@ -347,6 +411,11 @@ async function main() {
     for (const re of [/^창이 뜸/, /^앱 닫힘/, /^설치 파일 확인 — 크기·sha256 맞음/, /^설치 프로그램 실행\(\/S --updated\)/, /^설치 프로그램 끝 — 종료 코드 0/, /^새 앱 창이 보임/, /^끝 —/])
       want(L.some((l) => re.test(l)), tag + ' 진행 창 기록에 없음: ' + re);
     want(r && !r.uiLeft, tag + ' 진행 창이 끝난 뒤 안 닫힘');
+    // '모든 사용자' — 창이 그렇게 알아봤는지(등록 HKLM), 관리자 확인 창이 떴는지(기록 — 사람이 아주 빨리 누르면 못 볼 수 있어 기록만)
+    if (PM) {
+      want(L.some((l) => /^시작 — .*모든 사용자 설치\(관리자 확인\)/.test(l)), tag + " 진행 창이 '모든 사용자' 설치로 알아보지 못함");
+      if (r) r.adminSeen = L.some((l) => /^관리자 확인 창이 뜸/.test(l));
+    }
     if (SHOT_DIR) {
       const d = path.join(SHOT_DIR, 'ui-' + tag), n = fs.existsSync(d) ? fs.readdirSync(d) : [];
       want(['step0', 'step2', 'install-progress', 'step3', 'done'].every((t) => n.some((x) => x.includes(t) && x.endsWith('-screen.png'))), tag + ' 진행 창 캡처: ' + n.join(','));
@@ -361,6 +430,12 @@ async function main() {
   want(s.relaunchA && regAt(s.relaunchA.reg, vA) && arr(s.relaunchA.reg).length === 1, '같은 자리에 ' + vA + ' 으로(하나만) 등록 안 됨');
   uiOk(s.relaunchA, s.uiB, 'B');
   want(s.again && s.again.appVersion === vA && s.again.menu && s.again.menu.install && s.again.install && s.again.install.started, '되돌린 판에서 다시 최신으로(나중에 고른 뒤 메뉴 [업데이트하기])');
+  if (DECLINE) {
+    const d = s.decline || {};
+    want(/관리자 확인 창에서 \[아니요\]를 누르셨다면/.test(d.screen || ''), '거절 시험: 문제 화면에 관리자 확인 안내가 없음 — ' + d.screen);
+    want(reV(vA).test(String(d.appVersionNow)), '거절 시험: [아니요] 뒤 옛 판이 그대로가 아님(' + d.appVersionNow + ')');
+    want(d.retryClick === 'ok', '거절 시험: [다시 시도]를 못 누름(' + d.retryClick + ')');
+  }
   want(s.uninstall && s.uninstall.exeGone && s.uninstall.dirGone, '제거 뒤 설치 폴더가 남음');
   want(s.after && JSON.stringify(s.after.user) === JSON.stringify(s.before.user), '사용자 앱 프로세스가 바뀜');
   want(s.after && !s.after.reg.length && !s.after.testProcs && !s.after.desktopLnk && !s.after.startLnk, '설치 시험판 흔적이 남음');

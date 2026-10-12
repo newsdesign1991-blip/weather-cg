@@ -418,7 +418,7 @@ function createUpdater(o) {
   //  ui = true 면 진행 창이 떠서 설치·새 판 실행을 맡았다(앱은 0.6초 뒤 꺼짐), false 면 조용한 설치(앱은 1.5초 뒤 꺼짐).
   //  보통: 고른 판 = 지금 latest.json 맨 위 판이고 지금 판보다 새 판이어야. '나중에'(later)는 저절로 알림만 막는다 — 여기선 보지 않는다(메뉴에서 언제든).
   //  되돌리기(opts.rollback): 고른 판이 지금 내역(history)에 있고 지금 판보다 낮아야(내역에서 빠졌으면 gone). 설치 파일이 정리됐으면 missing.
-  //  opts.onPhase('handoff') — 받기·확인이 끝나고 진행 창을 띄우는 중(웹앱 글자)
+  //  opts.onPhase('handoff') — 받기·확인이 끝나고 진행 창을 띄우는 중(웹앱 글자 — 이때부터 cancel() 은 false: 취소할 수 없다)
   async function install(version, onProgress, opts) {
     const rollback = !!(opts && opts.rollback);
     const onPhase = opts && typeof opts.onPhase === 'function' ? opts.onPhase : null;
@@ -439,10 +439,12 @@ function createUpdater(o) {
         if (cmpVer(r.info.version, current) !== 1) return { ok: false, err: 'not-newer', version: r.info.version };
         info = r.info;
       }
-      abortCtl = new AbortController();
-      const c = await prepareInstall({ dir: r.dir, info, tempRoot: o.tempRoot, onProgress, signal: abortCtl.signal, fsp: o.fsp, timeoutMs: o.timeoutMs });
-      abortCtl = null;
+      const ctl = abortCtl = new AbortController();
+      const c = await prepareInstall({ dir: r.dir, info, tempRoot: o.tempRoot, onProgress, signal: ctl.signal, fsp: o.fsp, timeoutMs: o.timeoutMs });
+      abortCtl = null;   // 여기부터는 취소할 수 없다(진행 창·설치 프로그램에 넘김 — 웹앱은 handoff 를 받으면 [취소]를 감춘다)
       if (!c.ok) { log(`설치 파일 받기 실패: ${c.err}${c.code ? ' ' + c.code : ''}`); return c; }
+      // 받기가 끝나는 바로 그때 누른 [취소] — 넘기기 전이면 멈춘다(받은 사본은 다음 확인 때 cleanTemp 가 지움)
+      if (ctl.signal.aborted) { log('설치 파일은 받았지만 넘기기 전에 취소됨'); return { ok: false, err: 'cancelled' }; }
       const tag = rollback ? { rollback: true } : {};
       if (dry) { log('시험(WCG_UPDATE_DRYRUN) — 실행하지 않음: ' + c.file); return { ok: true, dry: true, version: info.version, ...tag }; }
       const quit = (ms) => {

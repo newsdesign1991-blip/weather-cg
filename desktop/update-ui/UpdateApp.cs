@@ -6,9 +6,11 @@
 // 설치 폴더 안 파일을 잡고 있으면 설치 프로그램이 그 폴더를 바꾸지 못한다):
 //  0) 날씨 CG 닫기   — 앱(--pid)이 끝나고, 같은 exe(--app) 로 도는 프로세스가 하나도 없을 때까지(최대 60초 — 안 닫히면 멈춤, 앱은 그대로)
 //  1) 새 버전 확인   — 설치 파일(--setup)의 크기·sha256 을 다시 본다. 확인한 뒤 설치가 끝날 때까지 그 파일을 쓰기·지우기 못 하게 열어 둔다
-//  2) 새 버전 설치   — 설치 파일을 /S --updated 로 실행해 끝날 때까지(조용한 설치는 진행률을 안 주니 지난 시간·설치 폴더 파일 변화로 막대를 채우되
-//                      끝나기 전엔 100% 를 안 보인다). 종료 코드가 0 이 아니거나, 끝났는데 exe 판이 --to 가 아니면 문제
-//                      ('모든 사용자' 설치면 관리자 확인 창 안내 — 거기서 [아니요]면 판이 그대로라 여기서 알아챈다)
+//  2) 새 버전 설치   — 설치 파일을 /S --updated 로 실행해 끝날 때까지(조용한 설치는 진행률을 안 주니 설치 폴더 파일 변화로 막대를 채우고,
+//                      지난 시간 몫은 단계의 절반까지만 — 관리자 확인 창(consent.exe)이 떠 있는 동안은 시간도 안 센다. 끝나기 전엔 100% 를 안 보인다).
+//                      종료 코드가 0 이 아니거나, 끝났는데 exe 판이 --to 가 아니면 문제
+//                      ('모든 사용자' 설치면 관리자 확인 창 안내 — electron-builder 템플릿은 조용한 '모든 사용자' 업데이트에서 관리자 확인을 부르고,
+//                       [아니요]면 바깥 설치 파일이 그냥 끝난다(NSIS Quit — 종료 코드 2). 어느 쪽이든 관리자 확인 안내를 붙인다)
 //  3) 마무리 · 새 버전 실행 — 설치된 앱을 이 창이 직접 켜고(--force-run 은 안 씀 — 두 번 켜지지 않게) 그 창이 실제로 보일 때까지
 //  → 머리가 초록 '업데이트가 끝났어요', 잠깐 뒤 창이 닫힌다. 문제면 빨강 + 까닭 + [다시 시도]/[예전 판 그대로 켜기]/[닫기].
 //  도는 중에는 창을 닫을 수 없다(Alt+F4·작업 표시줄 — 설치 도중 끊기지 않게).
@@ -38,6 +40,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Microsoft.Win32;
 
 [assembly: AssemblyTitle("날씨 CG 업데이트")]
 [assembly: AssemblyDescription("날씨 CG 업데이트 진행 창")]
@@ -104,6 +107,7 @@ namespace WeatherCGUpdate
     static class Native
     {
         public const uint SYNCHRONIZE = 0x00100000, PROCESS_QUERY_LIMITED_INFORMATION = 0x1000, WAIT_OBJECT_0 = 0;
+        public const int ASFW_ANY = -1;   // AllowSetForegroundWindow — 어느 프로그램이든 앞으로 올 수 있게
         [DllImport("kernel32.dll", SetLastError = true)] public static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
         [DllImport("kernel32.dll", SetLastError = true)] public static extern bool CloseHandle(IntPtr h);
         [DllImport("kernel32.dll", SetLastError = true)] public static extern uint WaitForSingleObject(IntPtr h, uint ms);
@@ -189,6 +193,8 @@ namespace WeatherCGUpdate
         const int StepCount = 4;
         // 막대에서 단계마다 차지하는 몫(시작 지점) — 0 닫기 · 1 확인 · 2 설치(가장 김) · 3 새 버전 실행 · 끝 = 1
         static readonly double[] StepAt = { 0.0, 0.05, 0.15, 0.92, 1.0 };
+        // 설치 단계에서 지난 시간만으로 채우는 몫의 끝(단계 안 0~1) — 나머지는 설치 폴더 파일 변화로만 찬다(아무것도 안 바꾸는 설치가 막대만 차지 않게)
+        const double TimeShare = 0.5;
 
         public readonly Window Win;
         public int ExitCode = 1;
@@ -219,7 +225,7 @@ namespace WeatherCGUpdate
         {
             _o = o;
             _p = o.Product;
-            _perMachine = o.ForcePerMachine || UnderProgramFiles(o.InstallDir);
+            _perMachine = o.ForcePerMachine || PerMachineInstall(o.InstallDir);
             Win = LoadWindow();
             _stepsPanel = (StackPanel)Win.FindName("Steps");
             _head = (Border)Win.FindName("Head");
@@ -421,6 +427,7 @@ namespace WeatherCGUpdate
             _percent.Text = Math.Floor(_shown * 100 + 1e-9) + "%";
         }
         void Status(string s) { _status.Text = s; }
+        int Pct() { return (int)Math.Floor(_target * 100 + 1e-9); }   // 막대 목표(기록용)
 
         // ---------- 흐름 ----------
         void OnShown(object sender, EventArgs e)
@@ -572,6 +579,9 @@ namespace WeatherCGUpdate
             var fresh = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             Process p;
             var psi = new ProcessStartInfo(_o.Setup, "/S --updated") { UseShellExecute = false, WorkingDirectory = System.IO.Path.GetDirectoryName(_o.Setup) };
+            // 설치 프로그램('모든 사용자' 설치면 그것이 부르는 관리자 확인 창)이 앞으로 올 수 있게 — 뒤에서 부르면 작업 표시줄에서 깜빡이기만 한다
+            try { Win.Activate(); } catch (Exception) { }
+            Native.AllowSetForegroundWindow(Native.ASFW_ANY);
             try
             {
                 try { p = Process.Start(psi); }
@@ -585,28 +595,40 @@ namespace WeatherCGUpdate
             catch (Exception ex)
             {
                 ReleaseSetup();
-                throw new StepFail(2, "설치 프로그램을 실행하지 못했어요 — 보안 프로그램이 막았을 수 있어요. (" + ex.Message + ")", true, 1, OldHint(), null);
+                throw new StepFail(2, "설치 프로그램을 실행하지 못했어요 — 보안 프로그램이 막았을 수 있어요. (" + ex.Message + ")", true, 1, OldHint(true), null);
             }
-            if (p == null) { ReleaseSetup(); throw new StepFail(2, "설치 프로그램을 실행하지 못했어요.", true, 1, OldHint(), null); }
+            if (p == null) { ReleaseSetup(); throw new StepFail(2, "설치 프로그램을 실행하지 못했어요.", true, 1, OldHint(true), null); }
             Log(string.Format("설치 프로그램 실행(/S --updated) pid {0} — 파일 {1}개 보는 중", p.Id, snap.Count));
-            // 예상 시간: 설치 파일 크기로(약 12MB/초, 8~60초) — 시간만으로는 88% 까지만 채운다(거짓 100% 금지)
+            // 예상 시간: 설치 파일 크기로(약 12MB/초, 8~60초) — 시간만으로는 단계의 TimeShare(절반)까지만, 나머지는 파일 변화로(거짓 100% 금지)
             double expect = Math.Max(8, Math.Min(60, (_o.Size > 0 ? _o.Size : 180L << 20) / (12.0 * 1048576)));
-            var sw = Stopwatch.StartNew();
+            var sw = Stopwatch.StartNew();     // 전체(시간 초과·상태 줄)
+            var work = Stopwatch.StartNew();   // 막대용 — 관리자 확인 창을 기다린 시간은 뺀다
             double frac = 0;
-            bool midShot = false;
+            bool midShot = false, sawAdmin = false;
             while (!p.HasExited)
             {
                 await Task.Delay(300);
+                // '모든 사용자' 설치의 관리자 확인 창(consent.exe)이 떠 있는 동안은 [예]를 눌러 달라고 하고 막대를 시간으로 채우지 않는다
+                bool admin = _perMachine && await Task.Run(() => ConsentUp());
+                bool adminUp = admin && work.IsRunning, adminDown = !admin && !work.IsRunning;
+                if (adminUp) work.Stop();
+                if (adminDown) work.Start();
                 double act = await Task.Run(() => Activity(_o.InstallDir, snap, gone, fresh, n0));
-                double t = sw.Elapsed.TotalSeconds;
-                frac = Math.Max(frac, Math.Min(0.96, Math.Max((1 - Math.Exp(-t / (expect / 2.2))) * 0.88, act * 0.96)));
+                double t = work.Elapsed.TotalSeconds;
+                frac = Math.Max(frac, Math.Min(0.96, Math.Max((1 - Math.Exp(-t / (expect / 2.2))) * TimeShare, act * 0.96)));
                 Target(2, frac);
-                Status(string.Format("{0}{1} 설치하는 중… ({2}초)", what, Eul(what), (int)t));
+                if (adminUp)
+                {
+                    Log(string.Format("관리자 확인 창이 뜸 — [예]를 기다림(막대 {0}%)", Pct()));
+                    if (!sawAdmin) { sawAdmin = true; ShotLater("admin-wait", 300); }
+                }
+                if (adminDown) Log(string.Format("관리자 확인 창이 닫힘(막대 {0}%)", Pct()));
+                Status(admin ? "관리자 확인 창에서 [예]를 눌러 주세요…" : string.Format("{0}{1} 설치하는 중… ({2}초)", what, Eul(what), (int)sw.Elapsed.TotalSeconds));
                 if (!midShot && t > 3) { midShot = true; ShotLater("install-progress", 0); }
-                if (t > _o.InstallTimeoutSec)
+                if (sw.Elapsed.TotalSeconds > _o.InstallTimeoutSec)
                 {
                     ReleaseSetup();
-                    Log("설치 시간 초과 — " + (int)t + "초");
+                    Log("설치 시간 초과 — " + (int)sw.Elapsed.TotalSeconds + "초");
                     throw new StepFail(2, string.Format("설치가 {0} 넘게 끝나지 않아요 — 설치 프로그램이 아직 돌고 있을 수 있어요.", Dur(_o.InstallTimeoutSec)), false, 1,
                         "잠시 뒤 바탕화면의 " + _p + " 아이콘으로 켜 보세요. 안 켜지면 담당자에게 알려 주세요.", null);
                 }
@@ -614,9 +636,10 @@ namespace WeatherCGUpdate
             int code = -1;
             try { code = p.ExitCode; } catch (Exception) { }
             ReleaseSetup();
-            Log(string.Format("설치 프로그램 끝 — 종료 코드 {0}, {1}ms, 바뀐 파일 {2}·지워졌던 파일 {3} / {4}", code, sw.ElapsedMilliseconds, fresh.Count, gone.Count, snap.Count));
-            if (code != 0)
-                throw new StepFail(2, "설치 프로그램이 오류로 끝났어요(종료 코드 " + code + ").", true, 1, OldHint(), null);
+            Log(string.Format("설치 프로그램 끝 — 종료 코드 {0}, {1}ms, 바뀐 파일 {2}·지워졌던 파일 {3} / {4}{5}", code, sw.ElapsedMilliseconds, fresh.Count, gone.Count, snap.Count,
+                sawAdmin ? ", 관리자 확인 창을 봄" : ""));
+            if (code != 0)   // '모든 사용자' 설치에서 관리자 확인 [아니요]도 여기(바깥 설치 파일이 그냥 끝남)
+                throw new StepFail(2, "설치 프로그램이 오류로 끝났어요(종료 코드 " + code + ").", true, 1, InstallHint(), null);
             // '모든 사용자' 설치는 관리자 권한으로 다시 뜬 같은 설치 파일(안쪽)이 실제로 깐다 — 그것도 끝날 때까지(최대 10분)
             var swIn = Stopwatch.StartNew();
             while (await Task.Run(() => SetupRunning()))
@@ -633,8 +656,7 @@ namespace WeatherCGUpdate
             if (_o.To != null && v != _o.To)
             {
                 Log("깔린 판 " + v + " ≠ " + _o.To);
-                throw new StepFail(2, string.Format("설치가 끝났는데 {0} 버전이 깔리지 않았어요(지금 {1}).", _o.To, v), true, 1,
-                    (_perMachine ? "관리자 확인 창에서 [아니요]를 누르셨다면 [다시 시도]를 누르고 [예]를 눌러 주세요. " : "") + OldHint(), null);
+                throw new StepFail(2, string.Format("설치가 끝났는데 {0} 버전이 깔리지 않았어요(지금 {1}).", _o.To, v), true, 1, InstallHint(), null);
             }
             Target(2, 1);
             Status(what + Ga(what) + " 깔렸어요.");
@@ -652,6 +674,17 @@ namespace WeatherCGUpdate
                 finally { p.Dispose(); }
             }
             return any;
+        }
+        // 관리자 확인 창(UAC — consent.exe)이 떠 있나(이름만 본다 — 보통 사용자 권한으로도 목록은 읽힌다)
+        static bool ConsentUp()
+        {
+            try
+            {
+                Process[] ps = Process.GetProcessesByName("consent");
+                foreach (Process p in ps) p.Dispose();
+                return ps.Length > 0;
+            }
+            catch (Exception) { return false; }
         }
         // 설치 폴더 파일 목록(상대 경로 → 크기·고친 시각 묶음)
         static Dictionary<string, long> Snapshot(string dir)
@@ -773,22 +806,41 @@ namespace WeatherCGUpdate
             _errHint.Visibility = string.IsNullOrEmpty(f.Hint) ? Visibility.Collapsed : Visibility.Visible;
             _retryBtn.Content = f.RetryLabel ?? "다시 시도";
             _retryBtn.Visibility = f.Retry ? Visibility.Visible : Visibility.Collapsed;
-            _oldBtn.Visibility = OldIntact() && f.Step >= 1 && f.Step <= 2 ? Visibility.Visible : Visibility.Collapsed;
+            // 설치 프로그램이 아직 돌면(시간 초과) 옛 판을 켜지 않는다 — 켜면 설치가 파일을 못 바꾸거나 앱을 끌 수 있다
+            bool setupBusy = f.Step == 2 && SetupRunning();
+            _oldBtn.Visibility = !setupBusy && OldIntact() && f.Step >= 1 && f.Step <= 2 ? Visibility.Visible : Visibility.Collapsed;
             _oldBtn.Content = "예전 판 그대로 켜기";
             _closeBtn.IsEnabled = _retryBtn.IsEnabled = _oldBtn.IsEnabled = true;
             _note.Visibility = Visibility.Collapsed;
             _errPanel.Visibility = Visibility.Visible;
             _closeX.Visibility = Visibility.Visible;
             Log(string.Format("문제 — 단계 {0}: {1}", f.Step, f.Message));
+            var btns = new List<string>();
+            foreach (Button b in new[] { _closeBtn, _oldBtn, _retryBtn }) if (b.Visibility == Visibility.Visible) btns.Add(Convert.ToString(b.Content));
+            Log(string.Format("문제 화면 — 안내: {0} · 단추: {1} · 막대 {2}%{3}", f.Hint ?? "(없음)", string.Join(", ", btns), Pct(),
+                setupBusy ? " · 설치 프로그램이 아직 돎" : ""));
             ShotLater("fail-step" + f.Step, 500);
         }
         // 예상 못 한 예외(창 코드) — 문제 화면으로
         public void Crashed(Exception ex)
         {
             Log("예외: " + ex);
-            if (_running) Fail(new StepFail(Math.Max(0, _current), "예상하지 못한 문제로 멈췄어요: " + ex.Message, false, 0, OldHint(), null));
+            if (_running) Fail(new StepFail(Math.Max(0, _current), "예상하지 못한 문제로 멈췄어요: " + ex.Message, false, 0, OldHint(false), null));
         }
-        string OldHint() { return OldIntact() ? "[예전 판 그대로 켜기]로 지금까지 쓰던 판을 켤 수 있어요." : null; }
+        // 문제 화면 안내 — 옛 판이 그대로면 [예전 판 그대로 켜기], 아니면(설치 프로그램이 옛 판을 지운 뒤 실패 등) 무엇을 하면 되는지
+        string OldHint(bool canRetry)
+        {
+            if (OldIntact()) return "[예전 판 그대로 켜기]로 지금까지 쓰던 판을 켤 수 있어요.";
+            return canRetry ? "[다시 시도]로 다시 설치해 보세요. 그래도 안 되면 담당자에게 알려 주세요."
+                            : "바탕화면의 " + _p + " 아이콘으로 켜 보세요. 안 켜지면 담당자에게 알려 주세요.";
+        }
+        // 설치가 안 됐을 때 안내 — '모든 사용자' 설치면 관리자 확인부터([아니요]·창 닫힘이면 바깥 설치 파일이 그냥 끝난다)
+        string InstallHint()
+        {
+            if (!_perMachine) return OldHint(true);
+            return "관리자 확인 창에서 [아니요]를 누르셨다면 [다시 시도]를 누르고 [예]를 눌러 주세요. "
+                + (OldIntact() ? "[예전 판 그대로 켜기]로 지금까지 쓰던 판을 켤 수도 있어요." : "그래도 안 되면 담당자에게 알려 주세요.");
+        }
         // 옛 판이 그대로 있나 — 앱이 닫혔고, 앱 exe 가 있고 그 판이 --from 이면
         bool OldIntact()
         {
@@ -892,6 +944,42 @@ namespace WeatherCGUpdate
         {
             try { return string.Equals(System.IO.Path.GetFullPath(a).TrimEnd('\\'), System.IO.Path.GetFullPath(b).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase); }
             catch (Exception) { return false; }
+        }
+        // '모든 사용자'(관리자 확인) 설치인가 — electron-builder 설치 프로그램과 같은 기준: 이전 설치 등록이 HKLM 에만 있으면 '모든 사용자', HKCU 에 있으면 '이 사용자만'
+        // (multiUser.nsh initMultiUser). 제어판 등록(Uninstall\*)의 제거 명령이 이 설치 폴더를 가리키는 것으로 찾는다. 등록을 못 읽으면 폴더 자리로(Program Files 아래).
+        static bool PerMachineInstall(string dir)
+        {
+            bool? m = RegisteredAt(RegistryHive.LocalMachine, dir), u = RegisteredAt(RegistryHive.CurrentUser, dir);
+            if (u == true) return false;
+            if (m == true) return true;
+            return UnderProgramFiles(dir);
+        }
+        static bool? RegisteredAt(RegistryHive hive, string dir)
+        {
+            if (string.IsNullOrEmpty(dir)) return null;
+            string want = dir.TrimEnd('\\') + "\\";
+            try
+            {
+                using (RegistryKey root = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64))
+                using (RegistryKey un = root.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall"))
+                {
+                    if (un == null) return false;
+                    foreach (string name in un.GetSubKeyNames())
+                    {
+                        try
+                        {
+                            using (RegistryKey k = un.OpenSubKey(name))
+                            {
+                                string s = k == null ? null : k.GetValue("UninstallString") as string;
+                                if (s != null && s.Trim().TrimStart('"').StartsWith(want, StringComparison.OrdinalIgnoreCase)) return true;
+                            }
+                        }
+                        catch (Exception) { }
+                    }
+                }
+                return false;
+            }
+            catch (Exception) { return null; }
         }
         static bool UnderProgramFiles(string dir)
         {

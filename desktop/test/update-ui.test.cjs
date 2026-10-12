@@ -171,6 +171,33 @@ test('설치 — 진행 창이 뜨면 그 창이 맡는다(조용한 설치는 �
   } finally { fs.rmSync(s.dir, { recursive: true, force: true }); fs.rmSync(d, { recursive: true, force: true }); }
 });
 
+test('취소 — 받는 동안은 멈추고, 진행 창에 넘기기 시작한 뒤(handoff)에는 취소가 안 된다(웹앱이 [취소]를 감추는 때와 같음)', async () => {
+  const s = share(), d = tmpDir('cancel');
+  try {
+    const exe = fakeUiExe(d);
+    const mk = () => {
+      const ui = [], inst = [], tm = fakeTimers();
+      const up = U.createUpdater({ current: '1.0.1', packaged: true, env: {}, dirs: [s.dir], tempRoot: path.join(d, 'temp'), notify() {}, quitForInstall() {},
+        uiExe: [exe], uiSpawn: uiSpawn(ui), spawn: installSpawn(inst), ...tm });
+      return { up, ui, inst };
+    };
+    // 받는 중 취소 → cancelled, 진행 창·설치 없음
+    const a = mk();
+    let asked = false;
+    const ra = await a.up.install('1.0.2', (got) => { if (!asked && got > 0) { asked = true; assert.equal(a.up.cancel(), true); } });
+    assert.deepEqual(ra, { ok: false, err: 'cancelled' });
+    assert.equal(a.ui.length + a.inst.length, 0);
+    // 넘기는 중 취소 → false(아무 일 없음), 업데이트는 진행 창이 이어 맡음
+    const b = mk();
+    let late = null;
+    const rb = await b.up.install('1.0.2', null, { onPhase: () => { late = b.up.cancel(); } });
+    assert.equal(late, false, '넘기는 중에는 취소할 수 없음');
+    assert.deepEqual(rb, { ok: true, version: '1.0.2', ui: true });
+    // 받기가 끝나는 바로 그때 누른 취소(받은 뒤·넘기기 전)도 멈춘다 — 글자
+    assert.match(read('desktop/updater.js'), /if \(ctl\.signal\.aborted\) \{ log\('설치 파일은 받았지만 넘기기 전에 취소됨'\); return \{ ok: false, err: 'cancelled' \}; \}/);
+  } finally { fs.rmSync(s.dir, { recursive: true, force: true }); fs.rmSync(d, { recursive: true, force: true }); }
+});
+
 test('설치 — 진행 창이 없거나 못 띄우면 예전처럼 조용한 설치(/S --updated --force-run, 1.5초 뒤 앱 끄기), 못 끈 창이면 설치하지 않음', async () => {
   const s = share(), d = tmpDir('fallback');
   try {
@@ -225,6 +252,21 @@ test('창 프로그램 글자 — 단계·설치 인자(/S --updated, --force-ru
   assert.match(cs, /Win\.ContentRendered \+= OnShown;/, '첫 그림이 그려진 뒤 앱에 알림');
   assert.match(cs, /"예전 판 그대로 켜기"/);
   assert.match(cs, /public const string FontName = "Wanted Sans NP";/);
+  // 10-13 검증 뒤 고침 — 관리자 확인 창이 앞으로(설치 파일을 띄우기 전에), 시간 몫은 절반까지·관리자 확인 기다림은 안 셈,
+  // 종료 코드가 0 이 아닐 때도 '모든 사용자'면 관리자 안내, 설치 프로그램이 아직 돌면 [예전 판 그대로 켜기] 안 보임, 옛 판이 없으면 다시 설치 안내
+  const inst = cs.slice(cs.indexOf('async Task StepInstall()'), cs.indexOf('bool SetupRunning()'));
+  assert.ok(inst.indexOf('Native.AllowSetForegroundWindow(Native.ASFW_ANY);') > 0 && inst.indexOf('Native.AllowSetForegroundWindow(Native.ASFW_ANY);') < inst.indexOf('p = Process.Start(psi);'), '설치 파일을 띄우기 전에 앞으로 올 권한');
+  assert.match(cs, /const double TimeShare = 0\.5;/);
+  assert.match(inst, /\* TimeShare, act \* 0\.96\)/);
+  assert.match(inst, /bool admin = _perMachine && await Task\.Run\(\(\) => ConsentUp\(\)\);/);
+  assert.match(inst, /bool adminUp = admin && work\.IsRunning, adminDown = !admin && !work\.IsRunning;\n\s*if \(adminUp\) work\.Stop\(\);\n\s*if \(adminDown\) work\.Start\(\);/, '관리자 확인을 기다리는 시간은 막대에 안 셈');
+  assert.match(inst, /double t = work\.Elapsed\.TotalSeconds;/);
+  assert.match(inst, /"관리자 확인 창에서 \[예\]를 눌러 주세요…"/);
+  assert.match(inst, /throw new StepFail\(2, "설치 프로그램이 오류로 끝났어요\(종료 코드 " \+ code \+ "\)\.", true, 1, InstallHint\(\), null\);/);
+  assert.match(cs, /return "관리자 확인 창에서 \[아니요\]를 누르셨다면 \[다시 시도\]를 누르고 \[예\]를 눌러 주세요\. "/);
+  assert.match(cs, /bool setupBusy = f\.Step == 2 && SetupRunning\(\);\n\s*_oldBtn\.Visibility = !setupBusy && OldIntact\(\)/);
+  assert.match(cs, /"\[다시 시도\]로 다시 설치해 보세요\. 그래도 안 되면 담당자에게 알려 주세요\."/);
+  assert.match(cs, /_perMachine = o\.ForcePerMachine \|\| PerMachineInstall\(o\.InstallDir\);/, "'모든 사용자'는 등록(HKLM/HKCU)으로, 못 읽으면 Program Files");
   for (const n of ['Steps', 'Bar', 'Track', 'Percent', 'Status', 'ErrorPanel', 'ErrorText', 'RetryBtn', 'OldBtn', 'CloseBtn', 'CloseX', 'Head', 'TitleText', 'VersionText', 'Card', 'Note']) {
     assert.match(xaml, new RegExp(`x:Name="${n}"`), n);
     assert.match(cs, new RegExp(`FindName\\("${n}"\\)`), n);
@@ -258,7 +300,8 @@ test('빌드 — csc 인자(WPF 참조·XAML·글꼴 3 넣기·매니페스트·
   assert.match(main, /uiExe: \[UPDATE_UI_EXE\], appExe: process\.execPath, pid: process\.pid, product: app\.getName\(\),/);
   assert.match(main, /releaseClose: \(\) => \{ try \{ if \(closeGuard\) closeGuard\.release\(\); \}/);
   const web = read('js/app-update.js');
-  assert.match(web, /if \(p\.phase === 'handoff'\) \{ bar\.style\.width = '100%'; txt\.textContent = '업데이트 진행 창을 여는 중…'; return; \}/);
+  assert.match(web, /if \(p\.phase === 'handoff'\) \{\n\s*handoff = true;\n\s*bar\.style\.width = '100%'; txt\.textContent = '업데이트 진행 창을 여는 중…';\n\s*m\.foot\.innerHTML = '';/, '넘기는 중엔 [취소]를 감춤');
+  assert.match(web, /canClose: \(\) => finished \|\| !handoff,/, '넘기는 중엔 X·Esc·바깥 누르기로 안 닫힘');
   assert.match(web, /txt\.textContent = r\.ui \? '진행 창에서 설치 단계를 보여 드려요\. 앱은 곧 닫혀요\.'/);
   assert.match(web, /'곧 앱이 닫히고 새 판이 켜져요\.'/, '진행 창이 없을 때 한 줄');
   assert.match(web, /case 'ui-stuck':/);

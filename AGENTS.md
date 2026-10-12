@@ -38,6 +38,7 @@
   앱이 꺼진 뒤에도 단계(닫기·확인·설치·새 판 실행)를 보여 주고 새 판을 직접 켠다. 그 창은 C# 5 문법만(윈도 기본 csc), XAML 은 `XamlReader`로 읽는다(`x:Class`·이벤트 이름 금지). 창이 없거나 못 띄우면 예전처럼 조용한 설치(MODULES.md 10장 '업데이트 진행 창').
   '배치'·'설정 옮기기' 묶음은 메뉴에서만 숨겼다(`hidden` — 버튼 id·연결은 지우지 말 것).
   설치·업데이트 시험은 설치 시험판(`--installtest`, 새 판은 `--version=`)과 임시 폴더(`WCG_UPDATE_DIR`·`publish-update --dir=`)로만 — 실제 `Ver` 폴더·사용자 설치판·그 데이터는 건드리지 않는다(`desktop/test/update-e2e-check.cjs`).
+  '모든 사용자'(관리자 확인) 길(`update-e2e-check.cjs --per-machine`)은 사람이 옆에서 관리자 확인 [예]를 눌러 줄 때만 돌린다 — AI 혼자 관리자 확인 창을 띄우지 않는다.
 - 디버그 eval·콘솔은 `(() => { … })()`로 감싸고 앱 전역(`S` `sel` `mode` …)에 대입하지 않는다(자동 저장으로 실제 작업에 남는다).
 - 헬퍼(기능 확장팩) 동작을 바꿀 때:
   - Python 헬퍼 **원본은 저장소 밖 `R:\[F]_Util\WNS\_src\helper.py`**다. 저장소의 `tools/wns-helper/helper.py`는 2026-07 옛 사본이니 고치지 않는다.

@@ -5,8 +5,10 @@
 //
 // 가짜 앱 '날씨 CG 가짜시험.exe'(WinForms — 판 정보만 1.0.1/1.0.2)와 가짜 설치 파일 'WeatherCG-Setup-<판>.exe'(설정 파일대로 옛 exe 를 지우고 새 exe·파일 몇십 개를
 // 천천히 놓고 정한 종료 코드로 끝남)를 csc 로 구워 장면마다 따로 폴더에서 돌린다. 창은 --shots 로 단계마다 자기 그림(투명 바탕)·실제 화면 자리를 PNG 로 남긴다.
-// 장면: ok(업데이트 끝까지) · rollback(되돌리기 끝까지) · fail-exit(설치 종료 코드 2 → 빨강 → [예전 판 그대로 켜기]) · sha(확인값 다름 → [닫기])
-//       · no-window(새 앱 창이 안 뜸 → '다시 켜기') · admin(모든 사용자 설치 안내 — 강제) · stuck(앱이 안 닫힘 → 멈춤)
+// 장면: ok(업데이트 끝까지) · rollback(되돌리기 끝까지) · fail-exit(설치 종료 코드 2 → 빨강 → [예전 판 그대로 켜기], 막대가 시간만으로 55% 넘지 않음) · sha(확인값 다름 → [닫기])
+//       · admin-no('모든 사용자' + 종료 코드 2 = 관리자 확인 [아니요] 흉내 → 관리자 안내) · admin-wait(이름만 consent.exe 인 프로그램으로 관리자 확인 창 흉내 →
+//         '[예]를 눌러 주세요'·막대 멈춤 → 닫히면 끝까지) · timeout(설치가 아직 돎 → [닫기]만)
+//       · failafter(옛 exe 를 지운 뒤 실패 → '[다시 시도]로 다시 설치') · no-window(새 앱 창이 안 뜸 → '다시 켜기') · admin(모든 사용자 설치 안내 — 강제) · stuck(앱이 안 닫힘 → 멈춤)
 // 결과: JSON { ok, scenes: { 이름: { ok, exit, log[], shots[], … } } }. 띄운 것은 PID 로만 끈다.
 'use strict';
 const fs = require('fs');
@@ -46,7 +48,9 @@ static class S {
     foreach (string l in File.ReadAllLines(me + ".cfg")) { int i = l.IndexOf('='); if (i > 0) c[l.Substring(0, i)] = l.Substring(i + 1); }
     int sleep = int.Parse(c["sleep"]), code = int.Parse(c["exit"]), files = int.Parse(c["files"]);
     string dir = c["install"], exe = Path.Combine(dir, c["exe"]);
-    if (code != 0) { Thread.Sleep(sleep); return code; }
+    // 관리자 확인 흉내 — 문 파일이 있는 동안은 아무것도 안 함(진짜는 바깥 설치 파일이 [예]를 기다림)
+    if (c.ContainsKey("gate") && c["gate"].Length > 0) while (File.Exists(c["gate"])) Thread.Sleep(100);
+    if (code != 0) { if (c.ContainsKey("failafter") && c["failafter"] == "1" && File.Exists(exe)) File.Delete(exe); Thread.Sleep(sleep); return code; }
     Thread.Sleep(sleep / 5);
     if (File.Exists(exe)) File.Delete(exe);
     string res = Path.Combine(dir, "res");
@@ -113,6 +117,10 @@ async function main() {
   csc(FAKE_APP('1.0.1'), app101, ['System.Windows.Forms.dll', 'System.Drawing.dll']);
   csc(FAKE_APP('1.0.2'), app102, ['System.Windows.Forms.dll', 'System.Drawing.dll']);
   csc(FAKE_SETUP, setupBin, ['System.Windows.Forms.dll']);
+  // 관리자 확인 창 흉내(이름만 consent.exe — 창 없이 잠만 잠, 장면이 PID 로 끔)
+  const consentBin = path.join(fk, 'consent', 'consent.exe');
+  fs.mkdirSync(path.dirname(consentBin), { recursive: true });
+  csc('static class C { static void Main() { System.Threading.Thread.Sleep(120000); } }', consentBin, []);
   const fontsDir = path.join(work, 'fonts');
 
   // 장면 하나 — o = { from, to, rollback, sleep, exit, nowindow, badSha, stuckApp, extra[], click: { after: 'fail-stepN', name }, expectExit }
@@ -127,7 +135,8 @@ async function main() {
     const setup = path.join(sdir, `WeatherCG-Setup-${o.to}.exe`);
     fs.copyFileSync(setupBin, setup);
     fs.writeFileSync(setup + '.cfg', [`install=${inst}`, `exe=${APP_NAME}`, `payload=${o.to === '1.0.2' ? app102 : app101}`, `sleep=${o.sleep || 6000}`, `exit=${o.exit || 0}`,
-      `files=${o.files || 60}`, `nowindow=${o.nowindow ? 1 : 0}`].join('\n'));
+      `files=${o.files || 60}`, `nowindow=${o.nowindow ? 1 : 0}`, `failafter=${o.failafter ? 1 : 0}`, `gate=${o.adminWaitMs ? path.join(dir, 'admin.gate') : ''}`].join('\n'));
+    if (o.adminWaitMs) fs.writeFileSync(path.join(dir, 'admin.gate'), '');
     // 지금 도는 옛 앱(창이 그 pid 가 끝나길 기다림)
     const old = spawn(appExe, [`--exit-after=${o.stuckApp ? 600000 : 2200}`], { cwd: inst, stdio: 'ignore' });
     await sleep(900);
@@ -140,6 +149,15 @@ async function main() {
     const res = { exit: null, readyMs: null };
     w.on('exit', (c) => { res.exit = c; });
     for (let i = 0; i < 200 && res.readyMs == null && res.exit == null; i++) { await sleep(100); if (fs.existsSync(ready)) res.readyMs = Date.now() - t0; }
+    // 관리자 확인 창 흉내 — 이름만 consent.exe 인 잠자는 프로그램(이 장면 폴더)을 띄워 두고, 가짜 설치는 문 파일이 지워질 때까지 기다린다 → 정한 시간 뒤 둘 다 치움
+    if (o.adminWaitMs) {
+      const consent = spawn(consentBin, [], { cwd: dir, stdio: 'ignore' });
+      const tw = Date.now();
+      while (Date.now() - tw < o.adminWaitMs && res.exit == null) await sleep(200);
+      killPid(consent.pid);
+      fs.rmSync(path.join(dir, 'admin.gate'), { force: true });
+      res.adminWaitedMs = Date.now() - tw;
+    }
     // 문제 화면이 뜨면(캡처가 생기면) 단추 누르기
     const deadline = Date.now() + (o.timeoutMs || 90000);
     let clicked = null;
@@ -161,6 +179,14 @@ async function main() {
     res.appVersionNow = fs.existsSync(appExe) ? ps(`[System.Diagnostics.FileVersionInfo]::GetVersionInfo('${appExe.replace(/'/g, "''")}').ProductVersion`) : null;
     res.running = procsAt(appExe);
     for (const pid of res.running) killPid(pid);   // 창이 켠 가짜 앱(이 장면 폴더의 exe)만
+    res.setupLeft = procsAt(setup);
+    for (const pid of res.setupLeft) killPid(pid);   // 아직 도는 가짜 설치 파일(시간 초과 장면 — 이 장면 폴더의 것만)
+    // 문제 화면 줄(UpdateApp.cs Fail — '문제 화면 — 안내: … · 단추: … · 막대 N%')
+    const fl = res.log.find((l) => l.startsWith('문제 화면 — '));
+    if (fl) {
+      const m = /^문제 화면 — 안내: (.*) · 단추: (.*?) · 막대 (\d+)%( · 설치 프로그램이 아직 돎)?$/.exec(fl);
+      res.failScreen = m ? { hint: m[1], buttons: m[2] ? m[2].split(', ') : [], bar: +m[3], setupBusy: !!m[4] } : { raw: fl };
+    }
     if (!old.exitCode && old.exitCode !== 0) killPid(old.pid);
     out.scenes[name] = res;
     return res;
@@ -187,6 +213,43 @@ async function main() {
     want('fail-exit', has(r, /종료 코드 2/) && has(r, /문제 — 단계 2/), '설치 실패를 못 알아챔');
     want('fail-exit', r.clicked && r.clicked.result === 'ok' && has(r, /예전 판 켜기/) && r.exit === 1, '[예전 판 그대로 켜기] → 창 닫힘(1): ' + JSON.stringify(r.clicked) + ' ' + r.exit);
     want('fail-exit', r.appVersionNow === '1.0.1' && r.running.length === 1, '옛 판이 다시 켜짐');
+    const f = r.failScreen || {};
+    want('fail-exit', /^\[예전 판 그대로 켜기\]로/.test(f.hint || '') && (f.buttons || []).includes('예전 판 그대로 켜기'), '문제 화면 안내·단추 ' + JSON.stringify(f));
+    want('fail-exit', f.bar > 0 && f.bar <= 55, '아무것도 안 바꾼 설치인데 막대가 시간만으로 많이 참(' + f.bar + '%)');
+  }
+  // '모든 사용자' 설치에서 관리자 확인 [아니요] 흉내 — 바깥 설치 파일이 아무것도 안 바꾸고 종료 코드 2(NSIS Quit)
+  if (run('admin-no')) {
+    const r = await scene('admin-no', { from: '1.0.1', to: '1.0.2', sleep: 2500, exit: 2, extra: ['--per-machine'], killAfterFail: true });
+    const f = r.failScreen || {};
+    want('admin-no', has(r, /종료 코드 2/) && has(r, /문제 — 단계 2/), '설치 실패를 못 알아챔');
+    want('admin-no', /^관리자 확인 창에서 \[아니요\]를 누르셨다면 \[다시 시도\]를 누르고 \[예\]를 눌러 주세요\./.test(f.hint || '') && /예전 판 그대로 켜기/.test(f.hint || ''),
+      '종료 코드가 0 이 아니어도 관리자 확인 안내 ' + JSON.stringify(f));
+    want('admin-no', JSON.stringify(f.buttons) === JSON.stringify(['닫기', '예전 판 그대로 켜기', '다시 시도']), '단추 ' + JSON.stringify(f.buttons));
+  }
+  // '모든 사용자' 설치의 관리자 확인 창을 기다리는 동안 — 상태 줄 '관리자 확인 창에서 [예]를 눌러 주세요…'(캡처 admin-wait), 막대는 시간으로 안 참, 닫힌 뒤 끝까지
+  if (run('admin-wait')) {
+    const r = await scene('admin-wait', { from: '1.0.1', to: '1.0.2', sleep: 4000, extra: ['--per-machine'], adminWaitMs: 8000 });
+    const up = r.log.find((l) => /^관리자 확인 창이 뜸/.test(l)), down = r.log.find((l) => /^관리자 확인 창이 닫힘/.test(l));
+    const pct = (l) => +((/막대 (\d+)%/.exec(l || '') || [])[1]);
+    r.adminBar = { up: pct(up), down: pct(down) };
+    want('admin-wait', up && down && r.adminBar.down === r.adminBar.up, '관리자 확인을 기다리는 동안 막대가 시간으로 참: ' + JSON.stringify(r.adminBar));
+    want('admin-wait', r.shots.some((f) => /admin-wait-screen\.png$/.test(f)) && has(r, /관리자 확인 창을 봄/), '관리자 확인 캡처·기록');
+    want('admin-wait', r.exit === 0 && r.appVersionNow === '1.0.2' && r.running.length === 1, `닫힌 뒤 끝까지(${r.exit}, ${r.appVersionNow}, ${r.running.length})`);
+  }
+  // 설치 시간 초과(설치 프로그램이 아직 돎) — [예전 판 그대로 켜기]·[다시 시도]를 안 보인다(돌고 있는 설치와 부딪히지 않게)
+  if (run('timeout')) {
+    const r = await scene('timeout', { from: '1.0.1', to: '1.0.2', sleep: 40000, extra: ['--install-timeout=4'], killAfterFail: true });
+    const f = r.failScreen || {};
+    want('timeout', has(r, /설치 시간 초과/) && has(r, /문제 — 단계 2/), '시간 초과를 못 알아챔');
+    want('timeout', f.setupBusy === true && JSON.stringify(f.buttons) === JSON.stringify(['닫기']), '아직 도는 설치인데 단추 ' + JSON.stringify(f));
+  }
+  // 설치 프로그램이 옛 exe 를 지운 뒤 실패 — 옛 판이 없으니 [다시 시도]로 다시 설치하라는 안내
+  if (run('failafter')) {
+    const r = await scene('failafter', { from: '1.0.1', to: '1.0.2', sleep: 2000, exit: 3, failafter: true, killAfterFail: true });
+    const f = r.failScreen || {};
+    want('failafter', has(r, /종료 코드 3/) && has(r, /문제 — 단계 2/), '실패를 못 알아챔');
+    want('failafter', f.hint === '[다시 시도]로 다시 설치해 보세요. 그래도 안 되면 담당자에게 알려 주세요.' && JSON.stringify(f.buttons) === JSON.stringify(['닫기', '다시 시도']),
+      '옛 판이 없을 때 안내·단추 ' + JSON.stringify(f));
   }
   if (run('sha')) {
     const r = await scene('sha', { from: '1.0.1', to: '1.0.2', badSha: true, click: { after: 'fail-step1', name: '닫기' } });

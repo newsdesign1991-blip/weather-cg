@@ -6,6 +6,7 @@
 //  [나중에]·닫기·Esc = 이번 실행 동안 그 판은 저절로 다시 안 뜸(updateLater — 설정 메뉴 '앱 업데이트'에서는 언제든 [업데이트하기]).
 //  [지금 설치]·메뉴 [업데이트하기] = 저장 안 한 작업 묻기(닫기 전 묻기 closeAsk 그대로 — [저장]·[저장 안 함]·[취소], 렌더·AE 보내는 중도) → 메인이 설치 파일을 %TEMP% 로 받으며
 //  크기·sha256 확인(진행 막대, [취소]) → 업데이트 진행 창(10-13 — 앱이 꺼진 뒤에도 '닫기·확인·설치·새 판 실행' 단계를 보여 주는 작은 창, desktop/update-ui)을 띄우고 앱을 끈다
+//  (창을 여는 동안(handoff)은 취소가 안 되므로 [취소]·X 를 감추고 Esc·바깥 누르기로도 안 닫힌다 — tossModal canClose)
 //  (창이 같은 자리에 덮어 깔고 새 판을 켠다. 창이 없거나 못 띄우면 예전처럼 조용한 설치 — '곧 앱이 닫히고 새 판이 켜져요'). 실패면 같은 팝업에 까닭.
 // 설정(렌치) 메뉴 '앱 업데이트'(10-12 사용자 요청 — 배치·설정 옮기기 자리): 지금 판·상태(최신이에요 / 새 판 있어요 / 폴더에 못 닿아요 / 개발판),
 //  새 판의 바뀐 점과 [업데이트하기], 업데이트 내역(올라간 판들 — 판·날짜·바뀐 점, 최근 판부터, 길면 스크롤), [다시 확인],
@@ -309,21 +310,29 @@ async function updRun(info, opt) {
   const rb = !!(opt && opt.rollback);
   const d = updDesk();
   const cur = String(info.current || (_upd.last && _upd.last.current) || '');
-  let finished = false, cancelled = false;
+  let finished = false, cancelled = false, handoff = false;
   const m = tossModal({
     title: rb ? '이전 판 받는 중' : '업데이트 받는 중', sub: rb ? `날씨 CG ${cur} → ${info.version}` : `날씨 CG ${info.version}`, tone: 'blue',
     bodyHTML: '<div class="updBar"><i></i></div><div class="updProgTxt">설치 파일을 받는 중…</div>'
       + '<p class="updProgNote">받은 파일의 크기·확인값을 올린 것과 맞춰 본 뒤에만 설치해요.</p>',
     footHTML: '<button class="tossBtn ghost" data-cancel>취소</button>',
+    canClose: () => finished || !handoff,   // 진행 창에 넘기는 중에는 X·Esc·바깥 누르기로 닫히지 않는다(이때는 취소가 안 되니 — 메인 updater.install)
     onClose: () => { if (!finished) { cancelled = true; try { d.updateCancel(); } catch (e) { /* 옛 preload */ } } },
   });
   m.card.classList.add('updCard');
   const bar = m.body.querySelector('.updBar i'), txt = m.body.querySelector('.updProgTxt');
   m.foot.querySelector('[data-cancel]').onclick = () => m.close();
+  const xBtn = m.ov.querySelector('.tossX');
   const onProg = (p) => {
     if (finished || !p) return;
-    // 받기·확인이 끝나고 진행 창(앱이 꺼진 뒤에도 단계를 보여 주는 창 — desktop/updater.js startUi)을 띄우는 중
-    if (p.phase === 'handoff') { bar.style.width = '100%'; txt.textContent = '업데이트 진행 창을 여는 중…'; return; }
+    // 받기·확인이 끝나고 진행 창(앱이 꺼진 뒤에도 단계를 보여 주는 창 — desktop/updater.js startUi)을 띄우는 중 — 이제는 취소할 수 없어 [취소]·X 를 감춘다
+    if (p.phase === 'handoff') {
+      handoff = true;
+      bar.style.width = '100%'; txt.textContent = '업데이트 진행 창을 여는 중…';
+      m.foot.innerHTML = '';
+      if (xBtn) xBtn.style.visibility = 'hidden';   // 자리는 그대로(.tossX 는 display 를 정해 hidden 속성이 안 먹음)
+      return;
+    }
     if (!(p.total > 0)) return;
     const pct = Math.min(100, Math.floor(p.got / p.total * 100));
     bar.style.width = pct + '%';
@@ -333,6 +342,7 @@ async function updRun(info, opt) {
   let r;
   try { r = await (rb ? d.updateInstall(info.version, { rollback: true }) : d.updateInstall(info.version)); } catch (e) { r = { ok: false, err: 'error' }; }
   finished = true;
+  if (xBtn) xBtn.style.visibility = '';
   if (typeof d.onUpdateProgress === 'function') d.onUpdateProgress(null);
   const title = m.ov.querySelector('.tossTitle');
   if (r && r.ok) {

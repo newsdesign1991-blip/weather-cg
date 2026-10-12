@@ -114,11 +114,13 @@ function tossModal(opt) {
   const dispose = () => { detach(); clearTimeout(ov._popT); ov.remove(); };   // 새 모달로 바뀔 때 — 애니메이션 없이 바로
   // 닫기 = 닫힘 애니메이션(.34초) 뒤 지운다. 그 사이 새 모달이 뜨면 closeTossModal 이 #tossOv 를 바로 치운다.
   const close = () => { if (closed) return; detach(); popAnimClose(ov, () => ov.remove()); popFocusBack(ov); if (opt.onClose) opt.onClose(); };
-  ov.querySelector('.tossX').onclick = close;
-  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  // 사람이 닫기(X·바깥 누르기·Esc) — opt.canClose() 가 false 면 무시(앱 업데이트를 진행 창에 넘기는 동안처럼 멈출 수 없는 때). 반환값 close 는 그대로 닫는다
+  const userClose = () => { if (typeof opt.canClose === 'function' && !opt.canClose()) return; close(); };
+  ov.querySelector('.tossX').onclick = userClose;
+  ov.addEventListener('click', (e) => { if (e.target === ov) userClose(); });
   const card = ov.querySelector('.tossCard');
   // Esc = 닫기, Tab = 카드 안에서만(토스 모달이 맨 위 층 — 확인창(z 200)보다 위)
-  const onKey = (e) => { if (e.key === 'Escape') close(); else if (e.key === 'Tab') popTrapTab(card, e); };
+  const onKey = (e) => { if (e.key === 'Escape') userClose(); else if (e.key === 'Tab') popTrapTab(card, e); };
   window.addEventListener('keydown', onKey);
   _tossDispose = dispose;
   popFocusIn(ov, card, opener);   // 포커스를 카드로(막 뒤 버튼이 Enter·Space 를 받지 않게) — 부르는 쪽이 입력칸 등에 다시 줘도 된다
