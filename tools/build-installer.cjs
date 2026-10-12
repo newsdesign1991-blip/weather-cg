@@ -214,9 +214,10 @@ async function main() {
   for (const d of [srcDir, appDir, outDir, resDir]) { fs.rmSync(d, { recursive: true, force: true }); fs.mkdirSync(d, { recursive: true }); }
   const tarFile = path.join(work, 'src.tar');
   run('git', ['-C', ROOT, 'archive', '--format=tar', '-o', tarFile, commit]);
-  const tarExe = process.platform === 'win32' && fs.existsSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe'))
-    ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
-  run(tarExe, ['-xf', tarFile, '-C', srcDir]);
+  // 윈도 기본 tar(bsdtar)는 git archive 의 한글 이름(UTF-8)을 그대로 두면 '빈 경로'로 못 푼다 → hdrcharset=UTF-8
+  const winTar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+  if (process.platform === 'win32' && fs.existsSync(winTar)) run(winTar, ['--options', 'tar:hdrcharset=UTF-8', '-xf', tarFile, '-C', srcDir]);
+  else run('tar', ['-xf', tarFile, '-C', srcDir]);
   fs.rmSync(tarFile, { force: true });
   const srcFiles = walk(srcDir);
   const deskPkg = JSON.parse(fs.readFileSync(path.join(srcDir, 'desktop', 'package.json'), 'utf8'));
