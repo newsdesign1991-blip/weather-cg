@@ -308,7 +308,10 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `node tools/check-installed.cjs <설치 폴더 또는 out\win-unpacked> [--shot=<png>] [--json=<파일>]` | **설치판 점검**(담긴 것·asar 밖 ffmpeg·키 있음·Electron pak 둘·담긴 로그 없음·내장 헬퍼·점검 모드로 실제 부팅) — `"ok": true`여야 |
 | `node tools/publish-update.cjs [--setup=…] [--dir=…] --note="…"… [--notes-file=…] [--keep=5] [--force] [--dry-run]` | **앱 업데이트 올리기**(10장 '앱 업데이트') — 설치 파일 + `latest.json`(내역 `history` 쌓기)을 업데이트 폴더(기본 `R:\[F]_Util\WNS\Ver`)에, 설치 파일은 이번 판 + 낮은 판 최근 4개(되돌리기용). 사용자 상시 승인(2026-10-12): 버전업 설치판은 검사 통과 후 게시·원격 확인까지 마무리. `--force`·판 내리기는 별도 승인 |
 | `node --test desktop/test/updater.test.cjs desktop/test/publish-update.test.cjs tests/app-update.test.cjs` | **앱 업데이트**(10-12): 메인(`desktop/updater.js` — 판 비교·이름 꼴·latest.json 검사(내역 항목 하나하나·거둬들인 새 판 빼기·30판)·공유 폴더 없음/느림 시간 제한·매달린 읽기 안 쌓기·복사 중 크기/sha256·취소·실행 직전 다시 확인·실행 인자·'나중에'(설치는 안 막음)·확인 하나만·켜짐 조건·점검 모드는 공유 폴더 안 읽음·되돌릴 수 있는 판(파일 남음·크기)·되돌리기 설치(빠진 판·높은 판·없는 파일·sha 다름 거절)·배선), 올리기 도구(임시 폴더 — 거절·설치 파일 정리(5개·판 내리기)·내역 쌓기·1차 latest.json 이어받기·크기 한도·올린 것을 앱이 받아 실행 직전까지(새 판·되돌리기)), 웹앱(vm — 팝업·나중에·렌더 뒤·밀려나면 다시·저장 묻기·진행·실패·취소·메뉴 그림(상태별)·렌치 깜빡임(본 판·되돌린 판에도 유지)·메뉴 [업데이트하기]·되돌리기 확인·실패·시험·마크업). `WCG_BOOT_CHECK=1`이면 `app-update.boot-eval.js`: 개발판 + 시험 폴더(`WCG_UPDATE_DIR`·`WCG_UPDATE_DRYRUN` — 새 판 9.9.9 + 옛 판 0.0.1)로 실제 앱 팝업·렌치 깜빡임·나중에·메뉴(새 판·내역·되돌릴 판, 열어도 깜빡임 유지)·[업데이트하기] 받기 100%·되돌리기 확인·받기 100%·확인값 다르면 빨간 실패 |
-| `node desktop/test/update-e2e-check.cjs --a=<…1.0.0-installtest.exe> --b=<…1.0.1-installtest.exe> --work=<임시 폴더> [--shot=<폴더>]` | **업데이트 끝에서 끝**(사람이·AI가 손으로 — 설치 시험판 둘이 필요): A 조용히 설치 → A·B 를 시험 폴더에 올리기(내역 둘) → A(점검 모드 + CDP) 팝업·렌치 깜빡임·메뉴 → [지금 설치] → A 꺼짐 → 설치 프로그램이 같은 자리에 B 를 깔고 다시 켬(판 1.0.1·`--updated`) → B(점검 모드) 메뉴 [이 판으로 설치](1.0.0) → 확인 → B 꺼짐 → 같은 자리에 A 가 깔려 다시 켜짐(1.0.0) → 되돌린 A 에서 '나중에' 뒤 메뉴 [업데이트하기](시험) → 제거(폴더까지) → 정리. 사용자 '날씨 CG' 프로세스는 앞뒤 같은지 본다 |
+| `node desktop/test/update-e2e-check.cjs --a=<…1.0.1-installtest.exe> --b=<…1.0.2-installtest.exe> --work=<임시 폴더> [--shot=<폴더>]` | **업데이트 끝에서 끝**(사람이·AI가 손으로 — 설치 시험판 둘이 필요, 판은 파일 이름에서): A 조용히 설치 → A·B 를 시험 폴더에 올리기(내역 둘) → A(점검 모드 + CDP) 팝업·렌치 깜빡임·메뉴 → [지금 설치] → **진행 창이 뜨고** A 꺼짐 → 진행 창이 단계(닫기·확인·설치·새 판 실행)를 끝까지 가서 같은 자리에 B 를 깔고 직접 켬(판·`--updated`·부모 = 진행 창·한 번만 켜짐·창 기록·캡처 `<shot>\ui-A`) → B(점검 모드) 메뉴 [이 판으로 설치](A 판) → 확인 → 진행 창 → 같은 자리에 A 가 깔려 다시 켜짐(캡처 `ui-B`) → 되돌린 A 에서 '나중에' 뒤 메뉴 [업데이트하기](시험) → 제거(폴더까지) → 정리. 사용자 '날씨 CG' 프로세스는 앞뒤 같은지 본다 |
+| `node --test desktop/test/update-ui.test.cjs` | **업데이트 진행 창**(10-13): 앱 쪽(`desktop/updater.js` — 창 인자·창 프로그램 찾기·임시 폴더로 복사해 띄우기·떴다는 알림 기다림·실패(던짐·오류·곧바로 끝·시간 초과 → 그 창을 PID 로 끔·못 끔 = 설치 안 함)·없거나 실패하면 조용한 설치 1.5초·진행 창이면 0.6초·DRYRUN 은 창 없음·임시 폴더 정리), 창 프로그램 글자(단계·`/S --updated`·`--force-run` 없음·도는 중 못 닫음·앱 환경 변수 안 넘김·관리자 안내·XAML 이름), 빌드(csc 인자·설치판 필수·원본은 안 담음)·배선, csc 가 있으면 **실제로 굽고 `--check`**(XAML·글꼴 3) |
+| `node tools/build-update-ui.cjs [--out=<exe>]` | **진행 창 굽기**(10-13) — `desktop/update-ui`를 윈도 기본 .NET Framework 4 `csc.exe`로 `WeatherCG-Update.exe`(기본 `desktop\helper\` — Git 제외, 개발판 시험용)로. 설치판 빌드가 커밋 원본으로 알아서 부른다 |
+| `node desktop/test/update-ui-check.cjs --work=<임시 폴더> [--exe=<창 exe>] [--only=ok,…]` | **진행 창 혼자 띄워 보기**(사람이·AI가 손으로): 가짜 앱(WinForms·판 정보만)·가짜 설치 파일(설정대로 옛 exe 지우고 새 exe·파일 몇십 개를 천천히 놓고 정한 종료 코드)을 csc 로 구워 장면마다 — ok·rollback(끝까지)·fail-exit(종료 코드 2 → [예전 판 그대로 켜기] — UI 자동화로 누름)·sha(확인값 다름 → [닫기])·no-window(새 앱 창 안 뜸 → '다시 켜기')·admin(관리자 안내)·stuck(앱이 안 닫힘 → 멈춤). 창이 `--shots`로 단계마다 PNG(자기 그림 + 실제 화면 카드 자리) |
 
 - **테스트에서 앱 코드를 읽을 때는 `tools/app-source.cjs`를 쓴다**: `const appSource = require('../tools/app-source.cjs'); const html = appSource(path.join(__dirname, '..', 'index.html'));`
   결과는 분할 전 `index.html`과 같은 텍스트(줄바꿈 LF)라 예전처럼 함수를 잘라 쓸 수 있다. `index.html`을 `readFileSync`로 직접 읽으면 구조 테스트가 실패한다.
@@ -351,7 +354,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
     다른 길: `--electron-zip=<zip>`, `--electron-dist=<깨끗한 폴더>`(같은 점검), `--download-electron`(electron-builder가 받음). `.build.json`의 `electronSource`에 어디서 왔는지(zip sha256·기준)가 남는다.
   - **담는 것**(`appFileFilter`): index.html·루트 데이터 js 13개·아이콘·manifest, `js/`·`css/`·`FontNew/`·`vendor/`(maplibre-gl — 없으면 가벼운 지도가 파란 지도), `desktop/*.js`·`desktop/wns/*.js`.
     Git 밖에서 더하는 것: `desktop/private/{data-go.key, mapbox.token}`(이 저장소 → 워크트리면 본 저장소 → `--private`, 값은 출력 안 함), `ffmpeg.exe`(`%LOCALAPPDATA%\WNS_Helper` → `R:\[F]_Util\WNS` → `--ffmpeg`, 실행해 보고 담음),
-    AE용 SUITE 7종(FontNew 사본) → `desktop/helper/`. **빼는 것**: tests/·tools/·docs/·desktop/test/·`*.md`·`sw.js`(http일 때만 등록 — app://에선 안 씀)·`.git…`·`*.lnk`·`rec-*.json`·`desktop/package*.json`·개발판 실행 bat.
+    AE용 SUITE 7종(FontNew 사본) → `desktop/helper/`, **업데이트 진행 창 `desktop/helper/WeatherCG-Update.exe`**(10-13 — 커밋의 `desktop/update-ui`를 `tools/build-update-ui.cjs`가 .NET Framework 4 csc 로 굽고 창 없이 `--check`로 돌려 봄, 약 8.6MB — 글꼴 셋 포함. `desktop/update-ui/` 원본은 앱에 안 담음). **빼는 것**: tests/·tools/·docs/·desktop/test/·`*.md`·`sw.js`(http일 때만 등록 — app://에선 안 씀)·`.git…`·`*.lnk`·`rec-*.json`·`desktop/package*.json`·개발판 실행 bat.
     빌드가 점검하고 어긋나면 멈춘다: 넣으면 안 되는 것(`FORBIDDEN`), 꼭 있어야 하는 것(`REQUIRED`), **앱이 부르는데 빠진 파일**(index.html 태그·js/css 안 경로 글자 — 새 루트 폴더를 만들면 `appFileFilter`에 넣을 것),
     구운 뒤 asar 목록 = 준비한 목록. 정적 검사 `desktop/test/installer.test.cjs`(지금 저장소로 고르기·설정·main.js 경로식).
   - **구조**: `resources\app.asar` = 저장소와 같은 모양(루트에 웹앱, main = `desktop/main.js`) → main.js의 `path.resolve(__dirname, '..')`가 그대로 asar 안 웹앱이고, app://·preload·비공개 키는 asar 안에서 읽는다(Electron fs).
@@ -368,9 +371,9 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   - **앱 버전 보기**: main이 `wcg:helper`로 `app.getVersion()`·`app.isPackaged`를 넘기고 preload가 `wcgDesktop.appVersion`·`packaged` → 설정(렌치) 메뉴 맨 아래 줄 '앱 1.0.0 · 렌더·불러오기 기능 · 앱에 내장됨'(개발판은 '앱 1.0.0 개발판', 마우스를 올리면 전체).
     main/preload 변경이라 개발판은 **앱 재실행 필요**.
   - **점검**: 굽고 나서 `node tools/check-installed.cjs <준비 폴더>\out\win-unpacked --shot=<png>`(설치 없이) → 실제 설치 시험은 `WeatherCG-Setup-<판>.exe /S /D=<임시 폴더>` →
-    `node tools/check-installed.cjs <임시 폴더>` → `"<임시 폴더>\Uninstall 날씨 CG.exe" /S`(곧바로 돌아오니 폴더가 없어질 때까지 기다림). 점검기는 담긴 것(금지 0·키 2·asar 밖 ffmpeg 실행·SUITE 7),
+    `node tools/check-installed.cjs <임시 폴더>` → `"<임시 폴더>\Uninstall 날씨 CG.exe" /S`(곧바로 돌아오니 폴더가 없어질 때까지 기다림). 점검기는 담긴 것(금지 0·키 2·asar 밖 ffmpeg 실행·SUITE 7·asar 밖 진행 창 `--check` 통과 — 글꼴은 임시 폴더에 풀었다 지움),
     노드 모드(설치된 exe + `ELECTRON_RUN_AS_NODE` — asar 안 `private-config.js`로 두 키 읽기, 내장 헬퍼를 빈 포트에 띄워 `/ping` ff:true), 점검 모드 앱(`WCG_TEST=1` — main 경로 줄 `[wcg-paths]`(설치판·ffmpeg/폰트가 asar 밖),
-    부팅 오류 0, `#cg`·`#panel`, app:// js 49·css 16 모두 200, maplibre 200, desktop/ 403, `wcgDesktop` isDesktop·packaged·appVersion·dataPortalKey 있음)를 본다. 값은 출력하지 않는다(있음·길이만).
+    main 이 진행 창을 asar 밖에서 찾음(`updateUi`), 부팅 오류 0, `#cg`·`#panel`, app:// js 49·css 16 모두 200, maplibre 200, desktop/ 403, `wcgDesktop` isDesktop·packaged·appVersion·dataPortalKey 있음)를 본다. 값은 출력하지 않는다(있음·길이만).
     점검 모드는 실제 Mapbox 토큰 대신 가짜를 주므로(위 '가벼운 지도') 토큰 파일 읽기는 노드 모드로 본다. 띄운 exe는 PID로만 끈다.
     **주의**: electron-builder 설치·제거 프로그램은 실행 중인 '날씨 CG.exe'(이 사용자 것 전부)를 이름으로 끄고, 같은 appId의 기존 설치를 지우고 올린다('모든 사용자' 설치면 조용한 설치도 관리자 확인 창).
     그래서 **설치판이 깔렸거나 켜진 PC(개발 PC 포함)에서는 정식 설치 파일로 설치 시험을 하지 말고** `--installtest`로 이름만 다른 설치 시험판(`날씨 CG 설치시험`·appId `….installtest`·`out-installtest\WeatherCG-Setup-<판>-installtest.exe`
@@ -418,6 +421,30 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
     **렌치 깜빡임**: 새 판이면 렌치가 숨 쉬듯(2.6초) 빨갛게 + 오른쪽 위 빨간 점·툴팁. 메뉴 열기·나중에와 무관하게 계속 유지하고 최신 판/업데이트 없음 확인 시 해제한다. 옛 wcg_upd_seen 값은 무시. 움직임 줄이기 설정이면 빨간색 고정.
     되돌리기를 시작하면 되돌리기 전 판을 기억(`wcg_upd_skip`) — 그 판까지는 저절로 팝업을 안 띄운다(문제가 있어 내려온 판을 다시 권하지 않게, 더 새 판이 오면 다시). 렌치 깜빡임은 유지하며 메뉴에선 늘 보이고 [업데이트하기]로 다시 올릴 수 있다.
     main/preload 변경이라 개발판은 **앱 재실행 필요**. **임시판 0.2.0에는 이 기능이 없다** — 1.0.0(이 기능 든 판)은 PC마다 손으로 한 번 설치하고, 그 뒤 판부터 알림·자동 설치.
+  - **업데이트 진행 창**(2026-10-13 사용자 요청 — '업데이트 중간에 아무것도 안 띄워져 있어서 뭐가 뒤에서 일어나는지 모르겠음, 갑자기 꺼진 느낌. 영상 플레이어에 만든 것 참고해서 똑같이'):
+    영상 플레이어(`D:\03_Util\10_XR\Plugins_Building\NewsPlayer` — `Installer\UpdateWindow.xaml(.cs)`)의 업데이트 창을 옮긴 작은 창 프로그램 `WeatherCG-Update.exe`.
+    - **모양**(그 창 그대로 — 날씨 CG 토스 카드 결): 어두운 카드 #212121·반사 테두리·큰 그림자, 옅은 파랑 머리(`업데이트 설치 중` + `날씨 CG 1.0.1 → 1.0.2` / 되돌리기는 `이전 버전으로 되돌리는 중` + `… 1.0.2 → 1.0.1 되돌리기`),
+      단계 넷 '날씨 CG 닫기 · 새 버전 확인 · 새 버전 설치 · 마무리 · 새 버전 실행'(되돌리기는 '이전 버전 …') — 지금 단계 = 파란 도는 고리·굵은 글, 끝난 단계 = 초록 원 + 흰 체크, 문제 = 빨간 원 + 흰 X(글꼴 기호 대신 선),
+      아래 진행 막대 하나(파랑 그라데이션)·퍼센트·상태 줄·안내 한 줄('작업·배치·설정은 그대로예요. 끝나면 …'). 끝 = 초록 머리 '업데이트가 끝났어요'·100% → 1.8초 뒤 닫힘. 문제 = 빨간 머리 '업데이트하지 못했어요'·까닭·[닫기]/[예전 판 그대로 켜기]/[다시 시도](또는 '다시 켜기')·유리 X.
+      글꼴 = Wanted Sans(앱 UI 글꼴 — 영상 플레이어와 같은 정적 판 'Wanted Sans NP' Regular·Bold·ExtraBold, OFL — `desktop/update-ui/fonts/`, exe 에 넣고 쓸 때 임시 폴더 `ui-fonts`에 풀어 읽음, 못 읽으면 맑은 고딕). UI 글자에 이모지 없음. 위에 떠 있음(Topmost)·작업 표시줄에 '날씨 CG 업데이트'.
+    - **왜 .NET Framework 4 WPF exe 인가**: 앱(Electron)이 꺼진 뒤에도 떠 있어야 하고, 설치 폴더 안 파일을 잡고 있으면 설치 프로그램이 그 폴더를 못 바꾼다 → 설치 폴더 밖(`%TEMP%\wcg-update`)에서 도는 따로 프로그램.
+      PowerShell + WPF 스크립트는 회사 PC 실행 정책(Restricted·AllSigned)·AppLocker 스크립트 규칙·보안 프로그램에 자주 막혀 뒷순위. .NET Framework 4.8 은 윈도 10·11 에 늘 있고 컴파일러(`%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` — C# 5 문법까지)도 윈도에 있어 빌드 PC 에 따로 설치할 것이 없다.
+      XAML 은 BAML 로 굽지 않고 exe 에 글자 그대로 넣어 `XamlReader`로 읽는다(`x:Class`·이벤트 이름 없음 — 코드가 `x:Name`으로 찾아 건다). 설치판 안 자리 = `resources\app.asar.unpacked\desktop\helper\WeatherCG-Update.exe`(main.js `UPDATE_UI_EXE` — `DESK_REAL`).
+    - **흐름**: 앱 [업데이트하기]·되돌리기 → (지금처럼) 저장 묻기 → 받기 진행 막대(토스 팝업 — 복사·sha256) → '업데이트 진행 창을 여는 중…'(`wcg:update-progress` `{ phase: 'handoff' }`) →
+      메인(`desktop/updater.js` `startUi`)이 창 exe 를 `%TEMP%\wcg-update\WeatherCG-Update.exe`로 복사(잠겨 있으면 `WeatherCG-Update-<pid>-<시각>.exe`) → 떨어뜨려 실행(작업 폴더도 임시 폴더) — 인자(`uiArgs`):
+      `--pid=<앱 메인 pid> --app=<앱 exe> --product=<제품 이름> --from= --to= [--rollback] --setup=<받은 설치 파일> --sha256= --size= --ready=<알림 파일> --log=<임시\update-ui.log> --fonts-dir=<임시\ui-fonts> [--shots=]` →
+      창이 첫 그림을 그린 뒤(ContentRendered) 알림 파일을 쓰면 → 닫기 전 묻기를 풀고(`releaseClose`) **0.6초 뒤 앱이 꺼진다**(`UI_QUIT_MS` — 웹앱 '설치를 시작했어요 · 진행 창에서 설치 단계를 보여 드려요'). 그다음은 창이:
+      ① 앱 pid(처음에 핸들을 잡아 둠 — 그 pid 가 이 앱 exe 가 아니면 이미 꺼진 것)와 같은 exe 경로로 도는 프로세스가 다 끝날 때까지(최대 60초 — 안 닫히면 설치하지 않고 멈춤)
+      ② 설치 파일 크기·sha256 다시 확인(막대 진행) — 맞으면 설치가 끝날 때까지 그 파일을 쓰기·지우기 못 하게 열어 둠(`FileShare.Read`)
+      ③ `<설치 파일> /S --updated` 실행(관리자 권한이 필요하다고 하면 셸로) → 끝날 때까지: 조용한 설치는 진행률을 안 주니 지난 시간(설치 파일 크기로 예상 8~60초 — 시간만으로는 88%까지)과 설치 폴더 파일 변화(처음 목록에서 사라진 파일 35%·새로 생기거나 바뀐 파일 65%)로 막대를 채우고 끝나기 전엔 100%를 안 보임,
+         '모든 사용자'(Program Files) 설치면 그 단계 밑에 '관리자 확인 창이 뜨면 [예]를 눌러 주세요.'(파랑). 종료 코드 0 이 아니면 문제, 관리자 권한으로 다시 뜬 같은 설치 파일(안쪽)이 돌면 끝날 때까지, 그다음 깔린 exe 판(제품 판 앞 셋)이 `--to`가 아니면 문제('관리자 확인 창에서 [아니요]' 안내 포함 — 그 경우 옛 판 그대로라 [예전 판 그대로 켜기]). 10분 넘으면 멈춤(설치 프로그램은 안 끔)
+      ④ 깔린 앱을 **창이 직접** `--updated`로 켠다(`--force-run`은 안 씀 — 두 번 안 켜짐. 앱의 `WCG_*`·`ELECTRON_*` 환경 변수는 안 넘김 — 점검 모드로 켜지지 않게, 새 앱 창이 앞으로 오게 `AllowSetForegroundWindow`) → 그 프로세스의 창이 실제로 보일 때까지(최대 60초, 곧바로 끝나면 같은 exe 의 보이는 창) → 끝.
+      도는 중에는 창을 못 닫는다(Alt+F4·작업 표시줄 — `Closing` 막음). 문제 화면에서 [다시 시도] = 설치 문제는 ②부터, 실행 문제는 ④만. [예전 판 그대로 켜기] = 앱 exe 판이 아직 `--from`이면(옛 판이 그대로) 그것을 켜고 창 닫음.
+      기록 `%TEMP%\wcg-update\update-ui.log`(마지막 한 번 — 단계·종료 코드·시간), 남은 사본·알림 파일·`ui-fonts`는 다음 실행 첫 확인 때 `cleanTemp`가 지운다(기록은 남김).
+    - **안 되면 예전처럼**: 창 exe 가 없거나(개발판·옛 설치판) 복사·실행 실패·곧바로 끝남·15초(`UI_READY_MS`) 안에 안 뜸 → 그 창은 PID 로 끄고 조용한 설치(`/S --updated --force-run` — 설치 프로그램이 앱을 다시 켬). 이때는 앱이 **1.5초 뒤** 꺼진다(`FALLBACK_QUIT_MS` — 웹앱 '곧 앱이 닫히고 새 판이 켜져요.'를 읽을 틈).
+      안 뜬 창을 끄지도 못하면(`ui-stuck`) 설치를 두 번 돌리지 않게 멈춘다(웹앱 '업데이트 진행 창이 응답하지 않아 설치하지 않았어요'). 시험(`WCG_UPDATE_DRYRUN`)은 창도 안 띄운다.
+    - **시험**: `desktop/test/update-ui.test.cjs`(8장), 창 혼자 띄워 보기 `desktop/test/update-ui-check.cjs`(가짜 앱·설치 파일, 장면 일곱 — 캡처를 직접 본다), 끝에서 끝 `update-e2e-check.cjs`(진행 창 단계·부모·한 번만 켜짐·캡처). `WCG_UPDATE_UI_SHOTS=<폴더>`면 앱이 창에 `--shots`를 넘겨 단계마다 PNG(창 그림 + 실제 화면 카드 자리)를 남긴다(시험용).
+      main/preload 변경이라 개발판은 **앱 재실행 필요**. **이 기능이 없는 판(1.0.1 까지)에서 1.0.2 로 올릴 때는 아직 창이 안 뜬다**(떠나는 판의 앱이 창을 띄우므로) — 1.0.2 부터 그다음 업데이트·되돌리기에 보인다.
   - **끝에서 끝 점검**: `node desktop/test/update-e2e-check.cjs --a=…1.0.0-installtest.exe --b=…1.0.1-installtest.exe --work=<임시> [--shot=<폴더>]`(8장). 설치 프로그램이 다시 켠 앱은 explorer 를 거쳐 켜져
     점검 모드 환경 변수가 안 넘어가므로 보통 실행으로 잠깐 뜬다(그래서 위 설치 시험판 분리). 판은 그 프로세스의 exe·asar 로 본다. 되돌리기·다시 최신 단계는 그 판을 점검 모드로 다시 띄워 메뉴로 한다.
     10-12 1차 실측(커밋 1ae5a7c): A 1.0.0 → B 1.0.1 같은 자리 덮어 설치·다시 켜짐 약 16초, 제거 뒤 폴더 없음 — ok. 첫 실행에서 부팅 공지가 받기 진행 팝업을 덮는 것을 찾아 고침(`UPD_BOOT_QUIET_MS`).

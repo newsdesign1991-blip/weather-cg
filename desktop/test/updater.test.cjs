@@ -312,13 +312,13 @@ test('설치 — 개발판 거절, 판이 바뀌었으면 멈춤, sha256 다르�
     const ok = mk();
     const prog = [];
     const [r1, r2] = await Promise.all([ok.up.install('1.0.1', (g, n) => prog.push([g, n])), ok.up.install('1.0.1')]);
-    assert.deepEqual(r1, { ok: true, version: '1.0.1' });
+    assert.deepEqual(r1, { ok: true, version: '1.0.1', ui: false }, '진행 창 없음(uiExe 안 줌) = 조용한 설치');
     assert.deepEqual(r2, { ok: false, err: 'busy' }, '겹쳐 누르면 busy');
     assert.equal(ok.log.length, 1);
     assert.deepEqual(ok.log[0].args, U.INSTALL_ARGS);
     assert.equal(path.dirname(ok.log[0].file), path.join(tr, U.TEMP_SUB));
     assert.equal(prog[prog.length - 1][0], good.length);
-    const q = ok.tm.list.find((t) => t.ms === 400);
+    const q = ok.tm.list.find((t) => t.ms === U.FALLBACK_QUIT_MS);
     assert.ok(q, '앱 끄기 예약'); q.fn();
     assert.equal(ok.quits.length, 1);
     assert.deepEqual(await ok.up.install('1.0.1'), { ok: false, err: 'busy' }, '실행한 뒤엔 다시 못 함');
@@ -327,7 +327,8 @@ test('설치 — 개발판 거절, 판이 바뀌었으면 멈춤, sha256 다르�
 });
 
 test('배선 — main.js IPC 넷 다 메인 창 주 프레임만, 끌 때 닫기 전 묻기 건너뜀, preload 다리, 설치 시험판 분리', () => {
-  assert.match(mainJs, /ipcMain\.handle\('wcg:update-install', async \(e, v, o\) => \{[\s\S]*?\{ rollback: !!\(o && o\.rollback === true\) \}\);/, '되돌리기 = 같은 통로에 { rollback: true }');
+  assert.match(mainJs, /ipcMain\.handle\('wcg:update-install', async \(e, v, o\) => \{[\s\S]*?\{ rollback: !!\(o && o\.rollback === true\), onPhase: \(phase\) => send\(\{ phase: String\(phase\) \}\) \}\);/,
+    '되돌리기 = 같은 통로에 { rollback: true }, 진행 창을 띄우는 중이면 웹앱에 알림');
   assert.match(preload, /updateInstall: \(v, o\) => ipcRenderer\.invoke\('wcg:update-install', String\(v \|\| ''\), \{ rollback: !!\(o && o\.rollback\) \}\),/);
   for (const ch of ['wcg:update-check', 'wcg:update-later', 'wcg:update-install', 'wcg:update-cancel']) {
     const i = mainJs.indexOf(`ipcMain.handle('${ch}'`);
@@ -444,13 +445,13 @@ test('되돌리기 — 내역의 낮은 판을 같은 길로(복사·sha256·실
     const ok = mk();
     const prog = [];
     const r = await ok.up.install('1.0.0', (g, n) => prog.push([g, n]), { rollback: true });
-    assert.deepEqual(r, { ok: true, version: '1.0.0', rollback: true });
+    assert.deepEqual(r, { ok: true, version: '1.0.0', ui: false, rollback: true });
     assert.equal(ok.log.length, 1);
     assert.deepEqual(ok.log[0].args, U.INSTALL_ARGS);
     assert.equal(path.basename(ok.log[0].file), 'WeatherCG-Setup-1.0.0.exe');
     assert.equal(sha(fs.readFileSync(ok.log[0].file)), s.ents[0].sha256);
     assert.equal(prog[prog.length - 1][0], good.length);
-    ok.tm.list.find((t) => t.ms === 400).fn();
+    ok.tm.list.find((t) => t.ms === U.FALLBACK_QUIT_MS).fn();
     assert.equal(ok.quits.length, 1);
     assert.deepEqual(await ok.up.install('1.0.0', null, { rollback: true }), { ok: false, err: 'busy' });
   } finally { fs.rmSync(s.dir, { recursive: true, force: true }); fs.rmSync(tr, { recursive: true, force: true }); }
@@ -468,7 +469,7 @@ test('나중에는 저절로 알림만 막는다 — 같은 판을 메뉴에서 
     assert.equal(up.pending(), null);
     const r = await up.check(true);
     assert.equal(r.state, 'available', '메뉴 확인은 나중에 고른 판도 새 판으로');
-    assert.deepEqual(await up.install('1.0.1'), { ok: true, version: '1.0.1' }, '나중에 고른 판도 설치된다');
+    assert.deepEqual(await up.install('1.0.1'), { ok: true, version: '1.0.1', ui: false }, '나중에 고른 판도 설치된다');
     assert.equal(log.length, 1);
   } finally { fs.rmSync(s.dir, { recursive: true, force: true }); fs.rmSync(tr, { recursive: true, force: true }); }
 });

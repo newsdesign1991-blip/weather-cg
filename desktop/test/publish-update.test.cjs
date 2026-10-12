@@ -159,11 +159,11 @@ test('끝에서 끝(파일만) — 올린 것을 앱(desktop/updater.js)이 새 
     timers[0].fn(); await new Promise((r) => setTimeout(r, 80));
     assert.equal(notes.length, 1); assert.equal(notes[0].version, '1.0.1'); assert.deepEqual(notes[0].notes, ['바뀐 점']);
     const r = await up.install('1.0.1');
-    assert.deepEqual(r, { ok: true, version: '1.0.1' });
+    assert.deepEqual(r, { ok: true, version: '1.0.1', ui: false }, '진행 창 없음(uiExe 안 줌) = 조용한 설치');
     assert.equal(spawned.length, 1);
     assert.deepEqual(spawned[0].args, ['/S', '--updated', '--force-run']);
     assert.equal(sha(fs.readFileSync(spawned[0].file)), sha(s.body));
-    timers.find((t) => t.ms === 400).fn();
+    timers.find((t) => t.ms === U.FALLBACK_QUIT_MS).fn();
     assert.equal(quits.length, 1);
   } finally { for (const d of [src, share, tr]) fs.rmSync(d, { recursive: true, force: true }); }
 });
@@ -182,7 +182,7 @@ test('끝에서 끝(파일만) — 1.0.0·1.0.1 을 차례로 올리면, 1.0.1 �
     const r = await up.check(true);
     assert.equal(r.state, 'latest');
     assert.deepEqual(r.history.map((h) => [h.version, h.rollback, h.notes[0]]), [['1.0.1', false, '둘째 판'], ['1.0.0', true, '첫 판']]);
-    assert.deepEqual(await up.install('1.0.0', null, { rollback: true }), { ok: true, version: '1.0.0', rollback: true });
+    assert.deepEqual(await up.install('1.0.0', null, { rollback: true }), { ok: true, version: '1.0.0', ui: false, rollback: true });
     assert.equal(sha(fs.readFileSync(spawned[0].file)), sha(a.body));
     assert.deepEqual(spawned[0].args, ['/S', '--updated', '--force-run']);
   } finally { for (const d of [src, share, tr]) fs.rmSync(d, { recursive: true, force: true }); }

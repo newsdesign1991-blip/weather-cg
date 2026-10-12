@@ -5,7 +5,8 @@
 // 메인(desktop/updater.js — main.js)이 공유 폴더의 latest.json 을 보고 새 판을 알리면(preload onUpdate) 팝업을 띄우고(updShow) 렌치를 깜빡인다(updBadge).
 //  [나중에]·닫기·Esc = 이번 실행 동안 그 판은 저절로 다시 안 뜸(updateLater — 설정 메뉴 '앱 업데이트'에서는 언제든 [업데이트하기]).
 //  [지금 설치]·메뉴 [업데이트하기] = 저장 안 한 작업 묻기(닫기 전 묻기 closeAsk 그대로 — [저장]·[저장 안 함]·[취소], 렌더·AE 보내는 중도) → 메인이 설치 파일을 %TEMP% 로 받으며
-//  크기·sha256 확인(진행 막대, [취소]) → 조용히 설치하고 앱을 끈다(설치 프로그램이 같은 자리에 덮어 깔고 새 판을 다시 켠다). 실패면 같은 팝업에 까닭.
+//  크기·sha256 확인(진행 막대, [취소]) → 업데이트 진행 창(10-13 — 앱이 꺼진 뒤에도 '닫기·확인·설치·새 판 실행' 단계를 보여 주는 작은 창, desktop/update-ui)을 띄우고 앱을 끈다
+//  (창이 같은 자리에 덮어 깔고 새 판을 켠다. 창이 없거나 못 띄우면 예전처럼 조용한 설치 — '곧 앱이 닫히고 새 판이 켜져요'). 실패면 같은 팝업에 까닭.
 // 설정(렌치) 메뉴 '앱 업데이트'(10-12 사용자 요청 — 배치·설정 옮기기 자리): 지금 판·상태(최신이에요 / 새 판 있어요 / 폴더에 못 닿아요 / 개발판),
 //  새 판의 바뀐 점과 [업데이트하기], 업데이트 내역(올라간 판들 — 판·날짜·바뀐 점, 최근 판부터, 길면 스크롤), [다시 확인],
 //  이전 판으로 되돌리기(업데이트 폴더에 설치 파일이 남아 있는 낮은 판 — [이 판으로 설치] → 확인 팝업 → 업데이트와 같은 길).
@@ -68,6 +69,7 @@ function updErrText(r) {
     case 'spawn': return '설치 프로그램을 실행하지 못했어요 — 보안 프로그램이 막았을 수 있어요.';
     case 'dev': return '개발판에서는 설치하지 않아요 — 설치판에서 업데이트해 주세요.';
     case 'busy': return '이미 업데이트를 진행하고 있어요.';
+    case 'ui-stuck': return '업데이트 진행 창이 응답하지 않아 설치하지 않았어요 — 앱을 다시 켠 뒤 다시 해 주세요.';
     case 'denied': return '이 창에서는 업데이트할 수 없어요.';
     default: return '업데이트하지 못했어요 — 잠시 뒤 다시 해 주세요.';
   }
@@ -205,7 +207,7 @@ function updRollbackAsk(h, cur) {
   const m = tossModal({
     title: `${updRo(v)} 되돌릴까요?`, sub: `날씨 CG ${c} → ${v}`, tone: 'blue',
     bodyHTML: `<div class="updMeta"><span>지금 <b>${updEsc(c)}</b></span><span>되돌릴 판 <b>${updEsc(v)}</b></span>${updDate(h.date) ? `<span>올린 날 ${updDate(h.date)}</span>` : ''}</div>`
-      + `<p class="updLead">${updEsc(updRo(v))} 되돌려요 — 작업·배치·설정은 그대로예요. 설치 파일을 받아 확인한 뒤 앱이 잠깐 닫히고, ${updEsc(updI(v))} 깔리면 저절로 다시 켜져요.</p>`
+      + `<p class="updLead">${updEsc(updRo(v))} 되돌려요 — 작업·배치·설정은 그대로예요. 설치 파일을 받아 확인한 뒤 앱이 잠깐 닫히고, 진행 창이 단계를 보여 드려요. ${updEsc(updI(v))} 깔리면 저절로 다시 켜져요.</p>`
       + `<p class="updHint">되돌린 뒤에는 ${updEsc(c)} 알림을 다시 띄우지 않아요(더 새 판이 올라오면 알려 드려요). 다시 올리려면 설정(렌치) 메뉴 ‘앱 업데이트’에서 [업데이트하기]를 누르세요. 관리자 확인 창이 뜨면 [예]를 눌러 주세요.</p>`,
     footHTML: '<button class="tossBtn ghost" data-cancel>취소</button><button class="tossBtn pri" data-go>되돌리기</button>',
   });
@@ -263,7 +265,7 @@ function updOpen(info) {
     bodyHTML: `<div class="updMeta">${meta.map((x) => `<span>${x}</span>`).join('')}</div>`
       + (notes.length ? `<div class="updNotesHead">바뀐 점</div><ul class="updNotes">${notes.map((n) => `<li>${updEsc(n)}</li>`).join('')}</ul>`
         : '<p class="updNoNotes">바뀐 점 안내가 없어요.</p>')
-      + '<p class="updHint">[지금 설치]를 누르면 설치 파일을 받아 확인한 뒤 앱이 잠깐 닫히고, 새 판이 깔리면 저절로 다시 켜져요. 관리자 확인 창이 뜨면 [예]를 눌러 주세요.</p>',
+      + '<p class="updHint">[지금 설치]를 누르면 설치 파일을 받아 확인한 뒤 앱이 잠깐 닫히고, 진행 창이 설치 단계를 보여 드려요. 새 판이 깔리면 저절로 다시 켜져요. 관리자 확인 창이 뜨면 [예]를 눌러 주세요.</p>',
     footHTML: '<button class="tossBtn ghost" data-later>나중에</button><button class="tossBtn pri" data-install>지금 설치</button>',
     onClose: () => { if (!decided) { decided = true; updLater(info.version); } },   // [나중에]·X·Esc·바깥 누르기
   });
@@ -319,7 +321,10 @@ async function updRun(info, opt) {
   const bar = m.body.querySelector('.updBar i'), txt = m.body.querySelector('.updProgTxt');
   m.foot.querySelector('[data-cancel]').onclick = () => m.close();
   const onProg = (p) => {
-    if (finished || !p || !(p.total > 0)) return;
+    if (finished || !p) return;
+    // 받기·확인이 끝나고 진행 창(앱이 꺼진 뒤에도 단계를 보여 주는 창 — desktop/updater.js startUi)을 띄우는 중
+    if (p.phase === 'handoff') { bar.style.width = '100%'; txt.textContent = '업데이트 진행 창을 여는 중…'; return; }
+    if (!(p.total > 0)) return;
     const pct = Math.min(100, Math.floor(p.got / p.total * 100));
     bar.style.width = pct + '%';
     txt.textContent = p.got >= p.total ? '받은 파일을 확인하는 중…' : `설치 파일을 받는 중… ${pct}% (${updSize(p.got)} / ${updSize(p.total)})`;
@@ -341,7 +346,9 @@ async function updRun(info, opt) {
       // 되돌리기 — 떠나는 판(cur)까지는 저절로 팝업 안 띄움(문제가 있어 내려온 판을 다시 권하지 않게)
       if (rb && updCmp(cur, info.version) === 1) updStoreSet(UPD_SKIP_KEY, cur);
       title.textContent = rb ? '되돌리기를 시작했어요' : '설치를 시작했어요';
-      txt.textContent = rb ? `앱이 곧 닫혀요. ${updI(info.version)} 깔리면 저절로 다시 켜져요.` : '앱이 곧 닫혀요. 새 판이 깔리면 저절로 다시 켜져요.';
+      // r.ui = 진행 창이 떠서 이어 맡음(앱은 0.6초 뒤 꺼짐), 아니면 조용한 설치(진행 창 없음 — 앱은 1.5초 뒤 꺼짐)
+      txt.textContent = r.ui ? '진행 창에서 설치 단계를 보여 드려요. 앱은 곧 닫혀요.'
+        : rb ? `곧 앱이 닫히고 ${updI(info.version)} 켜져요.` : '곧 앱이 닫히고 새 판이 켜져요.';
       m.foot.innerHTML = '';
     }
     return r;

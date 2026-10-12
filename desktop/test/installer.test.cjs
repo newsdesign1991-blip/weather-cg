@@ -59,8 +59,8 @@ test('담는 파일 고르기 — 지금 저장소: 앱이 부르는 파일은 �
   // 빼면 알아챈다(가벼운 지도 엔진·글꼴)
   const less = picked.filter((p) => p !== 'vendor/maplibre-gl/maplibre-gl.js' && p !== 'FontNew/SUITE-Bold.otf');
   assert.deepEqual(B.missingRefs(tracked, less, read), ['FontNew/SUITE-Bold.otf', 'vendor/maplibre-gl/maplibre-gl.js']);
-  // 꼭 있어야 하는 것 중 Git 안 파일은 고른 것에 있다(나머지 — package.json·비공개 키·ffmpeg·SUITE 사본 — 은 빌드가 더한다)
-  const added = new Set(['package.json', 'desktop/helper/ffmpeg.exe', ...B.PRIVATE_FILES.map((f) => 'desktop/private/' + f), ...B.SUITE_FONTS.map((f) => 'desktop/helper/fonts/' + f)]);
+  // 꼭 있어야 하는 것 중 Git 안 파일은 고른 것에 있다(나머지 — package.json·비공개 키·ffmpeg·SUITE 사본·업데이트 진행 창(빌드가 desktop/update-ui 로 구움) — 은 빌드가 더한다)
+  const added = new Set(['package.json', 'desktop/helper/ffmpeg.exe', 'desktop/helper/WeatherCG-Update.exe', ...B.PRIVATE_FILES.map((f) => 'desktop/private/' + f), ...B.SUITE_FONTS.map((f) => 'desktop/helper/fonts/' + f)]);
   assert.deepEqual(B.REQUIRED.filter((r) => !added.has(r) && !picked.includes(r)), []);
   for (const f of B.SUITE_FONTS) assert.ok(tracked.includes('FontNew/' + f), f);
 });

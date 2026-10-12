@@ -207,12 +207,15 @@ test('[지금 설치] — 저장할 것 없으면 곧바로 받기 → 진행 �
   assert.equal(m.txt.textContent, '설치 파일을 받는 중… 50% (86.2MB / 172.4MB)');
   progress({ got: 180769112, total: 180769112 });
   assert.equal(m.txt.textContent, '받은 파일을 확인하는 중…');
+  progress({ phase: 'handoff' });   // 받기·확인 끝 — 진행 창(앱이 꺼진 뒤에도 단계를 보여 주는 창)을 띄우는 중
+  assert.equal(m.txt.textContent, '업데이트 진행 창을 여는 중…');
+  assert.equal(m.bar.style.width, '100%');
   await ctx.updInstall(INFO);   // 받는 중 또 누름 — 무시
   assert.equal(log.installs.length, 1);
-  log.finishInstall({ ok: true, version: '1.0.1' });
+  log.finishInstall({ ok: true, version: '1.0.1', ui: true });
   await flush(); await flush();
   assert.equal(m.title, '설치를 시작했어요');
-  assert.equal(m.txt.textContent, '앱이 곧 닫혀요. 새 판이 깔리면 저절로 다시 켜져요.');
+  assert.equal(m.txt.textContent, '진행 창에서 설치 단계를 보여 드려요. 앱은 곧 닫혀요.', '진행 창이 떠서 이어 맡음');
   assert.equal(m.footHTML, '', '누를 것 없음');
   assert.equal(m.bar.style.width, '100%');
 });
@@ -446,9 +449,9 @@ test('이전 판으로 되돌리기 — 확인 팝업(판·그대로인 것·다
   assert.equal(JSON.stringify(log.installOpts[0]), '{"rollback":true}');
   const m = log.open;
   assert.equal(m.title, '이전 판 받는 중'); assert.equal(m.sub, '날씨 CG 1.0.2 → 1.0.0');
-  log.finishInstall({ ok: true, version: '1.0.0', rollback: true }); await flush(); await flush();
+  log.finishInstall({ ok: true, version: '1.0.0', ui: false, rollback: true }); await flush(); await flush();
   assert.equal(m.title, '되돌리기를 시작했어요');
-  assert.equal(m.txt.textContent, '앱이 곧 닫혀요. 1.0.0이 깔리면 저절로 다시 켜져요.');
+  assert.equal(m.txt.textContent, '곧 앱이 닫히고 1.0.0이 켜져요.', '진행 창 없이 조용한 설치 — 앱이 꺼지기 전 한 줄');
   assert.equal(store.get('wcg_upd_skip'), '1.0.2', '되돌리기 전 판');
   // 되돌린 판(1.0.0)으로 다시 켜진 뒤 — 1.0.2 팝업은 안 띄우지만 렌치 알림은 유지, 메뉴에선 [업데이트하기]
   const after = makeCtx({ store: [['wcg_upd_skip', '1.0.2']], check: { ...AVAIL, current: '1.0.0' } });

@@ -15,7 +15,8 @@
 //  2) 앱 실행에 필요한 것만 app\ 로 고른다(appFileFilter): index.html·루트 데이터 js·아이콘·manifest, js\·css\·FontNew\·vendor\, desktop\*.js·desktop\wns\*.js.
 //     빼는 것: tests\·tools\·docs\·desktop\test\·*.md·sw.js(웹판 전용 — app:// 에선 등록 안 함)·.git…·*.lnk·rec-*.json.
 //  3) Git 밖 파일을 더한다: 비공개 키 desktop\private\{data-go.key, mapbox.token}(값은 출력하지 않음), ffmpeg.exe → desktop\helper\,
-//     AE용 SUITE 폰트(FontNew\SUITE-*.otf) → desktop\helper\fonts\. desktop\helper\** 는 asar 밖(app.asar.unpacked)으로 푼다(다른 프로그램이 읽음 — desktop/main.js DESK_REAL).
+//     AE용 SUITE 폰트(FontNew\SUITE-*.otf) → desktop\helper\fonts\, 업데이트 진행 창 desktop\helper\WeatherCG-Update.exe(커밋의 desktop\update-ui 를
+//     tools/build-update-ui.cjs 가 .NET Framework 4 csc 로 굽고 --check 로 돌려 봄). desktop\helper\** 는 asar 밖(app.asar.unpacked)으로 푼다(다른 프로그램이 읽음 — desktop/main.js DESK_REAL).
 //  4) 점검: 빠지면 안 되는 파일·앱이 부르는 파일(index.html 태그·js/css 안 경로)이 다 있는지, 넣으면 안 되는 것이 없는지 — 하나라도 어긋나면 멈춘다.
 //  5) app\package.json(main = desktop/main.js, version = desktop/package.json)을 쓰고 electron-builder 로 NSIS 설치 파일을 굽는다.
 //  6) 구운 app.asar 목록을 다시 점검하고, 설치 파일을 --dist(기본 desktop\dist — Git 제외)에 복사 + 빌드 정보(.build.json).
@@ -90,6 +91,7 @@ const REQUIRED = [
   ...PRIVATE_FILES.map((f) => 'desktop/private/' + f),
   'desktop/helper/ffmpeg.exe',
   ...SUITE_FONTS.map((f) => 'desktop/helper/fonts/' + f),
+  'desktop/helper/WeatherCG-Update.exe',   // 업데이트 진행 창(10-13 — tools/build-update-ui.cjs 가 커밋의 desktop/update-ui 로 굽는다)
 ];
 
 // 앱이 부르는 파일 중 저장소에는 있는데 설치판에 빠진 것 — index.html 의 src·href, js·css 안의 경로 글자(문서 기준·css 는 ../ 기준).
@@ -354,6 +356,12 @@ async function main() {
     if (!fs.existsSync(s)) die('SUITE 폰트가 FontNew 에 없습니다: ' + f);
     fs.copyFileSync(s, path.join(appDir, 'desktop', 'helper', 'fonts', f));
   }
+  // 업데이트 진행 창(앱이 꺼진 뒤에도 업데이트 단계를 보여 주는 작은 창 — desktop/updater.js startUi): 커밋의 desktop/update-ui 를 .NET Framework 4 csc 로 굽고
+  // 창 없이 한 번 돌려(--check — XAML·글꼴 3) 본다. asar 밖(desktop\helper)이라 앱이 임시 폴더로 복사해 띄울 수 있다
+  const { buildUpdateUi, UI_EXE } = require('./build-update-ui.cjs');
+  const uiBuilt = buildUpdateUi({ src: path.join(srcDir, 'desktop', 'update-ui'), out: path.join(appDir, 'desktop', 'helper', UI_EXE), icon: path.join(srcDir, 'icon.ico') });
+  if (!uiBuilt.ok) die('업데이트 진행 창을 굽지 못했습니다: ' + uiBuilt.log);
+  log(`업데이트 진행 창 ${UI_EXE} ${mb(uiBuilt.bytes)}MB (sha256 ${uiBuilt.sha256.slice(0, 12)}… · 점검 XAML ${uiBuilt.check.xaml}·글꼴 ${uiBuilt.check.fonts})`);
   fs.writeFileSync(path.join(appDir, 'package.json'), JSON.stringify({
     name: N.name, productName: N.productName, version, private: true,
     description: 'SBS 날씨 CG 메이커', author: 'SBS', main: 'desktop/main.js',
@@ -435,6 +443,7 @@ async function main() {
     electron: electronVersion, electronSource: electronSrc || 'electron-builder', electronBuilder: BUILDER_VERSION, ffmpeg: ffLine, ffmpegSha256: sha256(ff),
     setup: exeName, setupBytes: fs.statSync(setup).size, setupSha256: sha256(setup),
     files: { asar: inAsar.length, unpacked: unpacked.length }, privateKeys: PRIVATE_FILES.length,
+    updateUi: { file: 'desktop/helper/' + UI_EXE, bytes: uiBuilt.bytes, sha256: uiBuilt.sha256 },
   };
   fs.writeFileSync(path.join(distDir, exeName.replace(/\.exe$/, '.build.json')), JSON.stringify(info, null, 2) + '\n');
   log(`끝 — ${path.join(distDir, exeName)} (${mb(info.setupBytes)}MB) · asar ${inAsar.length}개 + 밖 ${unpacked.length}개`);

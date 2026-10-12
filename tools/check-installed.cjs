@@ -6,7 +6,8 @@
 //
 // 보는 것(값이 아니라 있다/없다·길이만 — 키·토큰 값은 출력하지 않는다):
 //  · 담긴 것: resources\app.asar 목록에 넣으면 안 되는 것(tools/build-installer.cjs FORBIDDEN)이 없고, 비공개 키 2개가 있고,
-//    ffmpeg.exe·SUITE 폰트가 asar 밖(app.asar.unpacked\desktop\helper)에 있고, 그 ffmpeg 가 실행되는지.
+//    ffmpeg.exe·SUITE 폰트가 asar 밖(app.asar.unpacked\desktop\helper)에 있고, 그 ffmpeg 가 실행되는지,
+//    업데이트 진행 창 WeatherCG-Update.exe 가 asar 밖에 있고 창 없이 스스로 점검(--check — XAML·글꼴 3)이 되는지(10-13).
 //  · 노드 모드(ELECTRON_RUN_AS_NODE — 설치된 exe 그대로): asar 안 desktop/private-config.js 로 두 키를 읽을 수 있는지, 내장 헬퍼(desktop/wns/server.js)를
 //    빈 포트에 띄워 /ping 이 ffmpeg 를 찾는지(ff:true).
 //  · 앱(점검 모드 WCG_TEST=1 — 창 숨김·헬퍼 안 켬·단일 인스턴스 해제·임시 사용자 폴더 %TEMP%\wcg-test-<pid>, WCG_TEST_DATA_KEY=1):
@@ -80,6 +81,18 @@ async function main() {
   if (!out.ffmpeg.runs) fail('asar 밖 ffmpeg.exe 를 실행하지 못함');
   out.fonts = SUITE_FONTS.filter((f) => fs.existsSync(path.join(unp, 'fonts', f))).length;
   if (out.fonts !== SUITE_FONTS.length) fail('asar 밖 SUITE 폰트가 모자람: ' + out.fonts);
+  // 업데이트 진행 창(10-13) — asar 밖에 있고, 창 없이 스스로 점검(--check: XAML·글꼴 3)이 되는지. 글꼴은 임시 폴더에 풀었다 지운다(설치 폴더에 안 남김)
+  const uiExe = path.join(unp, 'WeatherCG-Update.exe');
+  out.updateUi = { unpacked: fs.existsSync(uiExe) };
+  if (out.updateUi.unpacked) {
+    const cj = path.join(os.tmpdir(), `wcg-installed-ui-${process.pid}.json`), fd = path.join(os.tmpdir(), `wcg-installed-ui-fonts-${process.pid}`);
+    const ur = spawnSync(uiExe, [`--check=${cj}`, `--fonts-dir=${fd}`], { windowsHide: true, timeout: 60000 });
+    try { out.updateUi.check = JSON.parse(fs.readFileSync(cj, 'utf8')); } catch (e) { out.updateUi.check = { ok: false, exit: ur.status }; }
+    fs.rmSync(cj, { force: true }); fs.rmSync(fd, { recursive: true, force: true });
+    out.updateUi.bytes = fs.statSync(uiExe).size;
+  }
+  if (!out.updateUi.unpacked) fail('asar 밖 업데이트 진행 창(WeatherCG-Update.exe)이 없음');
+  else if (!out.updateUi.check || !out.updateUi.check.ok) fail('업데이트 진행 창 점검 실패: ' + JSON.stringify(out.updateUi.check));
   // Electron 파일 — 공식 zip 의 chrome_100/200_percent.pak 이 있고, 빌드 때 섞여 들어온 로그(debug.log 등)가 없는지.
   // 앱을 켜며 생긴 로그(app.asar 보다 새것)는 담긴 것이 아니라 알림만(점검을 두 번 돌려도 같은 답)
   const { ELECTRON_PAKS } = require('./build-installer.cjs');
@@ -189,6 +202,7 @@ async function main() {
       if (out.paths.packaged !== true) fail('설치판으로 안 뜸(packaged=false)');
       if (!/app\.asar\.unpacked[\\/]desktop[\\/]helper[\\/]ffmpeg\.exe$/i.test(out.paths.ffmpeg || '')) fail('main 의 ffmpeg 경로가 asar 밖 사본이 아님: ' + out.paths.ffmpeg);
       if (!/app\.asar\.unpacked[\\/]desktop[\\/]helper[\\/]fonts$/i.test(out.paths.fonts || '')) fail('main 의 첫 폰트 자리가 asar 밖이 아님: ' + out.paths.fonts);
+      if (!/app\.asar\.unpacked[\\/]desktop[\\/]helper[\\/]WeatherCG-Update\.exe$/i.test(out.paths.updateUi || '')) fail('main 이 업데이트 진행 창을 asar 밖에서 못 찾음: ' + out.paths.updateUi);
     }
     if (!p.cg || !p.panel) fail('앱 화면(#cg·#panel)이 없음');
     if (p.modFail && (!Array.isArray(p.modFail) || p.modFail.length)) fail('모듈 로드 실패 가드: ' + JSON.stringify(p.modFail).slice(0, 300));   // [] = 실패 없음

@@ -1,20 +1,23 @@
 // 앱 업데이트 끝에서 끝 점검(사람이·AI가 손으로 돌림 — 설치 시험판 두 개가 필요해 node --test 에는 안 넣음). MODULES.md 10장 '앱 업데이트'.
 //
-//   node desktop/test/update-e2e-check.cjs --a=<WeatherCG-Setup-1.0.0-installtest.exe> --b=<WeatherCG-Setup-1.0.1-installtest.exe> --work=<임시 폴더> [--shot=<폴더>]
-//   (A·B 굽기: node tools/build-installer.cjs --installtest  /  node tools/build-installer.cjs --installtest --version=1.0.1 — 둘 다 --work 를 따로)
+//   node desktop/test/update-e2e-check.cjs --a=<WeatherCG-Setup-<옛 판>-installtest.exe> --b=<WeatherCG-Setup-<새 판>-installtest.exe> --work=<임시 폴더> [--shot=<폴더>]
+//   (A·B 굽기: node tools/build-installer.cjs --installtest --version=1.0.1  /  … --installtest --version=1.0.2 — 둘 다 --work 를 따로. 판은 파일 이름에서 읽는다 — 아래 1.0.0·1.0.1 은 예)
+//   업데이트 진행 창(10-13)을 보려면 A·B 둘 다 진행 창이 든 커밋으로 굽는다(창은 '떠나는 판'의 설치 폴더에서 나온다).
 //
 // 하는 일(설치 시험판 '날씨 CG 설치시험'만 — 사용자 설치판 '날씨 CG'·그 데이터·실행 중인 앱은 건드리지 않는다):
 //  1) A 를 <work>\install 에 조용히 설치(이 사용자만 — 관리자 확인 없음)
 //  2) A 그다음 B 를 <work>\upd(시험 업데이트 폴더)에 tools/publish-update.cjs 로 올림 → latest.json 내역(history) = 1.0.1·1.0.0, 설치 파일 둘 다 남음
 //  3) A 를 점검 모드(WCG_TEST=1 — 숨김 창·임시 사용자 폴더) + WCG_UPDATE_DIR=<work>\upd + CDP 로 띄워
 //     '새 업데이트가 있습니다' 팝업·렌치 깜빡임 → 설정(렌치) 메뉴 '앱 업데이트'(새 판·바뀐 점·내역, 연 뒤에도 깜빡임 유지) → 팝업 [지금 설치] → 받기 진행 → '설치를 시작했어요'
-//  4) A 가 스스로 꺼지고, 설치 프로그램(/S --updated --force-run)이 같은 자리에 B 를 깔고 다시 켜는지 — 켜진 프로세스의 exe·asar 판 1.0.1,
-//     명령줄 --updated, 레지스트리 판·설치 위치(같은 자리). 다시 켜진 B 는 PID 로 끈다(보통 실행으로 켜진다 — 설치 시험판은 헬퍼 빈 포트·따로 폴더)
+//  4) A 가 업데이트 진행 창(WeatherCG-Update.exe — 임시 폴더 사본)을 띄우고 스스로 꺼지고, 그 창이 단계(닫기·확인·설치 /S --updated·새 판 실행)를 끝까지 가서
+//     같은 자리에 B 를 깔고 직접 켜는지 — 켜진 프로세스의 부모 = 진행 창, exe·asar 판 1.0.1, 명령줄 --updated, 레지스트리 판·설치 위치(같은 자리), 앱이 하나만 켜짐(두 번 안 켜짐),
+//     창 기록(%TEMP%\wcg-update\update-ui.log)·창 캡처(--shot 이면 <shot>\ui-A\ — 창이 단계마다 자기 그림과 실제 화면 자리를 남김). 다시 켜진 B 는 창이 끝난 뒤 PID 로 끈다
+//     (보통 실행으로 켜진다 — 설치 시험판은 헬퍼 빈 포트·따로 폴더)
 //  5) 이전 판으로 되돌리기: B 를 점검 모드 + CDP 로 다시 띄워 메뉴 '앱 업데이트'(최신이에요·되돌릴 판 1.0.0) → [이 판으로 설치] → 확인 팝업 → [되돌리기] →
-//     받기 → '되돌리기를 시작했어요' → B 가 꺼지고 설치 프로그램이 같은 자리에 A(1.0.0 — 낮은 판도 덮어 깖)를 깔고 다시 켜는지(exe·asar·레지스트리 1.0.0)
+//     받기 → '되돌리기를 시작했어요' → B 가 꺼지고 진행 창이 같은 자리에 A(1.0.0 — 낮은 판도 덮어 깖)를 깔고 다시 켜는지(exe·asar·레지스트리 1.0.0, 창 기록·캡처 ui-B)
 //  6) 되돌린 A 를 점검 모드 + 시험(WCG_UPDATE_DRYRUN) 으로 다시 띄워 '나중에'를 골라도 메뉴 [업데이트하기](1.0.1)로 실행 직전까지 가는지(다시 최신으로 — 막히지 않음)
 //  7) 조용히 제거 → 설치 폴더까지 없어지는지
-//  8) 정리: 이 점검이 만든 것만(%APPDATA%\날씨 CG 설치시험·%LOCALAPPDATA%\WeatherCG-installtest — 점검 전에 없던 때만, %TEMP%\wcg-update 의 시험 사본, 띄운 앱의 임시 사용자 폴더)
+//  8) 정리: 이 점검이 만든 것만(%APPDATA%\날씨 CG 설치시험·%LOCALAPPDATA%\WeatherCG-installtest — 점검 전에 없던 때만, %TEMP%\wcg-update 에 점검 중 새로 생긴 시험 사본·진행 창 사본·글꼴·기록, 띄운 앱의 임시 사용자 폴더)
 // 결과: JSON { ok, steps… }. 사용자 '날씨 CG.exe' 프로세스 목록이 점검 앞뒤로 같은지도 본다.
 'use strict';
 const fs = require('fs');
@@ -79,7 +82,9 @@ const MENU = `(() => { const box = document.querySelector('#updBox'), drop = doc
     badge: document.querySelector('#helperBtn').classList.contains('updNew') }; })()`;
 const CLOSE_BOOT_POPS = `(() => { const t = document.querySelector('#tourWrap.on'); if (t) document.querySelector('#tourClose').click(); const x = document.querySelector('#tossOv:not(.popClosing) .tossX'); if (x) x.click(); if (typeof cgSetupIsOpen === 'function' && cgSetupIsOpen()) closeCgSetup(); })()`;
 
-const OUT = { ok: false, steps: {}, errors: [] };   // 전체 시간 초과 때도 지금까지를 내보낸다
+const OUT = { ok: false, steps: {}, errors: [] };
+const SHOT_DIR = opt('shot', '');
+const UI_EXE_NAME = 'WeatherCG-Update.exe';   // 진행 창(desktop/updater.js UI_EXE)   // 전체 시간 초과 때도 지금까지를 내보낸다
 const launched = [];   // 이 점검이 점검 모드로 띄운 PID(임시 사용자 폴더 정리용)
 async function main() {
   const A = path.resolve(opt('a', '')), B = path.resolve(opt('b', '')), work = path.resolve(opt('work', path.join(os.tmpdir(), 'wcg-upd-e2e')));
@@ -87,9 +92,15 @@ async function main() {
   const out = OUT;
   const fail = (m) => { out.errors.push(m); };
   for (const f of [A, B]) if (!/-installtest\.exe$/i.test(f) || !fs.existsSync(f)) { fail('설치 시험판 파일이 아님: ' + f); return out; }
+  const verOf = (f) => (/WeatherCG-Setup-(\d+\.\d+\.\d+)-installtest\.exe$/i.exec(f) || [])[1];
+  const vA = verOf(A), vB = verOf(B);
+  if (!vA || !vB || require('../updater.js').cmpVer(vB, vA) !== 1) { fail(`판을 파일 이름에서 못 읽었거나 B(${vB})가 A(${vA})보다 새 판이 아님`); return out; }
+  out.versions = { a: vA, b: vB };
   const inst = path.join(work, 'install'), upd = path.join(work, 'upd');
   const appDataDir = path.join(process.env.APPDATA, NAME), ladDir = path.join(process.env.LOCALAPPDATA, 'WeatherCG-installtest');
   const tempCopy = path.join(os.tmpdir(), 'wcg-update');
+  const uiLog = path.join(tempCopy, 'update-ui.log');
+  const preTemp = new Set(fs.existsSync(tempCopy) ? fs.readdirSync(tempCopy) : []);   // 점검 전부터 있던 것(지우지 않음)
   const pre = { appData: fs.existsSync(appDataDir), lad: fs.existsSync(ladDir), reg: regEntry(), user: procs(USER_EXE).map((p) => p.ProcessId).sort() };
   out.steps.before = pre;
   if (pre.reg.length) { fail('설치 시험판이 이미 깔려 있음 — 먼저 지울 것: ' + JSON.stringify(pre.reg)); return out; }
@@ -108,8 +119,9 @@ async function main() {
   // 설치된 앱을 점검 모드 + CDP 로 띄운다 → { pid, evalJs, send, exited(), close(), log() }
   async function launch(tag, extraEnv) {
     const port = await freePort();
-    const env = { ...process.env, WCG_TEST: '1', WCG_UPDATE_DIR: upd, WCG_UPDATE_FIRST_MS: '1500', ...extraEnv };
+    const env = { ...process.env, WCG_TEST: '1', WCG_UPDATE_DIR: upd, WCG_UPDATE_FIRST_MS: '1500', ...(SHOT ? { WCG_UPDATE_UI_SHOTS: path.join(SHOT, 'ui-' + tag) } : {}), ...extraEnv };
     for (const k of ['WCG_APP_DIR', 'ELECTRON_RUN_AS_NODE']) delete env[k];
+    if (!SHOT) delete env.WCG_UPDATE_UI_SHOTS;
     if (!extraEnv || !extraEnv.WCG_UPDATE_DRYRUN) delete env.WCG_UPDATE_DRYRUN;
     const p = spawn(aExe, [`--remote-debugging-port=${port}`], { cwd: inst, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     launched.push(p.pid);
@@ -149,22 +161,33 @@ async function main() {
     if (!/직전까지/.test(okTitle)) for (let i = 0; i < 150 && !L.exited; i++) await sleep(200);
     return { started, last, exited: L.exited, ms: Date.now() - t0 };
   }
-  // 설치 프로그램이 같은 자리에서 다시 켠 앱(보통 실행) 기다리기
-  async function waitRelaunch(skipPids, setupName) {
+  // 진행 창(또는 설치 프로그램)이 같은 자리에서 다시 켠 앱(보통 실행) 기다리기 — 진행 창이 '끝'(또는 '문제')을 적을 때까지 둔 뒤 끈다
+  //  (창은 새 앱 창이 실제로 보일 때까지 기다리므로 그 전에 끄면 창이 '못 켰어요'가 된다)
+  const uiLines = () => (fs.existsSync(uiLog) ? fs.readFileSync(uiLog, 'utf8').split(/\r?\n/).filter(Boolean).map((l) => l.slice(24)) : []);
+  const uiProcs = () => procs(UI_EXE_NAME).filter((p) => String(p.ExecutablePath || '').toLowerCase().startsWith(tempCopy.toLowerCase()));
+  async function waitRelaunch(skipPids, setupName, uiPid, tag) {
     let b = null; const t = Date.now();
     for (let i = 0; i < 300 && !b; i++) {   // 최대 약 2분 30초(설치 + 다시 켜기)
       await sleep(500);
       const m = mainProcs(EXE).filter((p) => !skipPids.includes(p.ProcessId) && String(p.ExecutablePath || '').toLowerCase() === aExe.toLowerCase());
       if (m.length) b = m[0];
     }
-    if (!b) return { found: false, reg: regEntry(), installer: procs(setupName) };
-    await sleep(2500);   // 설치 프로그램이 끝나고 파일이 다 놓이게
-    const r = { found: true, waitedMs: Date.now() - t, pid: b.ProcessId, parent: b.ParentProcessId, commandLine: b.CommandLine, exe: b.ExecutablePath, ...installed(),
-      installerLeft: procs(setupName).length, stillRunning: mainProcs(EXE).some((p) => p.ProcessId === b.ProcessId) };
-    killOurs(b.ProcessId);
+    if (!b) return { found: false, reg: regEntry(), installer: procs(setupName), ui: uiLines() };
+    const foundMs = Date.now() - t;
+    let lines = [];
+    for (let i = 0; i < 240; i++) { lines = uiLines(); if (lines.some((l) => /^(끝 —|문제 —)/.test(l))) break; await sleep(500); }   // 최대 2분
+    for (let i = 0; i < 40 && uiProcs().some((p) => p.ProcessId === uiPid); i++) await sleep(250);   // 창이 스스로 닫힐 때까지(끝 뒤 약 2초)
+    await sleep(1500);   // 두 번 켜졌다면 둘째가 보이게
+    const mains = mainProcs(EXE).filter((p) => !skipPids.includes(p.ProcessId) && String(p.ExecutablePath || '').toLowerCase() === aExe.toLowerCase());
+    const r = { found: true, waitedMs: foundMs, pid: b.ProcessId, parent: b.ParentProcessId, commandLine: b.CommandLine, exe: b.ExecutablePath, ...installed(),
+      installerLeft: procs(setupName).length, stillRunning: mainProcs(EXE).some((p) => p.ProcessId === b.ProcessId), instances: mains.length,
+      uiPid, uiLeft: uiProcs().length, ui: lines };
+    if (fs.existsSync(uiLog)) { try { fs.copyFileSync(uiLog, path.join(SHOT || work, `update-ui-${tag}.log`)); } catch (e) { /* 기록만 */ } }
+    for (const p of mains) killOurs(p.ProcessId);
     await sleep(1500);
     return r;
   }
+  const uiPidOf = (log) => { const m = /업데이트 진행 창을 띄움\(pid (\d+), (\d+)ms/.exec(log); return m ? { pid: +m[1], readyMs: +m[2] } : null; };
   // 부팅 팝업(공지·둘러보기·장면 설정)을 닫고 조용해질 때까지(되돌리기 확인 팝업이 부팅 공지에 밀려나지 않게)
   async function settle(L, wantPopup) {
     let quietSince = 0, popup = null;
@@ -216,9 +239,10 @@ async function main() {
     out.steps.installClick = await followInstall(La, `document.querySelector('#tossOv [data-install]').click()`, '설치를 시작했어요');
     La.close();
     mainLogs.push(...La.log.split(/\r?\n/).filter((l) => /\[update\]|\[wcg-paths\]/.test(l)));
-    if (!/설치 프로그램 실행\(\/S --updated --force-run\)/.test(La.log)) { fail('설치 프로그램을 실행하지 않음: ' + JSON.stringify(out.steps.installClick.last)); return out; }
-    // 4) B 가 같은 자리에서 다시 켜지는지
-    out.steps.relaunchB = await waitRelaunch([La.pid], 'WeatherCG-Setup-1.0.1-installtest.exe');
+    out.steps.uiA = uiPidOf(La.log);
+    if (!out.steps.uiA) { fail('업데이트 진행 창을 띄우지 않음: ' + JSON.stringify(out.steps.installClick.last) + ' ' + mainLogs.filter((l) => /진행 창|설치 프로그램/.test(l)).join(' / ')); return out; }
+    // 4) 진행 창이 단계를 끝까지 가고 B 가 같은 자리에서 켜지는지
+    out.steps.relaunchB = await waitRelaunch([La.pid], `WeatherCG-Setup-${vB}-installtest.exe`, out.steps.uiA.pid, 'A');
     out.steps.relaunchB.msFromClick = Date.now() - tClick;
     if (!out.steps.relaunchB.found) { fail('B 가 다시 켜지지 않음'); return out; }
 
@@ -228,7 +252,7 @@ async function main() {
     await settle(Lb, null);
     out.steps.menuB = await openMenu(Lb, (m) => m.rollback.length > 0);
     await Lb.shot('B-menu.png');
-    await Lb.evalJs(`document.querySelector('#updBox [data-upd-act="rollback"][data-ver="1.0.0"]').click()`);
+    await Lb.evalJs(`document.querySelector('#updBox [data-upd-act="rollback"][data-ver="${vA}"]').click()`);
     let ask = null;
     for (let i = 0; i < 25 && !ask; i++) { await sleep(200); const p = await Lb.evalJs(POP); if (p && /되돌릴까요/.test(p.title)) ask = p; }
     out.steps.rollbackAsk = ask;
@@ -238,9 +262,10 @@ async function main() {
     out.steps.rollbackClick = await followInstall(Lb, `document.querySelector('#tossOv [data-go]').click()`, '되돌리기를 시작했어요');
     Lb.close();
     mainLogs.push(...Lb.log.split(/\r?\n/).filter((l) => /\[update\]/.test(l)));
-    if (!/이전 판 1\.0\.0 으로 되돌리기/.test(Lb.log)) { fail('되돌리기 설치 프로그램을 실행하지 않음: ' + JSON.stringify(out.steps.rollbackClick.last)); return out; }
-    // A(1.0.0)가 같은 자리에서 다시 켜지는지 — 낮은 판도 덮어 깖
-    out.steps.relaunchA = await waitRelaunch([La.pid, Lb.pid], 'WeatherCG-Setup-1.0.0-installtest.exe');
+    out.steps.uiB = uiPidOf(Lb.log);
+    if (!out.steps.uiB || !Lb.log.includes(`이전 판 ${vA} 으로 되돌리기`)) { fail('되돌리기 진행 창을 띄우지 않음: ' + JSON.stringify(out.steps.rollbackClick.last)); return out; }
+    // A 가 같은 자리에서 다시 켜지는지 — 낮은 판도 덮어 깖
+    out.steps.relaunchA = await waitRelaunch([La.pid, Lb.pid], `WeatherCG-Setup-${vA}-installtest.exe`, out.steps.uiB.pid, 'B');
     out.steps.relaunchA.msFromClick = Date.now() - tRb;
     if (!out.steps.relaunchA.found) { fail('되돌린 A 가 다시 켜지지 않음'); return out; }
 
@@ -283,7 +308,14 @@ async function main() {
     try { const { rmTestProfile } = require('./test-profile.cjs'); for (const pid of launched) rmTestProfile(pid); } catch (e) { /* 없음 */ }
     if (!pre.appData) fs.rmSync(appDataDir, { recursive: true, force: true });
     if (!pre.lad) fs.rmSync(ladDir, { recursive: true, force: true });
-    for (const v of ['1.0.0', '1.0.1']) for (const f of [`WeatherCG-Setup-${v}-installtest.exe`, `WeatherCG-Setup-${v}-installtest.exe.partial`]) fs.rmSync(path.join(tempCopy, f), { force: true });
+    for (let i = 0; i < 40 && uiProcs().length; i++) await sleep(250);   // 진행 창이 남아 있으면(문제 화면) 사본을 못 지운다 — 잠깐 기다림
+    out.steps.uiLeftAtEnd = uiProcs().map((p) => p.ProcessId);
+    for (const p of uiProcs()) killPid(p.ProcessId);   // 이 점검이 띄운 진행 창(임시 폴더 사본)만
+    for (const v of [vA, vB]) for (const f of [`WeatherCG-Setup-${v}-installtest.exe`, `WeatherCG-Setup-${v}-installtest.exe.partial`]) fs.rmSync(path.join(tempCopy, f), { force: true });
+    if (fs.existsSync(tempCopy)) for (const n of fs.readdirSync(tempCopy)) {
+      if (preTemp.has(n) || !/^(WeatherCG-Update.*\.exe|ui-.*\.ready(\.tmp)?|ui-fonts|update-ui\.log)$/.test(n)) continue;
+      try { fs.rmSync(path.join(tempCopy, n), { recursive: true, force: true }); } catch (e) { /* 잠김 */ }
+    }
     try { if (fs.existsSync(tempCopy) && !fs.readdirSync(tempCopy).length) fs.rmdirSync(tempCopy); } catch (e) { /* 다른 파일 있음 */ }
     fs.rmSync(upd, { recursive: true, force: true });
     out.steps.after = { appData: fs.existsSync(appDataDir), lad: fs.existsSync(ladDir), reg: regEntry(), user: procs(USER_EXE).map((p) => p.ProcessId).sort(), testProcs: procs(EXE).length,
@@ -292,26 +324,43 @@ async function main() {
   }
   const s = out.steps;
   const want = (c, m) => { if (!c) fail(m); };
-  want(s.installA && s.installA.asarVersion === '1.0.0', 'A 판이 1.0.0 이 아님');
-  want(s.publish && s.publish.version === '1.0.1' && JSON.stringify(s.publish.history) === '["1.0.1","1.0.0"]'
-    && s.publish.files.includes('WeatherCG-Setup-1.0.0-installtest.exe') && s.publish.files.includes('WeatherCG-Setup-1.0.1-installtest.exe'), '올린 내역·파일');
-  want(s.desk && s.desk.appVersion === '1.0.0' && s.desk.packaged === true && s.desk.groupVisible, 'A 다리·설정 메뉴 묶음');
+  const reV = (v) => new RegExp('^' + v.replace(/\./g, '\\.') + '(\\.0)?$');
+  want(s.installA && s.installA.asarVersion === vA, 'A 판이 ' + vA + ' 이 아님');
+  want(s.publish && s.publish.version === vB && JSON.stringify(s.publish.history) === JSON.stringify([vB, vA])
+    && s.publish.files.includes(`WeatherCG-Setup-${vA}-installtest.exe`) && s.publish.files.includes(`WeatherCG-Setup-${vB}-installtest.exe`), '올린 내역·파일');
+  want(s.desk && s.desk.appVersion === vA && s.desk.packaged === true && s.desk.groupVisible, 'A 다리·설정 메뉴 묶음');
   want(s.desk && s.desk.badge && s.desk.anim === 'updBreath', '새 판인데 렌치가 안 깜빡임');
-  want(s.popup && /새 판 1\.0\.1/.test(s.popup.body) && /판만 올린 설치 시험판/.test(s.popup.body), '팝업 내용');
-  want(s.menuA && s.menuA.pill === '새 판 1.0.1 있어요' && s.menuA.cur === '1.0.0' && s.menuA.install && JSON.stringify(s.menuA.hist) === '["1.0.1","1.0.0"]'
+  want(s.popup && s.popup.body.includes('새 판 ' + vB) && /판만 올린 설치 시험판/.test(s.popup.body), '팝업 내용');
+  want(s.menuA && s.menuA.pill === `새 판 ${vB} 있어요` && s.menuA.cur === vA && s.menuA.install && JSON.stringify(s.menuA.hist) === JSON.stringify([vB, vA])
     && !s.menuA.rollback.length && s.menuA.badge, 'A 메뉴(새 판·내역·되돌릴 판 없음·연 뒤에도 깜빡임 유지)');
   want(s.installClick && s.installClick.exited, 'A 가 안 꺼짐');
   want(s.installClick && s.installClick.last && s.installClick.last.widths && s.installClick.last.widths.length > 0, '받기 진행 막대가 안 움직임');
-  want(s.relaunchB && /^1\.0\.1(\.0)?$/.test(String(s.relaunchB.exeVersion)) && s.relaunchB.asarVersion === '1.0.1', '다시 켜진 앱 판이 1.0.1 이 아님');
-  want(s.relaunchB && /--updated/.test(s.relaunchB.commandLine || ''), '설치 프로그램이 켠 것(--updated)이 아님');
-  want(s.relaunchB && regAt(s.relaunchB.reg, '1.0.1'), '같은 자리에 1.0.1 로 등록 안 됨');
-  want(s.menuB && s.menuB.pill === '최신이에요' && s.menuB.cur === '1.0.1' && JSON.stringify(s.menuB.rollback) === '["1.0.0"]', 'B 메뉴(최신·되돌릴 판 1.0.0)');
-  want(s.rollbackAsk && s.rollbackAsk.title === '1.0.0으로 되돌릴까요?' && JSON.stringify(s.rollbackAsk.buttons) === '["취소","되돌리기"]', '되돌리기 확인 팝업');
+  want(s.relaunchB && reV(vB).test(String(s.relaunchB.exeVersion)) && s.relaunchB.asarVersion === vB, '다시 켜진 앱 판이 ' + vB + ' 이 아님');
+  want(s.relaunchB && /--updated/.test(s.relaunchB.commandLine || ''), '업데이트로 켠 것(--updated)이 아님');
+  want(s.relaunchB && regAt(s.relaunchB.reg, vB), '같은 자리에 ' + vB + ' 로 등록 안 됨');
+  // 진행 창 — 떴다는 알림·새 앱을 켠 것이 창·한 번만 켜짐·기록이 끝까지·창이 스스로 닫힘·캡처
+  const uiOk = (r, ui, tag) => {
+    want(ui && ui.readyMs < 15000, tag + ' 진행 창이 뜬 알림');
+    want(r && ui && r.parent === ui.pid, tag + ' 새 앱을 켠 것이 진행 창이 아님(부모 ' + (r && r.parent) + ')');
+    want(r && r.instances === 1, tag + ' 앱이 한 번만 켜져야 함(' + (r && r.instances) + ')');
+    const L = (r && r.ui) || [];
+    for (const re of [/^창이 뜸/, /^앱 닫힘/, /^설치 파일 확인 — 크기·sha256 맞음/, /^설치 프로그램 실행\(\/S --updated\)/, /^설치 프로그램 끝 — 종료 코드 0/, /^새 앱 창이 보임/, /^끝 —/])
+      want(L.some((l) => re.test(l)), tag + ' 진행 창 기록에 없음: ' + re);
+    want(r && !r.uiLeft, tag + ' 진행 창이 끝난 뒤 안 닫힘');
+    if (SHOT_DIR) {
+      const d = path.join(SHOT_DIR, 'ui-' + tag), n = fs.existsSync(d) ? fs.readdirSync(d) : [];
+      want(['step0', 'step2', 'install-progress', 'step3', 'done'].every((t) => n.some((x) => x.includes(t) && x.endsWith('-screen.png'))), tag + ' 진행 창 캡처: ' + n.join(','));
+    }
+  };
+  uiOk(s.relaunchB, s.uiA, 'A');
+  want(s.menuB && s.menuB.pill === '최신이에요' && s.menuB.cur === vB && JSON.stringify(s.menuB.rollback) === JSON.stringify([vA]), 'B 메뉴(최신·되돌릴 판 ' + vA + ')');
+  want(s.rollbackAsk && s.rollbackAsk.title.startsWith(vA) && /되돌릴까요\?$/.test(s.rollbackAsk.title) && JSON.stringify(s.rollbackAsk.buttons) === '["취소","되돌리기"]', '되돌리기 확인 팝업');
   want(s.rollbackClick && s.rollbackClick.started && s.rollbackClick.exited, '되돌리기 시작·B 꺼짐');
-  want(s.relaunchA && /^1\.0\.0(\.0)?$/.test(String(s.relaunchA.exeVersion)) && s.relaunchA.asarVersion === '1.0.0', '되돌린 앱 판이 1.0.0 이 아님');
-  want(s.relaunchA && /--updated/.test(s.relaunchA.commandLine || ''), '되돌리기 설치 프로그램이 켠 것(--updated)이 아님');
-  want(s.relaunchA && regAt(s.relaunchA.reg, '1.0.0') && arr(s.relaunchA.reg).length === 1, '같은 자리에 1.0.0 으로(하나만) 등록 안 됨');
-  want(s.again && s.again.appVersion === '1.0.0' && s.again.menu && s.again.menu.install && s.again.install && s.again.install.started, '되돌린 판에서 다시 최신으로(나중에 고른 뒤 메뉴 [업데이트하기])');
+  want(s.relaunchA && reV(vA).test(String(s.relaunchA.exeVersion)) && s.relaunchA.asarVersion === vA, '되돌린 앱 판이 ' + vA + ' 이 아님');
+  want(s.relaunchA && /--updated/.test(s.relaunchA.commandLine || ''), '되돌리기로 켠 것(--updated)이 아님');
+  want(s.relaunchA && regAt(s.relaunchA.reg, vA) && arr(s.relaunchA.reg).length === 1, '같은 자리에 ' + vA + ' 으로(하나만) 등록 안 됨');
+  uiOk(s.relaunchA, s.uiB, 'B');
+  want(s.again && s.again.appVersion === vA && s.again.menu && s.again.menu.install && s.again.install && s.again.install.started, '되돌린 판에서 다시 최신으로(나중에 고른 뒤 메뉴 [업데이트하기])');
   want(s.uninstall && s.uninstall.exeGone && s.uninstall.dirGone, '제거 뒤 설치 폴더가 남음');
   want(s.after && JSON.stringify(s.after.user) === JSON.stringify(s.before.user), '사용자 앱 프로세스가 바뀜');
   want(s.after && !s.after.reg.length && !s.after.testProcs && !s.after.desktopLnk && !s.after.startLnk, '설치 시험판 흔적이 남음');
