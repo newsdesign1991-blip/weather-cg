@@ -207,9 +207,12 @@ function drawCompareLabels(LB) {
       }
       // 앵커 원 — 아이콘 없는 빈 지점에만 그린다(그 지점에 태풍 아이콘이 이미 있으면 생략, 겹쳐 지저분하지 않게).
       if (!(_iconSet && _iconSet.has(vk))) LB.appendChild(_te('circle', { cx: prx.toFixed(1), cy: pry.toFixed(1), r: 6, fill: c.color, stroke: '#FFFFFF', 'stroke-width': 1.6, opacity: clamp01(_rv * 3).toFixed(3) }));
-      const line = _te('path', { d: geom.d, stroke: '#DCE8F7', 'stroke-width': 2.6, fill: 'none', 'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
-      if (_rv < 1) { line.setAttribute('stroke-dasharray', geom.len); line.setAttribute('stroke-dashoffset', (geom.len * (1 - _rv)).toFixed(1)); }
-      LB.insertBefore(line, g);   // 지시선은 박스 아래
+      // 지시선 — 선이 나오기 전(_rv 0)엔 넣지 않고, 그려지는 중엔 typhoonLeaderDash(간격이 선보다 길어 선 끝에 점이 안 남음)
+      if (_rv > 0) {
+        const line = _te('path', { d: geom.d, stroke: '#DCE8F7', 'stroke-width': 2.6, fill: 'none', 'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+        if (_rv < 1) typhoonLeaderDash(line, geom.len, _rv);
+        LB.insertBefore(line, g);   // 지시선은 박스 아래
+      }
       g.addEventListener('pointerdown', (e) => { e.stopPropagation(); revealSecFor('cmp', c.id); const o = { x: lb.x, y: lb.y }; pushUndo(); dragLoop(e, (dx, dy) => { lb.x = Math.round(o.x + dx); lb.y = Math.round(o.y + dy); renderTyphoon(); }); });
       g.addEventListener('dblclick', (e) => { e.stopPropagation(); const nv = prompt('라벨 내용', b.txt); if (nv != null) { pushUndo(); lb.txt = nv; buildCompareSection(); renderTyphoon(); } });
     }
