@@ -34,8 +34,11 @@
   appId·제품 이름 '날씨 CG'·설치 폴더 이름은 바꾸지 않는다(바꾸면 기존 설치판 위에 안 올라가고, 사용자 데이터 폴더가 바뀐다). 빌드 도구는 저장소 밖에 — `desktop\node_modules`에 설치하지 않는다.
   **앱 업데이트 — 사용자 상시 승인(2026-10-12)**: 버전을 올려 설치판을 만들 때는 판 올려 커밋 → 굽기 → 필수 검사·패키지 점검 → `node tools/publish-update.cjs --setup=<검증한 설치 파일> --note="바뀐 점"…`까지 매번 마무리한다. 지정 업데이트 폴더 `R:\[F]_Util\WNS\Ver`에 설치 파일과 `latest.json`·업데이트 내역을 게시하고, 원격 파일의 버전·크기·sha256까지 재확인해야 배포 완료다. 별도로 재승인받지 않는다. 연결·권한 문제면 게시 미완료라고 알리고 로컬 파일만 만든 것을 배포 완료로 말하지 않는다. `--force` 재게시·판 내리기와 사용자 앱의 실제 설치/재시작은 이 승인에 포함되지 않는다. 일반 코드 수정마다 임의로 버전을 올리라는 뜻은 아니다. 앱(`desktop/updater.js`·`js/app-update.js`)이 `latest.json`을 보고 알린다(MODULES.md 10장 '앱 업데이트').
   설정(렌치) 메뉴 = '앱 업데이트'(지금 판·새 판 바뀐 점·[업데이트하기]·업데이트 내역·이전 판으로 되돌리기 — `latest.json`의 `history`와 업데이트 폴더에 남은 옛 설치 파일 5개). 새 판이면 렌치가 깜빡인다.
+  업데이트·되돌리기 중에는 **진행 창**(2026-10-13 — `desktop/update-ui/`, .NET Framework 4 WPF `WeatherCG-Update.exe`, 설치판 `desktop\helper\`에 빌드가 `tools/build-update-ui.cjs`로 구워 넣음)이
+  앱이 꺼진 뒤에도 단계(닫기·확인·설치·새 판 실행)를 보여 주고 새 판을 직접 켠다. 그 창은 C# 5 문법만(윈도 기본 csc), XAML 은 `XamlReader`로 읽는다(`x:Class`·이벤트 이름 금지). 창이 없거나 못 띄우면 예전처럼 조용한 설치(MODULES.md 10장 '업데이트 진행 창').
   '배치'·'설정 옮기기' 묶음은 메뉴에서만 숨겼다(`hidden` — 버튼 id·연결은 지우지 말 것).
   설치·업데이트 시험은 설치 시험판(`--installtest`, 새 판은 `--version=`)과 임시 폴더(`WCG_UPDATE_DIR`·`publish-update --dir=`)로만 — 실제 `Ver` 폴더·사용자 설치판·그 데이터는 건드리지 않는다(`desktop/test/update-e2e-check.cjs`).
+  '모든 사용자'(관리자 확인) 길(`update-e2e-check.cjs --per-machine`)은 사람이 옆에서 관리자 확인 [예]를 눌러 줄 때만 돌린다 — AI 혼자 관리자 확인 창을 띄우지 않는다.
 - 디버그 eval·콘솔은 `(() => { … })()`로 감싸고 앱 전역(`S` `sel` `mode` …)에 대입하지 않는다(자동 저장으로 실제 작업에 남는다).
 - 헬퍼(기능 확장팩) 동작을 바꿀 때:
   - Python 헬퍼 **원본은 저장소 밖 `R:\[F]_Util\WNS\_src\helper.py`**다. 저장소의 `tools/wns-helper/helper.py`는 2026-07 옛 사본이니 고치지 않는다.

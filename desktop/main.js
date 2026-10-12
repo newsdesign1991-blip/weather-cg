@@ -424,7 +424,11 @@ ipcMain.on('wcg:close-reply', (e, d) => {
 // 순서·검사는 desktop/updater.js. 저절로 확인은 설치판만 — 시험 폴더(WCG_UPDATE_DIR)를 주면 개발판·점검 모드에서도. 부르는 쪽은 메인 창 주 프레임만.
 // 저장 안 한 작업 묻기는 웹앱이 [지금 설치] 전에 한다(닫기 전 묻기와 같은 팝업). 여기서 끌 때는 닫기 전 묻기를 다시 거치지 않는다(closeGuard.release).
 // 이전 판으로 되돌리기(설정 메뉴 — 10-12)도 같은 'wcg:update-install' 에 { rollback: true } — 내역에 있는 낮은 판을 같은 길로 덮어 깐다.
+// 업데이트 진행 창(10-13): 받기·확인이 끝나면 설치판에 든 desktop\helper\WeatherCG-Update.exe(asar 밖 — tools/build-update-ui.cjs)를 임시 폴더로 복사해 띄우고,
+// 그 창이 떴다는 알림을 본 뒤 앱을 끈다. 창이 앱이 다 닫히길 기다려 설치(/S --updated)·새 판 실행까지 단계로 보여 준다. 없거나 못 띄우면 예전처럼 조용한 설치.
+// 개발판은 desktop\helper(Git 제외)에 node tools/build-update-ui.cjs 로 구워 둘 수 있다(개발판은 설치하지 않으니 시험 DRYRUN 까지만).
 const { createUpdater } = require('./updater');
+const UPDATE_UI_EXE = path.join(DESK_REAL, 'helper', 'WeatherCG-Update.exe');
 let updater = null;
 function startUpdater() {
   if (updater) return;
@@ -432,6 +436,8 @@ function startUpdater() {
     current: app.getVersion(), variant: APP_VARIANT, packaged: app.isPackaged, testMode: TEST_MODE, env: process.env,
     tempRoot: app.getPath('temp'), log: (m) => console.log('[update] ' + m),
     notify: (info) => { if (win && !win.isDestroyed()) win.webContents.send('wcg:update', info); },
+    uiExe: [UPDATE_UI_EXE], appExe: process.execPath, pid: process.pid, product: app.getName(),
+    releaseClose: () => { try { if (closeGuard) closeGuard.release(); } catch (e) { /* 창 없음 */ } },
     quitForInstall: () => { try { if (closeGuard) closeGuard.release(); } catch (e) { /* 창 없음 */ } app.quit(); },
   });
   updater.start();
@@ -449,8 +455,9 @@ ipcMain.handle('wcg:update-install', async (e, v, o) => {
   if (!privateKeyCallerOk(e, win)) return { ok: false, err: 'denied' };
   startUpdater();
   const wc = e.sender;
-  return updater.install(String(v || ''), (got, total) => { try { if (!wc.isDestroyed()) wc.send('wcg:update-progress', { got, total }); } catch (err) { /* 창 닫힘 */ } },
-    { rollback: !!(o && o.rollback === true) });
+  const send = (d) => { try { if (!wc.isDestroyed()) wc.send('wcg:update-progress', d); } catch (err) { /* 창 닫힘 */ } };
+  return updater.install(String(v || ''), (got, total) => send({ got, total }),
+    { rollback: !!(o && o.rollback === true), onPhase: (phase) => send({ phase: String(phase) }) });
 });
 ipcMain.handle('wcg:update-cancel', (e) => (privateKeyCallerOk(e, win) && updater ? updater.cancel() : false));
 
@@ -520,7 +527,7 @@ if (!TEST_MODE && !app.requestSingleInstanceLock()) {
     session.defaultSession.on('file-system-access-restricted', (_e, d, cb) => cb(fsPickAllowed(d && d.path) ? 'allow' : 'tryAgain'));   // 폴더 고르기 — 위 fsPickAllowed
     watchSavedPaths(session.defaultSession);   // 렌더 결과 '폴더 열기' — 저장한 경로 기록(위)
     // 점검 모드: 도구 경로를 한 줄로 알린다(설치판 점검기 tools/check-installed.cjs 가 asar 밖 ffmpeg·폰트 자리를 본다 — 경로만, 키 없음)
-    if (TEST_MODE) console.log('[wcg-paths] ' + JSON.stringify({ packaged: app.isPackaged, version: app.getVersion(), variant: APP_VARIANT, appDir: APP_DIR, ffmpeg: FFMPEG, fonts: FONT_DIRS[0] }));
+    if (TEST_MODE) console.log('[wcg-paths] ' + JSON.stringify({ packaged: app.isPackaged, version: app.getVersion(), variant: APP_VARIANT, appDir: APP_DIR, ffmpeg: FFMPEG, fonts: FONT_DIRS[0], updateUi: exists(UPDATE_UI_EXE) ? UPDATE_UI_EXE : null }));
     if (TEST_MODE) { createWindow(); startUpdater(); return; }   // 점검 모드: 헬퍼 없이 화면만(업데이트는 시험 폴더 WCG_UPDATE_DIR 이 있을 때만)
     if (!(await startEmbeddedHelper()) && !INSTALL_TEST) {   // 내장 실패 → 웹판과 같은 Python 헬퍼를 켜서 쓴다(설치 시험판은 안 켬 — 사용자 헬퍼·폴더를 건드리지 않게)
       helperUrl = `http://127.0.0.1:${EXT_PORT}`; helperKind = 'external';

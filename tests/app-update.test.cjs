@@ -28,11 +28,15 @@ function fakeModal(log) {
     const titleEl = { get textContent() { return md.title; }, set textContent(v) { md.title = v; } };
     md.headEl = { dataset: { tone: opt.tone } };
     md.bar = { style: { width: '' } }; md.txt = { textContent: '' };
-    md.ov = { isConnected: true, _opener: null, classList: { contains: (c) => c === 'popClosing' && md.closed }, querySelector: (s) => (s === '.tossTitle' ? titleEl : s === '.tossHead' ? md.headEl : null) };
+    md.xBtn = { style: { visibility: '' } };
+    md.ov = { isConnected: true, _opener: null, classList: { contains: (c) => c === 'popClosing' && md.closed },
+      querySelector: (s) => (s === '.tossTitle' ? titleEl : s === '.tossHead' ? md.headEl : s === '.tossX' ? md.xBtn : null) };
     md.body = { get innerHTML() { return md.bodyHTML; }, set innerHTML(v) { md.bodyHTML = v; }, querySelector: (s) => (s === '.updBar i' ? md.bar : s === '.updProgTxt' ? md.txt : null) };
     md.foot = { get innerHTML() { return md.footHTML; }, set innerHTML(v) { md.footHTML = v; md.btns = parse(v); }, querySelector: (s) => md.btns[/data-(\w+)/.exec(s)[1]] || null };
     md.card = { classList: { add: (c) => md.cls.push(c) } };
     md.close = () => { if (md.closed) return; md.closed = true; md.ov.isConnected = false; if (opt.onClose) opt.onClose(); };
+    // 사람이 닫기(X·Esc·바깥 누르기) — 진짜 tossModal 처럼 opt.canClose() 가 false 면 무시
+    md.userClose = () => { if (typeof opt.canClose === 'function' && !opt.canClose()) return false; md.close(); return true; };
     md.dispose = () => { md.closed = true; md.ov.isConnected = false; };
     md.click = (k) => { assert.ok(md.btns[k], `버튼 ${k} 없음: ${Object.keys(md.btns)}`); md.btns[k].onclick(); };
     md.labels = () => Object.values(md.btns).map((b) => b.label);
@@ -207,12 +211,23 @@ test('[지금 설치] — 저장할 것 없으면 곧바로 받기 → 진행 �
   assert.equal(m.txt.textContent, '설치 파일을 받는 중… 50% (86.2MB / 172.4MB)');
   progress({ got: 180769112, total: 180769112 });
   assert.equal(m.txt.textContent, '받은 파일을 확인하는 중…');
+  assert.equal(m.opt.canClose(), true, '받는 동안은 X·Esc 로 취소할 수 있다');
+  progress({ phase: 'handoff' });   // 받기·확인 끝 — 진행 창(앱이 꺼진 뒤에도 단계를 보여 주는 창)을 띄우는 중
+  assert.equal(m.txt.textContent, '업데이트 진행 창을 여는 중…');
+  assert.equal(m.bar.style.width, '100%');
+  // 이때부터는 취소가 안 된다(메인이 진행 창에 넘김) — [취소]·X 를 감추고 X·Esc·바깥 누르기로도 안 닫힘
+  assert.deepEqual(m.labels(), [], '[취소] 감춤');
+  assert.equal(m.xBtn.style.visibility, 'hidden', 'X 감춤');
+  assert.equal(m.userClose(), false, 'Esc·바깥 누르기 무시');
+  assert.equal(m.closed, false);
+  assert.equal(log.cancels, 0, '메인에 취소를 보내지 않음');
   await ctx.updInstall(INFO);   // 받는 중 또 누름 — 무시
   assert.equal(log.installs.length, 1);
-  log.finishInstall({ ok: true, version: '1.0.1' });
+  log.finishInstall({ ok: true, version: '1.0.1', ui: true });
   await flush(); await flush();
+  assert.equal(m.xBtn.style.visibility, '', '끝나면 X 다시');
   assert.equal(m.title, '설치를 시작했어요');
-  assert.equal(m.txt.textContent, '앱이 곧 닫혀요. 새 판이 깔리면 저절로 다시 켜져요.');
+  assert.equal(m.txt.textContent, '진행 창에서 설치 단계를 보여 드려요. 앱은 곧 닫혀요.', '진행 창이 떠서 이어 맡음');
   assert.equal(m.footHTML, '', '누를 것 없음');
   assert.equal(m.bar.style.width, '100%');
 });
@@ -255,6 +270,27 @@ test('받는 중 취소(X·Esc·[취소]) — 메인에 멈춤 요청, 알림만
   assert.equal(log.cancels, 1);
   assert.match(log.status.at(-1)[0], /업데이트를 취소했어요/);
   assert.equal(log.modals.at(-1).closed, true);
+  // X·Esc 도 같은 길(받는 동안)
+  const b = makeCtx();
+  b.ctx.updWire(); b.notify(INFO); b.log.open.click('install'); await b.flush();
+  assert.equal(b.log.open.userClose(), true);
+  await b.flush(); await b.flush();
+  assert.equal(b.log.cancels, 1);
+});
+
+test('진행 창에 넘긴 뒤 메인이 실패를 돌려주면(진행 창·조용한 설치 둘 다 실패) — X 가 돌아오고 [닫기]·[다시 확인], 이제는 닫힘', async () => {
+  const { ctx, log, notify, progress, flush } = makeCtx();
+  ctx.updWire(); notify(INFO); log.open.click('install'); await flush();
+  const m = log.open;
+  progress({ got: 10, total: 10 });
+  progress({ phase: 'handoff' });
+  assert.equal(m.userClose(), false);
+  log.finishInstall({ ok: false, err: 'spawn' }); await flush(); await flush();
+  assert.equal(m.title, '업데이트하지 못했어요');
+  assert.equal(m.xBtn.style.visibility, '');
+  assert.deepEqual(m.labels(), ['닫기', '다시 확인']);
+  assert.equal(m.userClose(), true);
+  assert.equal(log.cancels, 0, '끝난 뒤 닫기는 취소가 아님');
 });
 
 test('시험(WCG_UPDATE_DRYRUN) 결과 — 설치 직전까지 확인했다는 안내 + [확인]', async () => {
@@ -310,6 +346,13 @@ test('마크업·모양 — 설정 메뉴 맨 위 숨긴 \'앱 업데이트\' �
   // 팝업은 토스 카드 모달(tossModal) — 따로 만든 창 없음
   assert.match(UPD_SRC, /tossModal\(\{\n\s*title: '새 업데이트가 있습니다'/);
   assert.doesNotMatch(UPD_SRC, /createElement\('div'\)/);
+  // 진짜 토스 모달이 canClose 를 지키는지(X·바깥 누르기·Esc 셋 다 — 반환하는 close 는 그대로)
+  const tm = between('function tossModal(opt) {', '// ===================== 공지사항');
+  assert.match(tm, /const userClose = \(\) => \{ if \(typeof opt\.canClose === 'function' && !opt\.canClose\(\)\) return; close\(\); \};/);
+  assert.match(tm, /ov\.querySelector\('\.tossX'\)\.onclick = userClose;/);
+  assert.match(tm, /if \(e\.target === ov\) userClose\(\);/);
+  assert.match(tm, /if \(e\.key === 'Escape'\) userClose\(\);/);
+  assert.match(tm, /return \{ ov, close, card,/);
 });
 
 // ── 설정(렌치) 메뉴 '앱 업데이트'·렌치 깜빡임·이전 판으로 되돌리기(10-12) ──
@@ -446,9 +489,9 @@ test('이전 판으로 되돌리기 — 확인 팝업(판·그대로인 것·다
   assert.equal(JSON.stringify(log.installOpts[0]), '{"rollback":true}');
   const m = log.open;
   assert.equal(m.title, '이전 판 받는 중'); assert.equal(m.sub, '날씨 CG 1.0.2 → 1.0.0');
-  log.finishInstall({ ok: true, version: '1.0.0', rollback: true }); await flush(); await flush();
+  log.finishInstall({ ok: true, version: '1.0.0', ui: false, rollback: true }); await flush(); await flush();
   assert.equal(m.title, '되돌리기를 시작했어요');
-  assert.equal(m.txt.textContent, '앱이 곧 닫혀요. 1.0.0이 깔리면 저절로 다시 켜져요.');
+  assert.equal(m.txt.textContent, '곧 앱이 닫히고 1.0.0이 켜져요.', '진행 창 없이 조용한 설치 — 앱이 꺼지기 전 한 줄');
   assert.equal(store.get('wcg_upd_skip'), '1.0.2', '되돌리기 전 판');
   // 되돌린 판(1.0.0)으로 다시 켜진 뒤 — 1.0.2 팝업은 안 띄우지만 렌치 알림은 유지, 메뉴에선 [업데이트하기]
   const after = makeCtx({ store: [['wcg_upd_skip', '1.0.2']], check: { ...AVAIL, current: '1.0.0' } });
