@@ -53,11 +53,15 @@ const BENIGN = /127\.0\.0\.1:372[01]|ERR_CONNECTION_REFUSED|ERR_INTERNET_DISCONN
 async function main() {
   const dir = path.resolve(args.find((x) => !x.startsWith('--')) || '');
   const { PRODUCT_NAME, PRIVATE_FILES, SUITE_FONTS, forbiddenIn } = require('./build-installer.cjs');
-  const exe = path.join(dir, PRODUCT_NAME + '.exe');
+  let exe = path.join(dir, PRODUCT_NAME + '.exe');
+  if (!fs.existsSync(exe) && fs.existsSync(dir)) {   // 설치 시험판(--installtest — 이름이 다름): 폴더에 앱 exe 가 하나뿐이면 그것
+    const c = fs.readdirSync(dir).filter((n) => /\.exe$/i.test(n) && !/^Uninstall /i.test(n));
+    if (c.length === 1) exe = path.join(dir, c[0]);
+  }
   const res = path.join(dir, 'resources');
   const asarFile = path.join(res, 'app.asar');
   const unp = path.join(res, 'app.asar.unpacked', 'desktop', 'helper');
-  const out = { ok: false, dir, errors: [], ignored: [] };
+  const out = { ok: false, dir, exe: path.basename(exe), errors: [], ignored: [] };
   const fail = (m) => out.errors.push(m);
   if (!fs.existsSync(exe) || !fs.existsSync(asarFile)) { fail('설치 폴더가 아님(exe·resources\\app.asar 없음): ' + dir); return out; }
 
@@ -126,7 +130,9 @@ async function main() {
     const ws = new WebSocket(page.webSocketDebuggerUrl);
     await new Promise((r, j) => { ws.addEventListener('open', r); ws.addEventListener('error', j); });
     let id = 0; const pending = new Map(); const reqs = new Map();
-    const push = (m) => (BENIGN.test(m) ? out.ignored : out.errors).push(m.slice(0, 600));
+    // 아래에서 일부러 desktop/ 을 불러 403 을 확인한다 — 그 콘솔 줄은 오류로 세지 않는다
+    const PROBE403 = /status of 403[^\n]*app:\/\/weathercg\/desktop\/(private\/mapbox\.token|main\.js)/;
+    const push = (m) => (BENIGN.test(m) || PROBE403.test(m) ? out.ignored : out.errors).push(m.slice(0, 600));
     ws.addEventListener('message', (ev) => {
       const m = JSON.parse(ev.data);
       if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return; }
@@ -177,7 +183,7 @@ async function main() {
       if (!/app\.asar\.unpacked[\\/]desktop[\\/]helper[\\/]fonts$/i.test(out.paths.fonts || '')) fail('main 의 첫 폰트 자리가 asar 밖이 아님: ' + out.paths.fonts);
     }
     if (!p.cg || !p.panel) fail('앱 화면(#cg·#panel)이 없음');
-    if (p.modFail) fail('모듈 로드 실패 가드: ' + JSON.stringify(p.modFail).slice(0, 300));
+    if (p.modFail && (!Array.isArray(p.modFail) || p.modFail.length)) fail('모듈 로드 실패 가드: ' + JSON.stringify(p.modFail).slice(0, 300));   // [] = 실패 없음
     if (p.webBlocked) fail('웹판 막기 화면이 뜸');
     if (!p.desk || !p.desk.isDesktop || !p.desk.packaged || !p.desk.dataPortalKey || !p.desk.mapboxTokenFn) fail('데스크톱 다리 이상: ' + JSON.stringify(p.desk));
     if (!p.maplibre || p.maplibre.status !== 200 || !(p.maplibre.bytes > 100000)) fail('vendor/maplibre-gl 을 못 읽음: ' + JSON.stringify(p.maplibre));

@@ -81,8 +81,23 @@ test('electron-builder 설정 — 이 사용자만·위치 고르기·바로 가
   assert.equal(c.nsis.include, 'N.nsh');
   assert.equal(c.win.target[0].target, 'nsis');
   assert.equal(c.publish, null);
-  const nsh = fs.readFileSync(path.join(root, 'tools', 'installer', 'installer.nsh'), 'utf8');
-  assert.match(nsh, /!macro customInstallMode\s+StrCpy \$isForceCurrentInstall "1"\s+!macroend/);
+  // 설치 방식 화면 없음: 보통 '이 사용자만', 임시판을 '모든 사용자'로만 깐 PC 는 그 자리에 덮어 올림(관리자 확인)
+  const nsh = fs.readFileSync(path.join(root, 'tools', 'installer', 'installer.nsh'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(nsh, /!macro customInstallMode\n\s*\$\{if\} \$hasPerMachineInstallation == "1"\n\s*\$\{andIf\} \$hasPerUserInstallation == "0"\n\s*StrCpy \$isForceMachineInstall "1"\n\s*\$\{else\}\n\s*StrCpy \$isForceCurrentInstall "1"\n\s*\$\{endIf\}\n!macroend/);
+  assert.equal(nsh.charCodeAt(0), 0xFEFF, 'NSIS 가 한글 주석을 UTF-8 로 읽게 BOM');
+});
+
+test('설치 시험판(--installtest) — 앱 내용은 같고 appId·제품 이름(exe·바로 가기·사용자 데이터)·설치 폴더 이름·파일 이름만 다름', () => {
+  const base = { appDir: 'A', outDir: 'O', resDir: 'R', version: '1.0.0', electronVersion: '44.6.0', electronDist: null, nsh: 'N.nsh' };
+  const c = B.builderConfig(base), t = B.builderConfig({ ...base, installtest: true });
+  assert.notEqual(t.appId, c.appId); assert.ok(t.appId.startsWith(B.APP_ID + '.'));
+  assert.notEqual(t.productName, c.productName);
+  assert.notEqual(B.INSTALLTEST.name, B.PACKAGE_NAME);
+  assert.equal(t.nsis.shortcutName, t.productName);
+  assert.notEqual(t.nsis.artifactName, c.nsis.artifactName);
+  const strip = (x) => JSON.stringify({ ...x, appId: 0, productName: 0, nsis: { ...x.nsis, shortcutName: 0, artifactName: 0 } });
+  assert.equal(strip(t), strip(c), '이름 말고는 같은 설정');
+  assert.deepEqual(B.namesFor(false), { appId: B.APP_ID, productName: B.PRODUCT_NAME, name: B.PACKAGE_NAME, artifact: B.ARTIFACT });
 });
 
 test('main.js — 설치판에서 ffmpeg·폰트·Python 헬퍼 자리는 asar 밖(DESK_REAL), 개발판은 __dirname 그대로', () => {

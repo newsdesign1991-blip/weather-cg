@@ -4,7 +4,8 @@
 //
 //   node tools/build-installer.cjs [--ref=HEAD] [--work=<준비 폴더>] [--tools=<빌드 도구 폴더>] [--dist=<결과 복사 폴더>]
 //                                  [--ffmpeg=<ffmpeg.exe>] [--private=<비공개 키 폴더>] [--electron-dist=<electron dist 폴더> | --download-electron]
-//                                  [--stage-only]
+//                                  [--stage-only] [--installtest]
+//   --installtest: 이름만 다른 '설치 시험판'(아래 INSTALLTEST)을 준비 폴더 out-installtest 에 굽는다 — 설치판이 깔렸거나 켜진 PC 에서 설치·제거 시험용.
 //
 // 하는 일(차례대로):
 //  1) 커밋(--ref, 기본 HEAD)을 git archive 로 준비 폴더 src\ 에 꺼낸다 — 커밋 안 한 고침·Git 밖 파일(녹화 rec-*.json·메모·바로 가기)은 안 들어간다.
@@ -112,12 +113,19 @@ function missingRefs(srcFiles, appFiles, read) {
   return [...miss].sort();
 }
 
-// electron-builder 설정. o = { appDir, outDir, resDir, version, electronVersion, electronDist?, nsh }
+// 설치 시험판(--installtest): 설치판이 깔려 있거나 켜져 있는 PC 에서 설치·실행·제거를 시험할 때. 앱 내용은 같고 이름만 다르다 —
+// electron-builder 설치·제거 프로그램은 같은 appId 의 기존 설치(모든 사용자 설치면 관리자 권한으로)를 지우고 올리며, 실행 중인 같은 exe 이름('날씨 CG.exe')을
+// 이 사용자 것 전부 끈다. 이름을 바꾸면 사용자 설치판·실행 중인 앱·사용자 데이터를 건드리지 않는다. 결과는 준비 폴더에만(--dist 로 복사 안 함).
+const INSTALLTEST = { appId: APP_ID + '.installtest', productName: '날씨 CG 설치시험', name: 'weathercg-installtest', artifact: 'WeatherCG-Setup-${version}-installtest.exe' };
+const namesFor = (installtest) => (installtest ? INSTALLTEST : { appId: APP_ID, productName: PRODUCT_NAME, name: PACKAGE_NAME, artifact: ARTIFACT });
+
+// electron-builder 설정. o = { appDir, outDir, resDir, version, electronVersion, electronDist?, nsh, installtest? }
 function builderConfig(o) {
   const icon = path.join(o.appDir, 'icon.ico');
+  const N = namesFor(o.installtest);
   return {
-    appId: APP_ID,
-    productName: PRODUCT_NAME,
+    appId: N.appId,
+    productName: N.productName,
     copyright: 'SBS',
     directories: { app: o.appDir, output: o.outDir, buildResources: o.resDir },
     electronVersion: o.electronVersion,
@@ -135,15 +143,15 @@ function builderConfig(o) {
     },
     nsis: {
       oneClick: false,                        // 순서 있는 설치(설치 위치 고르기)
-      perMachine: false,                      // 이 사용자만(관리자 권한 없이) — installer.nsh 가 '모든 사용자' 고르기 화면도 없앤다
+      perMachine: false,                      // 이 사용자만(관리자 권한 없이) — installer.nsh 가 고르기 화면을 없앤다(임시판을 '모든 사용자'로 깐 PC 만 그 자리에 덮어 올림)
       allowToChangeInstallationDirectory: true,
       createDesktopShortcut: true,
       createStartMenuShortcut: true,
-      shortcutName: PRODUCT_NAME,
+      shortcutName: N.productName,
       menuCategory: false,
       runAfterFinish: true,
       deleteAppDataOnUninstall: false,        // 지워도 작업·설정(%APPDATA%\날씨 CG)은 남긴다 — 다시 깔면 그대로
-      artifactName: ARTIFACT,
+      artifactName: N.artifact,
       installerIcon: icon, uninstallerIcon: icon, installerHeaderIcon: icon,
       language: '1042', installerLanguages: ['ko_KR'], multiLanguageInstaller: false,
       include: o.nsh,
@@ -204,13 +212,16 @@ async function main() {
   const work = path.resolve(opt('work', path.join(os.tmpdir(), 'wcg-installer-build')));
   const toolsDir = path.resolve(opt('tools', path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'WeatherCG-build', 'tools')));
   const distDir = path.resolve(opt('dist', path.join(ROOT, 'desktop', 'dist')));
+  const installtest = flag('installtest');
+  const N = namesFor(installtest);
   if (work.toLowerCase().startsWith(ROOT.toLowerCase() + path.sep)) die('--work 는 저장소 밖이어야 합니다: ' + work);
+  if (installtest) log(`설치 시험판: 이름 '${N.productName}'·appId ${N.appId} — 앱 내용은 정식과 같음, --dist 로 복사 안 함`);
 
   // 1) 커밋 꺼내기
   const commit = git('rev-parse', '--verify', ref + '^{commit}');
   const dirty = git('status', '--porcelain', '--untracked-files=no', '--', 'index.html', 'js', 'css', 'desktop', 'FontNew', 'vendor', '*.js');
   if (dirty) log(`알림: 커밋하지 않은 고침이 있습니다 — 설치판에는 커밋 ${commit.slice(0, 7)} 내용만 들어갑니다\n${dirty}`);
-  const srcDir = path.join(work, 'src'), appDir = path.join(work, 'app'), outDir = path.join(work, 'out'), resDir = path.join(work, 'build-res');
+  const srcDir = path.join(work, 'src'), appDir = path.join(work, 'app'), outDir = path.join(work, installtest ? 'out-installtest' : 'out'), resDir = path.join(work, 'build-res');
   for (const d of [srcDir, appDir, outDir, resDir]) { fs.rmSync(d, { recursive: true, force: true }); fs.mkdirSync(d, { recursive: true }); }
   const tarFile = path.join(work, 'src.tar');
   run('git', ['-C', ROOT, 'archive', '--format=tar', '-o', tarFile, commit]);
@@ -248,7 +259,7 @@ async function main() {
     fs.copyFileSync(s, path.join(appDir, 'desktop', 'helper', 'fonts', f));
   }
   fs.writeFileSync(path.join(appDir, 'package.json'), JSON.stringify({
-    name: PACKAGE_NAME, productName: PRODUCT_NAME, version, private: true,
+    name: N.name, productName: N.productName, version, private: true,
     description: 'SBS 날씨 CG 메이커', author: 'SBS', main: 'desktop/main.js',
   }, null, 2) + '\n');
 
@@ -278,14 +289,14 @@ async function main() {
   }
   if (!/^\d+\.\d+\.\d+$/.test(electronVersion)) die('Electron 판을 모릅니다: ' + electronVersion);
   log(`Electron ${electronVersion} ${electronDist ? '← ' + electronDist : '(electron-builder 가 받음)'}`);
-  const config = builderConfig({ appDir, outDir, resDir, version, electronVersion, electronDist: electronDist || null, nsh });
+  const config = builderConfig({ appDir, outDir, resDir, version, electronVersion, electronDist: electronDist || null, nsh, installtest });
   fs.writeFileSync(path.join(work, 'builder-config.json'), JSON.stringify(config, null, 2));
   process.env.CSC_IDENTITY_AUTO_DISCOVERY = 'false';   // 인증서 찾지 않음(서명 없음)
   const builder = require(path.join(toolsDir, 'node_modules', 'electron-builder'));
   await builder.build({ projectDir: appDir, targets: builder.Platform.WINDOWS.createTarget(['nsis'], builder.Arch.x64), config, publish: 'never' });
 
   // 6) 구운 것 점검 + 복사
-  const exeName = ARTIFACT.replace('${version}', version);
+  const exeName = N.artifact.replace('${version}', version);
   const setup = path.join(outDir, exeName);
   if (!fs.existsSync(setup)) die('설치 파일이 안 생겼습니다: ' + setup);
   const { asarList } = require('./check-installed.cjs');
@@ -298,6 +309,10 @@ async function main() {
   const bad2 = forbiddenIn(shipped);
   if (extra.length || gone.length || bad2.length) die(`asar 목록이 준비한 것과 다릅니다\n  더 들어감: ${extra.join(', ')}\n  빠짐: ${gone.join(', ')}\n  금지: ${bad2.join(', ')}`);
   if (!unpacked.includes('desktop/helper/ffmpeg.exe')) die('ffmpeg.exe 가 asar 밖에 없습니다');
+  if (installtest) {
+    log(`끝(설치 시험판) — ${setup} (${mb(fs.statSync(setup).size)}MB). 시험: "${exeName}" /S /D=<임시 폴더> → node tools/check-installed.cjs <임시 폴더> → "<임시 폴더>\\Uninstall ${N.productName}.exe" /S`);
+    return;
+  }
   fs.mkdirSync(distDir, { recursive: true });
   fs.copyFileSync(setup, path.join(distDir, exeName));
   const info = {
@@ -312,4 +327,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error('[build] 실패:', e && e.stack || e); process.exit(1); });
-module.exports = { APP_ID, PRODUCT_NAME, PACKAGE_NAME, ARTIFACT, SUITE_FONTS, PRIVATE_FILES, REQUIRED, appFileFilter, forbiddenIn, missingRefs, builderConfig };
+module.exports = { APP_ID, PRODUCT_NAME, PACKAGE_NAME, ARTIFACT, INSTALLTEST, SUITE_FONTS, PRIVATE_FILES, REQUIRED, appFileFilter, forbiddenIn, missingRefs, builderConfig, namesFor };

@@ -299,7 +299,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `node tools/app-source.cjs index.html --out=<파일>` | 나뉜 앱을 '분할 전 한 파일' 텍스트로 합침(PowerShell `>` 대신 `--out`) |
 | `node tools/verify-split.cjs <전> <후>` | 분할 커밋이 텍스트 무변경인지 git 객체로 증명 |
 | `node tools/split-app.cjs` | 분할 도구(한 파일 → 지금 구조, 기준표 MAP). `--like=index.html`로 지금 분할본과 같은 구조로 재분할(11·12장) |
-| `node tools/build-installer.cjs [--ref=HEAD] [--dist=…] [--ffmpeg=…] [--private=…] [--stage-only]` | **설치 파일 굽기**(10장 '설치판 만들기') → `desktop\dist\WeatherCG-Setup-<판>.exe`. 요청받을 때만 |
+| `node tools/build-installer.cjs [--ref=HEAD] [--dist=…] [--ffmpeg=…] [--private=…] [--stage-only] [--installtest]` | **설치 파일 굽기**(10장 '설치판 만들기') → `desktop\dist\WeatherCG-Setup-<판>.exe`. 요청받을 때만. `--installtest` = 이름만 다른 설치 시험판(설치판이 깔린 PC에서 설치·제거 시험) |
 | `node tools/check-installed.cjs <설치 폴더 또는 out\win-unpacked> [--shot=<png>] [--json=<파일>]` | **설치판 점검**(담긴 것·asar 밖 ffmpeg·키 있음·내장 헬퍼·점검 모드로 실제 부팅) — `"ok": true`여야 |
 
 - **테스트에서 앱 코드를 읽을 때는 `tools/app-source.cjs`를 쓴다**: `const appSource = require('../tools/app-source.cjs'); const html = appSource(path.join(__dirname, '..', 'index.html'));`
@@ -344,7 +344,8 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   - **구조**: `resources\app.asar` = 저장소와 같은 모양(루트에 웹앱, main = `desktop/main.js`) → main.js의 `path.resolve(__dirname, '..')`가 그대로 asar 안 웹앱이고, app://·preload·비공개 키는 asar 안에서 읽는다(Electron fs).
     다른 프로그램이 쓰는 `desktop\helper\**`(ffmpeg 실행·SUITE 폰트 복사)만 `app.asar.unpacked`로 풀고, main.js `DESK_REAL`(경로의 `app.asar` → `app.asar.unpacked`, 개발판은 `__dirname` 그대로)로 찾는다.
     app://는 `desktop/` 전체를 403으로 막으므로 키·ffmpeg는 웹앱에서 안 보인다. 타일 캐시(`%LOCALAPPDATA%\WeatherCG\tile-cache`)·영상 프레임(`…\WeatherCG\frames`)은 개발판과 같은 곳.
-  - **설치 프로그램**(NSIS, 한국어): 이 사용자만(관리자 권한 없음 — `tools/installer/installer.nsh`가 '모든 사용자/나만' 화면을 없앰), 기본 `%LOCALAPPDATA%\Programs\weathercg-desktop`(바꿀 수 있음),
+  - **설치 프로그램**(NSIS, 한국어): 이 사용자만(관리자 권한 없음 — `tools/installer/installer.nsh`가 '모든 사용자/나만' 화면을 없앰), 기본 `%LOCALAPPDATA%\Programs\weathercg-desktop`(바꿀 수 있음).
+    단 임시판(0.2.0 — 그때는 고르는 화면이 있었다)을 **'모든 사용자'로만 깐 PC**는 그 자리(`C:\Program Files\weathercg-desktop`)에 덮어 올린다(관리자 확인 창 한 번 — 안 그러면 두 벌이 된다),
     바탕화면·시작 메뉴 '날씨 CG', 끝에 실행. 제어판에서 지워도 작업·설정(`%APPDATA%\날씨 CG`)은 남긴다. **appId `kr.co.sbs.weathercg`·제품 이름 '날씨 CG'·설치 폴더 이름 `weathercg-desktop`은 임시판(0.2.0)과 같다** —
     그 위에 덮어 설치하면 올라간다(바꾸면 따로 설치돼 둘이 생긴다). 설치 폴더 이름은 제품 이름에 한글이 있어 package 이름을 쓴다(electron-builder 규칙). main.js는 설치판이면 같은 appId로 `setAppUserModelId`(작업 표시줄 고정 아이콘과 창이 한 칸).
     서명 인증서가 없어 받은 PC에서 SmartScreen이 막는다('추가 정보 → 실행'). 자동 업데이트 없음(새 판 = 새 설치 파일을 덮어 설치). 크롬 내장 언어 파일은 한국어·영어만.
@@ -357,7 +358,9 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
     노드 모드(설치된 exe + `ELECTRON_RUN_AS_NODE` — asar 안 `private-config.js`로 두 키 읽기, 내장 헬퍼를 빈 포트에 띄워 `/ping` ff:true), 점검 모드 앱(`WCG_TEST=1` — main 경로 줄 `[wcg-paths]`(설치판·ffmpeg/폰트가 asar 밖),
     부팅 오류 0, `#cg`·`#panel`, app:// js 47·css 16 모두 200, maplibre 200, desktop/ 403, `wcgDesktop` isDesktop·packaged·appVersion·dataPortalKey 있음)를 본다. 값은 출력하지 않는다(있음·길이만).
     점검 모드는 실제 Mapbox 토큰 대신 가짜를 주므로(위 '가벼운 지도') 토큰 파일 읽기는 노드 모드로 본다. 띄운 exe는 PID로만 끈다.
-    **주의**: electron-builder 설치·제거 프로그램은 실행 중인 '날씨 CG.exe'(이 사용자)를 이름으로 끈다 — 사용자가 설치판을 켜 둔 PC에서는 설치 시험을 하지 말 것(개발판 electron.exe는 상관없음).
+    **주의**: electron-builder 설치·제거 프로그램은 실행 중인 '날씨 CG.exe'(이 사용자 것 전부)를 이름으로 끄고, 같은 appId의 기존 설치를 지우고 올린다('모든 사용자' 설치면 조용한 설치도 관리자 확인 창).
+    그래서 **설치판이 깔렸거나 켜진 PC(개발 PC 포함)에서는 정식 설치 파일로 설치 시험을 하지 말고** `--installtest`로 이름만 다른 설치 시험판(`날씨 CG 설치시험`·appId `….installtest`·`out-installtest\WeatherCG-Setup-<판>-installtest.exe`
+    — 앱 내용·설치 프로그램 설정은 같음, 정식 exe는 `out\win-unpacked`를 점검기로)을 굽어 설치·점검·제거한다(개발판 electron.exe는 상관없음).
     조용한 설치도 바탕화면·시작 메뉴 바로 가기와 HKCU 등록을 만들었다가 제거 때 지운다.
 
 - **공공데이터포털 기본 키**(2026-10-10 사용자 요청): `desktop/private-config.js`가 `desktop/private/data-go.key`를 읽는다(Git 제외, app://에서는 desktop/ 전체 접근 차단). `wcg:data-key` 동기 IPC는 메인 앱 창의 app://weathercg 주 프레임만 허용하고 preload가 `wcgDesktop.dataPortalKey`로 넘긴다. 개인 키가 없으면 자동 사용하며 입력칸에는 키를 채우지 않고 '기본 키 내장' 안내만 표시한다. 개인 키를 비우면 기본 키로 복귀. 키 두 종류 모두 오류에서 가린다.
