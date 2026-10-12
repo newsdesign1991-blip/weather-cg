@@ -278,6 +278,13 @@ function applyHelperState(st) {
   if (WNS_DESKTOP) {
     html = st.up ? '렌더·불러오기 기능 · <b>앱에 내장됨</b>' : '렌더·불러오기 기능 <b>응답 없음</b> — 앱 다시 실행 안내';
     if (!st.up) act = () => wnsHelperOffNotice('off');
+    // 앱 버전(desktop/main.js app.getVersion — 설치판은 빌드한 판) — 줄 앞에. 숫자·점 꼴만 보인다(옛 메인 = 없음)
+    const av = String(window.wcgDesktop.appVersion || '');
+    if (/^[0-9][0-9A-Za-z.+-]{0,31}$/.test(av)) {
+      const vt = '앱 ' + av + (window.wcgDesktop.packaged ? '' : ' 개발판');
+      html = vt + ' · ' + html;
+      row.title = '날씨 CG ' + vt + (st.up ? ' — 렌더·불러오기 기능 앱에 내장됨' : '');
+    }
   } else {
     html = k === 'ok' ? `기능 확장팩 · <b>실행 중</b> · 버전 ${st.ver}`
       : k === 'old' ? `기능 확장팩 · <b>구버전</b>(${st.ver || '버전 없음'}) — 다시 실행 방법`

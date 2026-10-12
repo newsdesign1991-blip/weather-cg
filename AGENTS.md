@@ -28,6 +28,8 @@
 - **웹판은 2026-10-09부터 막혀 있다**(index.html head 첫 스크립트 — 데스크톱 앱·로컬 개발만 동작, MODULES.md 7장). 앞으로는 데스크톱 설치판으로 배포한다.
 - **현재는 데스크톱 앱만 개발한다.** 평소에는 수정·검증·로컬 기록까지만. 사용자가 명시적으로 요청하지 않으면 GitHub push·웹 배포 준비·설치판 배포를 하지 않는다.
   로컬 커밋은 경로를 적어서(`-A` 금지), `index.html`·`js/`·`css/`를 한 커밋에 함께. 설치판 제작을 요청받으면 비공개 키 파일도 로컬 빌드에 포함하되 Git 추적에는 넣지 않는다.
+  설치판은 `node tools/build-installer.cjs`(커밋을 굽는다 — 판은 `desktop/package.json` version, 키·ffmpeg는 빌드가 담음) → `node tools/check-installed.cjs <폴더>`가 `"ok": true` (MODULES.md 10장 '설치판 만들기').
+  appId·제품 이름 '날씨 CG'·설치 폴더 이름은 바꾸지 않는다(바꾸면 기존 설치판 위에 안 올라가고, 사용자 데이터 폴더가 바뀐다). 빌드 도구는 저장소 밖에 — `desktop\node_modules`에 설치하지 않는다.
 - 디버그 eval·콘솔은 `(() => { … })()`로 감싸고 앱 전역(`S` `sel` `mode` …)에 대입하지 않는다(자동 저장으로 실제 작업에 남는다).
 - 헬퍼(기능 확장팩) 동작을 바꿀 때:
   - Python 헬퍼 **원본은 저장소 밖 `R:\[F]_Util\WNS\_src\helper.py`**다. 저장소의 `tools/wns-helper/helper.py`는 2026-07 옛 사본이니 고치지 않는다.
