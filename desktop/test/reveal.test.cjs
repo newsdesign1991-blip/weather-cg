@@ -174,7 +174,7 @@ test('배선 — main.js: fileSystem 쓰기 권한 확인만 기록(메인 출�
   assert.match(w, /item\.once\('done', \(_ev, state\) => \{ let p = ''; try \{ p = item\.getSavePath\(\); \}/);
   assert.match(main, /watchSavedPaths\(session\.defaultSession\);/);
   // 점검 모드 return 보다 앞(점검에서도 기록)
-  assert.ok(main.indexOf('watchSavedPaths(session.defaultSession);') < main.indexOf("if (TEST_MODE) { createWindow(); return; }"));
+  assert.ok(main.indexOf('watchSavedPaths(session.defaultSession);') < main.indexOf("if (TEST_MODE) { createWindow(); startUpdater(); return; }"));
   const s = main.slice(main.indexOf("ipcMain.handle('wcg:saved-path'"), main.indexOf('// ---------- 닫기 전 묻기'));
   assert.match(s, /ipcMain\.handle\('wcg:saved-path', \(e, h\) => \{\n\s+if \(!privateKeyCallerOk\(e, win\)\) return '';\n\s+return reveals\.find\(h\);/);
   assert.match(s, /ipcMain\.handle\('wcg:reveal-path', \(e, p\) => \{\n\s+if \(!privateKeyCallerOk\(e, win\)\) return \{ ok: false, err: 'denied' \};/);

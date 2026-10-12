@@ -43,6 +43,20 @@
   .tossCard.closeAsk .tossBody p:last-child { margin-bottom: 0; }
   .tossCard.closeAsk .closeAskNote { font-size: 12.5px; color: var(--pop-muted); }
   .tossCard.closeAsk .closeAskBusy { font-size: 12.5px; font-weight: 700; color: var(--caution); }
+  /* 앱 업데이트(js/app-update.js) — 판·크기·올린 날 알약, 바뀐 점 목록, 받기 진행 막대. [나중에]는 왼쪽 끝(주 버튼 [지금 설치]와 떨어뜨림) */
+  .tossCard.updCard .updMeta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tossCard.updCard .updMeta span { padding: 3px 9px; border-radius: 999px; background: var(--surface-hi); box-shadow: inset 0 0 0 1px var(--outline-var); font-size: 12px; color: var(--pop-muted); }
+  .tossCard.updCard .updMeta b { color: var(--on-surface); font-weight: 800; }
+  .tossCard.updCard .updNotesHead { font-size: 12.5px; font-weight: 800; color: var(--on-surface); }
+  .tossCard.updCard .updNotes { margin: 4px 0 12px; }
+  .tossCard.updCard .updHint, .tossCard.updCard .updProgNote, .tossCard.updCard .updNoNotes { margin: 0; font-size: 12.5px; color: var(--pop-muted); }
+  .tossCard.updCard .updNoNotes { margin-bottom: 10px; }
+  .tossCard.updCard .updErr { font-weight: 700; }
+  .tossCard.updCard .updBar { height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-hi); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .tossCard.updCard .updBar i { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--accent-grad, var(--primary)); transition: width .2s ease; }
+  .tossCard.updCard .updProgTxt { margin: 9px 0 8px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tossCard.updCard .tossFoot [data-later] { margin-right: auto; }
+  .tossCard.updCard .tossFoot:empty { display: none; }
   .tossStep { display: flex; gap: 10px; margin-bottom: 10px; }
   .tossStep .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #FA2E1E; color: #fff; font-weight: 800; text-align: center; line-height: 22px; font-size: 12px; }
   .tossPath { margin-top: 12px; padding: 10px 12px; background: var(--surface-hi); border-radius: 10px; font-size: 12.5px; color: var(--pop-muted); word-break: break-all; }

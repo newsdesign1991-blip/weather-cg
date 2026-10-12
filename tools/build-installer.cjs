@@ -3,9 +3,12 @@
 // 날씨 CG 설치 파일(Windows) 만들기 — electron-builder NSIS. 사용법·주의는 MODULES.md 10장 '설치판 만들기'.
 //
 //   node tools/build-installer.cjs [--ref=HEAD] [--work=<준비 폴더>] [--tools=<빌드 도구 폴더>] [--dist=<결과 복사 폴더>]
-//                                  [--ffmpeg=<ffmpeg.exe>] [--private=<비공개 키 폴더>] [--electron-dist=<electron dist 폴더> | --download-electron]
-//                                  [--stage-only] [--installtest]
-//   --installtest: 이름만 다른 '설치 시험판'(아래 INSTALLTEST)을 준비 폴더 out-installtest 에 굽는다 — 설치판이 깔렸거나 켜진 PC 에서 설치·제거 시험용.
+//                                  [--ffmpeg=<ffmpeg.exe>] [--private=<비공개 키 폴더>]
+//                                  [--electron-zip=<공식 zip>] [--electron-shasums=<SHASUMS256.txt>] [--electron-dist=<깨끗한 electron 폴더> | --download-electron]
+//                                  [--stage-only] [--installtest [--version=<x.y.z>]]
+//   --installtest: 이름만 다른 '설치 시험판'(아래 INSTALLTEST)을 준비 폴더 out-installtest 에 굽는다 — 설치판이 깔렸거나 켜진 PC 에서 설치·제거·업데이트 시험용.
+//   --version: 설치 시험판의 판만 바꿔 굽는다(업데이트 시험의 '새 판' — 정식은 desktop/package.json 을 올려 커밋한 뒤 굽는다).
+//   Electron: 기본은 캐시의 공식 zip 을 sha256 으로 확인해 새로 푼 것(아래 '깨끗한 Electron') — 개발판 dist 를 그대로 쓰지 않는다(debug.log·빠진 pak).
 //
 // 하는 일(차례대로):
 //  1) 커밋(--ref, 기본 HEAD)을 git archive 로 준비 폴더 src\ 에 꺼낸다 — 커밋 안 한 고침·Git 밖 파일(녹화 rec-*.json·메모·바로 가기)은 안 들어간다.
@@ -161,6 +164,95 @@ function builderConfig(o) {
   };
 }
 
+// ---------- 깨끗한 Electron(공식 zip) ----------
+// 개발판 desktop\node_modules\electron\dist 를 그대로 복사하면 개발판을 쓰며 생긴 debug.log 가 설치판에 들어가고(1.0.0 첫 빌드 검증에서 나옴),
+// 그 폴더엔 공식 zip 에 있는 chrome_100_percent.pak·chrome_200_percent.pak 도 빠져 있다. 그래서 기본은 Electron 캐시(%LOCALAPPDATA%\electron\Cache —
+// 개발판 설치 때 @electron/get 이 받아 둔 공식 zip)의 electron-v<판>-win32-x64.zip 을 sha256 으로 확인한 뒤 준비 폴더에 새로 풀어 쓴다(인터넷 안 씀).
+// 기준 sha256(공식 값): zip 옆 SHASUMS256.txt → 설치된 electron 꾸러미의 checksums.json → npm 캐시의 electron-<판>.tgz 안 checksums.json(꾸러미 sha512 확인)
+// → --electron-shasums=<SHASUMS256.txt 또는 checksums.json>. 못 찾으면 멈춘다(--electron-dist=<폴더> 또는 --download-electron 로만 다른 길).
+const ELECTRON_PAKS = ['chrome_100_percent.pak', 'chrome_200_percent.pak'];
+const electronZipName = (version) => `electron-v${version}-win32-x64.zip`;
+function electronCacheRoots() {
+  const out = [process.env.electron_config_cache, process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'electron', 'Cache')];
+  return out.filter(Boolean);
+}
+// 캐시 폴더(하위 폴더 한 단계 — @electron/get 은 주소 해시 폴더에 둔다)에서 zip 찾기
+function findElectronZip(version, roots) {
+  const name = electronZipName(version);
+  const isFile = (p) => { try { return fs.statSync(p).isFile(); } catch (e) { return false; } };
+  for (const r of roots) {
+    if (isFile(path.join(r, name))) return path.join(r, name);
+    let subs = []; try { subs = fs.readdirSync(r); } catch (e) { /* 캐시 없음 */ }
+    for (const sub of subs) if (isFile(path.join(r, sub, name))) return path.join(r, sub, name);
+  }
+  return null;
+}
+// SHASUMS256.txt 글 → 그 이름의 sha256(소문자) 또는 ''
+function shaFromShasums(text, name) {
+  for (const l of String(text).split(/\r?\n/)) { const m = /^([0-9a-fA-F]{64}) [ *](.+)$/.exec(l.trim()); if (m && m[2].trim() === name) return m[1].toLowerCase(); }
+  return '';
+}
+// tar(ustar) 버퍼에서 파일 하나 꺼내기
+function tarEntry(tar, want) {
+  for (let o = 0; o + 512 <= tar.length;) {
+    const h = tar.subarray(o, o + 512);
+    if (h.every((b) => b === 0)) break;
+    const str = (a, b) => h.toString('utf8', a, b).replace(/\0[\s\S]*$/, '');
+    const name = str(0, 100), prefix = str(345, 500), size = parseInt(str(124, 136).trim() || '0', 8);
+    if ((prefix ? prefix + '/' + name : name) === want) return tar.subarray(o + 512, o + 512 + size);
+    o += 512 + Math.ceil(size / 512) * 512;
+  }
+  return null;
+}
+// npm 캐시(cacache)의 electron-<판>.tgz → package/checksums.json(꾸러미 sha512 를 확인한 것만)
+function checksumsFromNpmCache(version, cacheDir) {
+  const key = `make-fetch-happen:request-cache:https://registry.npmjs.org/electron/-/electron-${version}.tgz`;
+  const h = crypto.createHash('sha256').update(key).digest('hex');
+  let lines;
+  try { lines = fs.readFileSync(path.join(cacheDir, '_cacache', 'index-v5', h.slice(0, 2), h.slice(2, 4), h.slice(4)), 'utf8').split('\n'); } catch (e) { return null; }
+  for (const l of lines.reverse()) {
+    let j; try { j = JSON.parse(l.slice(l.indexOf('\t') + 1)); } catch (e) { continue; }
+    if (!j || j.key !== key || !/^sha512-/.test(j.integrity || '')) continue;
+    const hex = Buffer.from(j.integrity.slice(7), 'base64').toString('hex');
+    let buf; try { buf = fs.readFileSync(path.join(cacheDir, '_cacache', 'content-v2', 'sha512', hex.slice(0, 2), hex.slice(2, 4), hex.slice(4))); } catch (e) { continue; }
+    if (crypto.createHash('sha512').update(buf).digest('hex') !== hex) continue;
+    const ent = tarEntry(require('zlib').gunzipSync(buf), 'package/checksums.json');
+    if (ent) { try { return JSON.parse(ent.toString('utf8')); } catch (e) { /* 다음 */ } }
+  }
+  return null;
+}
+// 공식 sha256 찾기 → { sha256, source } 또는 null
+function electronOfficialSha(version, zip, o = {}) {
+  const name = electronZipName(version);
+  const tryFile = (f, label) => {
+    try {
+      const t = fs.readFileSync(f, 'utf8');
+      const s = /^\s*\{/.test(t) ? String((JSON.parse(t) || {})[name] || '').toLowerCase() : shaFromShasums(t, name);
+      return /^[0-9a-f]{64}$/.test(s) ? { sha256: s, source: label + ': ' + f } : null;
+    } catch (e) { return null; }
+  };
+  return (o.shasums && tryFile(o.shasums, '--electron-shasums'))
+    || tryFile(path.join(path.dirname(zip), 'SHASUMS256.txt'), 'SHASUMS256.txt')
+    || (o.pkgDir && tryFile(path.join(o.pkgDir, 'checksums.json'), 'electron checksums.json'))
+    || (() => {
+      const dirs = [process.env.npm_config_cache, process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'npm-cache'), path.join(os.homedir(), '.npm')].filter(Boolean);
+      for (const d of dirs) { const j = checksumsFromNpmCache(version, d); const s = j && String(j[name] || '').toLowerCase(); if (/^[0-9a-f]{64}$/.test(s || '')) return { sha256: s, source: `npm 캐시 electron-${version}.tgz checksums.json (${d})` }; }
+      return null;
+    })();
+}
+// Electron 폴더 점검 — 판 파일·electron.exe·pak 둘 있음, 로그(*.log) 없음 → 어긋난 것 목록
+function electronDistProblems(dir, version) {
+  const bad = [];
+  let v = ''; try { v = fs.readFileSync(path.join(dir, 'version'), 'utf8').trim().replace(/^v/, ''); } catch (e) { /* 없음 */ }
+  if (v !== version) bad.push(`version 파일(${v || '없음'}) ≠ ${version}`);
+  if (!fs.existsSync(path.join(dir, 'electron.exe'))) bad.push('electron.exe 없음');
+  for (const p of ELECTRON_PAKS) if (!fs.existsSync(path.join(dir, p))) bad.push(p + ' 없음');
+  let names = []; try { names = fs.readdirSync(dir); } catch (e) { bad.push('폴더 없음'); }
+  const logs = names.filter((n) => /\.log$/i.test(n));
+  if (logs.length) bad.push('로그 파일: ' + logs.join(', '));
+  return bad;
+}
+
 // ---------- 실행 도우미 ----------
 const args = process.argv.slice(2);
 const opt = (k, d) => { const a = args.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
@@ -215,6 +307,9 @@ async function main() {
   const installtest = flag('installtest');
   const N = namesFor(installtest);
   if (work.toLowerCase().startsWith(ROOT.toLowerCase() + path.sep)) die('--work 는 저장소 밖이어야 합니다: ' + work);
+  // --version=<x.y.z> 는 설치 시험판만(업데이트 시험용 '판만 올린' 시험판 — 정식은 desktop/package.json 을 올려 커밋한 뒤 굽는다)
+  const verArg = opt('version', '');
+  if (verArg && !installtest) die('--version 은 --installtest(설치 시험판)에서만 씁니다 — 정식 판은 desktop/package.json version 을 올려 커밋한 뒤 굽습니다');
   if (installtest) log(`설치 시험판: 이름 '${N.productName}'·appId ${N.appId} — 앱 내용은 정식과 같음, --dist 로 복사 안 함`);
 
   // 1) 커밋 꺼내기
@@ -232,8 +327,9 @@ async function main() {
   fs.rmSync(tarFile, { force: true });
   const srcFiles = walk(srcDir);
   const deskPkg = JSON.parse(fs.readFileSync(path.join(srcDir, 'desktop', 'package.json'), 'utf8'));
-  const version = deskPkg.version;
-  if (!/^\d+\.\d+\.\d+$/.test(version || '')) die('desktop/package.json version 이 x.y.z 꼴이 아닙니다: ' + version);
+  // 판 = desktop/package.json version. --version=<x.y.z> 는 설치 시험판만(위에서 막음)
+  const version = verArg || deskPkg.version;
+  if (!/^\d+\.\d+\.\d+$/.test(version || '')) die('판이 x.y.z 꼴이 아닙니다: ' + version);
   if (deskPkg.productName !== PRODUCT_NAME) die(`desktop/package.json productName(${deskPkg.productName}) ≠ ${PRODUCT_NAME}`);
   log(`커밋 ${commit.slice(0, 7)} · 판 ${version} · 파일 ${srcFiles.length}개 꺼냄`);
 
@@ -281,13 +377,30 @@ async function main() {
   if (!fs.existsSync(nsh)) die('tools/installer/installer.nsh 가 커밋에 없습니다');
   let electronVersion = String((deskPkg.devDependencies || {}).electron || '').replace(/^[^\d]*/, '');
   let electronDist = opt('electron-dist', '');
-  const localDist = path.join(ROOT, 'desktop', 'node_modules', 'electron', 'dist');
-  try { electronVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'desktop', 'node_modules', 'electron', 'package.json'), 'utf8')).version || electronVersion; } catch (e) { /* 개발판 electron 없음 */ }
-  if (!electronDist && !flag('download-electron')) {
-    let v = ''; try { v = fs.readFileSync(path.join(localDist, 'version'), 'utf8').trim(); } catch (e) { /* 없음 */ }
-    if (v && v === electronVersion && fs.existsSync(path.join(localDist, 'electron.exe'))) electronDist = localDist;   // 개발판과 같은 Electron — 복사만(읽기)
-  }
+  const electronPkgDir = path.join(ROOT, 'desktop', 'node_modules', 'electron');
+  try { electronVersion = JSON.parse(fs.readFileSync(path.join(electronPkgDir, 'package.json'), 'utf8')).version || electronVersion; } catch (e) { /* 개발판 electron 없음 */ }
   if (!/^\d+\.\d+\.\d+$/.test(electronVersion)) die('Electron 판을 모릅니다: ' + electronVersion);
+  let electronSrc = null;   // 빌드 정보(.build.json)에 남길 Electron 출처
+  if (electronDist) {
+    const bad = electronDistProblems(electronDist, electronVersion);
+    if (bad.length) die(`--electron-dist 폴더가 깨끗하지 않습니다(${bad.join(' · ')}) — 빼면 Electron 캐시의 공식 zip 을 확인해 씁니다`);
+    electronSrc = { dir: electronDist };
+  } else if (!flag('download-electron')) {
+    const zip = opt('electron-zip', '') || findElectronZip(electronVersion, electronCacheRoots());
+    if (!zip) die(`Electron 캐시에 공식 ${electronZipName(electronVersion)} 이 없습니다(${electronCacheRoots().join(' · ')}) — --electron-zip=<파일>, --electron-dist=<깨끗한 폴더>, 또는 --download-electron`);
+    const want = electronOfficialSha(electronVersion, zip, { shasums: opt('electron-shasums', ''), pkgDir: electronPkgDir });
+    if (!want) die(`${path.basename(zip)} 의 공식 sha256 을 못 찾았습니다(SHASUMS256.txt·electron checksums.json·npm 캐시) — --electron-shasums=<SHASUMS256.txt>`);
+    const got = sha256(zip);
+    if (got !== want.sha256) die(`${zip} 의 sha256 이 공식 값과 다릅니다(${got.slice(0, 12)}… ≠ ${want.sha256.slice(0, 12)}…, 기준 ${want.source}) — 캐시를 지우고 다시 받으세요`);
+    electronDist = path.join(work, 'electron-dist');
+    fs.rmSync(electronDist, { recursive: true, force: true }); fs.mkdirSync(electronDist, { recursive: true });
+    const winTar2 = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+    run(process.platform === 'win32' && fs.existsSync(winTar2) ? winTar2 : 'tar', ['-xf', zip, '-C', electronDist]);
+    const bad = electronDistProblems(electronDist, electronVersion);
+    if (bad.length) die('공식 zip 을 푼 폴더가 이상합니다: ' + bad.join(' · '));
+    electronSrc = { zip, zipSha256: got, verifiedBy: want.source };
+    log(`Electron 공식 zip 확인(sha256 ${got.slice(0, 12)}… = ${want.source}) → ${electronDist}`);
+  }
   log(`Electron ${electronVersion} ${electronDist ? '← ' + electronDist : '(electron-builder 가 받음)'}`);
   const config = builderConfig({ appDir, outDir, resDir, version, electronVersion, electronDist: electronDist || null, nsh, installtest });
   fs.writeFileSync(path.join(work, 'builder-config.json'), JSON.stringify(config, null, 2));
@@ -309,6 +422,8 @@ async function main() {
   const bad2 = forbiddenIn(shipped);
   if (extra.length || gone.length || bad2.length) die(`asar 목록이 준비한 것과 다릅니다\n  더 들어감: ${extra.join(', ')}\n  빠짐: ${gone.join(', ')}\n  금지: ${bad2.join(', ')}`);
   if (!unpacked.includes('desktop/helper/ffmpeg.exe')) die('ffmpeg.exe 가 asar 밖에 없습니다');
+  const distBad = electronDistProblems(path.join(outDir, 'win-unpacked'), electronVersion).filter((m) => !/^version 파일|electron\.exe/.test(m));   // 구운 폴더(exe 이름은 제품 이름)
+  if (distBad.length) die('구운 앱 폴더가 깨끗하지 않습니다: ' + distBad.join(' · '));
   if (installtest) {
     log(`끝(설치 시험판) — ${setup} (${mb(fs.statSync(setup).size)}MB). 시험: "${exeName}" /S /D=<임시 폴더> → node tools/check-installed.cjs <임시 폴더> → "<임시 폴더>\\Uninstall ${N.productName}.exe" /S`);
     return;
@@ -317,7 +432,7 @@ async function main() {
   fs.copyFileSync(setup, path.join(distDir, exeName));
   const info = {
     product: PRODUCT_NAME, appId: APP_ID, version, commit, ref, builtAt: new Date().toISOString(),
-    electron: electronVersion, electronBuilder: BUILDER_VERSION, ffmpeg: ffLine, ffmpegSha256: sha256(ff),
+    electron: electronVersion, electronSource: electronSrc || 'electron-builder', electronBuilder: BUILDER_VERSION, ffmpeg: ffLine, ffmpegSha256: sha256(ff),
     setup: exeName, setupBytes: fs.statSync(setup).size, setupSha256: sha256(setup),
     files: { asar: inAsar.length, unpacked: unpacked.length }, privateKeys: PRIVATE_FILES.length,
   };
@@ -327,4 +442,5 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error('[build] 실패:', e && e.stack || e); process.exit(1); });
-module.exports = { APP_ID, PRODUCT_NAME, PACKAGE_NAME, ARTIFACT, INSTALLTEST, SUITE_FONTS, PRIVATE_FILES, REQUIRED, appFileFilter, forbiddenIn, missingRefs, builderConfig, namesFor };
+module.exports = { APP_ID, PRODUCT_NAME, PACKAGE_NAME, ARTIFACT, INSTALLTEST, SUITE_FONTS, PRIVATE_FILES, REQUIRED, ELECTRON_PAKS, appFileFilter, forbiddenIn, missingRefs, builderConfig, namesFor,
+  electronZipName, findElectronZip, shaFromShasums, tarEntry, checksumsFromNpmCache, electronOfficialSha, electronDistProblems };

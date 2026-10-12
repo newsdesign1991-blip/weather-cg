@@ -22,10 +22,17 @@ const TEST_SIZE = TEST_MODE ? /^(\d{3,4})x(\d{3,4})$/.exec(process.env.WCG_TEST_
 if (TEST_MODE) app.setPath('userData', path.join(require('os').tmpdir(), 'wcg-test-' + process.pid));
 const APP_HOST = 'weathercg';
 const APP_ORIGIN = `app://${APP_HOST}`;
-const EMBED_PORT = 3721;   // 내장 헬퍼
+// 판 갈래 — 앱 package.json 의 name(설치판 = resources\app.asar\package.json, 개발판 = desktop\package.json). 'installtest' = 이름만 다른 설치 시험판
+// (tools/build-installer.cjs --installtest — 사용자 설치판이 깔리고 켜진 PC 에서 설치·업데이트를 시험). 업데이트는 같은 갈래의 설치 파일만 받는다(desktop/updater.js).
+const APP_VARIANT = (() => { try { return require('./updater').variantOf(JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'package.json'), 'utf8')).name); } catch (e) { return ''; } })();
+// 설치 시험판은 업데이트 뒤 설치 프로그램이 점검 모드가 아닌 보통 실행으로 다시 켠다 — 사용자 앱과 부딪히지 않게 헬퍼는 빈 포트(대체 Python 헬퍼 없음),
+// 영상 프레임·타일 캐시는 따로 폴더(%LOCALAPPDATA%\WeatherCG-installtest). 사용자 데이터는 제품 이름이 달라 이미 따로(%APPDATA%\날씨 CG 설치시험).
+const INSTALL_TEST = app.isPackaged && APP_VARIANT === 'installtest';
+const EMBED_PORT = INSTALL_TEST ? 0 : 3721;   // 내장 헬퍼(0 = 빈 포트 — 웹앱은 preload 가 알려 준 주소를 쓴다)
 const EXT_PORT = 3720;     // 웹판 Python 헬퍼(대체용)
 const HELPER_VER = 20261009;
 const LAD = process.env.LOCALAPPDATA || app.getPath('temp');
+const LAD_APP = path.join(LAD, INSTALL_TEST ? 'WeatherCG-installtest' : 'WeatherCG');   // 영상 프레임·타일 캐시 자리
 const exists = (p) => { try { return !!p && fs.existsSync(p); } catch (e) { return false; } };
 // 설치판(tools/build-installer.cjs — electron-builder, asar)에서는 이 파일이 resources\app.asar\desktop 안에 있다.
 // 앱 파일 읽기(fs·app:// 서빙·preload·비공개 키)는 asar 안 그대로 되지만, 다른 프로그램이 쓰는 파일(ffmpeg 실행·AE용 SUITE 폰트 복사)은
@@ -36,7 +43,7 @@ const DESK_REAL = __dirname.replace(/([\\/])app\.asar(?=[\\/]|$)/i, '$1app.asar.
 const FFMPEG = [path.join(DESK_REAL, 'helper', 'ffmpeg.exe'), path.join(LAD, 'WNS_Helper', 'ffmpeg.exe'), 'R:\\[F]_Util\\WNS\\ffmpeg.exe'].find(exists) || 'ffmpeg';
 // SUITE 폰트 폴더 후보(helper.py 와 같은 목록) — 있는지는 AE 보낼 때 비동기로 본다(네트워크 경로로 시작이 멈추지 않게)
 const FONT_DIRS = require('./wns/find-tools').defaultFontsCandidates(DESK_REAL);
-const FRAMES_DIR = path.join(LAD, 'WeatherCG', 'frames');
+const FRAMES_DIR = path.join(LAD_APP, 'frames');
 // Python 헬퍼(대체용) 원본/실행 위치 — WNS_START.bat과 같은 방식
 const EXT_SRC_DIRS = [path.join(DESK_REAL, 'helper'), 'R:\\[F]_Util\\WNS'];
 // 설치판의 앱 ID — 설치 프로그램이 만든 바로 가기와 같은 값이어야 작업 표시줄에 고정한 아이콘과 실행 중인 창이 한 칸으로 묶인다.
@@ -110,8 +117,8 @@ async function startEmbeddedHelper() {
       ffmpegPath: FFMPEG, framesDir: FRAMES_DIR, fontsDirs: FONT_DIRS, helperVer: HELPER_VER,
       aeDryRun: false, log: (...a) => console.log('[wns]', ...a),
     });
-    await wns.listen(EMBED_PORT, '127.0.0.1');
-    helperUrl = `http://127.0.0.1:${EMBED_PORT}`; helperKind = 'embedded';
+    const port = await wns.listen(EMBED_PORT, '127.0.0.1');
+    helperUrl = `http://127.0.0.1:${port || EMBED_PORT}`; helperKind = 'embedded';
     return true;
   } catch (e) {
     console.log('[wns] 내장 헬퍼 시작 실패 → Python 헬퍼로 대체:', e && e.message);
@@ -180,6 +187,8 @@ function createWindow() {
   win.on('page-title-updated', (e) => e.preventDefault());   // 작업표시줄·Alt+Tab 창 이름은 늘 '날씨 CG' (웹 <title>로 안 바뀌게)
   win.on('closed', () => { if (wnuri && !wnuri.isDestroyed()) wnuri.destroy(); });   // 날씨누리 창이 남아 앱이 안 꺼지는 일 없게
   wireCloseGuard(win);   // 닫기 전 '저장하지 않은 변경' 묻기(아래)
+  // 앱 업데이트 — 웹앱이 뜰 때마다(첫 화면·새로고침) 아직 안 고른 새 판 알림을 다시 건넨다(그 사이 보낸 알림은 페이지가 바뀌며 사라질 수 있다)
+  win.webContents.on('did-finish-load', () => { const p = updater && updater.pending(); if (p && win && !win.isDestroyed()) win.webContents.send('wcg:update', p); });
   // 외부 링크(기상청·JTWC 등)는 기본 브라우저로
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) { shell.openExternal(url); return { action: 'deny' }; }
@@ -329,7 +338,7 @@ const { createTileCache } = require('./tile-cache');
 let tileCache = null;
 function tileCacheGet() {
   if (tileCache) return tileCache;
-  const base = TEST_MODE ? app.getPath('userData') : path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'WeatherCG');
+  const base = TEST_MODE ? app.getPath('userData') : path.join(process.env.LOCALAPPDATA || app.getPath('userData'), INSTALL_TEST ? 'WeatherCG-installtest' : 'WeatherCG');   // 설치 시험판은 따로(위 INSTALL_TEST)
   tileCache = createTileCache({ dir: path.join(base, 'tile-cache'), fetch: (u, init) => session.defaultSession.fetch(u, init) });
   return tileCache;
 }
@@ -409,6 +418,40 @@ ipcMain.on('wcg:close-reply', (e, d) => {
   closeGuard.onReply(d && d.id, d && d.act);
 });
 
+// ---------- 앱 업데이트(2026-10-12) ----------
+// 공유 폴더(기본 R:\[F]_Util\WNS\Ver — tools/publish-update.cjs 가 올림)의 latest.json 을 읽어 새 판이면 웹앱에 알리고('새 업데이트가 있습니다' — js/app-update.js),
+// [지금 설치]면 설치 파일을 %TEMP%\wcg-update 로 복사·확인한 뒤 조용히 실행하고 앱을 끈다(설치 프로그램이 같은 자리에 덮어 깔고 새 판을 다시 켠다).
+// 순서·검사는 desktop/updater.js. 저절로 확인은 설치판만 — 시험 폴더(WCG_UPDATE_DIR)를 주면 개발판·점검 모드에서도. 부르는 쪽은 메인 창 주 프레임만.
+// 저장 안 한 작업 묻기는 웹앱이 [지금 설치] 전에 한다(닫기 전 묻기와 같은 팝업). 여기서 끌 때는 닫기 전 묻기를 다시 거치지 않는다(closeGuard.release).
+const { createUpdater } = require('./updater');
+let updater = null;
+function startUpdater() {
+  if (updater) return;
+  updater = createUpdater({
+    current: app.getVersion(), variant: APP_VARIANT, packaged: app.isPackaged, testMode: TEST_MODE, env: process.env,
+    tempRoot: app.getPath('temp'), log: (m) => console.log('[update] ' + m),
+    notify: (info) => { if (win && !win.isDestroyed()) win.webContents.send('wcg:update', info); },
+    quitForInstall: () => { try { if (closeGuard) closeGuard.release(); } catch (e) { /* 창 없음 */ } app.quit(); },
+  });
+  updater.start();
+}
+ipcMain.handle('wcg:update-check', async (e) => {
+  if (!privateKeyCallerOk(e, win)) return { state: 'denied' };
+  startUpdater();
+  return updater.check(true);
+});
+ipcMain.handle('wcg:update-later', (e, v) => {
+  if (!privateKeyCallerOk(e, win) || !updater) return { ok: false };
+  return updater.later(String(v || ''));
+});
+ipcMain.handle('wcg:update-install', async (e, v) => {
+  if (!privateKeyCallerOk(e, win)) return { ok: false, err: 'denied' };
+  startUpdater();
+  const wc = e.sender;
+  return updater.install(String(v || ''), (got, total) => { try { if (!wc.isDestroyed()) wc.send('wcg:update-progress', { got, total }); } catch (err) { /* 창 닫힘 */ } });
+});
+ipcMain.handle('wcg:update-cancel', (e) => (privateKeyCallerOk(e, win) && updater ? updater.cancel() : false));
+
 // 보기 동작 — 메뉴(단축키 표시)와 위의 키 입력 처리가 같은 함수를 쓴다.
 const VIEW = {
   reload: () => win && win.webContents.reload(),
@@ -475,17 +518,19 @@ if (!TEST_MODE && !app.requestSingleInstanceLock()) {
     session.defaultSession.on('file-system-access-restricted', (_e, d, cb) => cb(fsPickAllowed(d && d.path) ? 'allow' : 'tryAgain'));   // 폴더 고르기 — 위 fsPickAllowed
     watchSavedPaths(session.defaultSession);   // 렌더 결과 '폴더 열기' — 저장한 경로 기록(위)
     // 점검 모드: 도구 경로를 한 줄로 알린다(설치판 점검기 tools/check-installed.cjs 가 asar 밖 ffmpeg·폰트 자리를 본다 — 경로만, 키 없음)
-    if (TEST_MODE) console.log('[wcg-paths] ' + JSON.stringify({ packaged: app.isPackaged, version: app.getVersion(), appDir: APP_DIR, ffmpeg: FFMPEG, fonts: FONT_DIRS[0] }));
-    if (TEST_MODE) { createWindow(); return; }   // 점검 모드: 헬퍼 없이 화면만
-    if (!(await startEmbeddedHelper())) {   // 내장 실패 → 웹판과 같은 Python 헬퍼를 켜서 쓴다
+    if (TEST_MODE) console.log('[wcg-paths] ' + JSON.stringify({ packaged: app.isPackaged, version: app.getVersion(), variant: APP_VARIANT, appDir: APP_DIR, ffmpeg: FFMPEG, fonts: FONT_DIRS[0] }));
+    if (TEST_MODE) { createWindow(); startUpdater(); return; }   // 점검 모드: 헬퍼 없이 화면만(업데이트는 시험 폴더 WCG_UPDATE_DIR 이 있을 때만)
+    if (!(await startEmbeddedHelper()) && !INSTALL_TEST) {   // 내장 실패 → 웹판과 같은 Python 헬퍼를 켜서 쓴다(설치 시험판은 안 켬 — 사용자 헬퍼·폴더를 건드리지 않게)
       helperUrl = `http://127.0.0.1:${EXT_PORT}`; helperKind = 'external';
       ensureExternalHelper().then((st) => console.log('[WNS helper]', st));
     }
     console.log('[WNS helper]', helperKind, helperUrl, 'ffmpeg=', FFMPEG);
     createWindow();
+    startUpdater();
   });
   app.on('window-all-closed', () => { app.quit(); });
   app.on('will-quit', () => {
+    try { updater && updater.stop(); } catch (e) {}
     try { wns && wns.close(); } catch (e) {}
     try { dataFetcher && dataFetcher.close(); } catch (e) {}
     stopOwnExternalHelper();

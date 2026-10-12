@@ -87,7 +87,7 @@ test('electron-builder 설정 — 이 사용자만·위치 고르기·바로 가
   assert.equal(nsh.charCodeAt(0), 0xFEFF, 'NSIS 가 한글 주석을 UTF-8 로 읽게 BOM');
   // 설치 끝·제거 때 설치 프로그램 사본(%LOCALAPPDATA%\…-updater\installer.exe)만 지운다 — 사용자 데이터(APPDATA)는 안 건드림, 폴더는 빈 것만
   assert.match(nsh, /!macro customInstall\n\s*!insertmacro wcgDropInstallerCopy\n!macroend/);
-  assert.match(nsh, /!macro customUnInstall\n\s*!insertmacro wcgDropInstallerCopy\n!macroend/);
+  assert.match(nsh, /!macro customUnInstall\n\s*!insertmacro wcgDropInstallerCopy\n\s*SetOutPath "\$TEMP"\n\s*RMDir "\$INSTDIR"\n!macroend/, '제거 뒤 빈 설치 폴더만 지움(작업 폴더를 옮긴 뒤, /r 아님)');
   assert.match(nsh, /Delete "\$LOCALAPPDATA\\\$\{APP_INSTALLER_STORE_FILE\}"/);
   assert.match(nsh, /RMDir "\$LOCALAPPDATA\\\$\{WCG_UPDATER_DIR\}"/);
   assert.doesNotMatch(nsh.split('\n').filter((l) => !/^\s*;/.test(l)).join('\n'), /\$APPDATA|RMDir \/r|delete-app-data/i);
@@ -135,7 +135,7 @@ test('main.js·preload — 앱 버전·설치판 여부를 웹앱에, 점검 모
   const line = mainJs.split('\n').find((l) => l.includes("'[wcg-paths] '"));
   assert.ok(line && /^\s*if \(TEST_MODE\) console\.log\(/.test(line), '점검 모드에서만');
   assert.doesNotMatch(line, /readDataPortalKey|readMapboxToken|dataPortalKey|mapbox/i);
-  assert.ok(mainJs.indexOf("'[wcg-paths] '") < mainJs.indexOf('if (TEST_MODE) { createWindow(); return; }'));
+  assert.ok(mainJs.indexOf("'[wcg-paths] '") < mainJs.indexOf('if (TEST_MODE) { createWindow(); startUpdater(); return; }'));
 });
 
 test('asarList — asar 머리(pickle + JSON)를 읽어 파일·asar 밖 표시', () => {
@@ -161,4 +161,89 @@ test('점검기·빌드 — 키 값을 출력하지 않는다(있음·길이만)
   assert.ok(kills.length >= 1);
   for (const l of kills) assert.match(l, /'\/PID', String\(proc\.pid\)/, '이름(/IM)으로 끄지 않는다: ' + l.trim());
   assert.doesNotMatch(bld, /readFileSync\(path\.join\(pdir/, '빌드는 키 파일을 복사만 한다(읽어서 찍지 않음)');
+});
+
+// ---------- 깨끗한 Electron(공식 zip) — 1.0.0 검증에서 나온 debug.log·빠진 pak ----------
+// 작은 ustar 만들기(시험용)
+function ustar(files) {
+  const bufs = [];
+  for (const [name, body] of Object.entries(files)) {
+    const h = Buffer.alloc(512);
+    h.write(name, 0, 'utf8');
+    h.write('0000644\0', 100); h.write('0000000\0', 108); h.write('0000000\0', 116);
+    h.write(body.length.toString(8).padStart(11, '0') + '\0', 124);
+    h.write('00000000000\0', 136); h.write('        ', 148); h.write('0', 156); h.write('ustar\0', 257); h.write('00', 263);
+    let sum = 0; for (const b of h) sum += b; h.write(sum.toString(8).padStart(6, '0') + '\0 ', 148);
+    bufs.push(h, body, Buffer.alloc((512 - (body.length % 512)) % 512));
+  }
+  bufs.push(Buffer.alloc(1024));
+  return Buffer.concat(bufs);
+}
+
+test('Electron 공식 zip — SHASUMS256 읽기·tar 꺼내기·npm 캐시 checksums.json(sha512 확인)·캐시 zip 찾기·기준 순서', () => {
+  const name = B.electronZipName('44.6.0');
+  assert.equal(name, 'electron-v44.6.0-win32-x64.zip');
+  const sha = 'ab'.repeat(32);
+  assert.equal(B.shaFromShasums(`${'cd'.repeat(32)} *electron-v44.6.0-darwin-x64.zip\r\n${sha.toUpperCase()} *${name}\n`, name), sha);
+  assert.equal(B.shaFromShasums('nothing', name), '');
+  const tar = ustar({ 'package/package.json': Buffer.from('{}'), 'package/checksums.json': Buffer.from(JSON.stringify({ [name]: sha })) });
+  assert.equal(B.tarEntry(tar, 'package/checksums.json').toString(), JSON.stringify({ [name]: sha }));
+  assert.equal(B.tarEntry(tar, 'package/nope'), null);
+  const t = fs.mkdtempSync(path.join(os.tmpdir(), 'wcg-ecache-'));
+  try {
+    // 가짜 npm 캐시(cacache): index-v5/<sha256(key)> 버킷 → content-v2/sha512/<무결성>
+    const tgz = require('zlib').gzipSync(tar);
+    const hex = require('crypto').createHash('sha512').update(tgz).digest('hex');
+    const key = 'make-fetch-happen:request-cache:https://registry.npmjs.org/electron/-/electron-44.6.0.tgz';
+    const kh = require('crypto').createHash('sha256').update(key).digest('hex');
+    const npmc = path.join(t, 'npm-cache');
+    fs.mkdirSync(path.join(npmc, '_cacache', 'index-v5', kh.slice(0, 2), kh.slice(2, 4)), { recursive: true });
+    fs.mkdirSync(path.join(npmc, '_cacache', 'content-v2', 'sha512', hex.slice(0, 2), hex.slice(2, 4)), { recursive: true });
+    fs.writeFileSync(path.join(npmc, '_cacache', 'content-v2', 'sha512', hex.slice(0, 2), hex.slice(2, 4), hex.slice(4)), tgz);
+    fs.writeFileSync(path.join(npmc, '_cacache', 'index-v5', kh.slice(0, 2), kh.slice(2, 4), kh.slice(4)), '\nx\t' + JSON.stringify({ key, integrity: 'sha512-' + Buffer.from(hex, 'hex').toString('base64') }));
+    assert.deepEqual(B.checksumsFromNpmCache('44.6.0', npmc), { [name]: sha });
+    assert.equal(B.checksumsFromNpmCache('44.6.1', npmc), null);
+    fs.appendFileSync(path.join(npmc, '_cacache', 'content-v2', 'sha512', hex.slice(0, 2), hex.slice(2, 4), hex.slice(4)), 'x');
+    assert.equal(B.checksumsFromNpmCache('44.6.0', npmc), null, '꾸러미 sha512 가 다르면 안 믿음');
+    // 캐시 zip 찾기(주소 해시 하위 폴더) + 옆 SHASUMS256.txt 가 먼저
+    const ec = path.join(t, 'electron-cache'), sub = path.join(ec, 'abc123');
+    fs.mkdirSync(sub, { recursive: true });
+    fs.writeFileSync(path.join(sub, name), 'zip');
+    assert.equal(B.findElectronZip('44.6.0', [path.join(t, 'none'), ec]), path.join(sub, name));
+    assert.equal(B.findElectronZip('44.6.9', [ec]), null);
+    fs.writeFileSync(path.join(sub, 'SHASUMS256.txt'), `${sha} *${name}\n`);
+    assert.equal(B.electronOfficialSha('44.6.0', path.join(sub, name), {}).sha256, sha);
+    assert.match(B.electronOfficialSha('44.6.0', path.join(sub, name), {}).source, /SHASUMS256\.txt/);
+    const cj = path.join(t, 'checksums.json'); fs.writeFileSync(cj, JSON.stringify({ [name]: 'ef'.repeat(32) }));
+    assert.equal(B.electronOfficialSha('44.6.0', path.join(sub, name), { shasums: cj }).sha256, 'ef'.repeat(32), '--electron-shasums 가 먼저');
+  } finally { fs.rmSync(t, { recursive: true, force: true }); }
+});
+
+test('Electron 폴더 점검 — 판 파일·electron.exe·pak 둘·로그 없음, 빌드는 공식 zip 을 확인해 풀고 구운 폴더도 다시 본다', () => {
+  assert.deepEqual(B.ELECTRON_PAKS, ['chrome_100_percent.pak', 'chrome_200_percent.pak']);
+  const t = fs.mkdtempSync(path.join(os.tmpdir(), 'wcg-edist-'));
+  try {
+    fs.writeFileSync(path.join(t, 'version'), '44.6.0');
+    fs.writeFileSync(path.join(t, 'electron.exe'), 'x');
+    for (const p of B.ELECTRON_PAKS) fs.writeFileSync(path.join(t, p), 'x');
+    assert.deepEqual(B.electronDistProblems(t, '44.6.0'), []);
+    fs.writeFileSync(path.join(t, 'debug.log'), 'x');
+    fs.rmSync(path.join(t, 'chrome_200_percent.pak'));
+    assert.deepEqual(B.electronDistProblems(t, '44.6.0'), ['chrome_200_percent.pak 없음', '로그 파일: debug.log']);
+    assert.deepEqual(B.electronDistProblems(t, '44.6.1').slice(0, 1), ['version 파일(44.6.0) ≠ 44.6.1']);
+  } finally { fs.rmSync(t, { recursive: true, force: true }); }
+  const bld = fs.readFileSync(path.join(root, 'tools', 'build-installer.cjs'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(bld, /if \(got !== want\.sha256\) die\(/, 'sha256 이 공식 값과 다르면 멈춤');
+  assert.match(bld, /const distBad = electronDistProblems\(path\.join\(outDir, 'win-unpacked'\)/, '구운 폴더도 다시 점검');
+  assert.doesNotMatch(bld, /electronDist = localDist/, '개발판 dist 를 그대로 쓰지 않는다');
+  const chk = fs.readFileSync(path.join(root, 'tools', 'check-installed.cjs'), 'utf8');
+  assert.match(chk, /설치판에 로그 파일이 담김/);
+  assert.match(chk, /Electron pak 이 빠짐/);
+});
+
+test('--version 은 설치 시험판만 — 정식에 주면 굽기 전에 멈춤', () => {
+  const r = spawnSync(process.execPath, [path.join(root, 'tools', 'build-installer.cjs'), '--version=9.9.9', '--stage-only', '--work=' + path.join(os.tmpdir(), 'wcg-ver-guard-' + process.pid)], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /--version 은 --installtest\(설치 시험판\)에서만/);
+  assert.ok(!fs.existsSync(path.join(os.tmpdir(), 'wcg-ver-guard-' + process.pid, 'src')), '아무것도 꺼내지 않음');
 });

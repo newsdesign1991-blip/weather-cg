@@ -40,6 +40,16 @@
   html[data-theme="light"] .helperRow,
   html[data-theme="light"] .helperRow.static:hover { color: color-mix(in srgb, var(--on-surface) 75%, var(--surface-hi)); }
   html[data-theme="light"] .helperRow:not(.static):hover { color: var(--on-surface); }
+  /* 맨 아래 줄 = 상태 한 줄(.helperRow — 앱 판) + 오른쪽 '업데이트 확인'(데스크톱만 — js/app-update.js). 버튼이 숨으면 상태 줄이 줄 전체 */
+  .helperLine { display: flex; align-items: stretch; gap: 6px; margin-top: 12px; }
+  .helperLine > .helperRow { margin-top: 0; flex: 1 1 auto; width: auto; min-width: 0; }
+  .updCheck {
+    flex: none; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 10px; cursor: pointer; white-space: nowrap;
+    background: var(--surface-hi); border: 1px solid var(--outline-var); color: var(--on-surface); font-size: 12px; font-weight: 700; letter-spacing: -.01em;
+  }
+  .updCheck:hover { background: var(--btn-hover); }
+  .updCheck:disabled { opacity: .6; cursor: default; }
+  .updCheck[hidden] { display: none; }
 
   /* ===== 떼어낸 창 (포토샵식) =====
      .sec 노드를 '그대로 옮겨' 담는다. 다시 만들면 지금까지 연결한 핸들러가 전부 끊어진다. */

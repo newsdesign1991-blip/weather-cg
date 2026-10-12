@@ -126,12 +126,12 @@
 <link rel="stylesheet" href="css/start-tour.css?v=87e8f3ff">
 <link rel="stylesheet" href="css/cg-setup.css?v=7c445748">
 <link rel="stylesheet" href="css/export-dialog.css?v=580f4b9c">
-<link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
+<link rel="stylesheet" href="css/menus-windows.css?v=f2b6e81b">
 <link rel="stylesheet" href="css/timeline.css?v=2c679cec">
 <link rel="stylesheet" href="css/dialogs.css?v=3f11d014">
 <link rel="stylesheet" href="css/panel-misc.css?v=df9eac86">
 <link rel="stylesheet" href="css/data-maps.css?v=11a3cd7a">
-<link rel="stylesheet" href="css/toss-modal.css?v=d7b07c1c">
+<link rel="stylesheet" href="css/toss-modal.css?v=e6716db9">
 <link rel="stylesheet" href="css/dropdown.css?v=fba3cc7e">
 <link rel="stylesheet" href="css/date-picker.css?v=55ed447a">
 <link rel="stylesheet" href="css/busy-fx.css?v=89c40212">
@@ -1097,7 +1097,11 @@
           <div class="btns"><button id="exportSettings" title="API 키·Mapbox 주소·태풍 이름·배치·슬롯·이어하던 작업을 파일 하나로 저장">설정 내보내기</button><button id="importSettings" title="내보낸 설정 파일을 이 앱에 그대로 넣고 새로고침">설정 가져오기</button></div>
           <p class="hint">웹판과 데스크톱 앱은 저장 공간이 따로입니다. 한쪽에서 <b>내보내기</b> → 다른 쪽에서 <b>가져오기</b>하면 API 키·배치·이어하던 작업이 그대로 옮겨집니다.</p>
         </div>
+        <!-- 맨 아래 줄: 앱 판·기능 확장팩 상태 + 오른쪽 '업데이트 확인'(데스크톱만 보임 — js/app-update.js updWire·updCheckNow) -->
+        <div class="helperLine">
         <button type="button" class="helperRow static" id="helperRow" data-st="" aria-disabled="true"><span class="hrDot" aria-hidden="true"></span><span class="hrText">기능 확장팩 확인 중…</span><svg class="hrGo" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg></button>
+        <button type="button" class="updCheck" id="updCheck" hidden title="공유 폴더에 새 판이 올라왔는지 지금 확인합니다">업데이트 확인</button>
+        </div>
       </div>
     </div>
 
@@ -1589,4 +1593,5 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/timeline-input.js?v=22cf7021"></script>
 <script src="js/floating-panels.js?v=2c3d98f7"></script>
 <script src="js/tour.js?v=031b7a02"></script>
-<script src="js/boot.js?v=e886a49c"></script>
+<script src="js/app-update.js?v=d191d468"></script>
+<script src="js/boot.js?v=0317a932"></script>

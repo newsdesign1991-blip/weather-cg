@@ -37,6 +37,12 @@
 !macro customInstall
   !insertmacro wcgDropInstallerCopy
 !macroend
+; 3) 제거 뒤 빈 설치 폴더 지우기 — 지우기 프로그램의 un.onInit 이 SetOutPath $INSTDIR 로 그 폴더를 자기 작업 폴더로 잡아 두어,
+;    템플릿의 RMDir /r $INSTDIR 이 안의 파일만 지우고 폴더 자체는 못 지웠다(조용한 제거 뒤 빈 폴더가 남음 — 1.0.0 검증).
+;    작업 폴더를 임시 폴더로 옮긴 뒤 '비어 있을 때만' 지운다(/r 아님 — 사용자가 넣어 둔 파일이 있으면 그대로). 업데이트(덮어 설치) 중에는
+;    설치 프로그램이 그 폴더를 작업 폴더로 잡고 있어 안 지워지거나, 지워져도 곧바로 다시 만든다.
 !macro customUnInstall
   !insertmacro wcgDropInstallerCopy
+  SetOutPath "$TEMP"
+  RMDir "$INSTDIR"
 !macroend

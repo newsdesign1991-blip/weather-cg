@@ -117,7 +117,8 @@ desktop/            데스크톱 앱(Electron 껍데기 + 내장 헬퍼 wns/) �
 | 44 | `js/timeline-input.js` | 420 | 타임라인 조작: 막대·키 끌기(프레임·스냅·다중 선택), 스크럽·줌·스크롤, 이름 열 숫자 끌기·키 내비게이터, 키보드 단축키·패널 포커스, Alt 카메라 자동 키 | `tlWire` `tlKeydown` `tlOwnsKeys` `tlCamKeyAt` `tlCamAutoKey` |
 | 45 | `js/floating-panels.js` | 670 | 떼어낸 창, 패널 크기, 레이아웃, **제목줄 메뉴(추출·프로젝트·설정(렌치))**, 시작 화면 | `popOut` `dockSec` `loadLayout` `setupMenus` `setupStartScreen` `showStartScreen` |
 | 46 | `js/tour.js` | 200 | 둘러보기(온보딩 투어) | `tourOpen` `tourGo` `wireTour` |
-| 47 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
+| 47 | `js/app-update.js` | 190 | **앱 업데이트**(데스크톱, 10-12 — 10장 '앱 업데이트'): 메인이 새 판을 알리면(preload `onUpdate`) '새 업데이트가 있습니다' 토스 팝업(판·지금 판·크기·올린 날 알약, 바뀐 점, [나중에]·[지금 설치] — 렌더·이미지 추출·AE 보내는 중이거나 다른 토스 팝업이 떠 있으면 끝난 뒤 `updTryShow`), [나중에]·닫기 = `updateLater`(이번 실행 동안 그 판은 저절로 다시 안 뜸), [지금 설치] = 닫기 전 묻기 `closeAsk` 그대로(`updAskSave` — 저장/저장 안 함/취소) → 받기 진행 막대·[취소] → 결과(성공 = 곧 앱이 꺼짐, 실패 = 같은 팝업에 까닭 `updErrText` + [다시 확인]), 설정(렌치) 메뉴 맨 아래 줄 오른쪽 [업데이트 확인](`#updCheck` — 데스크톱만, `updCheckNow` → 결과 알림 `updResultView`). 배선 `updWire`(boot.js) | `updWire` `updShow` `updCheckNow` `updInstall` `updAskSave` `updResultView` `updErrText` |
+| 48 | `js/boot.js` | 119 | 파일 끌어다 놓아 열기 + **앱 부팅 순서**(build·wire·loadLayout·renderAll, 이어 열기, 자동 저장 타이머) — **반드시 마지막** | `setupDropOpen` + 부팅 문장, `work` `freshOpen` `pendingStart` |
 
 경계 조정(2026-10-08, 코드 무변경 — 이어 붙인 텍스트는 그대로): 처음 분할의 `cg-setup.js` 뒤쪽(팝업 닫힘 애니메이션·토스 카드 모달)을
 `notices.js` 앞에 붙여 `modals-notices.js`로, `export-video.js`의 `ALL_LAYERS`부터 끝을 `export-blobs.js`로, `forecast-panel.js`의

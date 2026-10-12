@@ -152,7 +152,7 @@ test('배선 — main.js: 메인 창 주 프레임만·LOCALAPPDATA\\WeatherCG\\
   const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
   const h = main.slice(main.indexOf("ipcMain.handle('wcg:tile-get'"));
   assert.match(h, /^ipcMain\.handle\('wcg:tile-get', \(e, u\) => \{\r?\n {2}if \(!jtwcCallerOk\(e\)\) return \{ ok: false, err: 'denied', detail: 'sender' \};/);
-  assert.match(main, /path\.join\(process\.env\.LOCALAPPDATA \|\| app\.getPath\('userData'\), 'WeatherCG'\)/);
+  assert.match(main, /path\.join\(process\.env\.LOCALAPPDATA \|\| app\.getPath\('userData'\), INSTALL_TEST \? 'WeatherCG-installtest' : 'WeatherCG'\)/);   // 설치 시험판만 따로(업데이트 시험 — 10-12)
   assert.match(main, /TEST_MODE \? app\.getPath\('userData'\)/);
   assert.match(main, /fetch: \(u, init\) => session\.defaultSession\.fetch\(u, init\)/);   // 웹앱과 같은 프록시·프록시 로그인
   const pre = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
