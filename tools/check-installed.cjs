@@ -80,6 +80,14 @@ async function main() {
   if (!out.ffmpeg.runs) fail('asar 밖 ffmpeg.exe 를 실행하지 못함');
   out.fonts = SUITE_FONTS.filter((f) => fs.existsSync(path.join(unp, 'fonts', f))).length;
   if (out.fonts !== SUITE_FONTS.length) fail('asar 밖 SUITE 폰트가 모자람: ' + out.fonts);
+  // Electron 파일 — 공식 zip 의 chrome_100/200_percent.pak 이 있고, 빌드 때 섞여 들어온 로그(debug.log 등)가 없는지.
+  // 앱을 켜며 생긴 로그(app.asar 보다 새것)는 담긴 것이 아니라 알림만(점검을 두 번 돌려도 같은 답)
+  const { ELECTRON_PAKS } = require('./build-installer.cjs');
+  const asarMs = fs.statSync(asarFile).mtimeMs;
+  const logs = fs.readdirSync(dir).filter((n) => /\.log$/i.test(n)).map((n) => ({ n, shipped: fs.statSync(path.join(dir, n)).mtimeMs <= asarMs + 60000 }));
+  out.electronFiles = { paks: ELECTRON_PAKS.filter((p) => fs.existsSync(path.join(dir, p))), shippedLogs: logs.filter((l) => l.shipped).map((l) => l.n), runtimeLogs: logs.filter((l) => !l.shipped).map((l) => l.n) };
+  if (out.electronFiles.paks.length !== ELECTRON_PAKS.length) fail('Electron pak 이 빠짐: ' + ELECTRON_PAKS.filter((p) => !out.electronFiles.paks.includes(p)).join(', '));
+  if (out.electronFiles.shippedLogs.length) fail('설치판에 로그 파일이 담김: ' + out.electronFiles.shippedLogs.join(', '));
 
   // 2) 노드 모드 — 설치된 exe 로 asar 안 모듈을 그대로 불러 본다
   const probe = path.join(os.tmpdir(), `wcg-installed-probe-${process.pid}.cjs`);

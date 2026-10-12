@@ -2,7 +2,7 @@
 
 이 앱(날씨 CG 메이커)은 2026-10-08부터 **기능별 파일로 나뉘어 있다.** 먼저 [`MODULES.md`](MODULES.md)를 읽을 것.
 
-- 로직은 `js/*.js`(46개), 스타일은 `css/*.css`(16개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
+- 로직은 `js/*.js`(48개), 스타일은 `css/*.css`(16개)에 있다. `index.html`은 head 인라인·마크업·데이터 스크립트와 태그뿐이다.
   `index.html`에서 함수 본문을 찾지 말고 `grep -nE "^(async )?function 이름\b|^(const|let) 이름\b" js/*.js`로 찾는다.
 - `<script>`/`<link>` 태그 순서 변경, `defer`/`async`/`type="module"` 추가 금지. 순서 = 로드 순서 = 덮어쓰기 우선순위.
   기존 파일의 순서는 바꾸지 않는다(테스트가 고정 목록과 비교한다). 새 파일은 사이에 끼워 넣기만 하고, 그때 MODULES.md 표에 행을 하나 넣는다.
@@ -32,6 +32,10 @@
   로컬 커밋은 경로를 적어서(`-A` 금지), `index.html`·`js/`·`css/`를 한 커밋에 함께. 설치판 제작을 요청받으면 비공개 키 파일도 로컬 빌드에 포함하되 Git 추적에는 넣지 않는다.
   설치판은 `node tools/build-installer.cjs`(커밋을 굽는다 — 판은 `desktop/package.json` version, 키·ffmpeg는 빌드가 담음) → `node tools/check-installed.cjs <폴더>`가 `"ok": true` (MODULES.md 10장 '설치판 만들기').
   appId·제품 이름 '날씨 CG'·설치 폴더 이름은 바꾸지 않는다(바꾸면 기존 설치판 위에 안 올라가고, 사용자 데이터 폴더가 바뀐다). 빌드 도구는 저장소 밖에 — `desktop\node_modules`에 설치하지 않는다.
+  **앱 업데이트**(10-12): 새 판 = 판 올려 커밋 → 굽기 → 점검 → `node tools/publish-update.cjs --note="바뀐 점"…`(업데이트 폴더 `R:\[F]_Util\WNS\Ver` — **사람이 확인한 뒤에만**). 앱(`desktop/updater.js`·`js/app-update.js`)이 `latest.json`을 보고 알림·조용히 덮어 설치한다(MODULES.md 10장 '앱 업데이트').
+  설정(렌치) 메뉴 = '앱 업데이트'(지금 판·새 판 바뀐 점·[업데이트하기]·업데이트 내역·이전 판으로 되돌리기 — `latest.json`의 `history`와 업데이트 폴더에 남은 옛 설치 파일 5개). 새 판이면 렌치가 깜빡인다.
+  '배치'·'설정 옮기기' 묶음은 메뉴에서만 숨겼다(`hidden` — 버튼 id·연결은 지우지 말 것).
+  설치·업데이트 시험은 설치 시험판(`--installtest`, 새 판은 `--version=`)과 임시 폴더(`WCG_UPDATE_DIR`·`publish-update --dir=`)로만 — 실제 `Ver` 폴더·사용자 설치판·그 데이터는 건드리지 않는다(`desktop/test/update-e2e-check.cjs`).
 - 디버그 eval·콘솔은 `(() => { … })()`로 감싸고 앱 전역(`S` `sel` `mode` …)에 대입하지 않는다(자동 저장으로 실제 작업에 남는다).
 - 헬퍼(기능 확장팩) 동작을 바꿀 때:
   - Python 헬퍼 **원본은 저장소 밖 `R:\[F]_Util\WNS\_src\helper.py`**다. 저장소의 `tools/wns-helper/helper.py`는 2026-07 옛 사본이니 고치지 않는다.

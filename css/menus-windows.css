@@ -40,6 +40,74 @@
   html[data-theme="light"] .helperRow,
   html[data-theme="light"] .helperRow.static:hover { color: color-mix(in srgb, var(--on-surface) 75%, var(--surface-hi)); }
   html[data-theme="light"] .helperRow:not(.static):hover { color: var(--on-surface); }
+  /* 맨 아래 줄 = 상태 한 줄(.helperRow — 앱 판·기능 확장팩). ('업데이트 확인'은 10-12에 위 '앱 업데이트' 묶음의 [다시 확인]으로 옮김) */
+  .helperLine { display: flex; align-items: stretch; gap: 6px; margin-top: 12px; }
+  .helperLine > .helperRow { margin-top: 0; flex: 1 1 auto; width: auto; min-width: 0; }
+  .updCheck {
+    flex: none; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 10px; cursor: pointer; white-space: nowrap;
+    background: var(--surface-hi); border: 1px solid var(--outline-var); color: var(--on-surface); font-size: 12px; font-weight: 700; letter-spacing: -.01em;
+  }
+  .updCheck:hover { background: var(--btn-hover); }
+  .updCheck:disabled { opacity: .6; cursor: default; }
+  .updCheck[hidden] { display: none; }
+  /* 숨긴 묶음(배치·설정 옮기기 — 10-12, 앱 업데이트 — 웹판)은 확실히 숨김(.cfgGroup 에 display 를 주는 규칙이 생겨도) */
+  .cfgGroup[hidden] { display: none; }
+
+  /* ===== 앱 업데이트(설정 메뉴 맨 위 — js/app-update.js updMenuHTML, 10-12) =====
+     지금 판 카드(판·상태 알약·새 판이면 바뀐 점과 [업데이트하기]·확인 시각과 [다시 확인]) → 업데이트 내역(길면 이 안에서 스크롤) → 이전 판으로 되돌리기 */
+  .updNow { padding: 11px 12px; border-radius: 12px; background: var(--surface-hi); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .updNowRow { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .updNowLbl { font-size: 12px; color: var(--pop-muted); }
+  .updNowVer { font-size: 15px; font-weight: 800; color: var(--on-surface); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .updDev { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--pop-muted); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .updPill {
+    margin-left: auto; flex: none; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; white-space: nowrap;
+    background: color-mix(in srgb, var(--on-surface) 8%, transparent); color: var(--pop-muted);
+  }
+  .updPill[data-tone="new"], .updTag[data-tone="new"] { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); }
+  .updPill[data-tone="ok"], .updTag[data-tone="cur"] { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .updPill[data-tone="warn"] { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
+  .updNewBox { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--outline-var); }
+  .updNewHead { display: flex; align-items: baseline; gap: 7px; margin-bottom: 3px; }
+  .updNewHead b { font-size: 13px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .updNewHead span, .updHistDate, .updRbTxt span { font-size: 11.5px; color: var(--pop-muted); font-variant-numeric: tabular-nums; }
+  .updList { margin: 2px 0 0; padding-left: 17px; font-size: 12.5px; line-height: 1.5; color: var(--on-surface); }
+  .updNewBox .btns { margin-top: 10px; }
+  .updEmpty { margin: 2px 0 0; font-size: 12px; color: var(--pop-muted); }
+  .updNow .updNote { margin: 8px 0 0; }
+  .updNowFoot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .updWhen { flex: 1; min-width: 0; font-size: 11.5px; color: var(--pop-muted); font-variant-numeric: tabular-nums; }
+  .updNowFoot .updCheck { height: 28px; background: var(--surface-c); }
+  .updNowFoot .updCheck:hover { background: var(--btn-hover); }
+  /* 업데이트 내역 — 최근 판부터, 길면 이 안에서 스크롤(메뉴 전체가 길어지지 않게) */
+  .updHist { max-height: 196px; overflow-y: auto; overscroll-behavior: contain; margin-right: -6px; padding-right: 6px; }
+  .updHist::-webkit-scrollbar { width: 8px; }
+  .updHist::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
+  .updHistItem { padding: 8px 0; }
+  .updHistItem:first-child { padding-top: 0; }
+  .updHistItem + .updHistItem { border-top: 1px dashed var(--outline-var); }
+  .updHistHead { display: flex; align-items: center; gap: 6px; }
+  .updHistHead b { font-size: 12.5px; font-weight: 800; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+  .updHistDate { margin-left: auto; }
+  .updTag { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; }
+  .updHist .updList { font-size: 12px; color: color-mix(in srgb, var(--on-surface) 82%, transparent); }
+  /* 이전 판으로 되돌리기 — 판 한 줄 + [이 판으로 설치] */
+  .updRb { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .updRbRow { display: flex; align-items: center; gap: 8px; padding: 6px 7px 6px 11px; border-radius: 10px; background: var(--surface-hi); box-shadow: inset 0 0 0 1px var(--outline-var); }
+  .updRbTxt { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+  .updRbTxt b { font-size: 13px; font-weight: 800; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+  .updRbRow button { flex: none; padding: 5px 10px; font-size: 12px; }
+  .updRb + .updEmpty, .cfgGroup .hint + .updEmpty { margin-top: 6px; }
+
+  /* 새 판이 있으면 렌치가 숨 쉬듯(2.6초) 파랗게 + 오른쪽 위 작은 파란 점(js/app-update.js updBadge — 메뉴를 열어 보면 그 판에선 멈춤).
+     움직임 줄이기 설정이면 점만. (빨간 점 .hasNew 는 웹판 기능 확장팩 구버전 — 데스크톱에선 안 뜬다) */
+  #titlebar #helperBtn.updNew { animation: updBreath 2.6s ease-in-out infinite; }
+  #titlebar #helperBtn.updNew::after {
+    content: ''; position: absolute; top: 2px; right: 2px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--primary); border: 1.5px solid var(--surface);
+  }
+  @keyframes updBreath { 50% { color: var(--primary); background: color-mix(in srgb, var(--primary) 17%, transparent); } }
+  @media (prefers-reduced-motion: reduce) { #titlebar #helperBtn.updNew { animation: none; } }
 
   /* ===== 떼어낸 창 (포토샵식) =====
      .sec 노드를 '그대로 옮겨' 담는다. 다시 만들면 지금까지 연결한 핸들러가 전부 끊어진다. */

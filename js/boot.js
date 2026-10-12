@@ -163,6 +163,8 @@ if (tourWillOpen) setTimeout(() => tourOpen(false), 650);
 setTimeout(checkNoticeOnBoot, tourWillOpen ? 1500 : 600);
 // 구버전 헬퍼면 렌치(설정) 버튼에 빨간 점(웹판만) + 세션 첫 회 안내(공지 팝업 뒤에 오도록 조금 더 늦춤)
 setTimeout(checkHelperFreshOnBoot, tourWillOpen ? 2400 : 1300);
+// 앱 업데이트(데스크톱 — js/app-update.js): 설정 메뉴 '업데이트 확인'(데스크톱만 보임) + 메인이 새 판을 알리면 팝업(렌더·다른 팝업 뒤에). 웹판·옛 데스크톱은 아무것도 안 함
+updWire();
 
 // 1.5초마다 + 창 닫을 때 자동 저장 (바뀐 게 있을 때만 쓴다)
 setInterval(() => { if (!brushStroke) saveWork(); if (typeof tlCheckRows === 'function') tlCheckRows(); }, 1500);   // 브러쉬 드래그 중엔 건너뛴다(손 떼면 저장). 타임라인은 행 구성만 확인(가속 미리보기는 건드리지 않음)

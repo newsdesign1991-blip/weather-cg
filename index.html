@@ -126,12 +126,12 @@
 <link rel="stylesheet" href="css/start-tour.css?v=87e8f3ff">
 <link rel="stylesheet" href="css/cg-setup.css?v=7c445748">
 <link rel="stylesheet" href="css/export-dialog.css?v=580f4b9c">
-<link rel="stylesheet" href="css/menus-windows.css?v=47dcacf5">
+<link rel="stylesheet" href="css/menus-windows.css?v=22bf904c">
 <link rel="stylesheet" href="css/timeline.css?v=2c679cec">
 <link rel="stylesheet" href="css/dialogs.css?v=3f11d014">
 <link rel="stylesheet" href="css/panel-misc.css?v=df9eac86">
 <link rel="stylesheet" href="css/data-maps.css?v=11a3cd7a">
-<link rel="stylesheet" href="css/toss-modal.css?v=d7b07c1c">
+<link rel="stylesheet" href="css/toss-modal.css?v=e95c6e8c">
 <link rel="stylesheet" href="css/dropdown.css?v=fba3cc7e">
 <link rel="stylesheet" href="css/date-picker.css?v=55ed447a">
 <link rel="stylesheet" href="css/busy-fx.css?v=89c40212">
@@ -179,8 +179,8 @@
     <button id="noticeBtn" class="tourInfoBtn" title="공지사항 — 업데이트·안내 모아보기" aria-label="공지사항">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 002.4-2.2H9.6A2.4 2.4 0 0012 22zm6.3-6.1V11a6.3 6.3 0 00-4.8-6.12V4.2a1.5 1.5 0 10-3 0v.68A6.3 6.3 0 005.7 11v4.8L4 17.6v.9h16v-.9l-1.7-1.7z"/></svg>
     </button>
-    <!-- 설정(렌치) — 누르면 아래에 '배치 · 설정 옮기기' 드롭다운(data-sec="cfg"). id는 옛 기능 확장팩 버튼 그대로 둔다 -->
-    <button id="helperBtn" class="menuBtn tourInfoBtn" data-menu="cfg" aria-haspopup="true" title="설정 — 배치·설정 옮기기" aria-label="설정 — 배치·설정 옮기기">
+    <!-- 설정(렌치) — 누르면 아래에 '앱 업데이트' 드롭다운(data-sec="cfg"). 새 판이 있으면 숨 쉬듯 깜빡 + 작은 점(.updNew — js/app-update.js). id는 옛 기능 확장팩 버튼 그대로 둔다 -->
+    <button id="helperBtn" class="menuBtn tourInfoBtn" data-menu="cfg" aria-haspopup="true" title="설정 — 앱 업데이트" aria-label="설정 — 앱 업데이트">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
     </button>
     </span>
@@ -1081,23 +1081,32 @@
       </div>
     </div>
 
-    <!-- 설정(렌치) — 제목줄 오른쪽 끝 렌치 버튼(#helperBtn, data-menu="cfg")의 드롭다운. 배치 지정하기·기본값 굽기·설정 옮기기 + 기능 확장팩 상태 한 줄.
-         버튼 id·핸들러는 예전 자리(프로젝트 메뉴·사이드바 맨 아래) 그대로 — 요소만 옮겼다(wire()·setupMenus가 id로 연결). -->
+    <!-- 설정(렌치) — 제목줄 오른쪽 끝 렌치 버튼(#helperBtn, data-menu="cfg")의 드롭다운. 앱 업데이트(데스크톱만) + 기능 확장팩 상태 한 줄.
+         '배치'·'설정 옮기기' 묶음은 2026-10-12 사용자 요청('지금은 필요 없음')으로 메뉴에서만 뺐다 — hidden 만 지우면 그대로 돌아온다
+         (버튼 id·핸들러는 그대로 — wire()·setupMenus가 id로 연결하니 지우지 말 것). -->
     <div class="sec pinned" data-sec="cfg">
       <h3>설정</h3>
       <div class="body">
-        <div class="cfgGroup" id="cfgPresetGroup">
+        <!-- 앱 업데이트 — 지금 판·상태·새 판의 바뀐 점·[업데이트하기]·업데이트 내역·이전 판으로 되돌리기. 안은 js/app-update.js updMenuHTML 이 그린다(데스크톱만 보임 — updWire) -->
+        <div class="cfgGroup" id="cfgUpdGroup" hidden>
+          <div class="subhead">앱 업데이트 <span>사내 공유 폴더에서 새 판 받기</span></div>
+          <div class="updBox" id="updBox"></div>
+        </div>
+        <div class="cfgGroup" id="cfgPresetGroup" hidden>
           <div class="subhead">배치 <span>기본 배치 지정 · 배포용 굽기</span></div>
           <div class="btns"><button id="slotBtn" title="구운 배치 파일을 꽂아 개인 배치·완전 기본 배치로 지정합니다">배치 지정하기</button></div>
           <div class="btns"><button id="bakeDefaults" title="지금까지 저장한 모든 화면 기본배치를 default-presets.js 파일로 저장 → WeatherCG 폴더에 두면 새로 받은 사람도 이 배치로 열립니다">저장한 배치들을 모두의 기본값으로 굽기…</button></div>
           <p class="hint">배포용: 저장해 둔 화면별 배치들을 모두의 기본값 파일로 만듭니다.</p>
         </div>
-        <div class="cfgGroup" id="cfgMoveGroup">
+        <div class="cfgGroup" id="cfgMoveGroup" hidden>
           <div class="subhead">설정 옮기기 <span>웹판 ↔ 데스크톱 앱 · 다른 PC</span></div>
           <div class="btns"><button id="exportSettings" title="API 키·Mapbox 주소·태풍 이름·배치·슬롯·이어하던 작업을 파일 하나로 저장">설정 내보내기</button><button id="importSettings" title="내보낸 설정 파일을 이 앱에 그대로 넣고 새로고침">설정 가져오기</button></div>
           <p class="hint">웹판과 데스크톱 앱은 저장 공간이 따로입니다. 한쪽에서 <b>내보내기</b> → 다른 쪽에서 <b>가져오기</b>하면 API 키·배치·이어하던 작업이 그대로 옮겨집니다.</p>
         </div>
+        <!-- 맨 아래 줄: 앱 판·기능 확장팩 상태('업데이트 확인'은 위 '앱 업데이트' 묶음의 [다시 확인]으로 옮김 — 같은 id #updCheck) -->
+        <div class="helperLine">
         <button type="button" class="helperRow static" id="helperRow" data-st="" aria-disabled="true"><span class="hrDot" aria-hidden="true"></span><span class="hrText">기능 확장팩 확인 중…</span><svg class="hrGo" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg></button>
+        </div>
       </div>
     </div>
 
@@ -1576,7 +1585,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/busy-fx.js?v=05f4b1c5"></script>
 <script src="js/preset-slots.js?v=86edfcb2"></script>
 <script src="js/export-image.js?v=e26e7d3e"></script>
-<script src="js/export-video.js?v=6589caab"></script>
+<script src="js/export-video.js?v=64ae08fd"></script>
 <script src="js/export-blobs.js?v=0a2939a0"></script>
 <script src="js/ae-export.js?v=e77df7ea"></script>
 <script src="js/ae-geo.js?v=65947663"></script>
@@ -1587,6 +1596,7 @@ API마다 <b>활용신청</b>을 따로 해야 합니다 — 키가 맞아도 �
 <script src="js/timeline-plan.js?v=d051c4b7"></script>
 <script src="js/timeline-ui.js?v=8c3c0a46"></script>
 <script src="js/timeline-input.js?v=22cf7021"></script>
-<script src="js/floating-panels.js?v=2c3d98f7"></script>
-<script src="js/tour.js?v=031b7a02"></script>
-<script src="js/boot.js?v=e886a49c"></script>
+<script src="js/floating-panels.js?v=0d3b169b"></script>
+<script src="js/tour.js?v=28902cc6"></script>
+<script src="js/app-update.js?v=dc980e70"></script>
+<script src="js/boot.js?v=0317a932"></script>
