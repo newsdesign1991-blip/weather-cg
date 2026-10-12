@@ -54,8 +54,16 @@ let _wheelUndoArmed = true, _wheelUndoTimer = 0;    // 휠 줌 undo: 한 번 도
 // 틸트 진입 게이트·그림 기록 — _tiltSess: 평면→틸트 진입마다 +1, _tiltTex: 그림 버퍼에 구운 그림 { sess, csig, sig, cam, q, at }.
 // 이번 진입 뒤 그림이 준비되기 전(또는 같은 내용의 그림이 없을 때)엔 .mapTilt를 걸지 않고 평면 지도를 그대로 보인다(빈 바다 프레임 방지).
 let _tiltSess = 0, _tiltWasOn = false, _tiltTex = null, _tglView = null, _tiltPreTimer = 0, _tiltPreSticky = false, _tiltGen = 0;   // _tglView: 미리보기 GL 렌더러(null 아직·false 못 씀) · _tiltGen: 그림 버림 횟수(tiltInvalidate(true) — 그 전에 굽기 시작한 그림은 버린다)
-// 재생·스크럽 중 다시 구울 때 해상도 배율. 굽는 시간은 SVG 직렬화·해석이 대부분이라 배율을 낮춰도 거의 안 준다(0.34 ≈ 1, 측정) — 선명하게 1
+// 일반 지도 재생·스크럽은 원래 해상도. 태풍은 아래 tiltPreviewQ에서 화면 픽셀에 맞춘다.
 const TILT_LITE_Q = 1;
+// 태풍은 바탕을 재사용하므로 경로 갱신을 300ms씩 막을 필요가 없다. 동시 굽기는 여전히 하나만.
+const tiltFrameGap = () => isTyphoon() ? 1000 / 30 : 300;
+// 재생용 버퍼는 실제 아트보드의 기기 픽셀 이상으로. 멈춤·출력은 언제나 원래 해상도.
+function tiltPreviewQ() {
+  if (!isTyphoon()) return TILT_LITE_Q;
+  const pixels = (_fitCssW || fit.clientWidth || 1920) * (window.devicePixelRatio || 1) * (view.z || 1);
+  return Math.min(1, Math.max(0.5, Math.ceil(pixels / 1920 * 8) / 8));
+}
 // 태풍 지도: 무거운 바탕(위성 그림 data URI 약 9MB — 한 번 굽기 170ms)은 따로 구워 두고(_tiltBase), 재생 중 바뀌는 경로 레이어(L_typhoon)만 다시 구워
 // 그림 버퍼에서 합친다. 바탕은 구운 카메라 → 지금 카메라로 지도 평면 r배·이동해 그린다(tiltComp와 같은 식 — 많이 움직였으면 다시 굽기)
 const TILT_BASE_LAYERS = ['L_bg', 'L_sea', 'L_map', 'L_boxes', 'L_mtn'];
@@ -142,11 +150,12 @@ const tiltReady = (csig) => !!_tiltTex && (_tiltTex.sess === _tiltSess || _tiltT
 function tiltWant(lite) {
   const csig = tiltContentSig();
   const sig = tiltCamSig() + '|' + csig + (_camDragging ? '|d' : '');
-  const q = lite ? TILT_LITE_Q : _camDragging ? 0.5 : 1;
+  const q = lite ? tiltPreviewQ() : _camDragging ? 0.5 : 1;
   const t = _tiltTex;
   let need;
   if (_tiltRasterSig === null || !t || t.csig !== csig) need = true;
   else if (!lite) need = t.sig !== sig || t.q < q;   // 멈추면 저해상(재생 중 그림)도 고해상으로
+  else if (t.q < q) need = true;   // 재생 중 창/보기 배율을 키운 경우
   else if (t.sig === sig) need = false;
   else need = tiltDrifted(t.cam);
   return { sig, csig, q, need };
@@ -201,7 +210,7 @@ function applyTilt() {
   const lite = typeof _animFast !== 'undefined' && !!_animFast;
   const w = tiltWant(lite);
   if (!w.need) return;
-  if (lite && ready && performance.now() - _tiltRasterAt < 300) return;   // 재생 중: 300ms에 한 번(다음 프레임에 다시 본다). 진입 첫 그림은 바로
+  if (lite && ready && performance.now() - _tiltRasterAt < tiltFrameGap()) return;
   if (!_camRasterBusy) rasterTiltCanvas(cv, w);
 }
 // 틸트 미리보기 그림 버퍼 재래스터 — 동시 1개만(coalesce). 드래그 중엔 저해상(0.5)으로 가볍게, 놓으면 고해상.
@@ -222,7 +231,7 @@ function rasterTiltCanvas(cv, w) {
   // 태풍(노말 VF 아님 — VF는 진입 래퍼가 지도까지 감싸 바탕도 바뀐다): 바탕이 그대로면 경로 레이어만 굽는다
   const split = isTyphoon() && S.res !== '1920x1080-vf', vfk = (_camVfScale() || {}).k || 1;
   if (!split) _tiltBase = null;
-  const base = split && _tiltBase && _tiltBase.rev === _mapContentRev && _tiltBase.vfk === vfk && _tiltBase.q === q && !tiltDrifted(_tiltBase.cam) ? _tiltBase : null;
+  const base = split && _tiltBase && _tiltBase.rev === _mapContentRev && _tiltBase.vfk === vfk && _tiltBase.q >= q && !tiltDrifted(_tiltBase.cam) ? _tiltBase : null;
   const vb = camBleedViewBox(), rev = _mapContentRev;
   const jobs = !split ? [svgToImage(exW, exH, CAM_MAP_LAYERS, vb, false, true)]   // 쓰는 굵기 글꼴만(미리보기 — 그림은 같다)
     : [base ? null : svgToImage(exW, exH, TILT_BASE_LAYERS, vb, false, true), svgToImage(exW, exH, ['L_typhoon'], vb, false, true)];
@@ -245,7 +254,7 @@ function rasterTiltCanvas(cv, w) {
       }
       const c = tiltComp(b.cam, cam), u = exW / (1920 * (1 + 2 * CAM_BLEED));
       if (c) ctx.setTransform(c.r, 0, 0, c.r, (1 - c.r) * exW / 2 + c.tx * u, (1 - c.r) * exH / 2 + c.ty * u);
-      ctx.drawImage(b.cv, 0, 0);
+      ctx.drawImage(b.cv, 0, 0, exW, exH);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(top, 0, 0, exW, exH);
     }
@@ -264,7 +273,7 @@ function rasterTiltCanvas(cv, w) {
     if (!fit.classList.contains('mapTilt')) { applyTilt(); return; }   // 게이트: 이번 진입의 첫 그림 → 이제 기울인 지도로(다음 그림 판단도 applyTilt가)
     updateCamCanvasTransform();
     const lt = typeof _animFast !== 'undefined' && !!_animFast, w2 = tiltWant(lt);
-    if (w2.need && (!lt || performance.now() - _tiltRasterAt >= 300)) rasterTiltCanvas(cv, w2);
+    if (w2.need && (!lt || performance.now() - _tiltRasterAt >= tiltFrameGap())) rasterTiltCanvas(cv, w2);
   }).catch(() => { _camRasterBusy = false; });
 }
 // 기울이기 전 예열 — 타임라인을 열 때, 그리고 평면 프레임에서 멈췄는데 기울일 카메라 키가 있을 때(renderAnimFrame).

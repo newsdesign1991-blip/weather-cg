@@ -190,13 +190,13 @@ function viewCtx(opt) {
   };
   ctx.R = R; R.now = 1000;
   vm.createContext(ctx);
-  const names = ['_tiltRasterSig', '_camRasterBusy', '_tiltSess', 'TILT_LITE_Q', 'TILT_BASE_LAYERS', '_tiltBase', 'tiltDrifted', '_tiltFade', 'TILT_FADE_MS', 'tiltFadeTick', 'camActive3d', 'tiltContentSig', 'tiltCamSig', 'tiltComp', 'tiltGLView', 'tiltGLLive', 'tiltGLUpload', 'tiltGLPaint',
+  const names = ['_tiltRasterSig', '_camRasterBusy', '_tiltSess', 'TILT_LITE_Q', 'tiltFrameGap', 'tiltPreviewQ', 'TILT_BASE_LAYERS', '_tiltBase', 'tiltDrifted', '_tiltFade', 'TILT_FADE_MS', 'tiltFadeTick', 'camActive3d', 'tiltContentSig', 'tiltCamSig', 'tiltComp', 'tiltGLView', 'tiltGLLive', 'tiltGLUpload', 'tiltGLPaint',
     'updateCamCanvasTransform', 'tiltReady', 'tiltWant', 'applyTilt', 'rasterTiltCanvas', 'tiltPrewarmSoon', 'tiltPrewarm', 'camEditActive', 'tiltInvalidate', 'tiltBufLost'];
   const src = names.map(pick).join('\n') + `
     const fit = { classList: (${cls.toString()})(), clientWidth: 1000, clientHeight: 562 };
     let _mapContentRev = 0, _mapAnimRev = 0, _animFast = null;
     globalThis.T = {
-      applyTilt, tiltWant, rasterTiltCanvas, tiltPrewarm, tiltPrewarmSoon, tiltInvalidate, fit,
+      applyTilt, tiltWant, rasterTiltCanvas, tiltPrewarm, tiltPrewarmSoon, tiltInvalidate, tiltFrameGap, tiltPreviewQ, fit,
       set lite(v) { _animFast = v ? {} : null; }, bump() { _mapContentRev++; }, animBump() { _mapAnimRev++; }, get base() { return _tiltBase; },
       get tex() { return _tiltTex; }, get busy() { return _camRasterBusy; }, get sess() { return _tiltSess; },
       forceNull() { _tiltRasterSig = null; }, setGL(v) { _tglView = v; }, drag(v) { _camDragging = v; },
@@ -235,6 +235,31 @@ test('게이트: 기울기 진입 뒤 첫 그림이 준비될 때까지 평면 �
   assert.equal(T.fit.classList.contains('mapTilt'), false);
   await finishRaster(c);
   assert.equal(T.fit.classList.contains('mapTilt'), true);
+});
+
+test('태풍 재생: 30Hz 갱신·단일 작업·고해상 바탕 재사용·멈추면 원래 해상도', async () => {
+  const c = viewCtx(), T = c.T; c.R.ty = true;
+  c.S.map3d = { on: 1, rx: 30, ry: 0, rz: 0 };
+  T.applyTilt(); await finishRaster(c);
+  assert.equal(T.tex.q, 1);
+  assert.equal(T.tiltFrameGap(), 1000 / 30);
+  T.lite = true;
+  assert.equal(T.tiltPreviewQ(), 0.625);
+  T.animBump(); c.R.now += 34; T.applyTilt();
+  assert.equal(JSON.stringify(await finishRaster(c)), JSON.stringify([['L_typhoon']]), '배경은 고해상 캐시 그대로');
+  assert.equal(T.tex.q, 0.625);
+  assert.equal(T.base.q, 1);
+  T.animBump(); c.R.now += 16; T.applyTilt();
+  assert.equal(c.R.rasters.length, 0, '33ms 안에는 중복 작업 안 함');
+  c.R.now += 18; T.applyTilt();
+  assert.equal(c.R.rasters.length, 1, '300ms가 아니라 다음 30Hz 프레임에 갱신');
+  T.applyTilt(); T.applyTilt();
+  assert.equal(c.R.rasters.length, 1, '동시 굽기는 하나');
+  await finishRaster(c);
+  T.lite = false; T.applyTilt(); await finishRaster(c);
+  assert.equal(T.tex.q, 1, '멈추면 고해상 복귀');
+  c.view.z = 3; assert.equal(T.tiltPreviewQ(), 1, '보기 확대/고밀도 화면에서 부족한 해상도를 쓰지 않음');
+  c.R.ty = false; assert.equal(T.tiltFrameGap(), 300, '다른 지도 기존 정책 유지');
 });
 
 test('예열: 평면에서 미리 구운 그림(같은 내용)이면 진입 첫 프레임부터 기울인 지도', async () => {

@@ -415,7 +415,7 @@ function animFastOn() {
     for (const n of nodes) n.style.willChange = 'transform';
     fast.cam = nodes;
   }
-  // ③ 틸트(기울기·방향 키 또는 지금 기울어 있음): 정확 경로로 그리되, 지도 그림은 내용이 바뀐 프레임에서만(animMapKey) 300ms에 한 번
+  // ③ 틸트(기울기·방향 키 또는 지금 기울어 있음): 정확 경로로 그리되, 내용이 바뀐 프레임만(animMapKey) 태풍 30Hz·다른 지도 300ms 간격으로
   //   다시 굽고, 회전만 바뀐 프레임은 GPU 그리기·보정만(view-camera.js applyTilt·tiltWant)
   fast.tilt = !!((camKeys().length && camKeysRotate()) || camActive3d());
   _animFast = (fast.groups.length || fast.cam || fast.tilt) ? fast : null;

@@ -320,6 +320,8 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 - 일반 실행에서 복원할 작업이 없으면 시작 안내와 함께 **장면 설정을 자동으로 연다**(`boot.js`). 저장 작업 불러오기·이어보기는 `loadProjectData`가 설정창을 닫으며, 작업을 복원하는 새로고침에는 자동으로 열지 않는다. 시작 중 자동 둘러보기는 겹쳐 띄우지 않는다(상단 i로 수동 실행 가능).
 - 로컬 웹 미리보기는 `npx serve`(ETag로 매번 재검증)나 Electron을 쓴다. `py -m http.server`는 휴리스틱 캐시로 옛 js를 줄 수 있다. 미리보기 전에 stamp.
 
+태풍 틸트 미리보기(2026-10-12): `view-camera.js`의 `tiltFrameGap`은 태풍 경로 갱신을 최대 30Hz로 허용한다(다른 지도는 기존 300ms). 동시에 굽는 작업은 하나이며, `tiltPreviewQ`가 아트보드 기기 픽셀에 맞춰 재생 버퍼를 정한다(0.5~1). 더 선명한 바탕 캐시는 낮은 해상도 프레임에서도 재사용하고, 멈추면 원래 해상도로 복귀한다. 영상 출력 해상도·프레임 처리에는 적용하지 않는다. 회귀 검사: `tests/tilt-gl.test.cjs`.
+
 ## 9. 로컬 검증·데스크톱 배포 방침
 
 1. 고친다 → `node tools/stamp-version.cjs` → `node --test tests/*.test.cjs desktop/test/*.test.cjs`
