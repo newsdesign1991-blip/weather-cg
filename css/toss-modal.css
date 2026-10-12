@@ -56,6 +56,8 @@
   .tossCard.updCard .updBar i { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--accent-grad, var(--primary)); transition: width .2s ease; }
   .tossCard.updCard .updProgTxt { margin: 9px 0 8px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .tossCard.updCard .tossFoot [data-later] { margin-right: auto; }
+  /* 이전 판으로 되돌리기 확인(10-12 — updRollbackAsk): 본문 첫 줄 */
+  .tossCard.updCard .updLead { margin: 0 0 10px; font-size: 13.5px; line-height: 1.55; }
   .tossCard.updCard .tossFoot:empty { display: none; }
   .tossStep { display: flex; gap: 10px; margin-bottom: 10px; }
   .tossStep .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #FA2E1E; color: #fff; font-weight: 800; text-align: center; line-height: 22px; font-size: 12px; }

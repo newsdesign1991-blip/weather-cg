@@ -3,13 +3,18 @@
 // 앱 업데이트 올리기 — 구운 설치 파일을 업데이트 폴더에 복사하고 latest.json 을 쓴다. 받는 쪽(앱)은 desktop/updater.js. MODULES.md 10장 '앱 업데이트'.
 //
 //   node tools/publish-update.cjs [--setup=<설치 파일>] [--dir=<업데이트 폴더>] [--note="바뀐 점"]… [--notes-file=<글 파일>]
-//                                 [--keep=3] [--force] [--dry-run]
+//                                 [--keep=5] [--force] [--dry-run]
 //   --setup      기본: desktop\dist\WeatherCG-Setup-<desktop/package.json 판>.exe(tools/build-installer.cjs 가 굽는 곳)
 //   --dir        기본: R:\[F]_Util\WNS\Ver, R: 가 없으면 같은 공유 \\10.10.105.25\cg\[F]_Util\WNS\Ver (폴더는 미리 있어야 — 만들지 않는다)
 //   --note       바뀐 점 한 줄(여러 번 줄 수 있음). --notes-file = 한 줄에 하나(빈 줄·'#' 줄은 뺌, 앞의 '- '·'· '는 지움, UTF-8)
-//   --keep       설치 파일을 새 판 포함 최근 몇 개 남길지(기본 3 — 판 번호 순, 같은 갈래만). latest.json 이 가리키는 파일은 늘 남긴다
-//   --force      이미 올라간 판보다 낮거나 같아도 올린다(되돌리기·같은 판 다시 올리기)
+//   --keep       설치 파일을 새 판 포함 몇 개 남길지(기본 5 — 올리는 판 + 그보다 낮은 판 중 새 것부터, 같은 갈래만. 앱의 '이전 판으로 되돌리기'가 이 파일들을 쓴다)
+//   --force      이미 올라간 판보다 낮거나 같아도 올린다(판 내리기·같은 판 다시 올리기). 판을 내리면 그보다 새 판은 거둬들인 것 —
+//                내역(history)에서 빼고 설치 파일도 지운다(그 판을 쓰던 앱은 메뉴에서 이 판으로 되돌릴 수 있다)
 //   --dry-run    무엇을 할지만 보여 준다(아무것도 안 씀)
+//
+// latest.json = { version, file, sha256, size, date, notes[], commit?, history[] } — history = 올라간 판들(이번 판 포함, 새 판 먼저, 최근 30판:
+//   판·파일·sha256·크기·날짜·바뀐 점·커밋). 앱 설정 메뉴의 '업데이트 내역'과 '이전 판으로 되돌리기'(파일이 남아 있는 낮은 판)가 이것을 읽는다.
+//   1차 latest.json(history 없음)을 이어받으면 그 판 하나로 내역을 시작한다.
 //
 // 순서(받는 PC 가 반쯤 쓴 파일을 읽지 않게):
 //  1) 설치 파일 이름 꼴(WeatherCG-Setup-<판>[-installtest].exe)·크기·sha256 확인 — 옆의 .build.json(빌드 정보)이 있으면 그 값과도 같아야
@@ -95,10 +100,25 @@ function setupsIn(dir, variant) {
     .filter((x) => x.p && x.p.variant === variant).map((x) => ({ name: x.name, version: x.p.version }))
     .sort((a, b) => -U.cmpVer(a.version, b.version));
 }
+// 지금 latest.json 의 내역 — 앱과 같은 검사(U.validateEntry)를 통과한 항목만(맨 위 판 포함, 커밋도 이어받음, 같은 판은 처음 것).
+// 1차 latest.json(history 없음)이면 그 판 하나, 깨졌거나 없으면 빈 내역
+function historyOf(cur, variant) {
+  if (!cur || typeof cur !== 'object' || Array.isArray(cur)) return [];
+  const out = [], seen = new Set();
+  for (const e of [cur, ...(Array.isArray(cur.history) ? cur.history : [])]) {
+    const v = U.validateEntry(e, variant);
+    if (!v.ok || seen.has(v.info.version)) continue;
+    seen.add(v.info.version);
+    const h = { ...v.info };
+    if (typeof e.commit === 'string' && /^[0-9a-f]{7,64}$/i.test(e.commit)) h.commit = e.commit;
+    out.push(h);
+  }
+  return out;
+}
 
 function publish() {
   const dry = flag('dry-run'), force = flag('force');
-  const keep = Math.max(1, Math.floor(+opt('keep', '3')) || 3);
+  const keep = Math.max(1, Math.floor(+opt('keep', String(U.KEEP_SETUPS))) || U.KEEP_SETUPS);
   // 1) 설치 파일
   let setup = opt('setup', '');
   if (!setup) {
@@ -142,14 +162,26 @@ function publish() {
     log(`지금 올라간 판: ${cv || '(모름)'}`);
   } else log('지금 올라간 판: 없음(처음 올림)');
 
-  const latest = { version, file, sha256: src.sha256, size: src.size, date: new Date().toISOString(), notes };
-  if (build && build.commit) latest.commit = String(build.commit);
+  const entry = { version, file, sha256: src.sha256, size: src.size, date: new Date().toISOString(), notes };
+  if (build && build.commit) entry.commit = String(build.commit);
+  // 내역 = 이번 판 + 지금 내역에서 이번 판보다 낮은 판들(새 판 먼저, 최근 HISTORY_MAX). 이번 판보다 새 판(--force 로 판을 내림)은 거둬들인 것 — 뺀다
+  const prevHist = historyOf(cur, variant);
+  const retracted = prevHist.filter((h) => U.cmpVer(h.version, version) === 1).map((h) => h.version);
+  const history = [entry, ...prevHist.filter((h) => U.cmpVer(h.version, version) === -1)]
+    .sort((a, b) => -U.cmpVer(a.version, b.version)).slice(0, U.HISTORY_MAX);
+  const latest = { ...entry, history };
+  // 앱이 읽는 크기 안으로(U.MAX_JSON_BYTES — 바뀐 점이 아주 길면 오래된 내역부터 뺀다)
+  while (Buffer.byteLength(JSON.stringify(latest, null, 2)) > U.MAX_JSON_BYTES - 4096 && latest.history.length > 1) latest.history.pop();
   const v = U.validateLatest(latest, variant);
   if (!v.ok) die('latest.json 이 앱 검사를 통과하지 못함: ' + v.why);
+  if (v.info.history.length !== latest.history.length) die('내역(history)이 앱 검사를 통과하지 못함');
   const finalPath = path.join(dir, file);
+  // 설치 파일 정리 — 이번 판 + 그보다 낮은 판 중 새 것부터 keep-1 개(되돌리기용). 거둬들인 새 판 파일은 지운다
   const olds = setupsIn(dir, variant).filter((x) => x.name !== file);
-  const keepNames = new Set([file, ...olds.slice(0, keep - 1).map((x) => x.name)]);
+  const lower = olds.filter((x) => U.cmpVer(x.version, version) === -1);
+  const keepNames = new Set([file, ...lower.slice(0, keep - 1).map((x) => x.name)]);
   const drop = olds.filter((x) => !keepNames.has(x.name)).map((x) => x.name);
+  log(`내역 ${latest.history.length}판: ${latest.history.map((h) => h.version).join(', ')}${retracted.length ? ` — 거둬들인 판(이번 판보다 새 판): ${retracted.join(', ')}` : ''}`);
   if (dry) {
     log(`(시험) ${dir} 에 ${file}(${mb(src.size)}) 복사 → latest.json 판 ${version}, 지울 옛 판: ${drop.join(', ') || '없음'}`);
     return { ok: true, dry: true, dir, latest, drop };
@@ -182,8 +214,8 @@ function publish() {
     if (!back.ok) die('쓴 latest.json 을 다시 읽어 보니 이상합니다: ' + back.why);
     renameRetry(tmpJson, latestPath);
   } finally { try { fs.rmSync(tmpJson, { force: true }); } catch (e) { /* 이미 옮김 */ } }
-  log(`latest.json 씀 — 판 ${version}, 바뀐 점 ${notes.length}줄`);
-  // 5) 정리 — 옛 판(새 판 포함 최근 keep 개만), 하루 넘은 남은 임시 파일(다른 사람이 올리는 중일 수 있어 최근 것은 그대로)
+  log(`latest.json 씀 — 판 ${version}, 바뀐 점 ${notes.length}줄, 내역 ${latest.history.length}판`);
+  // 5) 정리 — 설치 파일(이번 판 + 낮은 판 최근 keep-1 개만 — 위 drop), 하루 넘은 남은 임시 파일(다른 사람이 올리는 중일 수 있어 최근 것은 그대로)
   const removed = [];
   for (const name of drop) { try { fs.rmSync(path.join(dir, name), { force: true }); removed.push(name); } catch (e) { log(`옛 판을 못 지움(쓰는 중?): ${name} — ${e.code}`); } }
   const dayAgo = Date.now() - 24 * 3600 * 1000;
@@ -192,7 +224,8 @@ function publish() {
     try { const st = fs.statSync(path.join(dir, name)); if (st.mtimeMs < dayAgo) { fs.rmSync(path.join(dir, name), { force: true }); removed.push(name); } } catch (e) { /* 그대로 */ }
   }
   if (removed.length) log('지움: ' + removed.join(', '));
-  log(`끝 — 앱은 켠 뒤 약 15초 뒤·3시간마다(또는 설정 메뉴 '업데이트 확인') 새 판 ${version} 을 알립니다`);
+  const rbLeft = setupsIn(dir, variant).filter((x) => U.cmpVer(x.version, version) === -1).map((x) => x.version);
+  log(`끝 — 앱은 켠 뒤 약 15초 뒤·3시간마다(또는 설정(렌치) 메뉴 '앱 업데이트') 새 판 ${version} 을 알립니다. 되돌리기용으로 남은 옛 판: ${rbLeft.join(', ') || '없음'}`);
   return { ok: true, dir, latest, removed };
 }
 
@@ -200,4 +233,4 @@ if (require.main === module) {
   try { const r = publish(); console.log(JSON.stringify(r, null, 2)); }
   catch (e) { console.error('[publish] 멈춤: ' + (e instanceof Stop ? e.message : (e && e.stack) || e)); process.exit(1); }
 }
-module.exports = { publish, readNotes, setupsIn };
+module.exports = { publish, readNotes, setupsIn, historyOf };

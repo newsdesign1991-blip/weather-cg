@@ -264,14 +264,15 @@ async function pingHelper() {
 }
 // 헬퍼 상태를 화면에 반영 — 제목줄 렌치(설정) 버튼의 빨간 점(구버전, 웹판만) + 설정 메뉴 맨 아래 '기능 확장팩' 한 줄.
 // 데스크톱 앱은 확장팩이 앱에 내장이라 점을 띄우지 않고, 한 줄도 '앱에 내장됨'만(누를 것 없음).
-const HELPER_BTN_TIP = '설정 — 배치·설정 옮기기';
+const HELPER_BTN_TIP = '설정 — 앱 업데이트';
 function applyHelperState(st) {
   const b = $('#helperBtn');
   if (b) {
     const dot = !WNS_DESKTOP && st.up && st.old;
     b.classList.toggle('hasNew', dot);
     // 빨간 점이 무슨 뜻인지 렌치에 마우스만 올려도 알 수 있게 — 점이 없어지면 원래 문구로 되돌린다
-    const tip = dot ? '설정 — 기능 확장팩 구버전: 메뉴 맨 아래에서 다시 실행' : HELPER_BTN_TIP;
+    // (데스크톱 새 판 깜빡임 중이면 그 안내 — data-upd-tip, js/app-update.js updBadge)
+    const tip = dot ? '설정 — 기능 확장팩 구버전: 메뉴 맨 아래에서 다시 실행' : (b.dataset.updTip || HELPER_BTN_TIP);
     b.title = tip; b.setAttribute('aria-label', tip);
   }
   const row = $('#helperRow'); if (!row) return;

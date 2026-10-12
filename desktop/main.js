@@ -423,6 +423,7 @@ ipcMain.on('wcg:close-reply', (e, d) => {
 // [지금 설치]면 설치 파일을 %TEMP%\wcg-update 로 복사·확인한 뒤 조용히 실행하고 앱을 끈다(설치 프로그램이 같은 자리에 덮어 깔고 새 판을 다시 켠다).
 // 순서·검사는 desktop/updater.js. 저절로 확인은 설치판만 — 시험 폴더(WCG_UPDATE_DIR)를 주면 개발판·점검 모드에서도. 부르는 쪽은 메인 창 주 프레임만.
 // 저장 안 한 작업 묻기는 웹앱이 [지금 설치] 전에 한다(닫기 전 묻기와 같은 팝업). 여기서 끌 때는 닫기 전 묻기를 다시 거치지 않는다(closeGuard.release).
+// 이전 판으로 되돌리기(설정 메뉴 — 10-12)도 같은 'wcg:update-install' 에 { rollback: true } — 내역에 있는 낮은 판을 같은 길로 덮어 깐다.
 const { createUpdater } = require('./updater');
 let updater = null;
 function startUpdater() {
@@ -444,11 +445,12 @@ ipcMain.handle('wcg:update-later', (e, v) => {
   if (!privateKeyCallerOk(e, win) || !updater) return { ok: false };
   return updater.later(String(v || ''));
 });
-ipcMain.handle('wcg:update-install', async (e, v) => {
+ipcMain.handle('wcg:update-install', async (e, v, o) => {
   if (!privateKeyCallerOk(e, win)) return { ok: false, err: 'denied' };
   startUpdater();
   const wc = e.sender;
-  return updater.install(String(v || ''), (got, total) => { try { if (!wc.isDestroyed()) wc.send('wcg:update-progress', { got, total }); } catch (err) { /* 창 닫힘 */ } });
+  return updater.install(String(v || ''), (got, total) => { try { if (!wc.isDestroyed()) wc.send('wcg:update-progress', { got, total }); } catch (err) { /* 창 닫힘 */ } },
+    { rollback: !!(o && o.rollback === true) });
 });
 ipcMain.handle('wcg:update-cancel', (e) => (privateKeyCallerOk(e, win) && updater ? updater.cancel() : false));
 

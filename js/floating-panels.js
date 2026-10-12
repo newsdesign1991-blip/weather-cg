@@ -616,7 +616,8 @@ function loadLayout() {
 
 // 상단 메뉴바(맨 위 제목줄) — 설정 섹션(프로젝트)을 드롭다운으로 올린다. CG 종류·지도 종류는 CG 구성 창(setupCgSetup),
 // 이미지로 추출은 팝업(setupExportDialog — js/export-dialog.js).
-// + 제목줄 오른쪽 끝 렌치(#helperBtn, data-menu="cfg") = '설정' 드롭다운(배치 지정하기·기본값 굽기·설정 옮기기·기능 확장팩 상태).
+// + 제목줄 오른쪽 끝 렌치(#helperBtn, data-menu="cfg") = '설정' 드롭다운(앱 업데이트·기능 확장팩 상태 — 배치 지정하기·기본값 굽기·설정 옮기기 묶음은
+//   10-12부터 메뉴에서 숨김(index.html hidden — 아래 #slotBtn 연결은 그대로 둔다)).
 function setupMenus() {
   const drop = $('#menuDrop');
   if (!drop) return;
@@ -662,7 +663,7 @@ function setupMenus() {
     drop.classList.add('on'); btn.classList.add('on'); openSec = sec;
     // 열려 있는 동안 제목줄 빈 곳(데스크톱=창 끌기 영역)을 눌러도 아래 '바깥 클릭 닫기'가 받게
     document.documentElement.classList.add('menuOpen');
-    if (sec === 'cfg') refreshHelperRow();   // 맨 아래 '기능 확장팩' 한 줄을 지금 상태로
+    if (sec === 'cfg') { refreshHelperRow(); updMenuOpened(); }   // 맨 아래 '기능 확장팩' 한 줄을 지금 상태로 + '앱 업데이트' 묶음(본 새 판 = 렌치 깜빡임 멈춤, 오래됐으면 다시 확인 — js/app-update.js)
   };
   _openMenu = openMenu; _closeMenu = close;   // 투어가 실제 드롭다운을 그대로 열고 닫을 수 있게 노출
   document.querySelectorAll('.menuBtn').forEach((btn) => { btn.onclick = (e) => { e.stopPropagation(); openMenu(btn.dataset.menu, btn); }; });

@@ -4,7 +4,7 @@
 // 흐름:
 //  1) 확인(check): 업데이트 폴더(기본 R:\[F]_Util\WNS\Ver, R: 가 없으면 같은 공유 \\10.10.105.25\cg\[F]_Util\WNS\Ver)의
 //     latest.json { version, file, sha256, size, date, notes[] }을 읽는다. 폴더 하나에 시간 제한(6초) — 공유 폴더가 없거나(재택·VPN 끔) 느리면 조용히 넘긴다.
-//     지금 판(app.getVersion())보다 새 판이면 웹앱에 알린다(notify). 켠 뒤 15초 뒤 한 번, 그다음 3시간마다. 설정 메뉴 '업데이트 확인'은 곧바로(manual).
+//     지금 판(app.getVersion())보다 새 판이면 웹앱에 알린다(notify). 켠 뒤 15초 뒤 한 번, 그다음 3시간마다. 설정(렌치) 메뉴 '앱 업데이트'(열 때·[다시 확인])는 곧바로(manual).
 //     '나중에'를 고른 판은 이번 실행 동안 저절로는 다시 안 알린다(메모리에만 — 다음 실행에선 다시). 더 새 판이 올라오면 그 판은 알린다.
 //  2) 설치(install): latest.json 을 다시 읽어 고른 판이 그대로인지 보고, 설치 파일을 %TEMP%\wcg-update 로 복사하며 크기·sha256 을 확인한다
 //     (다르면 지우고 멈춤). 맞으면 실행 직전에 한 번 더 확인하고 설치 파일을 조용히 실행한다(INSTALL_ARGS — electron-builder 24 NSIS 템플릿이 아는 인자:
@@ -12,8 +12,12 @@
 //     installSection.nsh doStartApp → StdUtils.ExecShellAsUser 로 '관리자 아닌 사용자'로 켬). 그리고 앱을 끈다(quitForInstall).
 //     설치 위치는 설치 프로그램이 레지스트리(이전 설치 InstallLocation)에서 읽어 같은 자리에 덮어 깐다. '모든 사용자'(Program Files) 설치면
 //     조용한 설치도 관리자 확인 창이 한 번 뜬다(거기서 '아니요'면 설치·다시 켜기 둘 다 안 됨 — 옛 판 그대로, 바탕화면 아이콘으로 다시 켠다).
-// 지키는 것: 업데이트 폴더 밖 파일, 이름 꼴이 다른 파일(WeatherCG-Setup-<판>[-installtest].exe — 판은 latest.json version 과 같고, 정식/시험판 구분도 이 앱과 같아야),
+//  3) 이전 판으로 되돌리기(install(판, 진행, { rollback: true }) — 10-12): latest.json 의 history(올라간 판들 — tools/publish-update.cjs 가 쌓음) 중
+//     지금 판보다 낮은 판을 같은 길(복사·sha256 확인·실행 직전 다시 확인·조용히 덮어 설치·다시 켜기)로 깐다. electron-builder 24 NSIS 는 판을 비교하지 않아
+//     낮은 판도 같은 자리에 덮어 깐다(옛 판 지우기 = 작업·설정은 남김). 확인(check)은 내역과, 그중 설치 파일이 폴더에 실제로 남아 있는 판(rollback)을 함께 돌려준다.
+// 지키는 것: 업데이트 폴더 밖 파일, 이름 꼴이 다른 파일(WeatherCG-Setup-<판>[-installtest].exe — 판은 latest.json(또는 그 내역 항목) version 과 같고, 정식/시험판 구분도 이 앱과 같아야),
 //   크기·sha256 이 다른 파일, 바로 가기(심볼릭 링크)는 실행하지 않는다. 개발판(설치판 아님)은 설치하지 않는다(WCG_UPDATE_DRYRUN=1 이면 실행 직전까지만 — 시험).
+// 점검 모드(WCG_TEST)는 시험 폴더(WCG_UPDATE_DIR)가 없으면 공유 폴더를 읽지 않는다(자동 점검이 사내망에 기대지 않게 — 확인 = unreachable 'test-mode').
 // 매달린 공유 폴더 읽기는 libuv 스레드를 붙잡으므로(시간 제한으로 기다림만 끊긴다) 같은 폴더에 아직 안 끝난 읽기가 있으면 새로 읽지 않는다(앱 파일 읽기가 막히지 않게).
 // Electron 없이 시험할 수 있게 fs·spawn·타이머·알림을 넘겨받는다(desktop/test/updater.test.cjs).
 'use strict';
@@ -28,8 +32,10 @@ const FIRST_DELAY_MS = 15000;              // 켠 뒤 첫 확인(부팅·첫 화
 const EVERY_MS = 3 * 60 * 60 * 1000;       // 그다음 3시간마다
 const DIR_TIMEOUT_MS = 6000;               // 폴더 하나 확인 + latest.json 읽기
 const COPY_STALL_MS = 30000;               // 복사 중 30초 동안 한 바이트도 안 오면 멈춤
-const MAX_JSON_BYTES = 64 * 1024;
+const MAX_JSON_BYTES = 256 * 1024;         // latest.json — 내역(history)을 담으니 넉넉히(1차는 64KB)
 const MAX_SETUP_BYTES = 1024 * 1024 * 1024;
+const HISTORY_MAX = 30;                    // 내역은 최근 30판까지(올리기 도구도 이만큼만 쌓는다)
+const KEEP_SETUPS = 5;                     // 올리기 도구가 남기는 설치 파일 수(지금 판 포함 — 되돌리기용, 1차는 3)
 const INSTALL_ARGS = ['/S', '--updated', '--force-run'];
 const TEMP_SUB = 'wcg-update';
 const VARIANTS = ['', 'installtest'];      // '' = 정식, 'installtest' = 이름만 다른 설치 시험판(tools/build-installer.cjs --installtest)
@@ -61,8 +67,8 @@ function cleanNotes(n) {
     .map((x) => x.replace(/[\u0000-\u001f\u007f]/g, ' ').trim()).filter(Boolean).slice(0, 30)
     .map((x) => (x.length > 300 ? x.slice(0, 299) + '…' : x));
 }
-// 받은 latest.json 검사 → { ok: true, info } 또는 { ok: false, why }. variant = 이 앱의 판 갈래('' | 'installtest')
-function validateLatest(j, variant) {
+// 판 하나(latest.json 맨 위 또는 내역 항목) 검사 → { ok: true, info: { version, file, sha256, size, date, notes } } 또는 { ok: false, why }
+function validateEntry(j, variant) {
   if (!j || typeof j !== 'object' || Array.isArray(j)) return { ok: false, why: 'json' };
   const version = typeof j.version === 'string' ? j.version.trim() : '';
   if (!parseVer(version)) return { ok: false, why: 'version' };
@@ -74,6 +80,25 @@ function validateLatest(j, variant) {
   if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_SETUP_BYTES) return { ok: false, why: 'size' };
   const date = typeof j.date === 'string' ? j.date.trim().slice(0, 40) : '';
   return { ok: true, info: { version, file, sha256, size, date, notes: cleanNotes(j.notes) } };
+}
+// 받은 latest.json 검사 → { ok: true, info } 또는 { ok: false, why }. variant = 이 앱의 판 갈래('' | 'installtest')
+// info.history = 올라간 판들(새 판 먼저, 맨 위 판 포함, 최대 HISTORY_MAX). 내역 항목은 하나하나 같은 검사 — 틀린 항목은 조용히 뺀다(맨 위 판은 그대로 받음).
+// 맨 위 판보다 새 판(담당자가 --force 로 판을 내림)은 거둬들인 판이라 뺀다. 같은 판이 둘이면 맨 위 것이 이긴다.
+function validateLatest(j, variant) {
+  const v = validateEntry(j, variant);
+  if (!v.ok) return v;
+  const head = v.info;
+  const seen = new Set([head.version]);
+  const hist = [head];
+  if (Array.isArray(j.history)) {
+    for (const e of j.history.slice(0, 200)) {
+      const h = validateEntry(e, variant);
+      if (!h.ok || seen.has(h.info.version) || cmpVer(h.info.version, head.version) === 1) continue;
+      seen.add(h.info.version); hist.push(h.info);
+    }
+  }
+  hist.sort((a, b) => -cmpVer(a.version, b.version));
+  return { ok: true, info: { ...head, history: hist.slice(0, HISTORY_MAX) } };
 }
 
 // p 가 ms 안에 안 끝나면 code 'ETIMEOUT' 으로 거절(뒤에 끝나는 p 는 버림)
@@ -213,6 +238,23 @@ async function prepareInstall(o) {
   cleanTemp(tdir);
   return copyVerified(src, path.join(tdir, info.file), { size: info.size, sha256: info.sha256, onProgress: o.onProgress, signal: o.signal, stallMs: o.stallMs });
 }
+// 되돌릴 수 있는 판 — 내역 중 지금 판보다 낮고, 그 설치 파일이 업데이트 폴더에 실제로 남아 있는(보통 파일·바로 가기 아님·크기 같음) 판들(새 판 먼저).
+// 올리기 도구는 설치 파일을 최근 몇 개만 남기므로 내역이 있어도 파일이 없을 수 있다. sha256 은 받을 때 본다(여기선 크기만 — 공유 폴더에서 전부 읽지 않게).
+// 시간 제한에 걸리면 거기서 멈춘다(느린 공유 폴더에 매달리지 않게). o: { fsp, timeoutMs }
+async function rollbackable(dir, history, current, o = {}) {
+  const fsp = o.fsp || fs.promises;
+  const out = [];
+  for (const h of history || []) {
+    if (cmpVer(h.version, current) !== -1 || path.basename(h.file) !== h.file) continue;
+    let st;
+    try { st = await withTimeout(fsp.lstat(path.join(dir, h.file)), o.timeoutMs || DIR_TIMEOUT_MS); } catch (e) {
+      if (e && e.code === 'ETIMEOUT') break;
+      continue;   // 없음 — 정리된 옛 판
+    }
+    if (st.isFile() && !st.isSymbolicLink() && st.size === h.size) out.push(h.version);
+  }
+  return out;
+}
 // 임시 폴더의 확인한 설치 파일을 조용히 실행. 실행 직전에 자리·이름·크기·sha256 을 다시 본다.
 // o: { tempRoot, info, variant, spawn } → { ok: true } | { ok: false, err: 'path'|'sha'|'size'|'spawn', code? }
 async function runInstaller(file, o) {
@@ -245,6 +287,7 @@ function createUpdater(o) {
   const dirs = dirOverride ? [path.resolve(dirOverride)] : (o.dirs || DEFAULT_DIRS).slice();
   // 저절로 확인: 설치판(점검 모드 아님)만. 시험 폴더(WCG_UPDATE_DIR)를 주면 개발판·점검 모드에서도
   const auto = !!dirOverride || (!!o.packaged && !o.testMode);
+  const offline = !dirOverride && !!o.testMode;   // 점검 모드 + 시험 폴더 없음 = 공유 폴더를 읽지 않음
   const dry = env.WCG_UPDATE_DRYRUN === '1';
   const variant = VARIANTS.includes(o.variant) ? o.variant : '';
   const current = String(o.current || '');
@@ -261,21 +304,27 @@ function createUpdater(o) {
   const pub = (info) => ({ version: info.version, current, file: info.file, size: info.size, date: info.date, notes: info.notes.slice() });
   const read = () => readLatestAny(dirs, { fsp: o.fsp, timeoutMs: o.timeoutMs, variant, stuck });
 
-  // 확인 → { state: 'available'|'latest'|'none'|'unreachable'|'bad', current, folder, ...(available 이면 판 정보), why? }
+  // 확인 → { state: 'available'|'latest'|'none'|'unreachable'|'bad', current, folder, packaged, canInstall, ...(available 이면 판 정보), history?, why? }
+  //  history = 올라간 판들(새 판 먼저 — { version, date, size, notes, rollback }), rollback = 지금 판보다 낮고 설치 파일이 폴더에 남아 있어 되돌릴 수 있음.
+  //  canInstall = 이 앱이 실제로 설치할 수 있나(설치판 — 시험 WCG_UPDATE_DRYRUN 이면 실행 직전까지)
   function check(manual) {
     if (!checking) {
       checking = (async () => {
+        const base = { current, folder: dirs[0], packaged: !!o.packaged, canInstall: !!o.packaged || dry };
+        if (offline) return { ...base, state: 'unreachable', why: 'test-mode' };
         const r = await read();
         if (!cleaned && o.tempRoot) { cleaned = true; try { cleanTemp(path.join(o.tempRoot, TEMP_SUB)); } catch (e) { /* 다음에 */ } }   // 지난 업데이트가 남긴 설치 파일 사본
-        const base = { current, folder: dirs[0] };
         if (!r.ok) {
           const state = r.err === 'none' ? 'none' : r.err === 'bad' ? 'bad' : 'unreachable';
           log(`확인: ${state}${r.why ? ' (' + r.why + ')' : ''}${r.code ? ' ' + r.code : ''}`);
           return { ...base, state, why: r.why || r.err };
         }
+        const hist = r.info.history || [r.info];
+        const rb = new Set(await rollbackable(r.dir, hist, current, { fsp: o.fsp, timeoutMs: o.timeoutMs }));
+        const history = hist.map((h) => ({ version: h.version, date: h.date, size: h.size, notes: h.notes.slice(), rollback: rb.has(h.version) }));
         const newer = cmpVer(r.info.version, current) === 1;
-        log(`확인: ${newer ? '새 판 ' + r.info.version : '최신(' + r.info.version + ')'}`);
-        return newer ? { ...base, state: 'available', ...pub(r.info) } : { ...base, state: 'latest', version: r.info.version };
+        log(`확인: ${newer ? '새 판 ' + r.info.version : '최신(' + r.info.version + ')'}${rb.size ? ' · 되돌릴 수 있는 판 ' + [...rb].join(', ') : ''}`);
+        return newer ? { ...base, state: 'available', ...pub(r.info), history } : { ...base, state: 'latest', version: r.info.version, history };
       })().finally(() => { checking = null; });
     }
     return checking.then((res) => {
@@ -286,27 +335,40 @@ function createUpdater(o) {
     });
   }
   function laterFor(version) { if (parseVer(version)) later = String(version); return { ok: true, later }; }
-  // 설치 — 고른 판(version)을 받아 확인·복사 → 실행 → 앱 끄기. 돌려주는 것: { ok: true, dry? } | { ok: false, err, … }
-  async function install(version, onProgress) {
+  // 설치 — 고른 판(version)을 받아 확인·복사 → 실행 → 앱 끄기. 돌려주는 것: { ok: true, dry?, rollback? } | { ok: false, err, … }
+  //  보통: 고른 판 = 지금 latest.json 맨 위 판이고 지금 판보다 새 판이어야. '나중에'(later)는 저절로 알림만 막는다 — 여기선 보지 않는다(메뉴에서 언제든).
+  //  되돌리기(opts.rollback): 고른 판이 지금 내역(history)에 있고 지금 판보다 낮아야(내역에서 빠졌으면 gone). 설치 파일이 정리됐으면 missing.
+  async function install(version, onProgress, opts) {
+    const rollback = !!(opts && opts.rollback);
     if (installing || launched) return { ok: false, err: 'busy' };
     if (!o.packaged && !dry) return { ok: false, err: 'dev' };
     installing = true;
     try {
       const r = await read();
       if (!r.ok) return { ok: false, err: r.err === 'none' ? 'changed' : r.err === 'timeout' ? 'unreachable' : r.err, why: r.why };
-      if (r.info.version !== String(version || '')) return { ok: false, err: 'changed', version: r.info.version };
-      if (cmpVer(r.info.version, current) !== 1) return { ok: false, err: 'not-newer', version: r.info.version };
+      const want = String(version || '');
+      let info;
+      if (rollback) {
+        info = (r.info.history || []).find((h) => h.version === want);
+        if (!info) return { ok: false, err: 'gone', version: want };
+        if (cmpVer(want, current) !== -1) return { ok: false, err: 'not-older', version: want };
+      } else {
+        if (r.info.version !== want) return { ok: false, err: 'changed', version: r.info.version };
+        if (cmpVer(r.info.version, current) !== 1) return { ok: false, err: 'not-newer', version: r.info.version };
+        info = r.info;
+      }
       abortCtl = new AbortController();
-      const c = await prepareInstall({ dir: r.dir, info: r.info, tempRoot: o.tempRoot, onProgress, signal: abortCtl.signal, fsp: o.fsp, timeoutMs: o.timeoutMs });
+      const c = await prepareInstall({ dir: r.dir, info, tempRoot: o.tempRoot, onProgress, signal: abortCtl.signal, fsp: o.fsp, timeoutMs: o.timeoutMs });
       abortCtl = null;
       if (!c.ok) { log(`설치 파일 받기 실패: ${c.err}${c.code ? ' ' + c.code : ''}`); return c; }
-      if (dry) { log('시험(WCG_UPDATE_DRYRUN) — 실행하지 않음: ' + c.file); return { ok: true, dry: true, version: r.info.version }; }
-      const s = await runInstaller(c.file, { tempRoot: o.tempRoot, info: r.info, variant, spawn: o.spawn });
+      const tag = rollback ? { rollback: true } : {};
+      if (dry) { log('시험(WCG_UPDATE_DRYRUN) — 실행하지 않음: ' + c.file); return { ok: true, dry: true, version: info.version, ...tag }; }
+      const s = await runInstaller(c.file, { tempRoot: o.tempRoot, info, variant, spawn: o.spawn });
       if (!s.ok) { log(`설치 프로그램 실행 실패: ${s.err}${s.code ? ' ' + s.code : ''}`); return s; }
       launched = true;
-      log(`설치 프로그램 실행(${INSTALL_ARGS.join(' ')}) — 앱을 끈다`);
+      log(`설치 프로그램 실행(${INSTALL_ARGS.join(' ')})${rollback ? ' — 이전 판 ' + info.version + ' 으로 되돌리기' : ''} — 앱을 끈다`);
       setT(() => { try { o.quitForInstall(); } catch (e) { /* 이미 꺼지는 중 */ } }, 400);   // 웹앱이 답을 받아 안내를 띄울 틈
-      return { ok: true, version: r.info.version };
+      return { ok: true, version: info.version, ...tag };
     } finally { installing = false; abortCtl = null; }
   }
   function cancel() { if (abortCtl) { abortCtl.abort(); return true; } return false; }
@@ -328,7 +390,7 @@ function createUpdater(o) {
 }
 
 module.exports = {
-  DEFAULT_DIRS, LATEST_NAME, INSTALL_ARGS, TEMP_SUB, FIRST_DELAY_MS, EVERY_MS, DIR_TIMEOUT_MS, MAX_JSON_BYTES, MAX_SETUP_BYTES,
-  parseVer, cmpVer, variantOf, setupName, parseSetupName, setupNameOk, cleanNotes, validateLatest, withTimeout,
-  readLatest, readLatestAny, copyVerified, hashFile, cleanTemp, prepareInstall, runInstaller, createUpdater,
+  DEFAULT_DIRS, LATEST_NAME, INSTALL_ARGS, TEMP_SUB, FIRST_DELAY_MS, EVERY_MS, DIR_TIMEOUT_MS, MAX_JSON_BYTES, MAX_SETUP_BYTES, HISTORY_MAX, KEEP_SETUPS,
+  parseVer, cmpVer, variantOf, setupName, parseSetupName, setupNameOk, cleanNotes, validateEntry, validateLatest, withTimeout,
+  readLatest, readLatestAny, copyVerified, hashFile, cleanTemp, prepareInstall, rollbackable, runInstaller, createUpdater,
 };

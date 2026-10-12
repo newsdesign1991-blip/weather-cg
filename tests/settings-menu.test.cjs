@@ -1,5 +1,5 @@
 // 설정(렌치) 메뉴 — 제목줄 오른쪽 끝 렌치(#helperBtn)가 '설정' 드롭다운(data-sec="cfg")을 연다.
-// 배치 지정하기(사이드바 맨 아래에 있던 것)·기본값 굽기·설정 옮기기(프로젝트 메뉴에 있던 것)를 '옮겨' 담고(복제 금지),
+// 10-12: 맨 위 '앱 업데이트' 묶음(js/app-update.js — 데스크톱만). 배치 지정하기·기본값 굽기·설정 옮기기 묶음은 메뉴에서만 숨김(hidden — 버튼·연결은 그대로, 복제 금지),
 // 렌치는 더 이상 긴 기능 확장팩 안내를 바로 열지 않는다(메뉴 맨 아래 상태 한 줄에서만).
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -34,15 +34,15 @@ test('렌치 버튼 = 설정 메뉴 버튼(data-menu="cfg"), 오른쪽 묶음에
   const b = /<button id="helperBtn"[^>]*>/.exec(html)[0];
   assert.match(b, /class="menuBtn[^"]*"/);
   assert.match(b, /data-menu="cfg"/);
-  assert.match(b, /title="설정 — 배치·설정 옮기기"/);
-  assert.match(b, /aria-label="설정 — 배치·설정 옮기기"/);
+  assert.match(b, /title="설정 — 앱 업데이트"/);
+  assert.match(b, /aria-label="설정 — 앱 업데이트"/);
   assert.equal((html.match(/<button[^>]*data-menu="cfg"/g) || []).length, 1);
   // 렌치를 눌렀을 때 긴 헬퍼 안내를 바로 여는 연결은 없어야 한다
   assert.doesNotMatch(html, /\$\('#helperBtn'\)\.onclick/);
 });
 
-test('설정 드롭다운에 배치 지정하기·굽기·설정 옮기기·확장팩 상태 줄이 순서대로', () => {
-  const ids = ['cfgPresetGroup', 'slotBtn', 'bakeDefaults', 'cfgMoveGroup', 'exportSettings', 'importSettings', 'helperRow'];
+test('설정 드롭다운 — 앱 업데이트 묶음이 맨 위, 배치·설정 옮기기 묶음은 숨김(버튼은 그대로 — hidden 만 지우면 돌아옴), 확장팩 상태 줄', () => {
+  const ids = ['cfgUpdGroup', 'updBox', 'cfgPresetGroup', 'slotBtn', 'bakeDefaults', 'cfgMoveGroup', 'exportSettings', 'importSettings', 'helperRow'];
   let last = -1;
   for (const id of ids) {
     const i = cfg.indexOf(`id="${id}"`);
@@ -52,6 +52,13 @@ test('설정 드롭다운에 배치 지정하기·굽기·설정 옮기기·확�
   }
   assert.match(cfg, /배포용: 저장해 둔 화면별 배치들을 모두의 기본값 파일로 만듭니다/);
   assert.match(cfg, /웹판과 데스크톱 앱은 저장 공간이 따로입니다/);
+  // 숨김: 배치·설정 옮기기 = hidden(메뉴에서만), 앱 업데이트 = hidden(웹판 — updWire 가 데스크톱이면 보임)
+  for (const id of ['cfgPresetGroup', 'cfgMoveGroup', 'cfgUpdGroup']) assert.ok(cfg.includes('<div class="cfgGroup" id="' + id + '" hidden>'), id);
+  assert.match(cfg, /<div class="subhead">앱 업데이트 <span>/);
+  assert.match(html, /\.cfgGroup\[hidden\] \{ display: none; \}/);
+  // 연결(wire·setupMenus)은 그대로 — 다시 보이게 하면 바로 동작
+  assert.match(html, /\$\('#bakeDefaults'\)\.onclick = bakeDefaults;/);
+  assert.match(html, /if \(ex\) ex\.onclick = exportSettings; if \(im\) im\.onclick = importSettings;/);
 });
 
 test('프로젝트 메뉴는 저장·불러오기 중심 — 옮긴 항목이 남지 않는다', () => {
@@ -67,7 +74,7 @@ test('setupMenus — cfg 섹션을 드롭다운으로, 배치 지정하기는 fo
   // 오른쪽 끝(렌치)은 버튼 오른쪽에 맞춰 연다 + 열 때 확장팩 상태 줄 갱신
   assert.match(s, /closest\('\.tbRight'\)/);
   assert.match(s, /r\.right - dw/);
-  assert.match(s, /sec === 'cfg'\) refreshHelperRow\(\)/);
+  assert.match(s, /sec === 'cfg'\) \{ refreshHelperRow\(\); updMenuOpened\(\); \}/);
   assert.match(html, /const ALWAYS_OPEN = new Set\(\[[^\]]*'cfg'/);
 });
 
@@ -76,8 +83,8 @@ test('확장팩 상태 — 데스크톱은 빨간 점 없음, 웹판 꺼짐·구
   assert.match(a, /const dot = !WNS_DESKTOP && st\.up && st\.old;/);
   assert.match(a, /classList\.toggle\('hasNew', dot\)/);
   // 빨간 점의 뜻 — 점이 뜨면 렌치 툴팁이 이유를 말하고, 없어지면 원래 문구로
-  assert.match(a, /dot \? '설정 — 기능 확장팩 구버전: 메뉴 맨 아래에서 다시 실행' : HELPER_BTN_TIP/);
-  assert.match(html, /const HELPER_BTN_TIP = '설정 — 배치·설정 옮기기';/);
+  assert.match(a, /dot \? '설정 — 기능 확장팩 구버전: 메뉴 맨 아래에서 다시 실행' : \(b\.dataset\.updTip \|\| HELPER_BTN_TIP\)/);
+  assert.match(html, /const HELPER_BTN_TIP = '설정 — 앱 업데이트';/);
   // 메뉴 안 '구버전' 점은 렌치 빨간 점과 같은 색
   assert.match(html, /\.helperRow\[data-st="old"\] \.hrDot \{ background: #E5484D;/);
   // 밝은 테마에선 상태 줄 글자를 진하게(--on-surface-var 는 바탕과 대비 약 2.35:1)
@@ -89,13 +96,14 @@ test('확장팩 상태 — 데스크톱은 빨간 점 없음, 웹판 꺼짐·구
   assert.match(html, /if \(!up\) \{ wnsHelperOffNotice\(\); return; \}/);
 });
 
-test('둘러보기 — 렌치는 설정으로 설명하고, 배치 지정하기·설정 옮기기는 설정 메뉴를 열어 비춘다', () => {
+test('둘러보기 — 렌치는 설정(앱 업데이트)으로 설명하고, 설정 메뉴를 열어 앱 업데이트 묶음을 비춘다(숨긴 배치·설정 옮기기 단계는 없음)', () => {
   const t = fn('tourStepList');
   assert.match(t, /title: '둘러보기 · 공지 · 설정'/);
   assert.doesNotMatch(t, /기능 확장팩을 켜는 방법/);
-  assert.match(t, /title: '배치 지정하기'[\s\S]*?target: \(\) => \$\('#cfgPresetGroup'\), setup: \(\) => tourMenu\('cfg'\)/);
-  assert.match(t, /title: '설정 옮기기'[\s\S]*?target: \(\) => \$\('#cfgMoveGroup'\), setup: \(\) => tourMenu\('cfg'\)/);
-  assert.equal(t.split("title: '배치 지정하기'").length - 1, 1);
+  assert.match(t, /<b>앱 업데이트<\/b> 메뉴가 열려요/);
+  assert.match(t, /title: '앱 업데이트'[\s\S]*?target: \(\) => \{ const g = \$\('#cfgUpdGroup'\); return g && !g\.hidden \? g : \$\('#menuDrop'\); \}, setup: \(\) => tourMenu\('cfg'\)/);
+  assert.doesNotMatch(t, /title: '배치 지정하기'|title: '설정 옮기기'|#cfgPresetGroup|#cfgMoveGroup/, '숨긴 묶음을 비추지 않는다');
+  assert.equal(t.split("title: '앱 업데이트'").length - 1, 1);
   // 닫기 바가 오른쪽 위 메뉴를 가리면 비킨다 — 비추는 곳뿐 아니라 열린 드롭다운 전체도 피한다
   assert.match(fn('tourPlace'), /tourBarSide\(\{ x, y, w, h \}\)/);
   assert.match(fn('tourBarSide'), /\$\('#menuDrop'\)[\s\S]*?classList\.contains\('on'\)[\s\S]*?Math\.min\(a\.x, r\.left\)/);

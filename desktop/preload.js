@@ -65,12 +65,14 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
   // 창 닫기 전 묻기 — cb(번호)는 곧바로 closeReply(번호, 'close'|'wait')로, 팝업에서 고르면 closeReply(번호, 'close'|'stay')로 답한다(한 번만 건다)
   onCloseAsk: (cb) => { closeAskCb = typeof cb === 'function' ? cb : null; },
   closeReply: (id, act) => closeReply(id, act),
-  // 앱 업데이트 — updateCheck() → { state: 'available'|'latest'|'none'|'unreachable'|'bad'|'denied', current, version?, notes?, size?, date? }
-  // updateLater(판) — 이번 실행 동안 그 판은 저절로 다시 안 알림. updateInstall(판) → { ok: true } | { ok: false, err } (ok 면 곧 앱이 꺼지고 설치 프로그램이 새 판을 켠다)
+  // 앱 업데이트 — updateCheck() → { state: 'available'|'latest'|'none'|'unreachable'|'bad'|'denied', current, packaged, canInstall, version?, notes?, size?, date?,
+  //   history?: [{ version, date, size, notes, rollback }] } (history = 올라간 판들, rollback = 되돌릴 수 있는 낮은 판)
+  // updateLater(판) — 이번 실행 동안 그 판은 저절로 다시 안 알림. updateInstall(판, { rollback }) → { ok: true } | { ok: false, err }
+  //   (ok 면 곧 앱이 꺼지고 설치 프로그램이 그 판을 켠다. rollback = 내역의 낮은 판으로 되돌리기)
   // updateCancel() — 설치 파일 받기 멈춤. onUpdate(cb) — 새 판 알림, onUpdateProgress(cb) — 받기 진행({ got, total })
   updateCheck: () => ipcRenderer.invoke('wcg:update-check'),
   updateLater: (v) => ipcRenderer.invoke('wcg:update-later', String(v || '')),
-  updateInstall: (v) => ipcRenderer.invoke('wcg:update-install', String(v || '')),
+  updateInstall: (v, o) => ipcRenderer.invoke('wcg:update-install', String(v || ''), { rollback: !!(o && o.rollback) }),
   updateCancel: () => ipcRenderer.invoke('wcg:update-cancel'),
   onUpdate: (cb) => {
     updateCb = typeof cb === 'function' ? cb : null;
