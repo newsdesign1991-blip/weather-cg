@@ -349,6 +349,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
     바탕화면·시작 메뉴 '날씨 CG', 끝에 실행. 제어판에서 지워도 작업·설정(`%APPDATA%\날씨 CG`)은 남긴다. **appId `kr.co.sbs.weathercg`·제품 이름 '날씨 CG'·설치 폴더 이름 `weathercg-desktop`은 임시판(0.2.0)과 같다** —
     그 위에 덮어 설치하면 올라간다(바꾸면 따로 설치돼 둘이 생긴다). 설치 폴더 이름은 제품 이름에 한글이 있어 package 이름을 쓴다(electron-builder 규칙). main.js는 설치판이면 같은 appId로 `setAppUserModelId`(작업 표시줄 고정 아이콘과 창이 한 칸).
     서명 인증서가 없어 받은 PC에서 SmartScreen이 막는다('추가 정보 → 실행'). 자동 업데이트 없음(새 판 = 새 설치 파일을 덮어 설치). 크롬 내장 언어 파일은 한국어·영어만.
+    electron-builder가 설치할 때마다 남기는 설치 파일 사본(`%LOCALAPPDATA%\weathercg-desktop-updater\installer.exe` — 자동 업데이트용, 약 170MB)은 `installer.nsh`가 설치 끝·제거 때 지운다(임시판이 남긴 것도 덮어 설치 때 함께).
   - **사용자 데이터 = 개발판과 같음**: 설치판·개발판 모두 '%APPDATA%\날씨 CG'(제품 이름)와 같은 출처 `app://weathercg`를 쓴다 → 작업·배치·개인 키가 이어진다(임시판 → 1.0.0도 그대로).
     대신 한 PC에서 둘을 같이 켜면 나중에 켠 쪽이 먼저 켠 창을 앞으로 부르고 꺼진다(단일 인스턴스 잠금). 시험 배포 대상은 다른 PC들이라 이름을 나누지 않았다 — 개발 PC에서는 하나만 켠다.
   - **앱 버전 보기**: main이 `wcg:helper`로 `app.getVersion()`·`app.isPackaged`를 넘기고 preload가 `wcgDesktop.appVersion`·`packaged` → 설정(렌치) 메뉴 맨 아래 줄 '앱 1.0.0 · 렌더·불러오기 기능 · 앱에 내장됨'(개발판은 '앱 1.0.0 개발판', 마우스를 올리면 전체).

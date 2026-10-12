@@ -85,6 +85,12 @@ test('electron-builder 설정 — 이 사용자만·위치 고르기·바로 가
   const nsh = fs.readFileSync(path.join(root, 'tools', 'installer', 'installer.nsh'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(nsh, /!macro customInstallMode\n\s*\$\{if\} \$hasPerMachineInstallation == "1"\n\s*\$\{andIf\} \$hasPerUserInstallation == "0"\n\s*StrCpy \$isForceMachineInstall "1"\n\s*\$\{else\}\n\s*StrCpy \$isForceCurrentInstall "1"\n\s*\$\{endIf\}\n!macroend/);
   assert.equal(nsh.charCodeAt(0), 0xFEFF, 'NSIS 가 한글 주석을 UTF-8 로 읽게 BOM');
+  // 설치 끝·제거 때 설치 프로그램 사본(%LOCALAPPDATA%\…-updater\installer.exe)만 지운다 — 사용자 데이터(APPDATA)는 안 건드림, 폴더는 빈 것만
+  assert.match(nsh, /!macro customInstall\n\s*!insertmacro wcgDropInstallerCopy\n!macroend/);
+  assert.match(nsh, /!macro customUnInstall\n\s*!insertmacro wcgDropInstallerCopy\n!macroend/);
+  assert.match(nsh, /Delete "\$LOCALAPPDATA\\\$\{APP_INSTALLER_STORE_FILE\}"/);
+  assert.match(nsh, /RMDir "\$LOCALAPPDATA\\\$\{WCG_UPDATER_DIR\}"/);
+  assert.doesNotMatch(nsh.split('\n').filter((l) => !/^\s*;/.test(l)).join('\n'), /\$APPDATA|RMDir \/r|delete-app-data/i);
 });
 
 test('설치 시험판(--installtest) — 앱 내용은 같고 appId·제품 이름(exe·바로 가기·사용자 데이터)·설치 폴더 이름·파일 이름만 다름', () => {
