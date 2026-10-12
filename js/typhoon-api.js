@@ -544,7 +544,7 @@ async function attachEdgeTD(auto, doneMsg) {
   fxBusy(fx, true, { maxMs: 120000 });
   try {
     if (!auto) {   // 버튼: 헬퍼부터 확인(꺼져 있으면 안내). 불러오기(auto)는 방금 확인했다.
-      let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
+      let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; if (up) _kmaHelperMark(r); } catch (e) { up = false; }
       if (!up) { status('기능 확장팩(헬퍼)이 응답하지 않아 불러오지 못했습니다', true); if (typeof wnsHelperOffNotice === 'function') wnsHelperOffNotice(); return; }   // '불러오는 중…'에 멈춰 있지 않게
     }
     // ★td_now(TD)+typ_now(태풍) 둘 다 역/순 조회 → 태풍↔TD가 바뀐 스톰도 트랙 연속성으로 과거/미래를 이어붙인다.
@@ -590,12 +590,17 @@ function typhoonHasRows(t) { return String(t).split(/\r?\n/).some((l) => l && l[
 //    늦은 쪽은 끊는다(브라우저 연결을 비우게). 기다리는 쪽이 다 떠난(답이 정해져 아무도 안 쓰는) 진행 중 요청은 다시 보내지 않는다.
 //  - 단, 헬퍼가 스스로 '하나 더'를 하면(내장 헬퍼 10-12 — 응답 머리 'X-WCG-Kma: hedge', desktop/wns/server.js) 여기서는 다시 보내지 않는다:
 //    헬퍼가 1.5·3·6초에 다른 연결로 하나씩 더 보내므로 여기서도 보내면 같은 주소가 최대 2×4번 나가 인증키 사용량만 는다.
-//    헬퍼 응답을 한 번이라도 받으면 안다(_kmaQ.helperHedge). 그 전(첫 조회들) 0.9초 안에 답이 없을 때만 예전처럼 한 번 더.
-//    파이썬 헬퍼·옛 내장 헬퍼는 표시가 없어 예전 그대로.
+//    대신 급한 조회는 첫 하나 더 시각을 헬퍼에 넘긴다(&hedge=KMA_HEDGE_MS — 예전 이 줄의 0.9초 그대로, 보내는 수는 안 늚).
+//    표시는 불러오기를 시작할 때 /ping 머리로 미리 안다(_kmaHelperMark — 첫 묶음부터 겹치지 않게), 응답마다도 다시 본다.
+//    프록시 PC(헬퍼가 옛 길 — 한 번만 보냄)·파이썬 헬퍼·옛 내장 헬퍼는 표시가 없어 예전 그대로(여기서 0.9·1.5초에 한 번 더).
 const KMA_INFLIGHT_MAX = 6;
 const KMA_HEDGE_MS = 900, KMA_HEDGE_BG_MS = 1500, KMA_HEDGE_PRIO = 100;
 const KMA_TTL_PAST = 10 * 60e3, KMA_TTL_RECENT = 30e3;
 const _kmaQ = { active: 0, seq: 0, wait: [], jobs: new Map(), cache: new Map(), soon: false, helperHedge: false };
+// 헬퍼 응답(/ping·/api/kma)의 머리로 '헬퍼가 스스로 하나 더 보내는가'를 적어 둔다. 머리를 못 읽는 응답(가짜·옛 브라우저)이면 그대로 둔다.
+function _kmaHelperMark(r) {
+  if (r && r.headers && typeof r.headers.get === 'function') _kmaQ.helperHedge = r.headers.get('X-WCG-Kma') === 'hedge';
+}
 // 기상청 typ_now·td_now의 tm은 UTC로 해석된다(응답의 분석 시각 열과 같은 기준) — 주소·tm 문자열 → ms
 function _kmaTmMs(tm) { const s = String(tm); return Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +(s.slice(10, 12) || 0)); }
 // typ_now·td_now는 tm 기준 '12시간 안에 분석이 있는 스톰'만 준다(2026-10 실측: 마지막 분석 12시간 뒤 tm까지 포함, 13시간 뒤 제외).
@@ -657,9 +662,11 @@ function _kmaPump() {
       const ac = typeof AbortController === 'function' ? new AbortController() : null;
       ctrls.push(ac); live++;
       // no-store: 브라우저 HTTP 캐시를 거치지 않는다 — 같은 주소 두 번째 요청이 첫 요청 끝까지 '캐시 잠금'으로 묶이지 않게(다시 보내기가 실제로 나가게)
-      fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(job.u), ac ? { cache: 'no-store', signal: ac.signal } : { cache: 'no-store' })
+      // 헬퍼가 하나 더를 하면 급한 조회는 첫 하나 더 시각을 넘긴다(헬퍼 기본 1.5초 → 0.9초). 모르는 헬퍼는 이 값을 무시한다
+      const hq = Q.helperHedge && job.prio < KMA_HEDGE_PRIO ? '&hedge=' + KMA_HEDGE_MS : '';
+      fetch(WNS_HELPER + '/api/kma?u=' + encodeURIComponent(job.u) + hq, ac ? { cache: 'no-store', signal: ac.signal } : { cache: 'no-store' })
         .then((r) => {
-          if (r.headers && typeof r.headers.get === 'function' && r.headers.get('X-WCG-Kma') === 'hedge') Q.helperHedge = true;   // 헬퍼가 '하나 더'를 한다
+          _kmaHelperMark(r);   // 헬퍼가 '하나 더'를 하는가(프록시 PC 면 옛 길이라 표시 없음 → 여기서 다시 보낸다)
           return r.ok ? r.text() : null;
         }).catch(() => null).then((text) => end(text, ac));
     };
@@ -759,7 +766,7 @@ async function fetchTyphoon() {
   status('태풍 정보 불러오는 중…', true);
   try {
     // 1) 헬퍼 살아있는지 먼저 확인 — 꺼져 있으면 설치/실행 안내 팝업
-    let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
+    let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; if (up) _kmaHelperMark(r); } catch (e) { up = false; }   // 헬퍼가 하나 더를 하는가도 미리
     if (!up) { if (typeof wnsHelperOffNotice === 'function') { status('기능 확장팩(헬퍼)이 응답하지 않아 불러오지 못했습니다', true); wnsHelperOffNotice(); } else status('WNS 헬퍼가 꺼져 있습니다 (R:\\[F]_Util\\WNS 실행)', true); return; }
     _kmaDropRecent();   // 다시 누름 = 최신으로(방금 나온 발표를 30초 기억 때문에 놓치지 않게)
     // 2) 태풍(typ_now)·열대저압부(td_now)를 함께 찾는다 — 둘 다 '데이터 있는 가장 최근 시각'(옛 방식과 같은 답, _typScanRecent).
@@ -819,7 +826,7 @@ async function fetchTyphoonPast() {
   fxBusy(fx, true, { lines: 3, maxMs: 120000 });
   status('과거 태풍 불러오는 중…', true);
   try {
-    let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; } catch (e) { up = false; }
+    let up = false; try { const r = await fetch(WNS_HELPER + '/ping', { cache: 'no-store' }); up = r.ok; if (up) _kmaHelperMark(r); } catch (e) { up = false; }   // 헬퍼가 하나 더를 하는가도 미리
     if (!up) { if (typeof wnsHelperOffNotice === 'function') { status('기능 확장팩(헬퍼)이 응답하지 않아 불러오지 못했습니다', true); wnsHelperOffNotice(); } else status('WNS 헬퍼가 꺼져 있습니다', true); return; }
     _kmaDropRecent();   // 오늘 날짜를 고른 경우 최근 시각도 새로
     const found = await _typPastFind(base);

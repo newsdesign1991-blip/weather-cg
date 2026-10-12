@@ -5,8 +5,10 @@
 // 보안 규칙(출처 검사·본문 길이/상한·점으로 끝나는 sid·장치 이름 거부·aePath 는 설치 목록의 AfterFX.exe 만)도 helper.py 와 같다.
 // API:
 //   GET  /ping                         -> {"ok":true,"ff":bool,"ver":N,"embedded":true}
-//   GET  /api/kma?u=<url>              -> 기상청/공공데이터 프록시(텍스트). 내장판은 연결 재사용·늦으면 하나 더·5xx면 한 번 더(아래 '기상청 받기', 10-12) —
-//                                         응답·/ping 에 'X-WCG-Kma: hedge'(앱이 자기 '하나 더'를 끄고 '다시 요청하는 중' 문구를 띄운다), /api/kma 에 'X-WCG-Kma-Sent: 보낸 수'
+//   GET  /api/kma?u=<url>[&hedge=ms]   -> 기상청/공공데이터 프록시(텍스트). 내장판은 연결 재사용·늦으면 하나 더·5xx면 한 번 더(아래 '기상청 받기', 10-12) —
+//                                         빠른 길로 받은 응답과 /ping(apihub 가 빠른 길을 타는 PC 일 때만 — 프록시 PC 는 아님)에 'X-WCG-Kma: hedge'
+//                                         (앱이 자기 '하나 더'를 끄고 '다시 요청하는 중' 문구를 띄운다), /api/kma 에 'X-WCG-Kma-Sent: 보낸 수'.
+//                                         hedge = 앱이 정하는 첫 '하나 더' 시각(태풍 급한 조회 0.9초 — 기본 1.5초보다 이를 때만, 파이썬 헬퍼는 무시)
 //   POST /api/frame?sid=&index=&ext=   -> 프레임 저장 (index=0 이면 세션 리셋 + 오래된 세션 폴더 정리), 본문 256MB까지
 //   POST /api/finalize {sid,mode,tail} -> ffmpeg 인코딩 → 파일 바이트 응답, 본문 16MB까지
 //   POST /api/ae {sid,aePath,...}      -> jsx 만들고 AfterFX -r 로 실행 → {"ok":true,"ae":..,"fontsOk":bool}, 본문 16MB까지
@@ -460,20 +462,27 @@ function kmaHostOk(u) { try { return PU.kmaUrlAllowed(u); } catch (e) { return f
 // 옛 헬퍼(요청마다 새 연결·20초)는 그때 20초 뒤 'The read operation timed out'(64번 중 5번). 붙잡힌 그 순간에도 다른 연결로 보낸 같은 요청은 대개 0.2초에 온다.
 // 그래서 공공데이터포털 받기(desktop/data-fetch.js createDataFetcher)를 옵션만 바꿔 쓴다:
 //   연결 재사용(apihub 는 5초 놀면 닫는다 — 연달아 묻는 태풍 불러오기에 득), 첫 응답이 1.5·3·6초 안에 없으면 다른 연결로 하나씩 더
-//   (다시 쓴 연결도 붙잡히므로 그때도), 5xx·연결 오류·본문 끊김이면 남은 시간 안에 한 번 더, 처음 보낸 때부터 cfg.kmaTimeout(20초)이 전체 한도
-//   (붙잡힌 요청은 30초 뒤 504 라 기다려도 안 온다 — 20초는 옛 헬퍼와 같은 약속, 앱 문구도 '20초').
-//   넘겨주기(302 등)는 다음 주소도 빠른 길이면 따라가고(통보문 kma.go.kr → weather.go.kr), 아니면 옛 길로 처음부터.
+//   (다시 쓴 연결도 붙잡히므로 그때도), 5xx·연결 오류·본문 끊김이면 남은 시간 안에 한 번 더(하나 더 몫 안에서 — 요청 하나에 최대 4번),
+//   처음 보낸 때부터 cfg.kmaTimeout(20초)이 전체 한도 — 머리·본문·넘겨주기 모두(붙잡힌 요청은 30초 뒤 504 라 기다려도 안 온다 — 20초는 옛 헬퍼와 같은 약속, 앱 문구도 '20초').
+//   넘겨주기(302 등)는 다음 주소도 빠른 길이면 남은 시간으로 따라가고(통보문 kma.go.kr → weather.go.kr), 아니면 옛 길로 처음부터(남은 시간만).
+//   연결 모음(32)이 꽉 차면 하나 더는 줄만 서니 보내지 않는다.
 // 오류 글은 웹앱 판정(js/warnings.js wrnHttpFail·js/bulletin-load.js·js/data-maps.js)이 읽는 urllib 문구 그대로('HTTP Error 504: …', '… timed out').
 // 빠른 길에 안 태우는 것 = 옛 길(파이썬 urllib 흉내 urlopen, 한 번·20초 — 바이트까지 helper.py 와 같다):
 //   프록시를 써야 하는 PC(그 길 그대로 — 헬퍼와 같은 기준 systemProxyConfig·proxyBypass), http://, 포트·사용자 정보·점 경로·특수 글자가 든 주소.
 // 하나 더 보낼 때(ms). 정상 첫 응답은 0.1~0.8초(10-12 실측 p50 0.13~0.23초·p90 0.3~0.8초, 드물게 1.3·3.8초 — 1.5초 전에 더 보내는 일은 드묾).
 // 붙잡힘은 나쁜 때 요청의 5~8%(같은 주소를 같은 순간 둘 보내 둘 다 붙잡힌 적도 2번) — 셋이 다 붙잡히면 6초에 하나 더.
 const KMA_HEDGE_AT = [1500, 3000, 6000];
-const KMA_RETRIES = 1;               // 5xx·연결 오류·본문 끊김이면 한 번 더(남은 시간이 1초 넘을 때만)
+const KMA_HEDGE_MIN = 300;           // 앱이 넘기는 첫 하나 더 시각(&hedge=)의 하한 — 정상 응답(p50 0.13~0.23초)을 겹쳐 보내지 않게
+const KMA_RETRIES = 1;               // 5xx·연결 오류·본문 끊김이면 한 번 더(남은 시간이 1초 넘을 때만, 하나 더 몫 안에서 — 한 번에 최대 4번)
+// 연결 모음 상한. 앱은 동시에 6건까지(js/typhoon-api.js KMA_INFLIGHT_MAX), 요청마다 최대 4번(처음 + 하나 더 3번) = 24 — 넉넉히.
+// 꽉 차면 하나 더는 줄만 서서 소용이 없으니 보내지 않는다(desktop/data-fetch.js poolFull, 10-12 검증)
+const KMA_MAX_SOCKETS = 32;
+const KMA_MIN_LEG_MS = 500;          // 넘겨주기 다음 단계·옛 길로 넘길 때 남은 시간이 이보다 적으면 보내지 않고 시간 초과
 const KMA_MAX_BYTES = 32 << 20;      // 하루 특보 목록·통보문 페이지도 1MB 안팎
 const KMA_REDIRECTS = 5;
 const KMA_REDIRECT_CODES = new Set([301, 302, 303, 307, 308]);
 const KMA_EXPOSE = 'X-WCG-Kma, X-WCG-Kma-Sent';
+const KMA_MARK_URL = 'https://apihub.kma.go.kr/';   // /ping 표시를 정할 때 프록시 판정에 쓰는 주소(특보·태풍 = apihub)
 // 빠른 길 주소: https + 소문자 호스트 + 경로부터는 그대로 보내도 Node 와 urllib 이 같은 바이트를 보내는 글자만. 아니면 null(→ 옛 길)
 function kmaFastUrl(u) {
   if (typeof u !== 'string' || u.length > 8192) return null;
@@ -486,8 +495,9 @@ function kmaFastUrl(u) {
 }
 // 이 헬퍼가 빠른 길(하나 더 보내기)을 한다는 표시 — 앱(js/typhoon-api.js kmaRequest)은 이걸 보면 자기 '하나 더'를 끄고(요청이 겹겹이 늘지 않게),
 // 특보 불러오기(js/warnings-load.js)는 늦을 때 '다시 요청하는 중' 문구를 띄운다. 다른 출처(app://)에서 읽을 수 있게 Expose 도.
-function kmaHeads(res) {
-  res.setHeader('X-WCG-Kma', 'hedge');
+// 표시는 빠른 길을 실제로 탈 때만 붙인다(fast) — 프록시 PC·옛 길로 간 응답에 붙이면 앱이 자기 '한 번 더'를 꺼서 아무도 다시 안 보낸다(10-12 검증).
+function kmaHeads(res, fast) {
+  if (fast) res.setHeader('X-WCG-Kma', 'hedge');
   res.setHeader('Access-Control-Expose-Headers', KMA_EXPOSE);
 }
 // 빠른 길 실패 → urllib 과 같은 오류 글
@@ -628,7 +638,7 @@ function createWnsServer(opts = {}) {
     kmaFetcher = createDataFetcher({
       module: cfg.kmaModule, allow: (u) => u, raw: true, headers: { 'User-Agent': PY_UA, 'Accept-Encoding': 'identity' },
       failStatus: (s) => s >= 500, retries: KMA_RETRIES, deadline: true, hedgeReused: true, hedgeAt: cfg.kmaHedgeAt, maxBytes: KMA_MAX_BYTES,
-      agentOptions: { maxSockets: 16, maxFreeSockets: 8, ...(secureContext && cfg.kmaModule === https ? { secureContext } : {}), ...(cfg.kmaAgentOptions || {}) },
+      agentOptions: { maxSockets: KMA_MAX_SOCKETS, maxFreeSockets: 8, ...(secureContext && cfg.kmaModule === https ? { secureContext } : {}), ...(cfg.kmaAgentOptions || {}) },
     });
     return kmaFetcher;
   }
@@ -640,20 +650,43 @@ function createWnsServer(opts = {}) {
       return !PU.proxyBypass(new URL(u).host, pc);
     } catch (e) { return true; }   // 판정 못 하면 옛 길(지금까지와 같은 동작)
   }
-  // 기상청 받기 → { body: Buffer, sent: 보낸 수, fast: 빠른 길이었나 }. 실패면 urllib 문구의 오류를 던진다. signal = 앱이 떠나면(요청 취소) 끊기
-  async function kmaGet(u, signal) {
+  // /ping 표시: 이 PC 에서 apihub 가 빠른 길을 타는가(프록시를 써야 하면 옛 길 — 하나 더를 안 한다). 프록시 판정은 처음 한 번(레지스트리 읽기)이라
+  // 시작할 때 미리 해 두고(listen), /ping 은 0.3초까지만 기다린다(데스크톱 메인의 헬퍼 확인은 0.8초 제한) — 그때까지 모르면 표시 없음(= 앱이 예전처럼).
+  let kmaMarkP = null;
+  const kmaMarkGet = () => kmaMarkP || (kmaMarkP = kmaViaProxy(KMA_MARK_URL).then((px) => !px, () => false));
+  async function kmaMarkSoon() {
+    let t = null;
+    const v = await Promise.race([kmaMarkGet(), new Promise((r) => { t = setTimeout(() => r(false), 300); })]);
+    clearTimeout(t);
+    return v;
+  }
+  // 앱이 넘긴 첫 '하나 더' 시각(&hedge=ms — 태풍 급한 조회 0.9초) → 하나 더 시각 목록. 기본 첫 시각보다 이를 때만(첫 것만 바꾼다 — 보내는 수는 그대로)
+  function kmaHedgeParam(q) {
+    const v = Math.floor(+((q.hedge || [''])[0]));
+    const base = cfg.kmaHedgeAt;
+    if (!Number.isFinite(v) || v < KMA_HEDGE_MIN || !base.length || v >= base[0]) return null;
+    return [v, ...base.slice(1)];
+  }
+  // 기상청 받기 → 본문 Buffer. 실패면 urllib 문구의 오류를 던진다. signal = 앱이 떠나면(요청 취소) 끊기. hedgeAt = 하나 더 시각(없으면 기본)
+  // st = { sent: 보낸 수, fast: 빠른 길로 받았나('X-WCG-Kma: hedge' 표시) } — 던질 때도 채워 둔다.
+  // 시간 한도는 처음 보낸 때부터 cfg.kmaTimeout 전체(머리·본문·넘겨주기) — 넘겨주기 다음 단계·옛 길로 넘길 때도 남은 시간만 준다.
+  async function kmaGet(u, signal, st, hedgeAt) {
     const first = cfg.kmaFast(u);
-    let sent = 0;
+    let t0 = 0;
+    const rest = () => cfg.kmaTimeout - (Date.now() - t0);
+    const late = () => new Error('The read operation timed out');   // 한도가 다 됨(urllib 읽기 시간 초과와 같은 글 — 앱: 기상청 응답이 너무 늦어요)
     if (first && !(await kmaViaProxy(first))) {
-      const t0 = Date.now();
+      t0 = Date.now();
+      st.fast = true;
       let cur = first;
       for (let hop = 0; hop <= KMA_REDIRECTS; hop++) {
-        const x = await kmaFetcherGet().fetch(cur, { timeoutMs: Math.max(500, cfg.kmaTimeout - (Date.now() - t0)), signal });
-        sent += x.sent || 0;
+        if (rest() < KMA_MIN_LEG_MS) throw late();
+        const x = await kmaFetcherGet().fetch(cur, { timeoutMs: rest(), signal, ...(hedgeAt ? { hedgeAt } : {}) });
+        st.sent += x.sent || 0;
         if (x.err === 'aborted') { const e = new Error('앱이 요청을 취소함'); e.kmaAborted = true; throw e; }
         if (x.sent > 1 || !x.ok) cfg.log('[wns] 기상청 ' + (x.ok ? '받음' : '실패(' + x.err + (x.status ? ' ' + x.status : '') + ')') + ' — ' + x.sent + '번 보냄, ' + x.ms + 'ms');   // 주소(인증키)는 싣지 않는다
         if (!x.ok) throw new Error(kmaFailText(x));
-        if (x.status >= 200 && x.status < 300) return { body: x.body, sent, fast: true };
+        if (x.status >= 200 && x.status < 300) return x.body;
         if (KMA_REDIRECT_CODES.has(x.status) && x.location && hop < KMA_REDIRECTS) {
           let next = null;
           try { next = cfg.kmaFast(new URL(x.location, cur).href); } catch (e) { next = null; }
@@ -662,32 +695,39 @@ function createWnsServer(opts = {}) {
         if (KMA_REDIRECT_CODES.has(x.status)) break;   // 따라갈 수 없는 넘겨주기 — 옛 길(urllib)로 처음부터
         throw new Error('HTTP Error ' + x.status + ': ' + String(x.reason || '').trim());
       }
+      st.fast = false;   // 옛 길로 간다(한 번만 보냄 — 하나 더 없음)
     }
-    const body = await cfg.kmaUrlopen(u, { timeout: cfg.kmaTimeout, userAgent: PY_UA, proxyConfig: cfg.kmaProxyConfig, ca: cfg.kmaCa });
-    return { body, sent: sent + 1, fast: false };
+    // 옛 길(urllib 흉내). 빠른 길을 거쳐 왔으면 남은 시간만(urllib 시간 제한은 읽기마다라 조금 넘을 수 있다)
+    const timeout = t0 ? rest() : cfg.kmaTimeout;
+    if (timeout < KMA_MIN_LEG_MS) throw late();
+    st.sent++;
+    return cfg.kmaUrlopen(u, { timeout, userAgent: PY_UA, proxyConfig: cfg.kmaProxyConfig, ca: cfg.kmaCa });
   }
 
   async function doGet(req, res, p, query) {
     req.resume();
-    if (p === '/ping') { kmaHeads(res); return send(res, 200, { ok: true, ff: ffExists(), ver: cfg.helperVer, embedded: true }); }
+    if (p === '/ping') { kmaHeads(res, await kmaMarkSoon()); return send(res, 200, { ok: true, ff: ffExists(), ver: cfg.helperVer, embedded: true }); }
     // AE로 보내기 'GEOlayers 지도로' — 이 헬퍼가 그 길을 알고(경로가 있음) 이 PC에 GEOlayers 3가 있는지
     if (p === '/api/geo-caps') return send(res, 200, { ok: true, geolayers: geoCaps(cfg.geoDirs || geoDirs()) });
     // 기상청 API허브 프록시 (CORS 우회). apihub.kma.go.kr 등만 허용.
     if (p === '/api/kma') {
       const q = PU.parseQs(query);
       const u = (q.u || [''])[0];
-      kmaHeads(res);
+      kmaHeads(res, false);
       // 앱이 기다리다 떠나면(요청 취소·새 요청에 밀림) 빠른 길의 남은 시도를 끊는다
       const ac = new AbortController();
       res.on('close', () => { if (!res.writableEnded) ac.abort(); });
+      const st = { sent: 0, fast: false };
+      const marks = () => { kmaHeads(res, st.fast); res.setHeader('X-WCG-Kma-Sent', String(st.sent)); };
       try {
         if (!PU.kmaUrlAllowed(u)) return send(res, 400, { ok: false, error: '허용되지 않은 주소' });
-        const got = await kmaGet(u, ac.signal);
-        res.setHeader('X-WCG-Kma-Sent', String(got.sent));
-        const txt = decodeKmaBody(got.body);
+        const body = await kmaGet(u, ac.signal, st, kmaHedgeParam(q));
+        marks();
+        const txt = decodeKmaBody(body);
         return send(res, 200, null, 'text/plain; charset=utf-8', Buffer.from(txt, 'utf8'));
       } catch (e) {
         if (e && e.kmaAborted) return undefined;   // 받을 사람이 없다
+        marks();
         return send(res, 502, { ok: false, error: errMsg(e) });
       }
     }
@@ -916,6 +956,7 @@ function createWnsServer(opts = {}) {
         const onOk = () => {
           srv.removeListener('error', onErr); boundPort = srv.address().port;
           pruned = pruneFrames(cfg.framesDir).catch(() => {});   // 시작 때 오래된 세션 폴더 정리(기다리지 않고 바로 응답)
+          kmaMarkGet();   // /ping 표시용 프록시 판정을 미리(기다리지 않음)
           resolve(boundPort);
         };
         srv.once('error', onErr);

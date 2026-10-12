@@ -12,6 +12,8 @@
 //      정상 응답은 0.2초 안에 온다(실측 p50 0.09초). 다시 쓴 연결이면 더 보내지 않는다(헬퍼 옵션 hedgeReused 면 보낸다).
 //   ③ 첫 응답(머리)을 timeoutMs 까지만 기다리고 끊는다 — 몇 번 다시 보낼지·얼마나 기다릴지는 웹앱이 정한다(시도마다 늘려 느린 응답도 받는다).
 //   ④ 놀던 연결을 서버가 이미 닫아 곧바로 끊기면(재사용 소켓 ECONNRESET 등) 다른 연결로 바로 다시(서버는 요청을 못 받았다 — 3번까지).
+//   ⑤ 연결 모음이 꽉 찼으면(그 호스트에 빈 연결이 없고 소켓 상한만큼 쓰는 중이거나 이미 줄이 있음) 하나 더를 보내지 않는다 — 줄만 서서
+//      붙잡힌 연결이 풀릴 때까지 못 나가니 소용이 없고, 줄 서 있다 끊긴 요청이 쌓이면 Node 가 소켓에 error 리스너를 쌓는다(10-12 검증).
 // 받을 수 있는 주소는 https://apis.data.go.kr/<기관>/<서비스>/<오퍼레이션>?… 뿐(그 밖은 보내지 않고 'denied').
 // UA는 파이썬 기본(Python-urllib/3.13) — 포털 WAF가 다른 UA를 403으로 막는다(desktop/wns/server.js PY_UA와 같다).
 // 키가 든 주소는 로그·오류 글에 싣지 않는다(오류 detail 은 소켓 오류 글만).
@@ -21,7 +23,9 @@
 //   raw          본문을 글자 대신 바이트(body: Buffer)로, 상태 문구(reason)·넘겨주기 주소(location)도 돌려준다(기상청은 EUC-KR — 헬퍼가 파이썬처럼 푼다).
 //   failStatus   이 상태(예: 5xx)면 '실패한 시도'로 본다 — 이긴 쪽으로 치지 않고 다른 시도를 기다리거나 다시 보낸다(err 'status').
 //   retries      실패(상태·연결 오류·본문 끊김)면 남은 시간 안에 이만큼 다시 보낸다(첫 응답 시간 초과는 다시 안 보냄 — 그땐 이미 하나 더 보냈다).
-//   deadline     true 면 timeoutMs 가 '처음 보낸 때부터' 전체 시간 제한(뒤에 보낸 것도 남은 시간만 기다림, 남은 시간이 retryMinMs 보다 적으면 새로 안 보냄).
+//                다시 보낸 것도 '하나 더' 몫에서 뺀다 — 받기 한 번에 보내는 수는 1 + 하나 더 횟수를 넘지 않는다(5xx 뒤 하나 더 타이머가 겹쳐 늘지 않게, 10-12 검증).
+//   deadline     true 면 timeoutMs 가 '처음 보낸 때부터' 전체 시간 제한 — 머리·본문 모두(본문 조각 사이 쉼도 남은 시간까지만), 뒤에 보낸 것도 남은 시간만 기다림,
+//                남은 시간이 retryMinMs 보다 적으면 새로 안 보내고, 연결 모음에 줄 서 있다가 그때 연결을 받은 요청도 보내지 않고 버린다.
 //   hedgeReused  다시 쓴 연결이어도 늦으면 하나 더(기상청 apihub 는 포털과 달리 다시 쓴 연결도 붙잡혔다 — 89건 중 4건, 2026-10-12 실측).
 //   hedgeAt      하나 더 보낼 시각 목록(ms) — 있으면 hedgeMs·hedges 대신.
 //   headers      보낼 머리글(기본: 파이썬 UA·identity·*/*).   signal(받기마다) — 부른 쪽이 떠나면(abort) 모든 시도를 끊고 'aborted'.
@@ -70,15 +74,29 @@ function createDataFetcher(opts) {
   const raw = !!o.raw;
   const failStatus = typeof o.failStatus === 'function' ? o.failStatus : null;
   const retryMinMs = o.retryMinMs > 0 ? o.retryMinMs : RETRY_MIN_MS;
+  // 연결 모음 상태(agent 의 sockets·freeSockets·requests — 읽기만). 이름은 '호스트:포트:…'로 시작한다(Agent.getName)
+  const poolKey = (u) => { try { const x = new URL(u); return x.hostname + ':' + (x.port || agent.defaultPort || '') + ':'; } catch (e) { return null; } };
+  const poolCount = (m, k) => { let c = 0; for (const n of Object.keys(m || {})) if (n.startsWith(k)) c += (m[n] || []).length; return c; };
+  // 지금 이 주소로 하나 더 보내면 줄만 서는가 — 빈 연결이 없고 소켓 상한만큼 쓰는 중, 또는 이미 줄 선 요청이 있음
+  const poolFull = (u) => {
+    const k = poolKey(u);
+    if (!k) return false;
+    if (poolCount(agent.requests, k) > 0) return true;
+    return poolCount(agent.freeSockets, k) === 0 && poolCount(agent.sockets, k) >= (agent.maxSockets || Infinity);
+  };
+  const queued = (req) => { for (const n of Object.keys(agent.requests || {})) if ((agent.requests[n] || []).includes(req)) return true; return false; };
 
   // 요청 한 번. onHead(run) = 응답 머리가 왔다(이긴 쪽). 반환 run { done(Promise → 결과), abort(), reused, headed }
-  function run(url, timeoutMs, onHead) {
+  // endAt(deadline 모드) = 전체 한도 시각 — 본문 타이머도 그때까지만, 줄 서 있다 한도 직전에 연결을 받으면 보내지 않고 버린다
+  function run(url, timeoutMs, onHead, endAt) {
     const r = { reused: false, headed: false, socketed: false, connected: false, over: false, abort: () => {} };
     let req = null, timer = null, why = '', finished = false, resolveDone;
     r.done = new Promise((res) => { resolveDone = res; });
     const finish = (x) => { if (finished) return; finished = true; r.over = true; clearTimeout(timer); resolveDone({ ...x, reused: r.reused }); };
     const arm = (ms, kind) => { clearTimeout(timer); timer = setTimeout(() => { why = kind; try { req.destroy(new Error(kind)); } catch (e) { /* 이미 끝남 */ } }, ms); };
+    const armBody = () => arm(endAt ? Math.max(1, Math.min(bodyIdle, endAt - Date.now())) : bodyIdle, 'idle');
     r.abort = () => { if (finished) return; why = 'aborted'; finish({ ok: false, err: 'aborted' }); try { req && req.destroy(); } catch (e) { /* 무시 */ } };
+    let waiting = false;
     try {
       req = mod.request(url, { method: 'GET', agent, headers }, (res) => {
         r.headed = true;
@@ -93,7 +111,7 @@ function createDataFetcher(opts) {
         }
         if (onHead) onHead(r);
         if (finished) { res.resume(); return; }
-        arm(bodyIdle, 'idle');
+        armBody();
         const len = +res.headers['content-length'] || 0;
         if (len > maxBytes) { why = 'too-big'; finish({ ok: false, err: 'too-big', status: res.statusCode }); req.destroy(); return; }
         const chunks = []; let size = 0;
@@ -101,7 +119,7 @@ function createDataFetcher(opts) {
           if (finished) return;
           size += c.length;
           if (size > maxBytes) { why = 'too-big'; finish({ ok: false, err: 'too-big', status: res.statusCode }); req.destroy(); return; }
-          chunks.push(c); arm(bodyIdle, 'idle');
+          chunks.push(c); armBody();
         });
         res.on('end', () => {
           if (!res.complete) return finish({ ok: false, err: why === 'idle' ? 'timeout' : 'net', stage: 'body', detail: 'incomplete' });
@@ -112,7 +130,13 @@ function createDataFetcher(opts) {
         res.on('error', (e) => finish({ ok: false, err: why === 'idle' ? 'timeout' : 'net', stage: 'body', detail: errText(e) }));
         res.on('close', () => { if (!res.complete) finish({ ok: false, err: why === 'idle' ? 'timeout' : 'net', stage: 'body', detail: 'closed' }); });
       });
+      waiting = !!endAt && queued(req);   // 연결 모음이 꽉 차 줄을 섰다
       req.on('socket', (s) => {
+        if (waiting && endAt - Date.now() < retryMinMs) {   // 줄 서 있다 한도 직전에 연결을 받음 — 보내 봐야 곧 끊긴다(인증키 사용량만)
+          why = 'timeout'; finish({ ok: false, err: 'timeout', stage: 'head', connected: false });
+          try { req.destroy(); } catch (e) { /* 무시 */ }
+          return;
+        }
         r.socketed = true; r.reused = !!req.reusedSocket;
         if (r.reused || !s.connecting) r.connected = true; else s.once('connect', () => { r.connected = true; });
       });
@@ -149,9 +173,10 @@ function createDataFetcher(opts) {
     const signal = q.signal || null;
     const t0 = Date.now();
     const left = () => timeoutMs - (Date.now() - t0);
+    const maxSends = 1 + Math.max(at.length, retries);   // 하나 더·다시 보내기를 합쳐 이만큼까지(놀던 연결이 닫혀 바로 다시 보낸 것은 빼고 — 서버가 못 받았다)
     return new Promise((resolve) => {
       const runs = [], hedgeTimers = [];
-      let winner = null, settled = false, resets = 0, retried = 0, lastFail = null;
+      let winner = null, settled = false, resets = 0, retried = 0, lastFail = null, paid = 0;
       const live = () => runs.filter((y) => !y.over);
       const stopHedges = () => { for (const t of hedgeTimers) clearTimeout(t); };
       const settle = (x) => {
@@ -163,8 +188,9 @@ function createDataFetcher(opts) {
       function onAbort() { if (settled) return; winner = null; settle({ ok: false, err: 'aborted' }); }
       const onHead = (r) => { if (winner) { if (r !== winner) r.abort(); return; } winner = r; stopHedges(); for (const x of runs) if (x !== r) x.abort(); };
       const retryable = (x) => x.err === 'status' || x.err === 'net' || (x.err === 'timeout' && x.stage === 'body');
-      const start = () => {
-        const r = run(url, deadline ? Math.max(1, left()) : timeoutMs, onHead);
+      const start = (reset) => {
+        if (!reset) paid++;
+        const r = run(url, deadline ? Math.max(1, left()) : timeoutMs, onHead, deadline ? t0 + timeoutMs : 0);
         runs.push(r);
         r.done.then((x) => {
           if (settled) return;
@@ -174,10 +200,10 @@ function createDataFetcher(opts) {
           if (r === winner) winner = null;   // 이긴 쪽 본문이 끊김 — 아래에서 다시 보낼지 정한다
           if (winner) return;
           // 놀던 연결이 이미 닫혔다 — 다른 연결로 바로 다시(서버는 요청을 못 받았다 — 3번까지)
-          if (x.reset && resets < 3) { resets++; start(); return; }
+          if (x.reset && resets < 3) { resets++; start(true); return; }
           if (live().length) return;   // 아직 기다리는 다른 요청이 있다
-          // 실패(5xx·연결 오류·본문 끊김) — 남은 시간 안에 다시(retries 번까지)
-          if (retried < retries && retryable(x) && (!deadline || left() >= retryMinMs)) { retried++; start(); return; }
+          // 실패(5xx·연결 오류·본문 끊김) — 남은 시간 안에 다시(retries 번까지, 보낸 수 몫 안에서, 줄만 서게 되면 안 보냄)
+          if (retried < retries && paid < maxSends && retryable(x) && (!deadline || left() >= retryMinMs) && !poolFull(url)) { retried++; start(); return; }
           settle(lastFail);
         });
         return r;
@@ -193,6 +219,8 @@ function createDataFetcher(opts) {
           if (!lv.length) return;
           if (!hedgeReused && lv.every((y) => y.socketed && y.reused)) return;   // 다시 쓴 연결은 멈추지 않았다 — 더 보내지 않는다
           if (deadline && left() < retryMinMs) return;
+          if (paid >= maxSends) return;   // 5xx 로 다시 보낸 몫까지 다 씀
+          if (poolFull(url)) return;      // 연결 모음이 꽉 참 — 줄만 서고 못 나간다
           start();
         }, ms));
       }
