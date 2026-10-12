@@ -1440,7 +1440,8 @@ test('차등: SUITE 폰트 — 후보 폴더 목록이 같고, SUITE-*.otf 만 �
   assert.equal(py.dirs[0], HELPER_SRC + '\\fonts');
   assert.equal(T.defaultFontsCandidates()[0], path.join(__dirname, '..', 'helper', 'fonts'));
   assert.deepEqual(W.DEFAULT_FONTS_DIRS, T.defaultFontsCandidates());
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8'), /defaultFontsCandidates\(__dirname\)/);   // 데스크톱 셸도 같은 목록
+  // 데스크톱 셸도 같은 목록 — 설치판은 desktop 자리를 asar 밖(app.asar.unpacked)으로 바꿔서(DESK_REAL, 개발판 = __dirname). 바꾸기 식은 desktop/test/installer.test.cjs
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8'), /defaultFontsCandidates\(DESK_REAL\)/);
   const reg = new Map();
   let bc = 0;
   const o = { localAppData: laN, regQuery: async (k, n) => (reg.has(n) ? reg.get(n) : null), regSet: async (k, n, v) => { reg.set(n, v); }, broadcast: async () => { bc++; } };

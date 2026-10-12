@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
   helperKind: helper.kind,     // 'embedded' | 'external'
   platform: process.platform,
   versions: { electron: process.versions.electron, chrome: process.versions.chrome },
+  appVersion: String(helper.app || ''),   // 앱 버전(예: '1.0.0' — desktop/package.json). 옛 메인이면 ''
+  packaged: helper.packaged === true,     // 설치판이면 true, 개발판(electron .)은 false
   // 창 버튼(최소화·최대화·닫기) 색을 앱 제목줄 색에 맞춘다 — { color: '#hex', symbolColor: '#hex' }
   setTitleBar: (o) => { try { ipcRenderer.send('wcg:titlebar', { color: String(o && o.color || ''), symbolColor: String(o && o.symbolColor || '') }); } catch (e) {} },
   // 앱 안 날씨누리 창(단기예보) 열기 — 화면이 뜰 때마다 통보문 글을 onWnuri 로 보내 준다(main.js '날씨누리 창')

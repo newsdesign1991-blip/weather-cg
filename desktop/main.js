@@ -1,5 +1,6 @@
-// 날씨 CG 데스크톱(개발판) — Electron 껍데기.
+// 날씨 CG 데스크톱(개발판·설치판) — Electron 껍데기.
 // - 상위 폴더(WeatherCG)의 최신 index.html을 그대로 띄운다(복사 없음 → 코드 고치고 창에서 Ctrl+R이면 바로 반영).
+//   설치판(tools/build-installer.cjs)은 같은 구조를 app.asar 에 담아 이 파일을 desktop/main.js 로 띄운다 — 상위 폴더 = asar 안 웹앱.
 // - 출처는 app://weathercg 로 고정한다. 출처가 바뀌면 localStorage(자동저장·API 키·배치)가 사라지므로 절대 바꾸지 말 것.
 //   (http 고정 포트 방식은 포트 충돌·서비스워커 캐시·폴더 노출 문제가 있어 버림)
 // - 기능 확장팩(기상청 불러오기·MXF/MOV·AE 보내기)은 앱 안에 내장(wns/server.js, 127.0.0.1:3721).
@@ -26,13 +27,22 @@ const EXT_PORT = 3720;     // 웹판 Python 헬퍼(대체용)
 const HELPER_VER = 20261009;
 const LAD = process.env.LOCALAPPDATA || app.getPath('temp');
 const exists = (p) => { try { return !!p && fs.existsSync(p); } catch (e) { return false; } };
-// 도구 위치 — desktop\helper 에 넣어 두면 그걸 우선(나중에 설치판에 번들), 없으면 기존 위치
-const FFMPEG = [path.join(__dirname, 'helper', 'ffmpeg.exe'), path.join(LAD, 'WNS_Helper', 'ffmpeg.exe'), 'R:\\[F]_Util\\WNS\\ffmpeg.exe'].find(exists) || 'ffmpeg';
+// 설치판(tools/build-installer.cjs — electron-builder, asar)에서는 이 파일이 resources\app.asar\desktop 안에 있다.
+// 앱 파일 읽기(fs·app:// 서빙·preload·비공개 키)는 asar 안 그대로 되지만, 다른 프로그램이 쓰는 파일(ffmpeg 실행·AE용 SUITE 폰트 복사)은
+// asar 밖의 진짜 파일이어야 한다 — 빌드가 desktop\helper\** 를 resources\app.asar.unpacked\desktop\helper 로 풀어 둔다.
+// 개발판은 경로에 app.asar 가 없어 __dirname 그대로.
+const DESK_REAL = __dirname.replace(/([\\/])app\.asar(?=[\\/]|$)/i, '$1app.asar.unpacked');
+// 도구 위치 — desktop\helper 에 넣어 두면 그걸 우선(설치판은 여기에 ffmpeg.exe·fonts\SUITE-*.otf 를 담는다), 없으면 기존 위치
+const FFMPEG = [path.join(DESK_REAL, 'helper', 'ffmpeg.exe'), path.join(LAD, 'WNS_Helper', 'ffmpeg.exe'), 'R:\\[F]_Util\\WNS\\ffmpeg.exe'].find(exists) || 'ffmpeg';
 // SUITE 폰트 폴더 후보(helper.py 와 같은 목록) — 있는지는 AE 보낼 때 비동기로 본다(네트워크 경로로 시작이 멈추지 않게)
-const FONT_DIRS = require('./wns/find-tools').defaultFontsCandidates(__dirname);
+const FONT_DIRS = require('./wns/find-tools').defaultFontsCandidates(DESK_REAL);
 const FRAMES_DIR = path.join(LAD, 'WeatherCG', 'frames');
 // Python 헬퍼(대체용) 원본/실행 위치 — WNS_START.bat과 같은 방식
-const EXT_SRC_DIRS = [path.join(__dirname, 'helper'), 'R:\\[F]_Util\\WNS'];
+const EXT_SRC_DIRS = [path.join(DESK_REAL, 'helper'), 'R:\\[F]_Util\\WNS'];
+// 설치판의 앱 ID — 설치 프로그램이 만든 바로 가기와 같은 값이어야 작업 표시줄에 고정한 아이콘과 실행 중인 창이 한 칸으로 묶인다.
+// tools/build-installer.cjs 의 APP_ID 와 같게(desktop/test/installer.test.cjs 가 비교). 개발판(electron .)은 건드리지 않는다.
+const APP_ID = 'kr.co.sbs.weathercg';
+if (app.isPackaged) app.setAppUserModelId(APP_ID);
 const EXT_RUN_DIR = path.join(LAD, 'WNS_Helper');
 
 const MIME = {
@@ -431,7 +441,8 @@ function buildMenu() {
 }
 
 // preload가 동기로 물어본다 — 페이지 스크립트가 시작하기 전에 헬퍼 주소가 정해져 있어야 함
-ipcMain.on('wcg:helper', (e) => { e.returnValue = { url: helperUrl, kind: helperKind, ver: HELPER_VER }; });
+// app = 앱 버전(desktop/package.json version — 설치판은 빌드 때 그 값), packaged = 설치판인가. 설정 메뉴 맨 아래 줄에 보인다(js/export-video.js)
+ipcMain.on('wcg:helper', (e) => { e.returnValue = { url: helperUrl, kind: helperKind, ver: HELPER_VER, app: app.getVersion(), packaged: app.isPackaged }; });
 // 별도 입력 없는 공공데이터포털 기본 키. 일반 자동 점검에서는 실제 키를 전달하지 않는다.
 ipcMain.on('wcg:data-key', (e) => {
   e.returnValue = privateKeyCallerOk(e, win) && (!TEST_MODE || process.env.WCG_TEST_DATA_KEY === '1') ? readDataPortalKey(__dirname) : '';
@@ -463,6 +474,8 @@ if (!TEST_MODE && !app.requestSingleInstanceLock()) {
     protocol.handle('app', serveApp);
     session.defaultSession.on('file-system-access-restricted', (_e, d, cb) => cb(fsPickAllowed(d && d.path) ? 'allow' : 'tryAgain'));   // 폴더 고르기 — 위 fsPickAllowed
     watchSavedPaths(session.defaultSession);   // 렌더 결과 '폴더 열기' — 저장한 경로 기록(위)
+    // 점검 모드: 도구 경로를 한 줄로 알린다(설치판 점검기 tools/check-installed.cjs 가 asar 밖 ffmpeg·폰트 자리를 본다 — 경로만, 키 없음)
+    if (TEST_MODE) console.log('[wcg-paths] ' + JSON.stringify({ packaged: app.isPackaged, version: app.getVersion(), appDir: APP_DIR, ffmpeg: FFMPEG, fonts: FONT_DIRS[0] }));
     if (TEST_MODE) { createWindow(); return; }   // 점검 모드: 헬퍼 없이 화면만
     if (!(await startEmbeddedHelper())) {   // 내장 실패 → 웹판과 같은 Python 헬퍼를 켜서 쓴다
       helperUrl = `http://127.0.0.1:${EXT_PORT}`; helperKind = 'external';
