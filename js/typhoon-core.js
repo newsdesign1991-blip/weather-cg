@@ -407,8 +407,19 @@ function typhoonLeaderGeom(px, py, bx, by, w, h) {
   const kd = Math.hypot(kneeX - px, kneeY - py) || 1;
   const sx = px + (kneeX - px) / kd * Math.min(GAP, kd * 0.9), sy = py + (kneeY - py) / kd * Math.min(GAP, kd * 0.9);
   const d = `M${sx.toFixed(1)} ${sy.toFixed(1)}L${kneeX} ${kneeY}L${ax} ${ay}`;
-  const len = Math.hypot(kneeX - sx, kneeY - sy) + Math.hypot(ax - kneeX, ay - kneeY);
+  // 길이는 d에 실제로 적힌(0.1로 반올림한) 시작점으로 잰다 — 반올림 전 값으로 재면 실제 선과 ±0.06px 어긋난다.
+  const sx1 = +sx.toFixed(1), sy1 = +sy.toFixed(1);
+  const len = Math.hypot(kneeX - sx1, kneeY - sy1) + Math.hypot(ax - kneeX, ay - kneeY);
   return { d, len, ax, ay, useLeft };
+}
+// 지시선이 태풍 쪽에서부터 reveal(0..1)만큼 그려진 상태 — 대시 하나(보이는 길이) + 선보다 넉넉히 긴 간격.
+// 옛 방식(dasharray=len·dashoffset=len×(1−reveal))은 간격이 선 길이와 같아서, 계산 길이가 실제 길이보다
+// 0.01px만 짧아도 다음 대시가 선 끝(박스 쪽)에 길이 0으로 다시 생기고 둥근 마개가 3px 흰 점으로 남았다
+// (2026-10-13 '3D 카메라 이동 때 흰 점박이' — 박스는 지도를 안 따라가서 점이 화면에 남아 깜빡였다).
+// 아직 선이 나오기 전(reveal 0)이면 부르는 쪽이 지시선을 아예 넣지 않는다.
+function typhoonLeaderDash(line, len, reveal) {
+  const vis = len * Math.max(0, Math.min(1, reveal));
+  line.setAttribute('stroke-dasharray', `${vis.toFixed(2)} ${(len + 16).toFixed(2)}`);
 }
 // 태풍 라벨 하나 → { box, line }. box는 노말 라벨과 '똑같은' 리치 박스(드래그·선택·편집기 공유).
 function typhoonLabelParts(b, px, py, k) {
@@ -420,10 +431,14 @@ function typhoonLabelParts(b, px, py, k) {
   const { w, h } = fillLabelBox(g, b, k);
   b._w = w; b._h = h;                            // 드래그 중 지시선 갱신에 쓰려고 크기 기억
   const geom = typhoonLeaderGeom(px, py, bx, by, w, h);
-  const line = _te('path', { 'data-leader-id': b.id, d: geom.d, stroke: '#DCE8F7', 'stroke-width': 2.6, fill: 'none', 'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
   // 생성 애니메이션(라벨별): 선이 태풍점에서 수욱 뻗고(reveal) → 선 끝(anchor)에서 박스가 스케일로 커진다.
   const { reveal, scale } = typhoonLabelProg(b.id);
-  if (reveal < 1) { line.setAttribute('stroke-dasharray', geom.len); line.setAttribute('stroke-dashoffset', geom.len * (1 - reveal)); }
+  // 선이 나오기 전(reveal 0)엔 지시선을 넣지 않는다 — 대시로 숨겨 두면 선 끝에 점이 남는다(typhoonLeaderDash 설명).
+  let line = null;
+  if (reveal > 0) {
+    line = _te('path', { 'data-leader-id': b.id, d: geom.d, stroke: '#DCE8F7', 'stroke-width': 2.6, fill: 'none', 'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+    if (reveal < 1) typhoonLeaderDash(line, geom.len, reveal);
+  }
   if (scale < 1) {
     const aLx = geom.useLeft ? -w / 2 : w / 2;   // 박스 로컬 기준 선 끝(anchor) x — 여기서부터 커진다
     g.setAttribute('transform', `translate(${bx} ${by}) translate(${aLx} 0) scale(${scale}) translate(${-aLx} 0)`);
