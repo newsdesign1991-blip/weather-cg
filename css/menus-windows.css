@@ -99,14 +99,17 @@
   .updRbRow button { flex: none; padding: 5px 10px; font-size: 12px; }
   .updRb + .updEmpty, .cfgGroup .hint + .updEmpty { margin-top: 6px; }
 
-  /* 새 판이 있으면 렌치가 숨 쉬듯(2.6초) 파랗게 + 오른쪽 위 작은 파란 점(js/app-update.js updBadge — 메뉴를 열어 보면 그 판에선 멈춤).
-     움직임 줄이기 설정이면 점만. (빨간 점 .hasNew 는 웹판 기능 확장팩 구버전 — 데스크톱에선 안 뜬다) */
-  #titlebar #helperBtn.updNew { animation: updBreath 2.6s ease-in-out infinite; }
+  /* 새 판이 있으면 메뉴를 열거나 '나중에'를 눌러도 빨간 렌치·점 유지. 느린 주기로 강조해 빠른 섬광을 피한다.
+     움직임 줄이기 설정이면 애니메이션 없이 빨간 렌치·점으로 표시한다. */
+  #titlebar #helperBtn.updNew { color: var(--danger); animation: updBreath 2.6s ease-in-out infinite; }
   #titlebar #helperBtn.updNew::after {
     content: ''; position: absolute; top: 2px; right: 2px; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--primary); border: 1.5px solid var(--surface);
+    background: var(--danger); border: 1.5px solid var(--surface);
   }
-  @keyframes updBreath { 50% { color: var(--primary); background: color-mix(in srgb, var(--primary) 17%, transparent); } }
+  @keyframes updBreath {
+    0%, 100% { color: color-mix(in srgb, var(--danger) 55%, var(--on-surface)); background: transparent; }
+    50% { color: var(--danger); background: color-mix(in srgb, var(--danger) 20%, transparent); }
+  }
   @media (prefers-reduced-motion: reduce) { #titlebar #helperBtn.updNew { animation: none; } }
 
   /* ===== 떼어낸 창 (포토샵식) =====

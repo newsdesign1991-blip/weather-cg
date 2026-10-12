@@ -1,7 +1,7 @@
 // boot-check --eval 용 본문(async 함수 본문, return 으로 결과). tests/app-update.test.cjs 가 WCG_BOOT_CHECK=1 일 때 돌린다.
 // 메인은 점검 모드 + WCG_UPDATE_DIR(임시 시험 폴더 — 가짜 설치 파일 9.9.9 + 옛 판 0.0.1 + latest.json(history)) + WCG_UPDATE_DRYRUN=1(실행 직전까지) + 첫 확인 0.8초.
 // 부팅 팝업(공지·둘러보기)을 닫으면 저절로 온 '새 업데이트가 있습니다' 팝업이 뜨고 렌치가 깜빡인다 → [나중에] → 설정(렌치) 메뉴 '앱 업데이트'
-// (지금 판·새 판·바뀐 점·내역·되돌리기 목록, 연 뒤 깜빡임 멈춤) → [업데이트하기] → (시작 화면이라 저장 묻기 없음) 진행 막대 → 결과 팝업 →
+// (지금 판·새 판·바뀐 점·내역·되돌리기 목록, 연 뒤에도 깜빡임 유지) → [업데이트하기] → (시작 화면이라 저장 묻기 없음) 진행 막대 → 결과 팝업 →
 // 메뉴 [이 판으로 설치](0.0.1) → 확인 팝업 → 진행 → 결과. 실제 창·앱은 끄지 않는다(시험 모드).
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const $ = (s) => document.querySelector(s);
@@ -54,6 +54,34 @@ await until(() => {
 }, 25000);
 R.auto = snap();
 R.badge = { on: $('#helperBtn').classList.contains('updNew'), title: $('#helperBtn').title, anim: getComputedStyle($('#helperBtn')).animationName };
+R.badge.infinite = getComputedStyle($('#helperBtn')).animationIterationCount;
+R.badge.dot = getComputedStyle($('#helperBtn'), '::after').backgroundColor;
+const dangerProbe = document.createElement('span');
+dangerProbe.style.color = 'var(--danger)';
+document.body.appendChild(dangerProbe);
+R.badge.danger = getComputedStyle(dangerProbe).color;
+dangerProbe.remove();
+const badgeAnimation = $('#helperBtn').getAnimations().find((a) => a.animationName === 'updBreath');
+if (badgeAnimation) {
+  badgeAnimation.pause();
+  badgeAnimation.currentTime = 0;
+  R.badge.phase0 = getComputedStyle($('#helperBtn')).color;
+  badgeAnimation.currentTime = 1300;
+  R.badge.phase1 = getComputedStyle($('#helperBtn')).color;
+  badgeAnimation.play();
+}
+// 애니메이션 색은 oklab, 토큰 색은 rgb로 직렬화될 수 있으므로 실제 sRGB 픽셀로 비교한다.
+const badgeColorCanvas = document.createElement('canvas');
+badgeColorCanvas.width = badgeColorCanvas.height = 1;
+const badgeColorCtx = badgeColorCanvas.getContext('2d');
+const badgePixel = (color) => {
+  badgeColorCtx.clearRect(0, 0, 1, 1);
+  badgeColorCtx.fillStyle = color;
+  badgeColorCtx.fillRect(0, 0, 1, 1);
+  return [...badgeColorCtx.getImageData(0, 0, 1, 1).data];
+};
+R.badge.phase1Pixel = badgePixel(R.badge.phase1);
+R.badge.dangerPixel = badgePixel(R.badge.danger);
 if (!R.auto || R.auto.title !== '새 업데이트가 있습니다') return R;
 document.querySelector('#tossOv [data-later]').click();
 await until(() => !document.getElementById('tossOv'), 3000);

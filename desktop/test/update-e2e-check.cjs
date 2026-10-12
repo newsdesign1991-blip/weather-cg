@@ -7,7 +7,7 @@
 //  1) A 를 <work>\install 에 조용히 설치(이 사용자만 — 관리자 확인 없음)
 //  2) A 그다음 B 를 <work>\upd(시험 업데이트 폴더)에 tools/publish-update.cjs 로 올림 → latest.json 내역(history) = 1.0.1·1.0.0, 설치 파일 둘 다 남음
 //  3) A 를 점검 모드(WCG_TEST=1 — 숨김 창·임시 사용자 폴더) + WCG_UPDATE_DIR=<work>\upd + CDP 로 띄워
-//     '새 업데이트가 있습니다' 팝업·렌치 깜빡임 → 설정(렌치) 메뉴 '앱 업데이트'(새 판·바뀐 점·내역, 연 뒤 깜빡임 멈춤) → 팝업 [지금 설치] → 받기 진행 → '설치를 시작했어요'
+//     '새 업데이트가 있습니다' 팝업·렌치 깜빡임 → 설정(렌치) 메뉴 '앱 업데이트'(새 판·바뀐 점·내역, 연 뒤에도 깜빡임 유지) → 팝업 [지금 설치] → 받기 진행 → '설치를 시작했어요'
 //  4) A 가 스스로 꺼지고, 설치 프로그램(/S --updated --force-run)이 같은 자리에 B 를 깔고 다시 켜는지 — 켜진 프로세스의 exe·asar 판 1.0.1,
 //     명령줄 --updated, 레지스트리 판·설치 위치(같은 자리). 다시 켜진 B 는 PID 로 끈다(보통 실행으로 켜진다 — 설치 시험판은 헬퍼 빈 포트·따로 폴더)
 //  5) 이전 판으로 되돌리기: B 를 점검 모드 + CDP 로 다시 띄워 메뉴 '앱 업데이트'(최신이에요·되돌릴 판 1.0.0) → [이 판으로 설치] → 확인 팝업 → [되돌리기] →
@@ -299,7 +299,7 @@ async function main() {
   want(s.desk && s.desk.badge && s.desk.anim === 'updBreath', '새 판인데 렌치가 안 깜빡임');
   want(s.popup && /새 판 1\.0\.1/.test(s.popup.body) && /판만 올린 설치 시험판/.test(s.popup.body), '팝업 내용');
   want(s.menuA && s.menuA.pill === '새 판 1.0.1 있어요' && s.menuA.cur === '1.0.0' && s.menuA.install && JSON.stringify(s.menuA.hist) === '["1.0.1","1.0.0"]'
-    && !s.menuA.rollback.length && !s.menuA.badge, 'A 메뉴(새 판·내역·되돌릴 판 없음·연 뒤 깜빡임 멈춤)');
+    && !s.menuA.rollback.length && s.menuA.badge, 'A 메뉴(새 판·내역·되돌릴 판 없음·연 뒤에도 깜빡임 유지)');
   want(s.installClick && s.installClick.exited, 'A 가 안 꺼짐');
   want(s.installClick && s.installClick.last && s.installClick.last.widths && s.installClick.last.widths.length > 0, '받기 진행 막대가 안 움직임');
   want(s.relaunchB && /^1\.0\.1(\.0)?$/.test(String(s.relaunchB.exeVersion)) && s.relaunchB.asarVersion === '1.0.1', '다시 켜진 앱 판이 1.0.1 이 아님');

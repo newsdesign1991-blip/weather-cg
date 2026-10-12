@@ -1,6 +1,6 @@
 // 앱 업데이트 — 웹앱 쪽(js/app-update.js)을 앱 코드 그대로(vm) 가짜 환경에서 돌린다: '새 업데이트가 있습니다' 팝업(판·바뀐 점·크기·올린 날),
 // [나중에]·닫기 = updateLater, 렌더 중·다른 팝업이면 끝난 뒤, [지금 설치] = 닫기 전 묻기(closeAsk) → 받기 진행 → 결과(성공·실패·취소·시험),
-// 설정(렌치) 메뉴 '앱 업데이트'(10-12 — 지금 판·상태·새 판 바뀐 점·[업데이트하기]·내역·이전 판으로 되돌리기·[다시 확인]), 렌치 깜빡임(본 판·되돌린 판은 멈춤),
+// 설정(렌치) 메뉴 '앱 업데이트'(10-12 — 지금 판·상태·새 판 바뀐 점·[업데이트하기]·내역·이전 판으로 되돌리기·[다시 확인]), 새 판이면 빨간 렌치 깜빡임 유지,
 // 되돌리기(확인 팝업 → 같은 받기 길 { rollback: true } → 되돌리기 전 판은 저절로 안 권함). 마크업·배선은 글자로.
 // 실제 앱(데스크톱 메인 + 시험 폴더)은 WCG_BOOT_CHECK=1 일 때 app-update.boot-eval.js.
 const test = require('node:test');
@@ -301,9 +301,9 @@ test('마크업·모양 — 설정 메뉴 맨 위 숨긴 \'앱 업데이트\' �
   assert.match(html, /\.helperLine > \.helperRow \{ margin-top: 0; flex: 1 1 auto; width: auto; min-width: 0; \}/);
   assert.match(html, /\.tossCard\.updCard \.updBar i \{/);
   assert.match(html, /\.updHist \{ max-height: 196px; overflow-y: auto;/, '내역은 길면 묶음 안에서 스크롤');
-  assert.match(html, /#titlebar #helperBtn\.updNew \{ animation: updBreath 2\.6s ease-in-out infinite; \}/);
-  assert.match(html, /#titlebar #helperBtn\.updNew::after \{[^}]*background: var\(--primary\)/);
-  assert.match(html, /@media \(prefers-reduced-motion: reduce\) \{ #titlebar #helperBtn\.updNew \{ animation: none; \} \}/, '움직임 줄이기면 점만');
+  assert.match(html, /#titlebar #helperBtn\.updNew \{ color: var\(--danger\); animation: updBreath 2\.6s ease-in-out infinite; \}/);
+  assert.match(html, /#titlebar #helperBtn\.updNew::after\s*\{[^}]*background: var\(--danger\)/);
+  assert.match(html, /@media \(prefers-reduced-motion: reduce\) \{ #titlebar #helperBtn\.updNew \{ animation: none; \} \}/, '움직임 줄이기면 빨간색 고정');
   assert.ok(!/\p{Extended_Pictographic}/u.test(UPD_SRC + html.slice(g, g + 400)), '이모지 없음');
   assert.match(bootJs, /\nupdWire\(\);/);
   assert.ok(bootJs.indexOf('updWire();') > bootJs.indexOf('setTimeout(checkHelperFreshOnBoot'), '부팅 끝 쪽');
@@ -357,7 +357,7 @@ test('메뉴 그림(updMenuHTML) — 지금 판·상태 알약(최신·새 판·
   assert.ok(!/\p{Extended_Pictographic}/u.test(a + dev), '이모지 없음');
 });
 
-test('렌치 깜빡임 — 새 판 알림이면 .updNew + 툴팁, 메뉴를 열면 그 판에선 멈춤(본 판 기억), 다음 새 판에 다시; 메뉴를 열 때 오래된 확인이면 다시 확인', async () => {
+test('렌치 깜빡임 — 새 판이면 나중에·메뉴 열기·재확인 뒤에도 유지; 오래된 확인은 갱신', async () => {
   const { ctx, wrench, store, notify, openMenu, flush, log } = makeCtx({ check: AVAIL });
   ctx.updWire();
   assert.equal(wrench.classList.contains('updNew'), false);
@@ -366,13 +366,14 @@ test('렌치 깜빡임 — 새 판 알림이면 .updNew + 툴팁, 메뉴를 열�
   assert.equal(wrench.title, '설정 — 새 판 1.0.2가 있어요(앱 업데이트)');
   assert.equal(wrench.dataset.updTip, wrench.title, 'applyHelperState 가 툴팁을 다시 쓸 때 쓰는 값');
   log.open.click('later');
+  assert.equal(wrench.classList.contains('updNew'), true, '나중에도 계속 깜빡임');
   openMenu();
-  assert.equal(wrench.classList.contains('updNew'), false, '메뉴를 열어 보면 멈춤');
-  assert.equal(store.get('wcg_upd_seen'), '1.0.2');
-  assert.equal(wrench.title, '설정 — 앱 업데이트');
+  assert.equal(wrench.classList.contains('updNew'), true, '메뉴를 열어도 계속 깜빡임');
+  assert.equal(store.has('wcg_upd_seen'), false, '본 판을 기록할 필요 없음');
+  assert.match(wrench.title, /새 판 1\.0\.2/);
   assert.equal(log.checks, 0, '방금 받은 알림이면 다시 확인 안 함');
   notify(AVAIL);
-  assert.equal(wrench.classList.contains('updNew'), false, '본 판은 다시 깜빡이지 않음');
+  assert.equal(wrench.classList.contains('updNew'), true, '같은 판을 다시 알려도 유지');
   ctx._closeMenu();
   notify({ ...AVAIL, version: '1.0.3', history: [{ ...HIST[0], version: '1.0.3' }, ...HIST] });
   assert.equal(wrench.classList.contains('updNew'), true, '다음 새 판에 다시');
@@ -381,11 +382,31 @@ test('렌치 깜빡임 — 새 판 알림이면 .updNew + 툴팁, 메뉴를 열�
   openMenu();
   await flush(); await flush();
   assert.equal(log.checks, 1, '오래된 확인이면 열 때 다시');
+  assert.equal(wrench.classList.contains('updNew'), true, '메뉴 안에서 재확인해도 새 판이면 유지');
   // 다시 다른 시험: 처음 연 메뉴(아직 확인 안 함) = 곧바로 확인
   const b = makeCtx({ check: { state: 'latest', current: '1.0.2', version: '1.0.2', packaged: true, canInstall: true, history: [] } });
   b.ctx.updWire(); b.openMenu(); await b.flush(); await b.flush();
   assert.equal(b.log.checks, 1);
   assert.match(b.box.innerHTML, /최신이에요/);
+  assert.equal(b.wrench.classList.contains('updNew'), false, '최신 판은 깜빡이지 않음');
+});
+
+test('렌치 깜빡임 — 옛 본 판 기록이 남아도 켜지고 최신/업데이트 없음 확인 뒤에는 색·툴팁 복귀', async () => {
+  let result = AVAIL;
+  const c = makeCtx({ store: [['wcg_upd_seen', '9.9.9']], check: () => result });
+  c.ctx.updWire();
+  c.openMenu(); await c.flush(); await c.flush();
+  assert.equal(c.wrench.classList.contains('updNew'), true);
+  for (const state of ['latest', 'none']) {
+    result = { ...AVAIL, state, current: AVAIL.version };
+    await c.ctx.updFetch(); await c.flush();
+    assert.equal(c.wrench.classList.contains('updNew'), false, state);
+    assert.equal(c.wrench.dataset.updTip, undefined);
+    assert.equal(c.wrench.title, '설정 — 앱 업데이트');
+    result = AVAIL;
+    await c.ctx.updFetch(); await c.flush();
+    assert.equal(c.wrench.classList.contains('updNew'), true);
+  }
 });
 
 test('메뉴 [업데이트하기] — 메뉴 닫고 저장 묻기 → 같은 받기 길(나중에 고른 판도), [다시 확인] = 확인만', async () => {
@@ -429,13 +450,13 @@ test('이전 판으로 되돌리기 — 확인 팝업(판·그대로인 것·다
   assert.equal(m.title, '되돌리기를 시작했어요');
   assert.equal(m.txt.textContent, '앱이 곧 닫혀요. 1.0.0이 깔리면 저절로 다시 켜져요.');
   assert.equal(store.get('wcg_upd_skip'), '1.0.2', '되돌리기 전 판');
-  // 되돌린 판(1.0.0)으로 다시 켜진 뒤 — 1.0.2 는 저절로 안 띄우고 렌치도 안 깜빡임, 메뉴에선 [업데이트하기]
+  // 되돌린 판(1.0.0)으로 다시 켜진 뒤 — 1.0.2 팝업은 안 띄우지만 렌치 알림은 유지, 메뉴에선 [업데이트하기]
   const after = makeCtx({ store: [['wcg_upd_skip', '1.0.2']], check: { ...AVAIL, current: '1.0.0' } });
   after.ctx.updWire();
   after.notify({ ...AVAIL, current: '1.0.0' });
   await after.tick();
   assert.equal(after.log.modals.length, 0, '되돌리기 전 판은 저절로 안 권함');
-  assert.equal(after.wrench.classList.contains('updNew'), false);
+  assert.equal(after.wrench.classList.contains('updNew'), true, '팝업을 생략해도 새 판 표시는 유지');
   after.openMenu();
   assert.match(after.box.innerHTML, /data-upd-act="install">업데이트하기/, '메뉴에선 다시 올릴 수 있음');
   after.ctx._closeMenu();
@@ -497,7 +518,7 @@ function bootShare(o = {}) {
   return dir;
 }
 const bootTemp = (n) => path.join(os.tmpdir(), 'wcg-update', 'WeatherCG-Setup-' + n + '.exe');
-test('부팅 점검: 실제 앱 — 저절로 알림 팝업·렌치 깜빡임·나중에·설정 메뉴(새 판·내역·되돌리기 목록, 열면 깜빡임 멈춤)·[업데이트하기](시험) 진행 100%·되돌리기(시험), 확인값 다르면 빨간 실패', { skip: process.env.WCG_BOOT_CHECK !== '1' && 'WCG_BOOT_CHECK=1 일 때만(일렉트론 필요)' }, () => {
+test('부팅 점검: 실제 앱 — 저절로 알림 팝업·빨간 렌치 깜빡임 유지·나중에·설정 메뉴·[업데이트하기](시험) 진행 100%·되돌리기(시험), 확인값 다르면 빨간 실패', { skip: process.env.WCG_BOOT_CHECK !== '1' && 'WCG_BOOT_CHECK=1 일 때만(일렉트론 필요)' }, () => {
   const good = bootShare();
   try {
     const out = bootRun(good);
@@ -514,13 +535,17 @@ test('부팅 점검: 실제 앱 — 저절로 알림 팝업·렌치 깜빡임·�
     assert.equal(R.afterLater, false, '나중에 = 닫힘');
     assert.equal(R.menu.visible, true);
     assert.equal(R.menu.pill, '새 판 9.9.9 있어요', '나중에 고른 판도 메뉴에선 보임');
-    assert.equal(R.menu.cur, '1.0.0');
+    assert.equal(R.menu.cur, JSON.parse(fs.readFileSync(path.join(root, 'desktop', 'package.json'), 'utf8')).version);
     assert.equal(R.menu.newVer, '9.9.9'); assert.deepEqual(R.menu.newNotes, ['시험 판 — 바뀐 점 한 줄']);
     assert.equal(R.menu.install, true, '[업데이트하기] 켜짐(시험 DRYRUN)');
     assert.deepEqual(R.menu.hist, ['9.9.9', '0.0.1']);
     assert.deepEqual(R.menu.rollback, ['0.0.1']);
     assert.equal(R.menu.histScroll, 'auto');
-    assert.equal(R.badgeAfterMenu, false, '메뉴를 열면 깜빡임 멈춤');
+    assert.equal(R.badgeAfterMenu, true, '메뉴를 열어도 깜빡임 유지');
+    assert.equal(R.badge.dot, R.badge.danger, '업데이트 점은 테마의 빨간색');
+    assert.equal(R.badge.infinite, 'infinite');
+    assert.notEqual(R.badge.phase0, R.badge.phase1, '주기 안에서 렌치 색이 바뀜');
+    assert.ok(R.badge.phase1Pixel.every((v, i) => Math.abs(v - R.badge.dangerPixel[i]) <= 1), '강조 시 렌치는 빨간색');
     assert.equal(R.install.ask, false, '시작 화면 = 저장 묻기 없음');
     assert.equal(R.install.title, '설치 직전까지 확인했어요');
     assert.equal(R.install.bar, '100%');

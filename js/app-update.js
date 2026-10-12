@@ -9,8 +9,8 @@
 // 설정(렌치) 메뉴 '앱 업데이트'(10-12 사용자 요청 — 배치·설정 옮기기 자리): 지금 판·상태(최신이에요 / 새 판 있어요 / 폴더에 못 닿아요 / 개발판),
 //  새 판의 바뀐 점과 [업데이트하기], 업데이트 내역(올라간 판들 — 판·날짜·바뀐 점, 최근 판부터, 길면 스크롤), [다시 확인],
 //  이전 판으로 되돌리기(업데이트 폴더에 설치 파일이 남아 있는 낮은 판 — [이 판으로 설치] → 확인 팝업 → 업데이트와 같은 길).
-//  메뉴를 열면 그 새 판은 '본 것'(localStorage wcg_upd_seen) — 렌치 깜빡임이 멈추고 다음 새 판에 다시 깜빡인다.
-//  되돌린 판(wcg_upd_skip = 되돌리기 전 판)까지는 저절로 알림·깜빡임을 하지 않는다(문제가 있어 내려온 판을 다시 권하지 않게) — 더 새 판이 오면 다시. 메뉴에선 늘 보이고 설치할 수 있다.
+//  새 판이 있으면 메뉴 열기·[나중에]와 무관하게 렌치의 빨간 깜빡임을 유지한다(옛 wcg_upd_seen 값은 쓰지 않음).
+//  되돌린 판(wcg_upd_skip = 되돌리기 전 판)까지는 저절로 팝업을 띄우지 않는다 — 더 새 판이 오면 다시. 렌치 표시·메뉴 설치는 유지한다.
 // 렌더(영상·이미지 추출·AE 보내기) 중이거나 다른 토스 팝업(공지 등)이 떠 있으면 팝업은 끝난 뒤에 띄운다(1초마다 확인).
 // 웹판·옛 데스크톱(wcgDesktop.updateCheck 없음)은 아무것도 안 한다(메뉴 묶음도 숨김). 부팅 배선은 js/boot.js 의 updWire(), 메뉴 열기는 js/floating-panels.js setupMenus → updMenuOpened().
 const _upd = { pending: null, waitT: 0, checking: null, busy: false, shown: '', bootAt: 0, last: null, lastAt: 0 };   // shown = 이 화면에서 띄운(고른) 판 — 메인이 같은 판을 또 건네도 한 번만
@@ -18,8 +18,7 @@ const _upd = { pending: null, waitT: 0, checking: null, busy: false, shown: '', 
 // 업데이트 팝업·받기 진행 팝업을 밀어내지 않게(10-12 끝에서 끝 점검에서 공지가 진행 팝업을 덮었다). updWire 부터 이만큼은 기다린다
 const UPD_BOOT_QUIET_MS = 3500;
 const UPD_MENU_STALE_MS = 60000;      // 메뉴를 열 때 마지막 확인이 이보다 오래됐으면 다시 확인
-const UPD_SEEN_KEY = 'wcg_upd_seen';  // 메뉴에서 본 새 판 — 그 판까지는 렌치가 안 깜빡임
-const UPD_SKIP_KEY = 'wcg_upd_skip';  // 되돌리기 전 판 — 그 판까지는 저절로 알림·깜빡임 안 함
+const UPD_SKIP_KEY = 'wcg_upd_skip';  // 되돌리기 전 판 — 그 판까지는 저절로 팝업 안 띄움
 const updEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function updDesk() { const d = window.wcgDesktop; return d && typeof d.updateCheck === 'function' ? d : null; }
 function updSize(n) { n = +n || 0; return n >= 1048576 ? (Math.round(n / 1048576 * 10) / 10) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
@@ -39,7 +38,7 @@ function updRo(v) { return String(v) + (/[036]$/.test(String(v)) ? '으로' : '�
 function updI(v) { return String(v) + (/[2459]$/.test(String(v)) ? '가' : '이'); }
 function updStoreGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
 function updStoreSet(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* 저장 공간 막힘 — 이번 실행만 */ } }
-// 되돌리기 전 판(또는 그보다 옛 판)인가 — 저절로 알림·렌치 깜빡임을 하지 않는다
+// 되돌리기 전 판(또는 그보다 옛 판)인가 — 저절로 팝업을 띄우지 않는다
 function updSkipped(v) { const s = updStoreGet(UPD_SKIP_KEY); const c = s ? updCmp(v, s) : null; return c !== null && c <= 0; }
 const updNotesOf = (n) => (Array.isArray(n) ? n : []).filter((x) => typeof x === 'string' && x.trim());
 // 확인 결과 → 알림 글·색(실패 팝업의 [다시 확인] — updCheckNow)
@@ -75,13 +74,11 @@ function updErrText(r) {
 }
 
 // ---------- 렌치 깜빡임 ----------
-// 마지막 확인이 새 판이고, 메뉴에서 그 판을 아직 안 봤고, 되돌리기 전 판이 아니면 렌치가 숨 쉬듯 깜빡이고 작은 점(css/menus-windows.css .updNew —
-// 움직임 줄이기 설정이면 점만). 툴팁도 그 판으로 — applyHelperState(js/export-video.js)가 렌치 툴팁을 다시 쓸 때 data-upd-tip 을 먼저 쓴다.
+// 마지막 확인이 새 판이면 계속 빨갛게 깜빡이고 작은 점(css/menus-windows.css .updNew — 움직임 줄이기면 빨간색 고정).
+// 툴팁도 그 판으로 — applyHelperState(js/export-video.js)가 렌치 툴팁을 다시 쓸 때 data-upd-tip 을 먼저 쓴다.
 function updBadgeOn() {
   const r = _upd.last;
-  if (!r || r.state !== 'available' || !r.version || updSkipped(r.version)) return false;
-  const seen = updStoreGet(UPD_SEEN_KEY), c = seen ? updCmp(r.version, seen) : null;
-  return c === null || c > 0;
+  return !!(r && r.state === 'available' && r.version);
 }
 function updBadge() {
   const b = $('#helperBtn');
@@ -94,18 +91,8 @@ function updBadge() {
   const tip = b.dataset.updTip || HELPER_BTN_TIP;
   b.title = tip; b.setAttribute('aria-label', tip);
 }
-// 메뉴에서 본 새 판 — 그 판까지는 깜빡이지 않는다(다음 새 판에 다시)
-function updMarkSeen() {
-  const r = _upd.last;
-  if (r && r.state === 'available' && r.version) {
-    const seen = updStoreGet(UPD_SEEN_KEY), c = seen ? updCmp(r.version, seen) : null;
-    if (c === null || c > 0) updStoreSet(UPD_SEEN_KEY, r.version);
-  }
-  updBadge();
-}
-
 // ---------- 확인 ----------
-// 확인 한 번(겹쳐 부르면 같은 답) — 결과를 기억하고 렌치·메뉴를 다시 그린다. 메뉴가 열려 있으면 그 새 판은 본 것
+// 확인 한 번(겹쳐 부르면 같은 답) — 결과를 기억하고 렌치·메뉴를 다시 그린다.
 function updFetch() {
   const d = updDesk();
   if (!d) return Promise.resolve(null);
@@ -117,7 +104,7 @@ function updFetch() {
     return r;
   });
   _upd.checking = p;
-  p.then(() => { _upd.checking = null; if (updMenuIsOpen()) updMarkSeen(); else updBadge(); updMenuRender(); });
+  p.then(() => { _upd.checking = null; updBadge(); updMenuRender(); });
   updMenuRender();   // '확인 중…'
   return p;
 }
@@ -138,10 +125,10 @@ function updMenuIsOpen() {
   const s = drop.querySelector('.sec[data-sec="cfg"]');
   return !!s && s.style.display !== 'none';
 }
-// 메뉴를 열 때(setupMenus): 본 새 판 기억(깜빡임 멈춤) → 마지막 결과로 그리기 → 오래됐으면(또는 아직이면) 다시 확인
+// 메뉴를 열 때(setupMenus): 깜빡임 유지 → 마지막 결과로 그리기 → 오래됐으면(또는 아직이면) 다시 확인
 function updMenuOpened() {
   if (!updDesk()) return;
-  updMarkSeen();
+  updBadge();
   updMenuRender();
   if (!_upd.checking && (!_upd.last || Date.now() - _upd.lastAt > UPD_MENU_STALE_MS)) updFetch();
 }
@@ -351,7 +338,7 @@ async function updRun(info, opt) {
       m.foot.innerHTML = '<button class="tossBtn pri" data-ok>확인</button>';
       m.foot.querySelector('[data-ok]').onclick = () => m.close();
     } else {
-      // 되돌리기 — 떠나는 판(cur)까지는 저절로 알림·깜빡임 안 함(문제가 있어 내려온 판을 다시 권하지 않게)
+      // 되돌리기 — 떠나는 판(cur)까지는 저절로 팝업 안 띄움(문제가 있어 내려온 판을 다시 권하지 않게)
       if (rb && updCmp(cur, info.version) === 1) updStoreSet(UPD_SKIP_KEY, cur);
       title.textContent = rb ? '되돌리기를 시작했어요' : '설치를 시작했어요';
       txt.textContent = rb ? `앱이 곧 닫혀요. ${updI(info.version)} 깔리면 저절로 다시 켜져요.` : '앱이 곧 닫혀요. 새 판이 깔리면 저절로 다시 켜져요.';
@@ -387,7 +374,7 @@ function updWire() {
     d.onUpdate((info) => {
       if (!info || info.state !== 'available') return;
       _upd.last = info; _upd.lastAt = Date.now();
-      if (updMenuIsOpen()) updMarkSeen(); else updBadge();
+      updBadge();
       updMenuRender();
       updShow(info, false);
     });
