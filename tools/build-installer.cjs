@@ -5,7 +5,8 @@
 //   node tools/build-installer.cjs [--ref=HEAD] [--work=<준비 폴더>] [--tools=<빌드 도구 폴더>] [--dist=<결과 복사 폴더>]
 //                                  [--ffmpeg=<ffmpeg.exe>] [--private=<비공개 키 폴더>]
 //                                  [--electron-zip=<공식 zip>] [--electron-shasums=<SHASUMS256.txt>] [--electron-dist=<깨끗한 electron 폴더> | --download-electron]
-//                                  [--stage-only] [--installtest [--version=<x.y.z>]]
+//                                  [--stage-only] [--installtest [--version=<x.y.z>]] [--nsis-only]
+//   --nsis-only: 겉 설치 프로그램(우리 설치 창) 없이 예전처럼 electron-builder NSIS 설치 파일 그대로(비상용).
 //   --installtest: 이름만 다른 '설치 시험판'(아래 INSTALLTEST)을 준비 폴더 out-installtest 에 굽는다 — 설치판이 깔렸거나 켜진 PC 에서 설치·제거·업데이트 시험용.
 //   --version: 설치 시험판의 판만 바꿔 굽는다(업데이트 시험의 '새 판' — 정식은 desktop/package.json 을 올려 커밋한 뒤 굽는다).
 //   Electron: 기본은 캐시의 공식 zip 을 sha256 으로 확인해 새로 푼 것(아래 '깨끗한 Electron') — 개발판 dist 를 그대로 쓰지 않는다(debug.log·빠진 pak).
@@ -19,7 +20,10 @@
 //     tools/build-update-ui.cjs 가 .NET Framework 4 csc 로 굽고 --check 로 돌려 봄). desktop\helper\** 는 asar 밖(app.asar.unpacked)으로 푼다(다른 프로그램이 읽음 — desktop/main.js DESK_REAL).
 //  4) 점검: 빠지면 안 되는 파일·앱이 부르는 파일(index.html 태그·js/css 안 경로)이 다 있는지, 넣으면 안 되는 것이 없는지 — 하나라도 어긋나면 멈춘다.
 //  5) app\package.json(main = desktop/main.js, version = desktop/package.json)을 쓰고 electron-builder 로 NSIS 설치 파일을 굽는다.
-//  6) 구운 app.asar 목록을 다시 점검하고, 설치 파일을 --dist(기본 desktop\dist — Git 제외)에 복사 + 빌드 정보(.build.json).
+//  6) 구운 app.asar 목록을 다시 점검한다.
+//  7) 겉 설치 프로그램(우리 설치 창 — tools/build-setup-ui.cjs, .NET Framework 4 csc): NSIS 설치 파일(out\nsis\ 로 옮김)을 리소스로 품은 WPF exe 를
+//     같은 이름(WeatherCG-Setup-<판>.exe)으로 굽는다. 창이면 우리 설치 창, /S 면 창 없이 받은 인자 그대로 NSIS 에 넘겨 종료 코드도 그대로.
+//     그다음 설치 파일을 --dist(기본 desktop\dist — Git 제외)에 복사 + 빌드 정보(.build.json — 설치 파일 = 겉, nsis = 품은 것).
 //
 // 빌드 도구(electron-builder)는 저장소 밖 --tools(기본 %LOCALAPPDATA%\WeatherCG-build\tools)에 받는다 — 저장소·desktop\node_modules 에는 설치하지 않는다.
 // Electron 은 desktop\node_modules\electron\dist(같은 판이면 — 읽기만)를 쓰고, 없거나 판이 다르면 electron-builder 가 받는다(인터넷).
@@ -432,6 +436,24 @@ async function main() {
   if (!unpacked.includes('desktop/helper/ffmpeg.exe')) die('ffmpeg.exe 가 asar 밖에 없습니다');
   const distBad = electronDistProblems(path.join(outDir, 'win-unpacked'), electronVersion).filter((m) => !/^version 파일|electron\.exe/.test(m));   // 구운 폴더(exe 이름은 제품 이름)
   if (distBad.length) die('구운 앱 폴더가 깨끗하지 않습니다: ' + distBad.join(' · '));
+
+  // 7) 겉 설치 프로그램(우리 설치 창 — 10-13): electron-builder 가 구운 NSIS 설치 파일을 out\nsis\ 로 옮기고, 그것을 품은 WPF exe 를 같은 이름(WeatherCG-Setup-<판>.exe)으로 굽는다.
+  //    조용한 설치(/S — 앱 자동 업데이트)는 받은 명령줄을 그대로 NSIS 에 넘기므로 업데이트·되돌리기·시험 인자는 그대로(MODULES.md 10장 '설치 창'). --nsis-only = 예전처럼 NSIS 만
+  let nsisInfo = null, setupUi = null;
+  if (!flag('nsis-only')) {
+    const nsisFile = path.join(outDir, 'nsis', exeName);
+    fs.rmSync(path.dirname(nsisFile), { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(nsisFile), { recursive: true });
+    fs.renameSync(setup, nsisFile);
+    nsisInfo = { file: 'nsis/' + exeName, bytes: fs.statSync(nsisFile).size, sha256: sha256(nsisFile) };
+    const { buildSetupUi } = require('./build-setup-ui.cjs');
+    // 설치 창 막대(처음 설치) — 깔리는 파일 수 = 앱 폴더 + 제거 프로그램·그 아이콘
+    const appFilesCount = walk(path.join(outDir, 'win-unpacked')).length + 2;
+    setupUi = buildSetupUi({ root: srcDir, payload: nsisFile, out: setup, version, product: N.productName, appId: N.appId, dirName: N.name,
+      variant: installtest ? 'installtest' : '', appFiles: appFilesCount, commit: commit.slice(0, 7) });
+    if (!setupUi.ok) die('겉 설치 프로그램(설치 창)을 굽지 못했습니다: ' + setupUi.log);
+    log(`설치 창 ${exeName} ${mb(setupUi.bytes)}MB — NSIS ${mb(nsisInfo.bytes)}MB 품음(sha256 ${nsisInfo.sha256.slice(0, 12)}…) · 점검 XAML ${setupUi.check.xaml}·글꼴 ${setupUi.check.fonts}·품은 파일 ${setupUi.check.payload} · GUID ${setupUi.info.guid}`);
+  }
   if (installtest) {
     log(`끝(설치 시험판) — ${setup} (${mb(fs.statSync(setup).size)}MB). 시험: "${exeName}" /S /D=<임시 폴더> → node tools/check-installed.cjs <임시 폴더> → "<임시 폴더>\\Uninstall ${N.productName}.exe" /S`);
     return;
@@ -444,6 +466,8 @@ async function main() {
     setup: exeName, setupBytes: fs.statSync(setup).size, setupSha256: sha256(setup),
     files: { asar: inAsar.length, unpacked: unpacked.length }, privateKeys: PRIVATE_FILES.length,
     updateUi: { file: 'desktop/helper/' + UI_EXE, bytes: uiBuilt.bytes, sha256: uiBuilt.sha256 },
+    // 설치 파일(setup*) = 겉 설치 프로그램(우리 설치 창), nsis = 그 안에 품은 electron-builder NSIS 설치 파일(준비 폴더 out\nsis\ 에 남음)
+    setupUi: setupUi ? { guid: setupUi.info.guid, inner: setupUi.info.inner, appFiles: setupUi.info.appFiles } : null, nsis: nsisInfo,
   };
   fs.writeFileSync(path.join(distDir, exeName.replace(/\.exe$/, '.build.json')), JSON.stringify(info, null, 2) + '\n');
   log(`끝 — ${path.join(distDir, exeName)} (${mb(info.setupBytes)}MB) · asar ${inAsar.length}개 + 밖 ${unpacked.length}개`);

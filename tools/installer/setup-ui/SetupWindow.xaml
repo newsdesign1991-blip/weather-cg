@@ -1,0 +1,208 @@
+<!-- 날씨 CG 설치 창의 모양 — 영상 플레이어(NewsPlayer) 설치 프로그램의 설치 창(Installer\SetupWindow.xaml)을 날씨 CG 토스 카드 결로 옮긴 것.
+     업데이트 진행 창(desktop/update-ui/UpdateWindow.xaml)과 같은 색·단추·글꼴: 카드 #212121, 파랑 강조 #3182F6(그라데이션 #4A94FF → #2F77F6),
+     완료 초록 #2FB86C, 문제 빨강 #FF6B6B, 주의 노랑 #FFB020. 글꼴은 Wanted Sans(앱 UI 글꼴 — 'Wanted Sans NP', 업데이트 진행 창과 같은 파일).
+     빌드(tools/build-setup-ui.cjs)가 이 파일을 설치 프로그램 exe 안에 넣고, SetupApp.cs 가 XamlReader 로 읽는다 — x:Class·이벤트 이름은 쓰지 않는다(코드에서 x:Name 으로 찾아 건다). -->
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="날씨 CG 설치" Width="600" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        UseLayoutRounding="True" ShowInTaskbar="True" TextOptions.TextFormattingMode="Ideal">
+    <Window.Resources>
+        <SolidColorBrush x:Key="T.Card" Color="#212121"/>
+        <SolidColorBrush x:Key="T.Fg" Color="#F1F1F1"/>
+        <SolidColorBrush x:Key="T.Muted" Color="#A3A3A3"/>
+        <SolidColorBrush x:Key="T.SurfaceHi" Color="#272727"/>
+        <SolidColorBrush x:Key="T.Outline" Color="#303030"/>
+        <SolidColorBrush x:Key="T.BtnHover" Color="#323232"/>
+        <SolidColorBrush x:Key="T.Head" Color="#146AA8FF"/>
+        <SolidColorBrush x:Key="T.HeadLine" Color="#216AA8FF"/>
+        <SolidColorBrush x:Key="T.Danger" Color="#FF6B6B"/>
+        <SolidColorBrush x:Key="T.Ok" Color="#2FB86C"/>
+        <SolidColorBrush x:Key="T.Warn" Color="#FFB020"/>
+        <SolidColorBrush x:Key="T.WarnText" Color="#FFC864"/>
+        <SolidColorBrush x:Key="T.Accent" Color="#3182F6"/>
+        <SolidColorBrush x:Key="T.AccentText" Color="#7DB3FF"/>
+        <LinearGradientBrush x:Key="T.AccentGrad" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#4A94FF" Offset="0"/>
+            <GradientStop Color="#2F77F6" Offset="1"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="T.Refl" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#33FFFFFF" Offset="0"/>
+            <GradientStop Color="#0DFFFFFF" Offset="0.4"/>
+            <GradientStop Color="#52000000" Offset="1"/>
+        </LinearGradientBrush>
+
+        <Style x:Key="TossBtn" TargetType="Button">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Padding" Value="18,0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource T.Fg}"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" Background="{StaticResource T.SurfaceHi}" BorderBrush="{StaticResource T.Outline}"
+                                BorderThickness="1" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource T.BtnHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource T.AccentText}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="b" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TossPrimary" TargetType="Button" BasedOn="{StaticResource TossBtn}">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="MinWidth" Value="104"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" Background="{StaticResource T.AccentGrad}" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#3182F6" BlurRadius="12" ShadowDepth="4" Direction="270" Opacity="0.5"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Opacity" Value="0.92"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="b" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="GlassX" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" CornerRadius="16" Background="#8C323232" BorderBrush="#1FFFFFFF" BorderThickness="1">
+                            <Viewbox Width="15" Height="15">
+                                <Canvas Width="24" Height="24">
+                                    <Path Stroke="{StaticResource T.Fg}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Data="M6.5,6.5 L17.5,17.5 M17.5,6.5 L6.5,17.5"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#B84E4E4E"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="b" Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- 카드 둘레는 그림자 자리 -->
+    <Border x:Name="Card" Margin="30,24,30,40" CornerRadius="20" Background="{StaticResource T.Card}" BorderBrush="{StaticResource T.Refl}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="50" ShadowDepth="16" Direction="270" Opacity="0.6" Color="Black"/>
+        </Border.Effect>
+        <DockPanel>
+            <!-- 머리: 앱 아이콘 · 제목 · 판 -->
+            <Border x:Name="Head" DockPanel.Dock="Top" CornerRadius="19,19,0,0" Padding="20,16,14,16" BorderThickness="0,0,0,1"
+                    Background="{StaticResource T.Head}" BorderBrush="{StaticResource T.HeadLine}">
+                <DockPanel>
+                    <Button x:Name="CloseX" DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GlassX}" ToolTip="닫기"/>
+                    <Image x:Name="AppIcon" DockPanel.Dock="Left" Width="54" Height="54" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel Margin="14,0,8,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="TitleText" Text="날씨 CG 설치" FontSize="19" FontWeight="ExtraBold" Foreground="{StaticResource T.Fg}"/>
+                        <TextBlock x:Name="SubText" FontSize="12.5" Foreground="{StaticResource T.Muted}" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Grid Margin="22,20,22,22">
+                <!-- ===== 설치 전: 지금 상태 · 설치 위치 · [취소] [설치] ===== -->
+                <StackPanel x:Name="ReadyPage">
+                    <Border x:Name="StateBox" CornerRadius="14" Padding="16,13" Background="{StaticResource T.SurfaceHi}"
+                            BorderBrush="{StaticResource T.Outline}" BorderThickness="1">
+                        <DockPanel>
+                            <Border x:Name="StateDot" DockPanel.Dock="Left" Width="10" Height="10" CornerRadius="5" Background="{StaticResource T.Accent}"
+                                    VerticalAlignment="Top" Margin="0,6,12,0"/>
+                            <StackPanel>
+                                <TextBlock x:Name="StateTitle" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource T.Fg}" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="StateText" FontSize="12.5" Foreground="{StaticResource T.Muted}" TextWrapping="Wrap" Margin="0,5,0,0" LineHeight="19"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <TextBlock Text="설치 위치" FontSize="13" FontWeight="Bold" Foreground="{StaticResource T.Fg}" Margin="2,20,0,8"/>
+                    <DockPanel>
+                        <Button x:Name="BrowseBtn" DockPanel.Dock="Right" Style="{StaticResource TossBtn}" Content="찾아보기…" Margin="8,0,0,0"/>
+                        <Border x:Name="DirFrame" CornerRadius="12" Background="{StaticResource T.SurfaceHi}" BorderBrush="{StaticResource T.Outline}"
+                                BorderThickness="1" Height="40">
+                            <TextBox x:Name="DirBox" Background="Transparent" BorderThickness="0" Foreground="{StaticResource T.Fg}"
+                                     CaretBrush="{StaticResource T.Fg}" SelectionBrush="{StaticResource T.Accent}" FontSize="13"
+                                     VerticalContentAlignment="Center" Padding="10,0"/>
+                        </Border>
+                    </DockPanel>
+                    <TextBlock x:Name="DirHint" FontSize="12" Foreground="{StaticResource T.Muted}" TextWrapping="Wrap" Margin="2,8,0,0" LineHeight="18"/>
+
+                    <!-- 켜져 있는 날씨 CG -->
+                    <Border x:Name="RunBox" Visibility="Collapsed" CornerRadius="12" Padding="14,11" Margin="0,16,0,0"
+                            Background="#17FFB020" BorderBrush="#3DFFB020" BorderThickness="1">
+                        <TextBlock x:Name="RunText" Foreground="{StaticResource T.WarnText}" FontSize="12.5" TextWrapping="Wrap" LineHeight="19"/>
+                    </Border>
+
+                    <DockPanel LastChildFill="False" Margin="0,24,0,0">
+                        <Button x:Name="InstallBtn" DockPanel.Dock="Right" Style="{StaticResource TossPrimary}" Content="설치" Margin="8,0,0,0" IsDefault="True"/>
+                        <Button x:Name="CancelBtn" DockPanel.Dock="Right" Style="{StaticResource TossBtn}" Content="취소"/>
+                    </DockPanel>
+                </StackPanel>
+
+                <!-- ===== 설치 중 · 끝 · 문제: 단계 · 막대 · 결과 ===== -->
+                <StackPanel x:Name="WorkPage" Visibility="Collapsed">
+                    <!-- 단계 목록(SetupApp.cs 가 채움) -->
+                    <StackPanel x:Name="Steps"/>
+
+                    <Grid Height="8" Margin="0,8,0,0">
+                        <Border x:Name="Track" Background="{StaticResource T.SurfaceHi}" BorderBrush="{StaticResource T.Outline}"
+                                BorderThickness="1" CornerRadius="4"/>
+                        <Border x:Name="Bar" Background="{StaticResource T.AccentGrad}" CornerRadius="4" HorizontalAlignment="Left" Width="0"/>
+                    </Grid>
+                    <DockPanel Margin="0,9,0,0">
+                        <TextBlock x:Name="Percent" DockPanel.Dock="Right" Foreground="{StaticResource T.Fg}" FontSize="13" FontWeight="Bold" Margin="10,0,0,0"/>
+                        <TextBlock x:Name="Status" Foreground="{StaticResource T.Muted}" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+                    <TextBlock x:Name="Note" Foreground="{StaticResource T.Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0" Opacity="0.8"
+                               Text="작업·배치·설정은 그대로예요. 설치하는 동안 이 창은 닫을 수 없어요."/>
+
+                    <!-- 끝·문제: 무슨 일인지와 고를 것 -->
+                    <StackPanel x:Name="EndPanel" Visibility="Collapsed" Margin="0,16,0,0">
+                        <TextBlock x:Name="EndText" Foreground="{StaticResource T.Fg}" FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap" LineHeight="20"/>
+                        <TextBlock x:Name="EndHint" Foreground="{StaticResource T.Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="19"/>
+                        <DockPanel LastChildFill="False" Margin="0,20,0,0">
+                            <Button x:Name="EndCloseBtn" Style="{StaticResource TossBtn}" Content="닫기"/>
+                            <Button x:Name="EndMainBtn" DockPanel.Dock="Right" Style="{StaticResource TossPrimary}" Content="날씨 CG 실행"/>
+                        </DockPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </DockPanel>
+    </Border>
+</Window>

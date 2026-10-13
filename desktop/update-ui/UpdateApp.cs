@@ -579,6 +579,9 @@ namespace WeatherCGUpdate
             var fresh = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             Process p;
             var psi = new ProcessStartInfo(_o.Setup, "/S --updated") { UseShellExecute = false, WorkingDirectory = System.IO.Path.GetDirectoryName(_o.Setup) };
+            // 확인한 설치 파일을 잡아 둔 채 띄우면, .NET 으로 만든 설치 프로그램(겉 설치 창 — 10-13 부터)은 보안 검사가 핸들이 닫히길 기다려 약 23초 늦게 뜬다
+            // (이 PC 실측 — 네이티브 NSIS 는 안 늦음, 공유 모드를 넓혀도 같음). 그래서 띄우기 바로 전에 놓는다(확인과 실행 사이 틈은 밀리초).
+            ReleaseSetup();
             // 설치 프로그램('모든 사용자' 설치면 그것이 부르는 관리자 확인 창)이 앞으로 올 수 있게 — 뒤에서 부르면 작업 표시줄에서 깜빡이기만 한다
             try { Win.Activate(); } catch (Exception) { }
             Native.AllowSetForegroundWindow(Native.ASFW_ANY);
