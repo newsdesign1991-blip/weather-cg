@@ -306,7 +306,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `node tools/app-source.cjs index.html --out=<파일>` | 나뉜 앱을 '분할 전 한 파일' 텍스트로 합침(PowerShell `>` 대신 `--out`) |
 | `node tools/verify-split.cjs <전> <후>` | 분할 커밋이 텍스트 무변경인지 git 객체로 증명 |
 | `node tools/split-app.cjs` | 분할 도구(한 파일 → 지금 구조, 기준표 MAP). `--like=index.html`로 지금 분할본과 같은 구조로 재분할(11·12장) |
-| `node tools/build-installer.cjs [--ref=HEAD] [--dist=…] [--ffmpeg=…] [--private=…] [--electron-zip=…] [--stage-only] [--installtest [--version=x.y.z]]` | **설치 파일 굽기**(10장 '설치판 만들기') → `desktop\dist\WeatherCG-Setup-<판>.exe`. 요청받을 때만. `--installtest` = 이름만 다른 설치 시험판(설치판이 깔린 PC에서 설치·제거·업데이트 시험), `--version` = 시험판만 판 바꾸기(업데이트 시험의 '새 판') |
+| `node tools/build-installer.cjs [--ref=HEAD] [--dist=…] [--ffmpeg=…] [--private=…] [--electron-zip=…] [--stage-only] [--installtest [--version=x.y.z]] [--nsis-only]` | **설치 파일 굽기**(10장 '설치판 만들기') → `desktop\dist\WeatherCG-Setup-<판>.exe`(10-13부터 겉 = 우리 설치 창, 안에 NSIS — 10장 '설치 창', `--nsis-only` = 예전처럼 NSIS 만). 요청받을 때만. `--installtest` = 이름만 다른 설치 시험판(설치판이 깔린 PC에서 설치·제거·업데이트 시험), `--version` = 시험판만 판 바꾸기(업데이트 시험의 '새 판') |
 | `node tools/check-installed.cjs <설치 폴더 또는 out\win-unpacked> [--shot=<png>] [--json=<파일>]` | **설치판 점검**(담긴 것·asar 밖 ffmpeg·키 있음·Electron pak 둘·담긴 로그 없음·내장 헬퍼·점검 모드로 실제 부팅) — `"ok": true`여야 |
 | `node tools/publish-update.cjs [--setup=…] [--dir=…] --note="…"… [--notes-file=…] [--keep=5] [--force] [--dry-run]` | **앱 업데이트 올리기**(10장 '앱 업데이트') — 설치 파일 + `latest.json`(내역 `history` 쌓기)을 업데이트 폴더(기본 `R:\[F]_Util\WNS\Ver`)에, 설치 파일은 이번 판 + 낮은 판 최근 4개(되돌리기용). 사용자 상시 승인(2026-10-12): 버전업 설치판은 검사 통과 후 게시·원격 확인까지 마무리. `--force`·판 내리기는 별도 승인 |
 | `node --test desktop/test/updater.test.cjs desktop/test/publish-update.test.cjs tests/app-update.test.cjs` | **앱 업데이트**(10-12): 메인(`desktop/updater.js` — 판 비교·이름 꼴·latest.json 검사(내역 항목 하나하나·거둬들인 새 판 빼기·30판)·공유 폴더 없음/느림 시간 제한·매달린 읽기 안 쌓기·복사 중 크기/sha256·취소·실행 직전 다시 확인·실행 인자·'나중에'(설치는 안 막음)·확인 하나만·켜짐 조건·점검 모드는 공유 폴더 안 읽음·되돌릴 수 있는 판(파일 남음·크기)·되돌리기 설치(빠진 판·높은 판·없는 파일·sha 다름 거절)·배선), 올리기 도구(임시 폴더 — 거절·설치 파일 정리(5개·판 내리기)·내역 쌓기·1차 latest.json 이어받기·크기 한도·올린 것을 앱이 받아 실행 직전까지(새 판·되돌리기)), 웹앱(vm — 팝업·나중에·렌더 뒤·밀려나면 다시·저장 묻기·진행·실패·취소·메뉴 그림(상태별)·렌치 깜빡임(본 판·되돌린 판에도 유지)·메뉴 [업데이트하기]·되돌리기 확인·실패·시험·마크업). `WCG_BOOT_CHECK=1`이면 `app-update.boot-eval.js`: 개발판 + 시험 폴더(`WCG_UPDATE_DIR`·`WCG_UPDATE_DRYRUN` — 새 판 9.9.9 + 옛 판 0.0.1)로 실제 앱 팝업·렌치 깜빡임·나중에·메뉴(새 판·내역·되돌릴 판, 열어도 깜빡임 유지)·[업데이트하기] 받기 100%·되돌리기 확인·받기 100%·확인값 다르면 빨간 실패 |
@@ -314,6 +314,8 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 | `node --test desktop/test/update-ui.test.cjs` | **업데이트 진행 창**(10-13): 앱 쪽(`desktop/updater.js` — 창 인자·창 프로그램 찾기·임시 폴더로 복사해 띄우기·떴다는 알림 기다림·실패(던짐·오류·곧바로 끝·시간 초과 → 그 창을 PID 로 끔·못 끔 = 설치 안 함)·없거나 실패하면 조용한 설치 1.5초·진행 창이면 0.6초·DRYRUN 은 창 없음·임시 폴더 정리), 창 프로그램 글자(단계·`/S --updated`·`--force-run` 없음·도는 중 못 닫음·앱 환경 변수 안 넘김·관리자 안내·XAML 이름), 빌드(csc 인자·설치판 필수·원본은 안 담음)·배선, csc 가 있으면 **실제로 굽고 `--check`**(XAML·글꼴 3) |
 | `node tools/build-update-ui.cjs [--out=<exe>]` | **진행 창 굽기**(10-13) — `desktop/update-ui`를 윈도 기본 .NET Framework 4 `csc.exe`로 `WeatherCG-Update.exe`(기본 `desktop\helper\` — Git 제외, 개발판 시험용)로. 설치판 빌드가 커밋 원본으로 알아서 부른다 |
 | `node desktop/test/update-ui-check.cjs --work=<임시 폴더> [--exe=<창 exe>] [--only=ok,…]` | **진행 창 혼자 띄워 보기**(사람이·AI가 손으로): 가짜 앱(WinForms·판 정보만)·가짜 설치 파일(설정대로 옛 exe 지우고 새 exe·파일 몇십 개를 천천히 놓고 정한 종료 코드)을 csc 로 구워 장면마다 — ok·rollback(끝까지)·fail-exit(종료 코드 2 → [예전 판 그대로 켜기] — UI 자동화로 누름)·sha(확인값 다름 → [닫기])·no-window(새 앱 창 안 뜸 → '다시 켜기')·admin(관리자 안내)·admin-no(모든 사용자 + 종료 코드 2 → 관리자 안내)·admin-wait(consent.exe 흉내 → '[예]를 눌러 주세요'·막대 멈춤)·timeout(설치가 아직 돎 → [닫기]만)·failafter(옛 판 지운 뒤 실패 → 다시 설치 안내)·stuck(앱이 안 닫힘 → 멈춤). 창이 `--shots`로 단계마다 PNG(자기 그림 + 실제 화면 카드 자리) |
+| `node tools/build-setup-ui.cjs --payload=<NSIS 설치 파일> --out=<exe> --version=x.y.z [--installtest] [--app-files=N]` | **설치 창 굽기**(10-13) — `tools/installer/setup-ui`를 .NET Framework 4 `csc.exe`로, NSIS 설치 파일을 리소스로 품은 `WeatherCG-Setup-<판>.exe`로(+ `--check`). 설치판 빌드가 커밋 원본으로 알아서 부른다 |
+| `node --test desktop/test/setup-ui.test.cjs` | **설치 창**(10-13): GUID(electron-builder UUID v5)·SetupInfo(판·이름·품은 파일 확인값·파일 버전 정보)·csc 인자, 설치 프로그램 글자(`/S` 면 꼬리 그대로·종료 코드 그대로, 창은 `/S /currentuser|/allusers /D=`, 이름으로 안 끔·XAML 이름·이모지 없음·C# 5), 빌드 배선(NSIS → `out\nsis` → 같은 이름으로 겉), 진행 창이 띄우기 전에 놓기, csc 가 있으면 **가짜 설치 본체를 품게 실제로 굽고** 조용한 설치 셋(꼬리·종료 코드 0·2·1223·푼 폴더 지움) |
 
 - **테스트에서 앱 코드를 읽을 때는 `tools/app-source.cjs`를 쓴다**: `const appSource = require('../tools/app-source.cjs'); const html = appSource(path.join(__dirname, '..', 'index.html'));`
   결과는 분할 전 `index.html`과 같은 텍스트(줄바꿈 LF)라 예전처럼 함수를 잘라 쓸 수 있다. `index.html`을 `readFileSync`로 직접 읽으면 구조 테스트가 실패한다.
@@ -345,7 +347,7 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
 데스크톱 앱(Electron)은 영향 없다. `desktop/main.js`는 상위 폴더를 `app://weathercg`로 서빙하고(js·css MIME 등록됨, `no-store`,
 `?v=`는 경로만 보므로 무해), `desktop/test/boot-check.cjs`는 모듈 오류를 `EXC …@app://weathercg/js/x.js:줄`로 잡는다.
 
-- **설치판 만들기**(2026-10-12 — 정식 1.0.0, 사용자 요청. 그 전에 급히 만든 임시판 0.2.0이 있다): `node tools/build-installer.cjs` → `desktop\dist\WeatherCG-Setup-<판>.exe`
+- **설치판 만들기**(2026-10-12 — 정식 1.0.0, 사용자 요청. 그 전에 급히 만든 임시판 0.2.0이 있다): `node tools/build-installer.cjs` → `desktop\dist\WeatherCG-Setup-<판>.exe`(10-13부터 겉 = 우리 설치 창이 NSIS 를 품음 — 아래 '설치 창')
   (+ `WeatherCG-Setup-<판>.build.json` — 커밋·Electron·ffmpeg·크기·sha256. `desktop/dist/`는 Git 제외). 판 = `desktop/package.json`의 `version` — 올리고 **커밋한 뒤** 굽는다.
   - **커밋을 굽는다**: `--ref`(기본 HEAD)를 `git archive`로 준비 폴더(`--work`, 기본 `%TEMP%\wcg-installer-build` — 저장소 밖)에 꺼낸다. 커밋 안 한 고침·Git 밖 파일
     (기상청 녹화 `rec-*.json`·바로 가기·`AI_HANDOFF.md`·메모)은 안 들어간다(커밋 안 한 고침이 있으면 알림만). 빌드 도구 electron-builder 24.13.3은 `--tools`
@@ -362,12 +364,38 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
   - **구조**: `resources\app.asar` = 저장소와 같은 모양(루트에 웹앱, main = `desktop/main.js`) → main.js의 `path.resolve(__dirname, '..')`가 그대로 asar 안 웹앱이고, app://·preload·비공개 키는 asar 안에서 읽는다(Electron fs).
     다른 프로그램이 쓰는 `desktop\helper\**`(ffmpeg 실행·SUITE 폰트 복사)만 `app.asar.unpacked`로 풀고, main.js `DESK_REAL`(경로의 `app.asar` → `app.asar.unpacked`, 개발판은 `__dirname` 그대로)로 찾는다.
     app://는 `desktop/` 전체를 403으로 막으므로 키·ffmpeg는 웹앱에서 안 보인다. 타일 캐시(`%LOCALAPPDATA%\WeatherCG\tile-cache`)·영상 프레임(`…\WeatherCG\frames`)은 개발판과 같은 곳.
-  - **설치 프로그램**(NSIS, 한국어): 이 사용자만(관리자 권한 없음 — `tools/installer/installer.nsh`가 '모든 사용자/나만' 화면을 없앰), 기본 `%LOCALAPPDATA%\Programs\weathercg-desktop`(바꿀 수 있음).
+  - **설치 프로그램**(NSIS, 한국어 — 10-13부터 아래 '설치 창' 안에 품겨 조용히 돈다): 이 사용자만(관리자 권한 없음 — `tools/installer/installer.nsh`가 '모든 사용자/나만' 화면을 없앰), 기본 `%LOCALAPPDATA%\Programs\weathercg-desktop`(바꿀 수 있음).
     단 임시판(0.2.0 — 그때는 고르는 화면이 있었다)을 **'모든 사용자'로만 깐 PC**는 그 자리(`C:\Program Files\weathercg-desktop`)에 덮어 올린다(관리자 확인 창 한 번 — 안 그러면 두 벌이 된다),
     바탕화면·시작 메뉴 '날씨 CG', 끝에 실행. 제어판에서 지워도 작업·설정(`%APPDATA%\날씨 CG`)은 남긴다. **appId `kr.co.sbs.weathercg`·제품 이름 '날씨 CG'·설치 폴더 이름 `weathercg-desktop`은 임시판(0.2.0)과 같다** —
     그 위에 덮어 설치하면 올라간다(바꾸면 따로 설치돼 둘이 생긴다). 설치 폴더 이름은 제품 이름에 한글이 있어 package 이름을 쓴다(electron-builder 규칙). main.js는 설치판이면 같은 appId로 `setAppUserModelId`(작업 표시줄 고정 아이콘과 창이 한 칸).
     서명 인증서가 없어 받은 PC에서 SmartScreen이 막는다('추가 정보 → 실행'). 업데이트는 아래 '앱 업데이트'(공유 폴더 + 앱이 알림·조용히 덮어 설치 — electron-updater 는 안 씀). 크롬 내장 언어 파일은 한국어·영어만.
     electron-builder가 설치할 때마다 남기는 설치 파일 사본(`%LOCALAPPDATA%\weathercg-desktop-updater\installer.exe` — 자동 업데이트용, 약 170MB)은 `installer.nsh`가 설치 끝·제거 때 지운다(임시판이 남긴 것도 덮어 설치 때 함께).
+  - **설치 창(겉 설치 프로그램 — 2026-10-13 사용자 요청: '설치 창이 윈도 기본 설치 창 같은데, 영상 플레이어처럼 독자적인 설치 창으로 — 우리 디자인으로')**:
+    `WeatherCG-Setup-<판>.exe` = electron-builder NSIS 설치 파일을 리소스로 **품은** .NET Framework 4 WPF exe(원본 `tools/installer/setup-ui/` — `SetupApp.cs`·`SetupWindow.xaml`·`app.manifest`, 굽기 `tools/build-setup-ui.cjs`, 글꼴은 `desktop/update-ui/fonts` 그대로 — 사본 없음).
+    설치 기능(덮어 설치·'모든 사용자' 관리자 확인·바로 가기·제어판 등록·제거)은 검증된 NSIS 그대로 쓰고 겉 창만 우리 것. 제거는 예전 NSIS 제거 그대로.
+    - **모양**: 영상 플레이어 `Installer\SetupWindow`의 구성(아이콘·제목·판 / 설치 위치·[찾아보기…] / [취소]·[설치] / 진행 막대 / 끝 [실행]·[닫기])을 업데이트 진행 창과 같은 토스 카드 결로 — 어두운 카드 #212121·옅은 파랑 머리·Wanted Sans·파랑 그라데이션 단추,
+      단계 넷(설치 파일 풀기 · 날씨 CG 닫기 · 날씨 CG 설치 · 바로 가기 · 마무리 — 도는 고리/초록 체크/빨간 X, 선으로 그림). 끝 = 초록 머리 '설치가 끝났어요' + '… 1.0.3을 깔았어요'·바로 가기·설치 위치 + [닫기]·[날씨 CG 실행],
+      문제 = 빨간 머리 '설치하지 못했어요'·까닭·안내 + [닫기]·[다시 시도]. 설치하는 동안은 못 닫음(Alt+F4·작업 표시줄). [찾아보기…] = 탐색기식 폴더 고르기(IFileOpenDialog — 못 쓰면 옛 폴더 창). UI 글자에 이모지 없음.
+    - **설치 전 화면**: 지금 깔린 것 = 레지스트리 `Software\<APP_GUID>` InstallLocation(64비트 보기 — HKCU, 없으면 HKLM = '모든 사용자' — electron-builder 설치 화면·`installer.nsh customInstallMode`와 같은 기준. GUID = appId 의 UUID v5, 빌드가 계산) + 그 자리 exe 판 →
+      '처음 설치해요'/[설치], '1.0.2 → 1.0.3 업데이트'/[업데이트], '이미 1.0.3이 깔려 있어요'/[다시 설치], '더 새 판 1.0.4가 깔려 있어요'(노란 점·상자)/[낮은 판으로 바꾸기] — 작업·배치·설정은 그대로라고 함께 적음.
+      설치 위치 기본 = 깔린 자리, 없으면 `%LOCALAPPDATA%\Programs\weathercg-desktop`(인자 `/D=`로 미리 채움). 다른 파일이 든 폴더·드라이브 맨 위를 고르면 그 밑 `weathercg-desktop`, 이 사용자가 못 쓰는 자리면 빨간 안내,
+      깔린 자리와 다르면 '원래 자리의 판은 지우고 이 자리에 깔아요', '모든 사용자' 자리면 '관리자 확인 창이 뜨면 [예]'(파랑). 켜진 날씨 CG(같은 exe 이름·같은 세션)가 있으면 노란 상자 —
+      설치하면 앱 창에 **닫기만 요청**(저장 묻기는 앱이, 최대 2분 — 이름으로 강제로 끄지 않음, 안 닫히면 문제 화면 [다시 시도]).
+    - **설치**: 품은 NSIS 를 `%TEMP%\wcg-setup\<pid>-<시각>\WeatherCG-Setup-<판>[-installtest]-nsis.exe`로 풀며 sha256 을 빌드 때 값과 맞춰 보고(다르면 '설치 파일이 손상됐어요') →
+      `/S /currentuser` 또는 `/S /allusers`(깔린 것이 '모든 사용자'일 때 — 그때 NSIS 가 관리자 확인을 부름) + `/D=<자리>`(NSIS 규칙 — 마지막·따옴표 없음)로 조용히 → 종료 코드 0·깔린 exe 판 = 이 판인지 → 바로 가기 확인 → 푼 폴더 지움.
+      막대는 업데이트 진행 창과 같은 셈(설치 폴더 파일 변화·시간 몫 절반·관리자 확인 창이 떠 있는 동안은 안 셈, 처음 설치는 빌드가 센 앱 파일 수로). 기록 `%TEMP%\wcg-setup\setup.log`(1MB 넘으면 새로), 하루 넘은 풀기 폴더는 다음 실행 때 정리.
+    - **조용한 설치(인자에 `/S` — NSIS 와 같은 기준, 대소문자 그대로)**: 창 없이 풀어서 **받은 명령줄 꼬리를 한 글자도 안 바꾸고** NSIS 에 넘기고 끝날 때까지 기다려 **그 종료 코드를 그대로** 돌려준다 →
+      앱 자동 업데이트(`/S --updated --force-run`)·진행 창(`/S --updated`)·시험(`/S /D=…`·`/allusers`)·'모든 사용자' 관리자 확인 [아니요] = 종료 코드 2 가 예전과 같다(updater.js·진행 창은 안 고침). 겉 자체 문제 코드: 10 풀 자리·쓰기, 11 품은 파일 확인값, 12 실행 못 함.
+    - **잡아 두지 않음(10-13 실측)**: exe 를 연 핸들이 있는 채 띄우면 이 PC 보안 검사가 기다려 **.NET exe 는 약 23초 늦게 뜬다**(네이티브 exe 는 안 늦음, 공유 모드를 넓혀도 같음). 그래서 겉은 푼 NSIS 를 잡지 않고,
+      업데이트 진행 창도 확인한 설치 파일을 띄우기 **바로 전에 놓는다**(`UpdateApp.cs` StepInstall 의 `ReleaseSetup()`). **1.0.3 까지의 진행 창은 잡은 채 띄우므로**, 겉 설치 프로그램이 든 판으로 처음 올릴 때는 설치 시작이 약 23초 늦을 수 있다(멈추지는 않음 — 다음 판부터 없음).
+    - **빌드**: `build-installer.cjs`가 NSIS 를 구운 뒤 `out[-installtest]\nsis\`로 옮기고 같은 이름으로 겉을 굽는다(csc `/resource`로 약 176MB 를 품음 — 겉 약 184MB) → 구운 겉을 `--check`(XAML·글꼴 3·품은 파일 크기·sha256·아이콘)로 돌려 봄.
+      파일 버전 정보 = 설명 '날씨 CG 설치'·제품 '날씨 CG'·판 x.y.z(.0)·SBS, 아이콘 icon.ico, 머리 아이콘 icon-192.png, 매니페스트 asInvoker(윈도 '설치 프로그램 짐작' 끔), 서명 없음.
+      `.build.json`의 `setupBytes`·`setupSha256` = 겉(publish-update·앱 검사는 이것), `nsis` = 품은 것, `setupUi` = GUID·풀 이름·앱 파일 수. `--nsis-only` = 예전처럼 NSIS 만(비상용).
+    - **시험**: `desktop/test/setup-ui.test.cjs`(8장), 창은 설치 시험판을 UI 자동화로 누르며(`--shots=<폴더>` = 화면마다 창 그림 + 실제 화면 자리 PNG, `--log=<파일>`).
+      **10-13 실측**(커밋 950fb4f 로 구운 설치 시험판 A 1.0.3·B 1.0.4, 이 사용자 설치·임시 폴더): A 창 설치 11.7초(풀기 0.19초·NSIS 7.8초) → 점검기 ok → 같은 판 '이미 1.0.3이 깔려 있어요' [다시 설치] → [실행](앱 켜짐) →
+      켜진 채 [다시 설치](노란 상자 → 닫기 요청 0.5초에 닫힘 → 설치) → 제거 → 업데이트 끝에서 끝(A→B·되돌리기 — 진행 창이 겉을 `/S --updated`로, 다시 켜짐 13.8·21.1초, 부모 = 진행 창, 앱 하나만) `"ok": true` →
+      B 조용한 설치 10.2초·점검기 ok → A 창 '더 새 판 1.0.4가 깔려 있어요' [낮은 판으로 바꾸기](1.0.3) → B 창 '1.0.3 → 1.0.4 업데이트' → [찾아보기…] 탐색기식 창 → 제거·흔적 0.
+      '모든 사용자' 길(관리자 확인)은 겉으로도 아직 사람과 함께 안 돌림(이전과 같은 NSIS 길 — `/allusers` 그대로 넘김).
   - **사용자 데이터 = 개발판과 같음**: 설치판·개발판 모두 '%APPDATA%\날씨 CG'(제품 이름)와 같은 출처 `app://weathercg`를 쓴다 → 작업·배치·개인 키가 이어진다(임시판 → 1.0.0도 그대로).
     대신 한 PC에서 둘을 같이 켜면 나중에 켠 쪽이 먼저 켠 창을 앞으로 부르고 꺼진다(단일 인스턴스 잠금). 시험 배포 대상은 다른 PC들이라 이름을 나누지 않았다 — 개발 PC에서는 하나만 켠다.
   - **앱 버전 보기**: main이 `wcg:helper`로 `app.getVersion()`·`app.isPackaged`를 넘기고 preload가 `wcgDesktop.appVersion`·`packaged` → 설정(렌치) 메뉴 맨 아래 줄 '앱 1.0.0 · 렌더·불러오기 기능 · 앱에 내장됨'(개발판은 '앱 1.0.0 개발판', 마우스를 올리면 전체).
