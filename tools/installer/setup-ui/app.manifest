@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 날씨 CG 설치 프로그램(겉 — WeatherCG-Setup-<판>.exe) — 관리자 권한 없이(asInvoker) 돈다. '모든 사용자' 설치면 품은 NSIS 설치 파일이 스스로 관리자 확인을 부른다.
+     이 매니페스트가 있어야 윈도의 '설치 프로그램 짐작'(이름에 Setup 이 든 exe 를 관리자로 띄움)이 꺼진다 — 빼지 말 것.
+     DPI: WPF(.NET Framework 4.x)는 시스템 DPI 를 따른다(true). -->
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="SBS.WeatherCG.Setup"/>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </windowsSettings>
+  </application>
+</assembly>
