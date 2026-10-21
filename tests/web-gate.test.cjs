@@ -102,9 +102,8 @@ test('막힘 — 카드를 쓰고 나머지 문서는 <plaintext>로 글자만(c
   assert.match(h, /^<div id="wcgWebGate" role="alertdialog" aria-modal="true" aria-labelledby="wcgWebGateT" style="position:fixed;inset:0;z-index:2147483647;/);
   assert.match(h, /<plaintext style="display:none">$/, '맨 끝에 plaintext — 뒤 문서가 태그로 안 읽힌다');
   assert.equal((h.match(/<div\b/g) || []).length, (h.match(/<\/div>/g) || []).length, '카드 div 짝이 맞아야(plaintext가 카드 밖)');
-  assert.match(h, />웹 버전은 이제 사용할 수 없어요</);   // 10-09 사용자 문구
-  assert.match(h, /<b>설치 파일 버전<\/b>으로 찾아뵙겠습니다/);
-  assert.match(h, /팀 공지/);
+  assert.match(h, />설치판으로 개편되었습니다</);   // 10-21 사용자 문구
+  assert.match(h, /설치 파일은 <b>'ND클라우드'<\/b>를 이용해 다운받으시거나 영상디자인팀 최재영에게 연락주세요 <b>#6514<\/b>/);
   assert.doesNotMatch(h, /<button|<a |onclick|href=|<script/i, '닫기·링크·스크립트 없음');
   assert.match(h, /background:#0f0f0f/, '어두운 테마');
   // head에서 바로 멈추지 않는다(body가 없으면 화면을 안 그린다) — 파싱이 끝나면 멈춤
