@@ -36,13 +36,14 @@ function findCsc(o = {}) {
 function refPaths(dir) {
   return REFS.map((r) => (/^(Presentation|WindowsBase)/.test(r) ? path.join(dir, 'WPF', r) : path.join(dir, r)));
 }
-// csc 인자(순수 — 시험용). o = { dir, src, out, icon }
+// csc 인자(순수 — 시험용). o = { dir, src, out, icon, iconPng } — iconPng = 머리 로고(10-21 — 근무표 업데이트 창처럼)
 function cscArgs(o) {
   const a = ['/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/codepage:65001', '/utf8output', '/warn:4',
     `/out:${o.out}`, `/win32manifest:${path.join(o.src, 'app.manifest')}`];
   if (o.icon) a.push(`/win32icon:${o.icon}`);
   for (const r of refPaths(o.dir)) a.push(`/reference:${r}`);
   a.push(`/resource:${path.join(o.src, 'UpdateWindow.xaml')},WeatherCGUpdate.UpdateWindow.xaml`);
+  if (o.iconPng) a.push(`/resource:${o.iconPng},WeatherCGUpdate.icon.png`);
   for (const f of FONT_FILES) a.push(`/resource:${path.join(o.src, 'fonts', f)},WeatherCGUpdate.fonts.${f}`);
   for (const s of SOURCES) a.push(path.join(o.src, s));
   return a;
@@ -52,6 +53,7 @@ function buildUpdateUi(o = {}) {
   const src = path.resolve(o.src || path.join(ROOT, 'desktop', 'update-ui'));
   const out = path.resolve(o.out || path.join(ROOT, 'desktop', 'helper', UI_EXE));
   const icon = o.icon === null ? null : path.resolve(o.icon || path.join(path.dirname(path.dirname(src)), 'icon.ico'));
+  const iconPng = path.join(path.dirname(path.dirname(src)), 'icon-192.png');   // 앱 로고(설치 창 tools/build-setup-ui.cjs 머리 아이콘과 같은 그림)
   const need = ['UpdateApp.cs', 'UpdateWindow.xaml', 'app.manifest', ...FONT_FILES.map((f) => path.join('fonts', f))];
   const lack = need.filter((f) => !fs.existsSync(path.join(src, f)));
   if (lack.length) return { ok: false, log: '진행 창 원본이 모자람: ' + lack.join(', ') };
@@ -59,7 +61,7 @@ function buildUpdateUi(o = {}) {
   if (!c) return { ok: false, log: '.NET Framework 4 C# 컴파일러(csc.exe)·WPF 를 못 찾았습니다(%SystemRoot%\\Microsoft.NET\\Framework64\\v4.0.30319)' };
   fs.mkdirSync(path.dirname(out), { recursive: true });
   const tmp = out + '.building-' + process.pid + '.exe';
-  const r = spawnSync(c.csc, cscArgs({ dir: c.dir, src, out: tmp, icon: icon && fs.existsSync(icon) ? icon : null }), { encoding: 'utf8', windowsHide: true, timeout: 180000 });
+  const r = spawnSync(c.csc, cscArgs({ dir: c.dir, src, out: tmp, icon: icon && fs.existsSync(icon) ? icon : null, iconPng: fs.existsSync(iconPng) ? iconPng : null }), { encoding: 'utf8', windowsHide: true, timeout: 180000 });
   const log = String(r.stdout || '') + String(r.stderr || '');
   if (r.error || r.status !== 0 || !fs.existsSync(tmp)) { fs.rmSync(tmp, { force: true }); return { ok: false, log: 'csc 실패(' + (r.error ? r.error.message : r.status) + ')\n' + log }; }
   if (/warning CS/i.test(log) && o.strict) { fs.rmSync(tmp, { force: true }); return { ok: false, log: '경고가 있습니다(--strict)\n' + log }; }

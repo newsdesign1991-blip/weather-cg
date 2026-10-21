@@ -289,6 +289,9 @@ test('빌드 — csc 인자(WPF 참조·XAML·글꼴 3 넣기·매니페스트·
   assert.ok(a.includes('/reference:' + path.join('C:\\W\\Framework64\\v4.0.30319', 'System.Xaml.dll')));
   assert.ok(a.includes(`/resource:${path.join('D:\\r\\desktop\\update-ui', 'UpdateWindow.xaml')},WeatherCGUpdate.UpdateWindow.xaml`));
   assert.equal(a.filter((x) => /,WeatherCGUpdate\.fonts\.WantedSansNP-.+\.ttf$/.test(x)).length, 3);
+  // 머리 로고(10-21 — 근무표 업데이트 창처럼): 주면 담고, 없으면 안 담음
+  assert.ok(BU.cscArgs({ dir: 'C:\\W', src: 'D:\\r\\desktop\\update-ui', out: 'x.exe', iconPng: 'D:\\r\\icon-192.png' }).includes('/resource:D:\\r\\icon-192.png,WeatherCGUpdate.icon.png'));
+  assert.ok(!a.some((x) => /WeatherCGUpdate\.icon\.png/.test(x)));
   assert.equal(BU.UI_EXE, U.UI_EXE);
   const B = require('../../tools/build-installer.cjs');
   assert.ok(B.REQUIRED.includes('desktop/helper/WeatherCG-Update.exe'));

@@ -163,11 +163,12 @@ namespace WeatherCGUpdate
         // 창 없이 점검 — XAML 을 읽고 글꼴을 풀어 'Wanted Sans NP' 로 열리는지. 결과 JSON 을 --check 파일에
         static int SelfCheck(Opts o)
         {
-            bool xaml = false; int fonts = 0; string family = "", err = "";
+            bool xaml = false, logo = false; int fonts = 0; string family = "", err = "";
             try
             {
                 var w = UpdateUi.LoadWindow();
-                xaml = w != null && w.FindName("Steps") is StackPanel && w.FindName("Bar") is Border && w.FindName("RetryBtn") is Button;
+                xaml = w != null && w.FindName("Steps") is StackPanel && w.FindName("Bar") is Border && w.FindName("RetryBtn") is Button && w.FindName("AppIcon") is Image;
+                logo = UpdateUi.LoadLogo() != null;
                 string dir = o.FontsDir ?? System.IO.Path.Combine(System.IO.Path.GetDirectoryName(o.Check), "wcg-update-check-fonts");
                 foreach (string f in UpdateUi.ExtractFonts(dir))
                 {
@@ -177,9 +178,9 @@ namespace WeatherCGUpdate
                 if (o.FontsDir == null) { try { Directory.Delete(dir, true); } catch (Exception) { } }
             }
             catch (Exception ex) { err = ex.Message; }
-            bool ok = xaml && fonts == 3;
+            bool ok = xaml && fonts == 3 && logo;
             string ver = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion;
-            string json = "{\"ok\":" + (ok ? "true" : "false") + ",\"xaml\":" + (xaml ? "true" : "false") + ",\"fonts\":" + fonts
+            string json = "{\"ok\":" + (ok ? "true" : "false") + ",\"xaml\":" + (xaml ? "true" : "false") + ",\"logo\":" + (logo ? "true" : "false") + ",\"fonts\":" + fonts
                 + ",\"family\":\"" + family + "\",\"version\":\"" + ver + "\",\"clr\":\"" + Environment.Version + "\",\"error\":\"" + err.Replace("\\", "\\\\").Replace("\"", "'") + "\"}";
             try { File.WriteAllText(o.Check, json, new UTF8Encoding(false)); } catch (Exception) { return 3; }
             return ok ? 0 : 1;
@@ -244,6 +245,9 @@ namespace WeatherCGUpdate
             _retryBtn = (Button)Win.FindName("RetryBtn");
             _oldBtn = (Button)Win.FindName("OldBtn");
             Win.Title = _p + " 업데이트";
+            // 머리 로고 = 앱 아이콘(exe 에 담은 icon-192.png — tools/build-update-ui.cjs). 창 아이콘도 같은 그림
+            ImageSource logo = LoadLogo();
+            if (logo != null) { ((Image)Win.FindName("AppIcon")).Source = logo; Win.Icon = logo; }
 
             try { Win.FontFamily = LoadFont(o.FontsDir ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wcg-update", "ui-fonts")); }
             catch (Exception ex) { Log("글꼴 못 읽음 — 맑은 고딕: " + ex.Message); Win.FontFamily = new FontFamily("Malgun Gothic"); }
@@ -294,6 +298,20 @@ namespace WeatherCGUpdate
             using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("WeatherCGUpdate.UpdateWindow.xaml"))
                 return (Window)XamlReader.Load(s);
         }
+        public static ImageSource LoadLogo()
+        {
+            try
+            {
+                using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("WeatherCGUpdate.icon.png"))
+                {
+                    if (s == null) return null;
+                    var b = new BitmapImage();
+                    b.BeginInit(); b.CacheOption = BitmapCacheOption.OnLoad; b.StreamSource = s; b.EndInit(); b.Freeze();
+                    return b;
+                }
+            }
+            catch (Exception) { return null; }
+        }
         // exe 에 담은 글꼴(fonts\*.ttf)을 dir 에 푼다(같은 크기면 그대로) → 푼 파일 경로들
         public static List<string> ExtractFonts(string dir)
         {
@@ -331,7 +349,7 @@ namespace WeatherCGUpdate
         {
             var row = new DockPanel { Margin = new Thickness(0, 0, 0, 12) };
             var dot = new Border { Width = 24, Height = 24, CornerRadius = new CornerRadius(12), Background = R("T.SurfaceHi") };
-            var num = new TextBlock { Text = (_steps.Count + 1).ToString(), FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = R("T.Muted"),
+            var num = new TextBlock { Text = (_steps.Count + 1).ToString(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = R("T.Faint"),
                                       HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             // 끝난 단계 = 흰 체크, 문제 = 흰 X (글꼴 기호 대신 선 — 어느 윈도에서나 같게)
             var check = new System.Windows.Shapes.Path { Data = Geometry.Parse("M7,12.4 L10.6,16 L17.2,8.6"), Stroke = Brushes.White, StrokeThickness = 2.4,
@@ -345,7 +363,7 @@ namespace WeatherCGUpdate
             var g = new Grid();
             g.Children.Add(dot); g.Children.Add(num); g.Children.Add(check); g.Children.Add(cross); g.Children.Add(ring);
             DockPanel.SetDock(g, Dock.Left);
-            var label = new TextBlock { Text = name, FontSize = 14, Foreground = R("T.Muted"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
+            var label = new TextBlock { Text = name, FontSize = 14, Foreground = R("T.Faint"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
             row.Children.Add(g);
             row.Children.Add(label);
             _stepsPanel.Children.Add(row);
@@ -361,9 +379,9 @@ namespace WeatherCGUpdate
             if (i >= _steps.Count) return;
             var s = _steps[i];
             s.Dot.Background = Brushes.Transparent;
-            s.Num.Foreground = R("T.Fg");
+            s.Num.Foreground = R("T.AccentText");
             s.Label.Foreground = R("T.Fg");
-            s.Label.FontWeight = FontWeights.SemiBold;
+            s.Label.FontWeight = FontWeights.Bold;
             s.Ring.Visibility = Visibility.Visible;
             ((RotateTransform)s.Ring.RenderTransform).BeginAnimation(RotateTransform.AngleProperty,
                 new DoubleAnimation(0, 360, TimeSpan.FromSeconds(1.1)) { RepeatBehavior = RepeatBehavior.Forever });
@@ -377,7 +395,7 @@ namespace WeatherCGUpdate
             StopRing(s);
             s.Dot.Background = R("T.Ok");
             s.Num.Visibility = Visibility.Collapsed; s.Cross.Visibility = Visibility.Collapsed; s.Check.Visibility = Visibility.Visible;
-            s.Label.Foreground = R("T.Fg");
+            s.Label.Foreground = R("T.Text");
             s.Label.FontWeight = FontWeights.Normal;
         }
         void Failed(int k)
@@ -387,7 +405,7 @@ namespace WeatherCGUpdate
             StopRing(s);
             s.Dot.Background = R("T.Danger");
             s.Num.Visibility = Visibility.Collapsed; s.Check.Visibility = Visibility.Collapsed; s.Cross.Visibility = Visibility.Visible;
-            s.Label.Foreground = R("T.Danger");
+            s.Label.Foreground = R("T.DangerText");
         }
         // 다시 시도 — k 부터 아직 안 한 모양으로
         void ResetFrom(int k)
@@ -397,9 +415,9 @@ namespace WeatherCGUpdate
                 var s = _steps[i];
                 StopRing(s);
                 s.Dot.Background = R("T.SurfaceHi");
-                s.Num.Visibility = Visibility.Visible; s.Num.Foreground = R("T.Muted");
+                s.Num.Visibility = Visibility.Visible; s.Num.Foreground = R("T.Faint");
                 s.Check.Visibility = Visibility.Collapsed; s.Cross.Visibility = Visibility.Collapsed;
-                s.Label.Foreground = R("T.Muted"); s.Label.FontWeight = FontWeights.Normal;
+                s.Label.Foreground = R("T.Faint"); s.Label.FontWeight = FontWeights.Normal;
             }
             _current = k - 1;
             _target = _shown = StepAt[k];
@@ -785,7 +803,7 @@ namespace WeatherCGUpdate
             _target = _shown = 1;
             DrawBar();
             _note.Text = "이 창은 곧 저절로 닫혀요.";
-            Tone(_o.Rollback ? "되돌리기가 끝났어요" : "업데이트가 끝났어요", "#144ADE80", "#264ADE80", "T.Fg");   // 앱의 초록 머리(--pop-hd-green)
+            Tone(_o.Rollback ? "되돌리기가 끝났어요" : "업데이트가 끝났어요", "ok");   // 초록 머리·막대(근무표 업데이트 창과 같게)
             _running = false;
             ExitCode = 0;
             Log("끝 — 전체 " + _clock.ElapsedMilliseconds + "ms");
@@ -802,7 +820,7 @@ namespace WeatherCGUpdate
             ReleaseSetup();
             Failed(f.Step);
             _adminHint.Visibility = Visibility.Collapsed;
-            Tone(_o.Rollback ? "되돌리지 못했어요" : "업데이트하지 못했어요", "#17FF786E", "#29FF786E", "T.Danger");   // 앱의 빨간 머리(--pop-hd-red)
+            Tone(_o.Rollback ? "되돌리지 못했어요" : "업데이트하지 못했어요", "fail");   // 빨간 머리·막대
             Status(_o.Rollback ? "되돌리기를 멈췄어요." : "업데이트를 멈췄어요.");
             _errText.Text = f.Message;
             _errHint.Text = f.Hint ?? "";
@@ -860,7 +878,7 @@ namespace WeatherCGUpdate
             _closeX.Visibility = Visibility.Collapsed;
             _note.Visibility = Visibility.Visible;
             _title.Text = _o.Rollback ? "이전 버전으로 되돌리는 중" : "업데이트 설치 중";
-            Tone(null, "#146AA8FF", "#216AA8FF", "T.Fg");
+            Tone(null, null);
             ResetFrom(from);
             Run(from);
         }
@@ -882,12 +900,13 @@ namespace WeatherCGUpdate
             _closeBtn.IsEnabled = _retryBtn.IsEnabled = true;
         }
 
-        void Tone(string title, string head, string line, string titleBrush)
+        // 머리·막대 색 — kind: "ok" = 초록(끝), "fail" = 빨강(문제), 그 밖 = 파랑(진행). 근무표 설치 도우미 Tone 과 같은 셈
+        void Tone(string title, string kind)
         {
             if (title != null) _title.Text = title;
-            _title.Foreground = R(titleBrush);
-            _head.Background = (Brush)new BrushConverter().ConvertFromString(head);
-            _head.BorderBrush = (Brush)new BrushConverter().ConvertFromString(line);
+            if (kind == "ok") { _head.Background = R("T.HeadOk"); _head.BorderBrush = R("T.HeadOkLine"); _title.Foreground = R("T.OkText"); _bar.Background = R("T.OkGrad"); }
+            else if (kind == "fail") { _head.Background = R("T.HeadFail"); _head.BorderBrush = R("T.HeadFailLine"); _title.Foreground = R("T.DangerText"); _bar.Background = R("T.DangerGrad"); }
+            else { _head.Background = R("T.Head"); _head.BorderBrush = R("T.HeadLine"); _title.Foreground = R("T.Fg"); _bar.Background = R("T.AccentGrad"); }
         }
 
         void OnClosing(object s, CancelEventArgs e)
