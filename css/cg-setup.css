@@ -116,6 +116,66 @@
   .cgsUnitChip.on, .cgsUnitChip.on:hover { color: #fff; background: var(--acc); }
   .cgsUnitChip:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
   @media (max-width: 1150px) { #styleBtns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* ===== 장면 설정 다듬기(10-21, 사용자 "좀 더 이쁘게") — .cgsScene 에만(이미지로 렌더·특보 색·AE 보내기 창은 같은 클래스라 그대로 둔다) =====
+     판 = 테두리 없이 위→아래 옅은 틴트, 판 아이콘 타일은 빼고 단계 번호를 키움.
+     지도 카드 = 자료마다 색이 다른 그라디언트 아이콘(앱 아이콘 결 — 흰 글리프). CG 종류 카드 = 위에 화면 미리보기 판 + 아래 이름, 판 높이를 채워 빈 자리 없게. */
+  .cgsScene .cgsPane { gap: 12px; padding: 15px 14px 13px; border: none; border-radius: 18px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 12%, transparent); }
+  .cgsScene .cgsPaneRes { background: linear-gradient(180deg, var(--cgs-res-bg), color-mix(in srgb, var(--cgs-res-bg) 35%, var(--card-fill))); }
+  .cgsScene .cgsPaneStyle { background: linear-gradient(180deg, var(--cgs-map-bg), color-mix(in srgb, var(--cgs-map-bg) 35%, var(--card-fill))); }
+  .cgsScene .cgsPaneIcon { display: none; }
+  .cgsScene .cgsPaneTitle { gap: 8px; font-size: 16px; }
+  .cgsScene .cgsStepNo { width: 22px; height: 22px; font-size: 12px; background: linear-gradient(150deg, color-mix(in srgb, var(--acc) 62%, #fff), var(--acc)); box-shadow: 0 3px 8px -3px var(--acc); }
+  .cgsScene .cgsPaneSub { margin-top: 3px; padding-left: 30px; }
+  .cgsScene .cgsCard { border-radius: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 6px 16px -10px rgba(15,23,42,.22); }
+  .cgsScene .cgsCard:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(15,23,42,.05), 0 12px 24px -12px rgba(15,23,42,.3); }
+  .cgsScene .cgsCard.choicePending { box-shadow: 0 0 0 1px var(--acc), 0 12px 26px -12px color-mix(in srgb, var(--acc) 75%, transparent); }
+  .cgsScene .cgsCard::after { top: 10px; right: 10px; width: 18px; height: 18px; font-size: 11px; border-color: color-mix(in srgb, var(--outline) 75%, transparent); }
+  /* 지도 카드 아이콘 — 자료별 색(--i1 밝은 쪽 → --i2 진한 쪽) */
+  .cgsScene #styleBtns .cgsCard { gap: 11px; }
+  .cgsScene #styleBtns .cgsCardIcon {
+    --i1: #5fd4c4; --i2: #0e9384;
+    width: 40px; height: 40px; border-radius: 13px; color: #fff;
+    background: linear-gradient(155deg, var(--i1), var(--i2));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 5px 12px -6px var(--i2);
+  }
+  .cgsScene #styleBtns .cgsCardIcon svg { width: 21px; height: 21px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.12)); }
+  .cgsScene #styleBtns [data-card="warn"] .cgsCardIcon { --i1: #ff8a80; --i2: #e5484d; }
+  .cgsScene #styleBtns [data-card="warnsea"] .cgsCardIcon { --i1: #ffb070; --i2: #f0701c; }
+  .cgsScene #styleBtns [data-card="rain"] .cgsCardIcon { --i1: #6cb6ff; --i2: #2f6bf0; }
+  .cgsScene #styleBtns [data-card="life"] .cgsCardIcon { --i1: #ffd25c; --i2: #f29a0b; }
+  .cgsScene #styleBtns [data-card="dust"] .cgsCardIcon { --i1: #c4b29c; --i2: #8b7158; }
+  .cgsScene #styleBtns [data-card="dustFcst"] .cgsCardIcon { --i1: #bb9cff; --i2: #7b4ff0; }
+  .cgsScene #styleBtns [data-card="seoul"] .cgsCardIcon { --i1: #5fd4c4; --i2: #0e9384; }
+  .cgsScene #styleBtns [data-card="typhoon"] .cgsCardIcon { --i1: #4fd0f7; --i2: #0a84d6; }
+  .cgsScene #styleBtns [data-card="typhoonCompare"] .cgsCardIcon { --i1: #8fa8ff; --i2: #4b5ee6; }
+  .cgsScene .cgsUnitRow { border-radius: 13px; background: color-mix(in srgb, var(--acc) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 14%, transparent); }
+  /* CG 종류 카드 — 위 = 화면 미리보기 판(16:9 느낌, 판 높이만큼 늘어남), 아래 = 이름·크기. 동그라미는 미리보기 판 오른쪽 위 */
+  .cgsScene #resBtns { flex: 1 1 auto; grid-auto-rows: minmax(0, 1fr); gap: 10px; }
+  .cgsScene #resBtns .cgsCard { flex-direction: column; align-items: stretch; gap: 10px; min-height: 0; padding: 8px 8px 11px; }
+  .cgsScene #resBtns .cgsCardIcon {
+    position: relative; overflow: hidden; width: auto; height: auto; flex: 1 1 auto; min-height: 48px; border-radius: 11px; color: #fff;
+    background: radial-gradient(120% 90% at 18% 0%, rgba(255,255,255,.32), transparent 55%), linear-gradient(150deg, #6cb6ff, #2f6bf0);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+  }
+  .cgsScene #resBtns .cgsCardIcon svg { flex: none; width: 24px; height: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
+  .cgsScene #resBtns [data-res="2158x1214"] .cgsCardIcon { background: radial-gradient(120% 90% at 18% 0%, rgba(255,255,255,.32), transparent 55%), linear-gradient(150deg, #8f9dff, #4b55e0); }
+  /* 노말 VF = 투명 바탕(체크무늬) 위에 그리는 화면 */
+  .cgsScene #resBtns [data-res="1920x1080-vf"] .cgsCardIcon { color: #2f6bf0; background: repeating-conic-gradient(#dfe5ee 0 25%, #f6f8fb 0 50%) 0 0 / 14px 14px; box-shadow: inset 0 0 0 1px rgba(15,23,42,.06); }
+  :root[data-theme="dark"] .cgsScene #resBtns [data-res="1920x1080-vf"] .cgsCardIcon { color: #a9caff; background: repeating-conic-gradient(#2c3139 0 25%, #3a404a 0 50%) 0 0 / 14px 14px; }
+  .cgsScene #resBtns [data-res="1920x1080-team"] .cgsCardIcon { background: radial-gradient(120% 90% at 18% 0%, rgba(255,255,255,.3), transparent 55%), linear-gradient(150deg, #a9b7cc, #6b7c96); }
+  .cgsScene #resBtns .cgsCard::after { top: 15px; right: 15px; border-color: rgba(255,255,255,.95); background: rgba(255,255,255,.2); box-shadow: 0 0 0 1px rgba(15,23,42,.08); }
+  .cgsScene #resBtns .cgsCard.choicePending::after { border-color: #fff; background: var(--acc); }
+  .cgsScene #resBtns .cgsCardTxt { padding: 0 4px; }
+  /* 크기 — 미리보기 판 가운데, 아이콘 옆 한 줄(판이 낮아져도 겹치지 않게) */
+  .cgsResSize { display: none; }
+  .cgsScene #resBtns .cgsCardIcon { gap: 8px; }
+  .cgsScene .cgsResSize {
+    display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .01em; line-height: 1; font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 2px rgba(0,0,0,.18);
+  }
+  .cgsScene [data-res="1920x1080-vf"] .cgsResSize { color: #1e3a8a; text-shadow: none; }
+  :root[data-theme="dark"] .cgsScene [data-res="1920x1080-vf"] .cgsResSize { color: #dbe7ff; }
+  .cgsScene #resBtns .cgsCardTxt b { font-size: 14px; }
   .cgsPane .presetMoreToggle { margin-top: auto; }
   .presetManageNote { margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--cgs-muted); }
   .cgsFoot { position: relative; flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 18px 14px 22px; border-top: 1px solid var(--outline-var); }

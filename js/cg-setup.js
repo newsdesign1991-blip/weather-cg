@@ -18,8 +18,12 @@ function buildResBtns() {
   const w = $('#resBtns');
   w.textContent = '';
   for (const [k, v] of Object.entries(RES)) {
-    // CG 구성 창의 선택 카드 — 이름 + 화면 크기(+ 쓰임새 한마디)
-    const b = cgsCardBtn(k, v.label, `${v.size[0]} × ${v.size[1]}` + (v.note ? '\n' + v.note : ''));   // 크기 / 쓰임새 두 줄(white-space: pre-line)
+    // CG 구성 창의 선택 카드 — 위 = 화면 미리보기 판(아이콘 + 크기 배지 .cgsResSize), 아래 = 이름 + 쓰임새 한마디
+    // (10-21 — 크기 줄을 판 안 배지로 옮겨 카드 키를 줄임)
+    const size = `${v.size[0]} × ${v.size[1]}`;
+    const b = cgsCardBtn(k, v.label, v.note || size);
+    const badge = document.createElement('span'); badge.className = 'cgsResSize'; badge.textContent = size;
+    b.querySelector('.cgsCardIcon').append(badge);
     b.dataset.res = k;
     if (v.dim) b.classList.add('resDim');   // 잘 안 쓰는 옵션(날씨 팀) — 흐리게
     b._apply = () => {
