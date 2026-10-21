@@ -71,7 +71,7 @@ function _camUnprojectRaw(sx, sy) {
 }
 
 // 태풍 데이터 시드(샘플: 2022년 11호 '힌남노'). 실제 연동 시 기상청 API가 issues를 채운다.
-const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'satdark', nowIdx: null, labelSel: null,
+const TYPHOON_DEFAULTS = { landFill: '#12325A', landStroke: '#3C6390', krShow: 1, krFill: '#2E6FB0', krStroke: '#BFE3FF', krStrokeW: 1.6, krOpacity: 0.45, krStrokeOp: 1, terrain: 0.85, iconCol: '#E5231E', basemap: 'gl', nowIdx: null, labelSel: null,
   trackMode: 'full', lineColor: '#E5231E', lineWidth: 5,
   glSat: 1,   // 가벼운 지도(basemap 'gl') 바탕: 1 = 위성 사진(넣어 둔 Mapbox 주소 — 없으면 벡터만) / 0 = 벡터만 (js/gl-basemap.js glbSetSat)
   iconMode: 'image', iconScale: 1.25,   // 아이콘: image=사용자 이미지 / grade=기상청 강도 숫자 원, iconScale=전체 크기 배율(기본 125%)

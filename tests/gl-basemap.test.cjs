@@ -362,7 +362,9 @@ test('다른 3모드(파란·밝은/어두운 위성) 길 그대로 + Mapbox 실
   assert.ok(rt.includes('const isSat = !!(SAT && SAT.img);'), '실제 그림이 있어야 위성');
   assert.ok(!/isMbx|mapboxTileTemplate|scheduleMapboxTiles/.test(rt), '옛 SVG Mapbox 타일 판정·갱신 없음(10-12 — WebGL)');
   assert.ok(rt.includes("const isGl = !!(on && T && glbShowing());"), 'GL(가벼운 지도·Mapbox 실시간 타일)은 준비됐을 때만');
-  assert.ok(rt.includes('glbMarkHidden(isGl, [ocean, land, krBase, relief]);'));
+  // 가벼운 지도 '벡터만'(10-21)은 지형·시도선을 SVG 그대로 얹는다 — 그 밖 GL(위성 사진·Mapbox)은 전처럼 지형까지 숨김
+  assert.ok(rt.includes("const isGlVec = isGl && T.basemap === 'gl' && !glbSatNow();"));
+  assert.ok(rt.includes('glbMarkHidden(isGl, isGlVec ? [ocean, land, krBase] : [ocean, land, krBase, relief]);'));
   assert.ok(rt.includes('if (isSat || isGl) {'));
   assert.ok(rt.includes("bmb.classList.toggle('sat', isSat || isGl);"));
   assert.ok(rt.includes('glbSync();               // 가벼운 지도 캔버스'));

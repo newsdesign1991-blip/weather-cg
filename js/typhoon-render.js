@@ -640,13 +640,15 @@ function _renderTyphoon() {
   }
   const isDarkSat = bmMode === 'satdark';
   const isGl = !!(on && T && glbShowing());   // 가벼운 지도·Mapbox 실시간 타일(WebGL — js/gl-basemap.js) — 준비됐을 때만(그 전·실패·주소 없음이면 파란 지도로 대체)
-  glbMarkHidden(isGl, [ocean, land, krBase, relief]);   // GL이면 숨길 파란 지도 조각 표시(추출이 GL 그림을 못 얻으면 되살린다), 아니면 표시 지움
+  // 가벼운 지도 '벡터만'(10-21) = 파란 지도와 비슷하게: 지형(음영기복 — 파란 지도 육지 톤의 대부분)·시도선은 SVG 그대로 GL 육지 위에 얹는다
+  const isGlVec = isGl && T.basemap === 'gl' && !glbSatNow();
+  glbMarkHidden(isGl, isGlVec ? [ocean, land, krBase] : [ocean, land, krBase, relief]);   // GL이면 숨길 파란 지도 조각 표시(추출이 GL 그림을 못 얻으면 되살린다), 아니면 표시 지움
   if (isSat || isGl) {   // 위성/GL 모드: 파란 육지/바다/지형 숨김(위성이 실제 지형 보여줌). 격자는 아래에서 바다에만 클립.
     if (ocean) ocean.style.display = 'none';
     if (land) land.style.display = 'none';
     if (krBase) krBase.style.display = 'none';
-    if (relief) relief.style.display = 'none';
-    for (const id of ['#typhoonSido', '#nbrNW', '#nbrJP']) { const nn = $(id); if (nn) nn.style.display = 'none'; }
+    if (relief && !isGlVec) relief.style.display = 'none';
+    for (const id of (isGlVec ? ['#nbrNW', '#nbrJP'] : ['#typhoonSido', '#nbrNW', '#nbrJP'])) { const nn = $(id); if (nn) nn.style.display = 'none'; }
   }
   { const coast = $('#typhoonCoast'); if (coast) coast.style.display = 'none'; }   // 해안선 외곽선 미사용(위성이 실제 해안선을 보여줌)
   glbSync();               // 가벼운 지도 캔버스 — 이 모드면 지금 지도 위치로(같은 프레임), 아니면 숨김
