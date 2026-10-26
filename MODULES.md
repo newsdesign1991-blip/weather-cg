@@ -413,6 +413,28 @@ boot.js 최상위 const `work freshOpen pendingStart tourWillOpen defaultsChange
     설치 시험판은 업데이트 뒤 설치 프로그램이 **점검 모드가 아닌 보통 실행**으로 다시 켠다(환경 변수가 안 넘어감 — 아래 '앱 업데이트') — 그래서 main.js는 설치 시험판(package 이름 `weathercg-installtest`)이면
     내장 헬퍼를 빈 포트에(3721 안 씀)·대체 Python 헬퍼 안 켬·영상 프레임·타일 캐시는 `%LOCALAPPDATA%\WeatherCG-installtest`(`INSTALL_TEST`·`LAD_APP`) — 켜져 있는 사용자 앱과 부딪히지 않는다.
 
+- **NDT 자리**(2026-10-26 — NDT 런처 통합 요청 'Weather-CG-다음업데이트-프롬프트.md', 판 1.0.7): 런처 앱 id `weather-cg`(설치 시험판 `weather-cg-installtest`).
+  - **새 설치**(설치 기록 없음 — `Software\<GUID>` InstallLocation 이 HKCU·HKLM 둘 다 없음): 본체 `%LOCALAPPDATA%\NDT\apps\weather-cg`. 자리 고르기 없음
+    (`allowToChangeInstallationDirectory: false`, 설치 창의 [찾아보기] 없앰·자리는 읽기 전용). `tools/installer/installer.nsh` 1-1(`customInit` — 조용한 설치,
+    `customPageAfterChangeDir` — NSIS 창 설치)·설치 창 `Installed.DefaultDir` 이 같은 규칙.
+  - **깔린 판 업데이트**: 등록된 자리 그대로(예전 기본 `%LOCALAPPDATA%\Programs\weathercg-desktop`·사용자가 고른 자리·NDT 자리 모두) — 옮기거나 먼저 지우지 않는다.
+  - **자료 자리**(`desktop/app-paths.js resolveLayout`, main.js `LAYOUT` — app ready·단일 실행 잠금 전): exe 가 `NDT\apps\weather-cg` 에 있으면 자료(작업·배치·설정 —
+    크로미움 프로필·localStorage) `NDT\data\weather-cg`, 우리 캐시(지도 타일·영상 프레임·업데이트 설치 파일 사본·진행 창) `NDT\cache\weather-cg`,
+    기록(업데이트 진행 창 `update-ui.log`·크래시 덤프 `crashes`) `NDT\logs\weather-cg`. 그 밖(예전 자리 설치·개발판)은 예전 그대로(`%APPDATA%\날씨 CG`·`%LOCALAPPDATA%\WeatherCG`·임시 폴더).
+    NDT 에 깔렸지만 NDT 자료가 없고 예전 자료(`%APPDATA%\날씨 CG`)만 있으면(예전 판을 지우고 다시 깐 경우) 예전 자료를 그 자리에서 그대로 쓴다(옮기지 않음).
+    크로미움 자체 캐시(Cache·Code Cache·GPUCache 등)는 프로필 안이라 자료 폴더에 함께 생긴다(localStorage 와 같은 세션 폴더 — `disk-cache-dir` 은 Electron 44 에서 안 먹음).
+    예전 자료 자리는 `appData + 이름`으로만 셈 — `app.getPath('userData')`는 그 폴더를 만들어 버린다.
+  - **제거**: 앱 파일·등록·바로 가기만. 자료·캐시·기록(NDT·예전 둘 다)은 남김(지우는 선택 없음 — 다시 깔면 그대로).
+  - **공식 이전(예전 자리 → NDT)**: 지금은 하지 않는다. 할 때는 사용자 동의 뒤 ① 앱 끄기 ② 예전 판 제거(자료 남음) ③ 새 설치(NDT 자리) — 처음 켜면 예전 자료를 그대로 씀(위 규칙)
+    ④ 자료까지 옮기려면 앱이 꺼진 상태에서 `%APPDATA%\날씨 CG` 를 `NDT\data\weather-cg` 로 복사(원본은 지우지 않음 — 되돌리기는 NDT 자료 폴더를 지우면 예전 자료로 돌아감).
+  - **런처용 명령**(완성된 설치 파일로 확인 — `desktop/test/ndt-install-check.cjs`): `WeatherCG-Setup-<판>.exe /S` = 창 없이 설치(새 설치는 NDT 자리, 깔린 판은 그 자리),
+    `… /S /D=<전체 경로>` = 그 자리(**맨 끝·따옴표 없이·공백·한글 그대로** — `%LOCALAPPDATA%` 같은 글자는 안 풀림, 런처가 실제 경로로 넘길 것),
+    업데이트는 앱이 `/S --updated`. 종료 코드: 0 = 설치 끝(성공 판정은 exe·등록 판까지 볼 것), 2 = 설치 프로그램이 멈춤(관리자 확인 거절 등),
+    10·11·12 = 겉 설치 프로그램 문제(풀 자리·확인값·실행). 창 설치(인자 없음)는 우리 설치 창 — 자리는 보여 주기만, 종료 코드 0 = 설치 끝·1 = 문제로 멈춘 뒤 닫음·2 = 설치 안 하고 닫음(취소).
+    제거: `"<설치 자리>\Uninstall 날씨 CG.exe" /S`(곧바로 돌아옴 — 폴더가 없어질 때까지 볼 것). 제거 목록 = HKCU `…\Uninstall\<GUID>`(DisplayName 날씨 CG·DisplayVersion·DisplayIcon·UninstallString 이 설치 자리).
+  - 점검: `node desktop/test/ndt-install-check.cjs --a=<…-installtest.exe> --b=<…-installtest.exe> --work=<임시>` — 새 설치·실행(자료 자리)·같은 자리 업데이트·제거(자료 남음)·
+    다시 설치(자료 그대로)·공백/한글 `/D=` 자리 업데이트(예전 자료 자리). 시험 전 자리가 있으면 멈추고, 만든 것만 정리.
+
 - **앱 업데이트**(2026-10-12 사용자 요청 — '업데이트될 때마다 R:\[F]_Util\WNS\Ver 에 올려 주고, 새 설치 파일이 나오면 앱에서 감지해 팝업, 설치 누르면 자동으로 새로 설치'.
   같은 날 2차 요청 — '업데이트가 있으면 렌치를 깜빡이고, 드롭다운의 배치·설정 옮기기는 빼고 업데이트 내역·몇 판인지·업데이트하기 버튼, 그 밑에 과거 판으로 교체(최신 판에 예상 못 한 오류가 있을 수 있어서)'):
   - **올리기 — 사용자 상시 승인(2026-10-12)**: 버전업 설치판은 별도 재승인 없이 지정 폴더 게시까지 마무리한다. 일반 코드 수정마다 임의로 판을 올리지 않으며, `--force`·판 내리기·사용자 앱 실제 설치/재시작은 별도 요청이 필요하다. 판을 올려(`desktop/package.json` version) 커밋 → 필수 전체 검사·부팅 검사 → `node tools/build-installer.cjs` → `node tools/check-installed.cjs …\out\win-unpacked` →

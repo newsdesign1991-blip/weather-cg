@@ -78,6 +78,8 @@ Var wcgCmdDir
 !endif
 !macro customInstall
   !insertmacro wcgDropInstallerCopy
+  ; 제거 목록(Uninstall\<GUID>)에 설치 자리도(10-26 NDT — 템플릿은 Software\<GUID> 에만 적는다). 지우기가 키째 지운다
+  WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"
 !macroend
 ; 3) 제거 뒤 빈 설치 폴더 지우기 — 지우기 프로그램의 un.onInit 이 SetOutPath $INSTDIR 로 그 폴더를 자기 작업 폴더로 잡아 두어,
 ;    템플릿의 RMDir /r $INSTDIR 이 안의 파일만 지우고 폴더 자체는 못 지웠다(조용한 제거 뒤 빈 폴더가 남음 — 1.0.0 검증).

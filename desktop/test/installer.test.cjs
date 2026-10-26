@@ -86,7 +86,7 @@ test('electron-builder 설정 — 이 사용자만·위치 고르기·바로 가
   assert.match(nsh, /!macro customInstallMode\n\s*\$\{if\} \$hasPerMachineInstallation == "1"\n\s*\$\{andIf\} \$hasPerUserInstallation == "0"\n\s*StrCpy \$isForceMachineInstall "1"\n\s*\$\{else\}\n\s*StrCpy \$isForceCurrentInstall "1"\n\s*\$\{endIf\}\n!macroend/);
   assert.equal(nsh.charCodeAt(0), 0xFEFF, 'NSIS 가 한글 주석을 UTF-8 로 읽게 BOM');
   // 설치 끝·제거 때 설치 프로그램 사본(%LOCALAPPDATA%\…-updater\installer.exe)만 지운다 — 사용자 데이터(APPDATA)는 안 건드림, 폴더는 빈 것만
-  assert.match(nsh, /!macro customInstall\n\s*!insertmacro wcgDropInstallerCopy\n!macroend/);
+  assert.match(nsh, /!macro customInstall\n\s*!insertmacro wcgDropInstallerCopy\n(\s*;[^\n]*\n\s*WriteRegStr SHELL_CONTEXT "\$\{UNINSTALL_REGISTRY_KEY\}" InstallLocation "\$INSTDIR"\n)?!macroend/);   // 10-26 제거 목록에 설치 자리
   assert.match(nsh, /!macro customUnInstall\n\s*!insertmacro wcgDropInstallerCopy\n\s*SetOutPath "\$TEMP"\n\s*RMDir "\$INSTDIR"\n!macroend/, '제거 뒤 빈 설치 폴더만 지움(작업 폴더를 옮긴 뒤, /r 아님)');
   assert.match(nsh, /Delete "\$LOCALAPPDATA\\\$\{APP_INSTALLER_STORE_FILE\}"/);
   assert.match(nsh, /RMDir "\$LOCALAPPDATA\\\$\{WCG_UPDATER_DIR\}"/);

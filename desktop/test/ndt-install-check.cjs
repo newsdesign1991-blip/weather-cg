@@ -37,6 +37,7 @@ const vA = verOf(A), vB = verOf(BB);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const exists = (p) => { try { return fs.existsSync(p); } catch (e) { return false; } };
 const steps = {}, problems = [];
+const P_SAME = (x, y) => !!x && path.resolve(x).toLowerCase() === path.resolve(y).toLowerCase();
 const want = (c, m) => { if (!c) problems.push(m); };
 
 function ps(cmd) {
@@ -44,10 +45,10 @@ function ps(cmd) {
   return String(r.stdout || '').trim();
 }
 const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
-function exeVersion(f) { return exists(f) ? ps(`[System.Diagnostics.FileVersionInfo]::GetVersionInfo(${q(f)}).ProductVersion`) : null; }
+function exeVersion(f) { return exists(f) ? ps(`[System.Diagnostics.FileVersionInfo]::GetVersionInfo(${q(f)}).ProductVersion`).replace(/^(\d+\.\d+\.\d+)\.0$/, '$1') : null; }   // 1.0.7.0 → 1.0.7
 function reg() {
   const j = ps(`$o=@{};foreach($h in 'HKCU','HKLM'){$k=Get-ItemProperty -LiteralPath ($h+':\\Software\\${GUID}') -ErrorAction SilentlyContinue;if($k){$o[$h+'_loc']=$k.InstallLocation}};`
-    + `$u=Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall' -ErrorAction SilentlyContinue | % { Get-ItemProperty $_.PSPath } | ? { $_.DisplayName -eq ${q(NAME)} } | select -First 1;`
+    + `$u=Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall' -ErrorAction SilentlyContinue | % { Get-ItemProperty $_.PSPath } | ? { $_.DisplayName -like (${q(NAME)}+'*') } | select -First 1;`
     + `if($u){$o.un=@{name=$u.DisplayName;version=$u.DisplayVersion;icon=$u.DisplayIcon;uninstall=$u.UninstallString;quiet=$u.QuietUninstallString;loc=$u.InstallLocation;publisher=$u.Publisher}};$o|ConvertTo-Json -Compress -Depth 4`);
   try { return JSON.parse(j || '{}'); } catch (e) { return { raw: j }; }
 }
@@ -96,7 +97,7 @@ const copySetup = (f) => { const d = path.join(WORK, 'setup'); fs.mkdirSync(d, {
     want(r.code === 0, '새 설치 종료 코드 ' + r.code);
     want(s.exeVersion === vA, '새 설치 exe 판 ' + s.exeVersion);
     want(s.reg.HKCU_loc && path.resolve(s.reg.HKCU_loc).toLowerCase() === NDT.app.toLowerCase(), '새 설치 등록 자리 ' + s.reg.HKCU_loc);
-    want(s.reg.un && s.reg.un.version === vA && under(s.reg.un.icon, NDT.app) && under(s.reg.un.uninstall, NDT.app), '제거 목록 ' + JSON.stringify(s.reg.un));
+    want(s.reg.un && s.reg.un.version === vA && under(s.reg.un.icon, NDT.app) && under(s.reg.un.uninstall, NDT.app) && P_SAME(s.reg.un.loc, NDT.app), '제거 목록 ' + JSON.stringify(s.reg.un));
     want(Object.keys(s.lnk).length === 2 && Object.values(s.lnk).every((t) => under(t, NDT.app)), '바로 가기 ' + JSON.stringify(s.lnk));
     want(!steps.fresh.oldDefaultMade, '예전 기본 자리가 생김');
     // 2) 실행 → NDT 자료

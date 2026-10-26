@@ -62,6 +62,8 @@ test('배선 — main.js(잠금 전 setPath)·업데이트·설치 프로그램�
   assert.match(nsh, /StrCpy \$INSTDIR "\$LOCALAPPDATA\\NDT\\apps\\\$\{WCG_NDT_ID\}"/);
   assert.match(nsh, /!define WCG_NDT_ID "weather-cg"/);
   assert.match(nsh, /!macro customInit/); assert.match(nsh, /!macro customPageAfterChangeDir/);
+  assert.ok(nsh.includes('WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"'), '제거 목록에 설치 자리');
+  assert.match(nsh, /!macro preInit\r?\n\s*StrCpy \$wcgCmdDir \$INSTDIR/, '/D= 공백 경로 보존');
   const cs = read('tools/installer/setup-ui/SetupApp.cs');
   assert.match(cs, /"NDT", "apps", NdtId/);
   assert.match(cs, /_browse\.Visibility = Visibility\.Collapsed;/);
