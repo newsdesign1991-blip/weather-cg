@@ -1,7 +1,7 @@
 ﻿; 날씨 CG 설치 프로그램(electron-builder NSIS)에 끼워 넣는 설정 — tools/build-installer.cjs 가 nsis.include 로 넘긴다.
 
 ; 1) 설치 방식 고르기 화면('모든 사용자 / 나만')을 없앤다(electron-builder 24 템플릿 multiUserUi.nsh 의 customInstallMode 자리 — 지우기에도 같이 들어간다).
-;  - 보통은 '이 사용자만': 관리자 권한 없이 %LOCALAPPDATA%\Programs\weathercg-desktop(설치 위치는 다음 화면에서 바꿀 수 있음).
+;  - 보통은 '이 사용자만': 관리자 권한 없이. 새 설치는 %LOCALAPPDATA%\NDT\apps\weather-cg(아래 1-1), 이미 깔렸으면 그 자리(10-26 전 기본은 %LOCALAPPDATA%\Programs\weathercg-desktop).
 ;  - 임시판(0.2.0)을 '모든 사용자'로 깐 PC(그 설치만 있을 때)는 그 자리(Program Files)에 덮어 올린다 — 관리자 권한 확인 창이 한 번 뜬다.
 ;    (안 그러면 이 사용자 자리에 하나 더 깔려 두 벌이 된다.) 조용한 설치(/S)는 이 화면 없이 onInit(initMultiUser)이 같은 기준으로 고른다.
 !macro customInstallMode
@@ -11,6 +11,38 @@
   ${else}
     StrCpy $isForceCurrentInstall "1"
   ${endIf}
+!macroend
+
+; 1-1) 새 설치의 기본 자리 = %LOCALAPPDATA%\NDT\apps\weather-cg (10-26 — NDT 런처 통합. 설치 시험판은 weather-cg-installtest).
+;  electron-builder 기본(%LOCALAPPDATA%\Programs\weathercg-desktop) 대신. 이전 설치 기록(Software\<GUID> InstallLocation — HKCU·HKLM)이 있으면
+;  그 자리 그대로(예전 자리·사용자가 고른 자리 업데이트 — 옮기지 않음), /D=<자리>(명령줄 맨 끝·따옴표 없이)를 주면 그 자리.
+;  조용한 설치(/S — 앱 업데이트·런처·우리 설치 창)는 onInit 의 customInit 이, 창 설치(NSIS 화면 — 평소엔 안 씀)는 설치 방식 화면이
+;  자리를 다시 정한 뒤 설치 직전 빈 화면(customPageAfterChangeDir)이 같은 규칙으로 맞춘다. 자리 고르기 화면은 없다(allowToChangeInstallationDirectory: false).
+!if "${APP_FILENAME}" == "weathercg-installtest"
+  !define WCG_NDT_ID "weather-cg-installtest"
+!else
+  !define WCG_NDT_ID "weather-cg"
+!endif
+!macro wcgNdtDefaultDir
+  ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+  ReadRegStr $1 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+  ${StdUtils.GetParameter} $2 "D" ""
+  ${if} $0 == ""
+  ${andIf} $1 == ""
+  ${andIf} $2 == ""
+  ${andIf} $installMode == "CurrentUser"
+    StrCpy $INSTDIR "$LOCALAPPDATA\NDT\apps\${WCG_NDT_ID}"
+  ${endIf}
+!macroend
+!macro customInit
+  !insertmacro wcgNdtDefaultDir
+!macroend
+!macro customPageAfterChangeDir
+  Page custom wcgNdtDirPage
+  Function wcgNdtDirPage
+    !insertmacro wcgNdtDefaultDir
+    Abort
+  FunctionEnd
 !macroend
 
 ; 2) 설치 프로그램 사본 지우기 — electron-builder 는 설치할 때마다 설치 파일 전체를 %LOCALAPPDATA%\weathercg-desktop-updater\installer.exe 로

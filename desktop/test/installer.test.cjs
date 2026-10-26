@@ -72,7 +72,7 @@ test('electron-builder 설정 — 이 사용자만·위치 고르기·바로 가
   assert.deepEqual(c.asarUnpack, ['desktop/helper/**']);
   assert.equal(c.electronDist, undefined);
   assert.equal(c.nsis.oneClick, false); assert.equal(c.nsis.perMachine, false);
-  assert.equal(c.nsis.allowToChangeInstallationDirectory, true);
+  assert.equal(c.nsis.allowToChangeInstallationDirectory, false);   // 10-26 NDT — 자리 고르기 없음(installer.nsh 1-1)
   assert.equal(c.nsis.createDesktopShortcut, true); assert.equal(c.nsis.createStartMenuShortcut, true);
   assert.equal(c.nsis.shortcutName, B.PRODUCT_NAME);
   assert.equal(c.nsis.deleteAppDataOnUninstall, false);

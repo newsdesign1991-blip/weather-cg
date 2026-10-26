@@ -338,7 +338,7 @@ test('배선 — main.js IPC 넷 다 메인 창 주 프레임만, 끌 때 닫기
   assert.match(mainJs, /quitForInstall: \(\) => \{ try \{ if \(closeGuard\) closeGuard\.release\(\); \} catch \(e\) \{ \/\* 창 없음 \*\/ \} app\.quit\(\); \}/);
   assert.match(mainJs, /notify: \(info\) => \{ if \(win && !win\.isDestroyed\(\)\) win\.webContents\.send\('wcg:update', info\); \}/);
   assert.match(mainJs, /current: app\.getVersion\(\), variant: APP_VARIANT, packaged: app\.isPackaged, testMode: TEST_MODE/);
-  assert.match(mainJs, /tempRoot: app\.getPath\('temp'\)/);
+  assert.match(mainJs, /tempRoot: LAYOUT\.kind === 'ndt' \? LAYOUT\.cache : app\.getPath\('temp'\)/);   // 예전 자리는 임시 폴더, NDT 자리는 NDT\cache(10-26 — app-paths.test)
   assert.match(mainJs, /if \(TEST_MODE\) \{ createWindow\(\); startUpdater\(\); return; \}/);
   assert.match(mainJs, /createWindow\(\);\n\s*startUpdater\(\);\n\s*\}\);/);
   assert.match(mainJs, /try \{ updater && updater\.stop\(\); \} catch/);
@@ -346,7 +346,8 @@ test('배선 — main.js IPC 넷 다 메인 창 주 프레임만, 끌 때 닫기
   // 설치 시험판: 빈 포트 헬퍼·대체 헬퍼 없음·따로 폴더
   assert.match(mainJs, /const INSTALL_TEST = app\.isPackaged && APP_VARIANT === 'installtest';/);
   assert.match(mainJs, /const EMBED_PORT = INSTALL_TEST \? 0 : 3721;/);
-  assert.match(mainJs, /const LAD_APP = path\.join\(LAD, INSTALL_TEST \? 'WeatherCG-installtest' : 'WeatherCG'\);/);
+  assert.match(mainJs, /const LAD_APP = LAYOUT\.cache \|\| path\.join\(LAD, INSTALL_TEST \? 'WeatherCG-installtest' : 'WeatherCG'\);/);
+  assert.match(mainJs, /variant: INSTALL_TEST \? 'installtest' : '',/, '설치 시험판은 자기 자리(app-paths.js — WeatherCG-installtest·NDT weather-cg-installtest)');
   assert.match(mainJs, /const FRAMES_DIR = path\.join\(LAD_APP, 'frames'\);/);
   assert.match(mainJs, /if \(!\(await startEmbeddedHelper\(\)\) && !INSTALL_TEST\) \{/);
   assert.match(mainJs, /helperUrl = `http:\/\/127\.0\.0\.1:\$\{port \|\| EMBED_PORT\}`/);

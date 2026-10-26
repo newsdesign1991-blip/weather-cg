@@ -151,15 +151,16 @@ function builderConfig(o) {
       requestedExecutionLevel: 'asInvoker',
     },
     nsis: {
-      oneClick: false,                        // 순서 있는 설치(설치 위치 고르기)
+      oneClick: false,                        // 순서 있는 설치(실제로는 우리 설치 창이 /S 로 부른다)
       perMachine: false,                      // 이 사용자만(관리자 권한 없이) — installer.nsh 가 고르기 화면을 없앤다(임시판을 '모든 사용자'로 깐 PC 만 그 자리에 덮어 올림)
-      allowToChangeInstallationDirectory: true,
+      // 자리 고르기 없음(10-26 NDT 런처 통합): 새 설치 = %LOCALAPPDATA%\NDT\apps\weather-cg, 깔린 판 = 그 자리, /D= 로만 다른 자리(installer.nsh 1-1)
+      allowToChangeInstallationDirectory: false,
       createDesktopShortcut: true,
       createStartMenuShortcut: true,
       shortcutName: N.productName,
       menuCategory: false,
       runAfterFinish: true,
-      deleteAppDataOnUninstall: false,        // 지워도 작업·설정(%APPDATA%\날씨 CG)은 남긴다 — 다시 깔면 그대로
+      deleteAppDataOnUninstall: false,        // 지워도 작업·설정(%APPDATA%\날씨 CG, NDT 자리면 %LOCALAPPDATA%\NDT\data\weather-cg — 템플릿은 안 건드림)은 남긴다 — 다시 깔면 그대로
       artifactName: N.artifact,
       installerIcon: icon, uninstallerIcon: icon, installerHeaderIcon: icon,
       language: '1042', installerLanguages: ['ko_KR'], multiLanguageInstaller: false,

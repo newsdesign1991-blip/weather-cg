@@ -292,9 +292,12 @@ namespace WeatherCGSetup
             }
             catch (Exception) { return null; }
         }
+        // 새 설치의 자리 = %LOCALAPPDATA%\NDT\apps\weather-cg(10-26 — NDT 런처 통합. 설치 시험판은 weather-cg-installtest).
+        // installer.nsh 1-1 과 같은 규칙 — 깔린 판이 있으면 그 자리(Read), /D= 를 받으면 그 자리. 고르는 창은 없다.
+        public static string NdtId { get { return SetupInfo.Variant.Length > 0 ? "weather-cg-" + SetupInfo.Variant : "weather-cg"; } }
         public static string DefaultDir
         {
-            get { return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", SetupInfo.DirName); }
+            get { return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NDT", "apps", NdtId); }
         }
     }
 
@@ -524,9 +527,11 @@ namespace WeatherCGSetup
             string start = dirArg ?? _inst.Dir ?? Installed.DefaultDir;
             try { start = System.IO.Path.GetFullPath(start).TrimEnd('\\'); } catch (Exception) { }
             _dirBox.Text = start;
+            // 자리는 보여 주기만(10-26 NDT — 고르기·고쳐 쓰기 없음)
+            _dirBox.IsReadOnly = true;
+            _browse.Visibility = Visibility.Collapsed;
             RenderState();
             DirHint(null);
-            _dirBox.TextChanged += delegate { DirHint(null); };
 
             // 단계
             AddStep("설치 파일 풀기");
@@ -547,7 +552,6 @@ namespace WeatherCGSetup
             _cancel.IsCancel = true;
             _closeX.Click += delegate { Win.Close(); };
             _cancel.Click += delegate { Win.Close(); };
-            _browse.Click += delegate { Browse(); };
             _install.Click += delegate { StartInstall(); };
             _endClose.Click += delegate { Win.Close(); };
             _endMain.Click += delegate { if (_ok) LaunchAndClose(); else Retry(); };

@@ -315,7 +315,7 @@ function copySame(src, dest) {
   if (fs.statSync(dest).size !== fs.statSync(src).size) { try { fs.rmSync(dest, { force: true }); } catch (e) { /* 다음 정리 */ } throw Object.assign(new Error('size'), { code: 'ESIZE' }); }
 }
 // 진행 창 띄우기 — exe 를 임시 폴더로 복사(설치 폴더 밖 — 설치 프로그램이 그 폴더를 바꿀 수 있게) → 떨어뜨려 실행 → '창이 떴다' 알림 파일을 기다린다.
-// o: { exe, tempRoot, args(uiArgs 의 ready·log·fontsDir 뺀 것), spawn?, readyMs?, sleep? } → { ok: true, pid, ms } | { ok: false, err: 'write'|'copy'|'spawn'|'ui-exit'|'ui-timeout'|'ui-stuck', code? }
+// o: { exe, tempRoot, logDir?(진행 창 기록 자리 — NDT 자리면 NDTlogs, 없으면 임시 폴더), args(uiArgs 의 ready·log·fontsDir 뺀 것), spawn?, readyMs?, sleep? } → { ok: true, pid, ms } | { ok: false, err: 'write'|'copy'|'spawn'|'ui-exit'|'ui-timeout'|'ui-stuck', code? }
 //  시간 안에 안 뜬 창은 끈다(뒤늦게 떠서 혼자 설치를 시작하지 않게) — 끄지도 못했으면 ui-stuck(부르는 쪽은 조용한 설치로 넘어가지 않는다 — 설치가 두 번 돌 수 있음)
 async function startUi(o) {
   const tdir = path.join(o.tempRoot, TEMP_SUB);
@@ -326,7 +326,8 @@ async function startUi(o) {
     try { copySame(o.exe, dest); } catch (e2) { return { ok: false, err: 'copy', code: e2 && e2.code }; }
   }
   const ready = path.join(tdir, `ui-${process.pid}-${Date.now()}.ready`);
-  const logFile = path.join(tdir, UI_LOG);
+  let logFile = path.join(tdir, UI_LOG);
+  if (o.logDir) { try { fs.mkdirSync(o.logDir, { recursive: true }); logFile = path.join(o.logDir, UI_LOG); } catch (e) { /* 못 만들면 임시 폴더 */ } }
   try { fs.rmSync(ready, { force: true }); fs.rmSync(logFile, { force: true }); } catch (e) { /* 지난 창이 아직 씀 — 이어 씀 */ }
   const argv = uiArgs({ ...o.args, ready, log: logFile, fontsDir: path.join(tdir, UI_FONTS) });
   const spawn = o.spawn || require('child_process').spawn;
@@ -354,7 +355,7 @@ async function startUi(o) {
 }
 
 // ---------- 업데이트 관리자 ----------
-// o: { current(지금 판), variant, packaged(설치판인가), testMode(WCG_TEST), env, dirs?, tempRoot, notify(info), quitForInstall(), log?,
+// o: { current(지금 판), variant, packaged(설치판인가), testMode(WCG_TEST), env, dirs?, tempRoot, logDir?, notify(info), quitForInstall(), log?,
 //      releaseClose?(설치를 넘긴 순간 — 닫기 전 묻기 풀기: 설치 프로그램이 앱을 닫아도 다시 묻지 않게),
 //      uiExe?(진행 창 exe 후보 — 경로·목록·함수), appExe?·pid?·product?(진행 창에 넘김 — 기본 process.execPath·process.pid·'날씨 CG'), uiReadyMs?,
 //      spawn?, fsp?, setTimer?, clearTimer?, firstDelayMs?, everyMs?, timeoutMs? }
@@ -456,7 +457,7 @@ function createUpdater(o) {
       if (uiExe) {
         if (onPhase) { try { onPhase('handoff'); } catch (e) { /* 창 닫힘 */ } }
         const u = await startUi({
-          exe: uiExe, tempRoot: o.tempRoot, spawn: o.uiSpawn || o.spawn, readyMs: o.uiReadyMs, sleep: o.uiSleep,
+          exe: uiExe, tempRoot: o.tempRoot, logDir: o.logDir, spawn: o.uiSpawn || o.spawn, readyMs: o.uiReadyMs, sleep: o.uiSleep,
           args: { pid: o.pid || process.pid, app: o.appExe || process.execPath, product: o.product || '날씨 CG', from: current, to: info.version, rollback,
             setup: c.file, sha256: info.sha256, size: info.size, shots: String(env.WCG_UPDATE_UI_SHOTS || '').trim() || '' },
         });

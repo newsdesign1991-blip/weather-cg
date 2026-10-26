@@ -32,7 +32,19 @@ const EMBED_PORT = INSTALL_TEST ? 0 : 3721;   // 내장 헬퍼(0 = 빈 포트 �
 const EXT_PORT = 3720;     // 웹판 Python 헬퍼(대체용)
 const HELPER_VER = 20261009;
 const LAD = process.env.LOCALAPPDATA || app.getPath('temp');
-const LAD_APP = path.join(LAD, INSTALL_TEST ? 'WeatherCG-installtest' : 'WeatherCG');   // 영상 프레임·타일 캐시 자리
+// 자료·캐시·기록 자리(10-26 — NDT 런처 통합, desktop/app-paths.js): %LOCALAPPDATA%\NDT\apps\weather-cg 에 깔린 설치판만 NDT 자리
+// (자료 NDT\data·캐시 NDT\cache·기록 NDT\logs), 그 밖(예전 자리 설치·개발판)은 지금까지 그대로 — 아무것도 옮기지 않는다. 점검 모드는 위 임시 사용자 폴더.
+const LAYOUT = TEST_MODE ? { kind: 'test', cache: null } : require('./app-paths').resolveLayout({
+  packaged: app.isPackaged, exePath: process.execPath, lad: process.env.LOCALAPPDATA || '', legacyUserData: app.getPath('userData'),
+  variant: INSTALL_TEST ? 'installtest' : '',
+  hasEntries: (d) => { try { return fs.readdirSync(d).length > 0; } catch (e) { return false; } },
+});
+if (LAYOUT.kind === 'ndt') {
+  app.setPath('userData', LAYOUT.userData);                                    // 작업·배치·설정(localStorage 등) — 단일 실행 잠금보다 먼저
+  app.setPath('crashDumps', path.join(LAYOUT.logs, 'crashes'));
+  app.commandLine.appendSwitch('disk-cache-dir', path.join(LAYOUT.cache, 'chromium'));   // 크로미움 디스크 캐시(다시 받으면 됨)
+}
+const LAD_APP = LAYOUT.cache || path.join(LAD, INSTALL_TEST ? 'WeatherCG-installtest' : 'WeatherCG');   // 영상 프레임·타일 캐시 자리
 const exists = (p) => { try { return !!p && fs.existsSync(p); } catch (e) { return false; } };
 // 설치판(tools/build-installer.cjs — electron-builder, asar)에서는 이 파일이 resources\app.asar\desktop 안에 있다.
 // 앱 파일 읽기(fs·app:// 서빙·preload·비공개 키)는 asar 안 그대로 되지만, 다른 프로그램이 쓰는 파일(ffmpeg 실행·AE용 SUITE 폰트 복사)은
@@ -338,7 +350,7 @@ const { createTileCache } = require('./tile-cache');
 let tileCache = null;
 function tileCacheGet() {
   if (tileCache) return tileCache;
-  const base = TEST_MODE ? app.getPath('userData') : path.join(process.env.LOCALAPPDATA || app.getPath('userData'), INSTALL_TEST ? 'WeatherCG-installtest' : 'WeatherCG');   // 설치 시험판은 따로(위 INSTALL_TEST)
+  const base = TEST_MODE ? app.getPath('userData') : LAD_APP;   // 캐시 자리(위 LAYOUT — NDT 면 NDT\cache, 설치 시험판은 따로)
   tileCache = createTileCache({ dir: path.join(base, 'tile-cache'), fetch: (u, init) => session.defaultSession.fetch(u, init) });
   return tileCache;
 }
@@ -434,7 +446,9 @@ function startUpdater() {
   if (updater) return;
   updater = createUpdater({
     current: app.getVersion(), variant: APP_VARIANT, packaged: app.isPackaged, testMode: TEST_MODE, env: process.env,
-    tempRoot: app.getPath('temp'), log: (m) => console.log('[update] ' + m),
+    // NDT 자리면 받은 설치 파일 사본·진행 창은 NDT\cache, 진행 창 기록은 NDT\logs(위 LAYOUT) — 예전 자리는 지금처럼 임시 폴더
+    tempRoot: LAYOUT.kind === 'ndt' ? LAYOUT.cache : app.getPath('temp'), logDir: LAYOUT.kind === 'ndt' ? LAYOUT.logs : undefined,
+    log: (m) => console.log('[update] ' + m),
     notify: (info) => { if (win && !win.isDestroyed()) win.webContents.send('wcg:update', info); },
     uiExe: [UPDATE_UI_EXE], appExe: process.execPath, pid: process.pid, product: app.getName(),
     releaseClose: () => { try { if (closeGuard) closeGuard.release(); } catch (e) { /* 창 없음 */ } },
