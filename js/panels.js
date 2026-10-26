@@ -46,7 +46,9 @@ const saveCustom = () => localStorage.setItem('wcg_custom', JSON.stringify(custo
 // 검색 선택은 편집 도우미일 뿐: 프로젝트 상태·자동 저장·추출에는 넣지 않는다.
 const regionSearchSelected = new Set();
 function regionSearchEntries(zones, seoul) {
-  const entries = zones.map(z => ({name: [z.sido, z.gu, z.zone].filter((v, i, a) => v && a.indexOf(v) === i).join(' '), ids: [z.id]}));
+  // 다른 이름(10-26): '제주도산지' 구역 = 한라산 일대 — '한라산'으로도 찾는다
+  const alias = {'제주도산지': '한라산'};
+  const entries = zones.map(z => ({name: [z.sido, z.gu, z.zone].filter((v, i, a) => v && a.indexOf(v) === i).join(' ') + (alias[z.zone] ? ' (' + alias[z.zone] + ')' : ''), ids: [z.id]}));
   if (seoul) {
     const groups = new Map();
     for (const z of zones) if (z.gu) {
@@ -54,8 +56,56 @@ function regionSearchEntries(zones, seoul) {
       groups.get(z.gu).push(z.id);
     }
     for (const [gu, ids] of groups) entries.push({name: '서울 ' + gu + ' 전체', ids});
+  } else {
+    // 시도 전체(10-26 사용자 '제주만 누르면 제주 전체가') — 구역이 둘 이상인 시도만. 결과는 큰 묶음이 먼저라 '제주'를 치면 맨 위
+    const groups = new Map();
+    for (const z of zones) if (z.sido) {
+      if (!groups.has(z.sido)) groups.set(z.sido, []);
+      groups.get(z.sido).push(z.id);
+    }
+    for (const [sido, ids] of groups) if (ids.length > 1) entries.push({name: sido + ' 전체', ids});
   }
   return entries;
+}
+// 산 표시도 검색으로 칠하기(10-26 사용자 '한라산도 칠해지게 — 제주에 산 그리는 기능 있으니'). 결과 줄 = 산 표시 빠른 배치(MTN_PRESETS — js/labels-mountains.js),
+// 선택 키 'mtn:<프리셋 이름>'. 칠하면 그 자리(앵커)에 있는 산의 색을 바꾸고, 없으면 그 자리에 산을 만든다. 지우기 = 산 기본 색(흰색).
+// 손으로 끌어 앵커가 풀린 산은 찾지 못한다(그 자리에 새로 만든다). 서울 지도에는 없음.
+const REGION_MTNS = [
+  { key: 'mtn:제주', name: '제주 한라산 (산 표시)', preset: '제주' },
+  { key: 'mtn:강원', name: '강원 산지 · 태백산맥 (산 표시)', preset: '강원' },
+];
+function regionSearchMtnEntries() {
+  if (isSeoul()) return [];
+  return REGION_MTNS.filter((d) => d.preset !== '제주' || (S.insets && S.insets.jeju)).map((d) => ({ name: d.name, ids: [d.key] }));
+}
+// 프리셋 자리에 놓인 산들(제주 = 제주 인셋 앵커, 강원 = 위경도 앵커 — 통보문이 만든 산지 산 포함)
+function regionMtnsOf(preset) {
+  return (S.mtns || []).filter((m) => !m.off && m.anchor && (preset === '제주' ? m.anchor.inset === 'jeju' : m.anchor.lon != null));
+}
+function regionSearchPaintMtns(keys, erase) {
+  let n = 0;
+  for (const key of keys) {
+    const d = REGION_MTNS.find((x) => x.key === key);
+    const p = d && MTN_PRESETS.find((x) => x.label === d.preset);
+    if (!p) continue;
+    const list = regionMtnsOf(d.preset);
+    if (!list.length && !erase) {
+      // 강원은 저장된 '강원 산지' 기본 배치(default-presets.js mtnGangwon)가 있으면 그것 — 통보문 산지 산과 같은 자리
+      const ov = d.preset === '강원' && window.WCG_DEFAULTS && window.WCG_DEFAULTS.mtnGangwon;
+      const anchors = ov && Array.isArray(ov.anchors) && ov.anchors.length ? ov.anchors : p.anchors;
+      const size = (ov && ov.size) || p.size;
+      for (const anc of anchors) {
+        const m = newMtn({ anchor: JSON.parse(JSON.stringify(anc)), size });
+        const a = mtnAnchorXY(m); m.x = a.x; m.y = a.y;
+        (S.mtns ||= []).push(m); list.push(m);
+      }
+    }
+    for (const m of list) m.col = erase ? '#FFFFFF' : activeColor;
+    if (list.length) n++;
+  }
+  renderMtns();
+  if (typeof refreshPanel === 'function') refreshPanel();
+  return n;
 }
 function regionSearchMatches(entries, query) {
   const norm = v => v.normalize('NFKC').toLowerCase().replace(/[\s·.,/\-]/g, '');
@@ -75,7 +125,7 @@ function regionSearchRender() {
   box.hidden = !curStyle().search;   // 지역 이름 검색을 쓰는 지도(시군·서울·시군구 — core.js search 깃발)
   const results = $('#regionResults');
   results.replaceChildren();
-  const matches = box.hidden ? [] : regionSearchMatches(regionSearchEntries(curZones(), isSeoul()), $('#regionQuery').value);
+  const matches = box.hidden ? [] : regionSearchMatches(regionSearchEntries(curZones(), isSeoul()).concat(regionSearchMtnEntries()), $('#regionQuery').value);
   for (const entry of matches.slice(0, 50)) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -114,17 +164,19 @@ function regionSearchHighlight() {
 function regionSearchPaint(erase) {
   if (!curStyle().search) return;
   const nodes = Array.from(regionSearchSelected, id => zoneEls.get(id)?.[0]?.el).filter(Boolean);
-  if (!nodes.length) return;
+  const mtnKeys = Array.from(regionSearchSelected).filter(id => String(id).startsWith('mtn:'));   // 산 표시(한라산·강원 산지)
+  if (!nodes.length && !mtnKeys.length) return;
   animStop(); animOff();
   pushUndo();
   for (const node of nodes) paint(node, erase);
+  const mtnN = mtnKeys.length ? regionSearchPaintMtns(mtnKeys, erase) : 0;
   renderFills();
   if (!erase) regionSearchSelected.clear();
   regionSearchHighlight();
   const scroll = $('#regionResults').scrollTop;
   regionSearchRender();
   $('#regionResults').scrollTop = scroll;
-  flash(nodes.length + '개 지역 ' + (erase ? '색 지움' : '색칠 완료'));
+  flash((nodes.length ? nodes.length + '개 지역' : '') + (mtnN ? (nodes.length ? ' · ' : '') + '산 ' + mtnN + '곳' : '') + (erase ? ' 색 지움' : ' 색칠 완료'));
 }
 function wireRegionSearch() {
   $('#regionQuery').oninput = regionSearchRender;

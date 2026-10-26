@@ -28,6 +28,31 @@ test('region names are qualified and duplicate district names stay separate', ()
   assert.equal(ctx.regionSearchMatches(entries, '').length, 0);
   assert.equal(ctx.regionSearchMatches(entries, '없는지역').length, 0);
 });
+test('시도 전체 묶음(구역 둘 이상만)이 먼저, 제주도산지는 한라산으로도 — 10-26', () => {
+  const jz = [{id:'j1',sido:'제주',zone:'제주시북부'},{id:'j2',sido:'제주',zone:'제주도산지'},{id:'j3',sido:'제주',zone:'서귀포시남부'},{id:'u',sido:'울산',zone:'울산'}];
+  const r = ctx.regionSearchMatches(ctx.regionSearchEntries(jz, false), '제주');
+  assert.equal(r[0].name, '제주 전체'); assert.deepEqual(Array.from(r[0].ids), ['j1','j2','j3']);
+  assert.equal(ctx.regionSearchMatches(ctx.regionSearchEntries(jz, false), '울산').length, 1, '구역 하나면 전체 묶음 없음');
+  const h = ctx.regionSearchMatches(ctx.regionSearchEntries(jz, false), '한라산');
+  assert.deepEqual(Array.from(h, (e) => e.name), ['제주 제주도산지 (한라산)']);
+});
+test('산 표시 검색 칠하기 — 한라산·강원 산지 줄, 칠하면 그 자리 산 색(없으면 만듦), 지우기 = 흰색, 되돌리기 한 번', () => {
+  const src = source.slice(source.indexOf('const REGION_MTNS = ['), source.indexOf('function regionSearchReset('));
+  const made = [];
+  const sb = vm.createContext({ S: { insets: { jeju: {} }, mtns: [{ id: 'k', anchor: { lon: 128, lat: 37 }, col: '#FFFFFF' }] }, isSeoul: () => false, activeColor: '#123456',
+    MTN_PRESETS: [{ label: '강원', size: 90, anchors: [{ lon: 1, lat: 2 }] }, { label: '제주', size: 71, anchors: [{ inset: 'jeju' }] }],
+    newMtn: (o) => { const m = Object.assign({ col: '#FFFFFF' }, o); made.push(m); return m; }, mtnAnchorXY: () => ({ x: 1, y: 2 }), renderMtns: () => {}, window: {} });
+  vm.runInContext(src, sb);
+  assert.deepEqual(Array.from(sb.regionSearchMtnEntries(), (e) => e.name), ['제주 한라산 (산 표시)', '강원 산지 · 태백산맥 (산 표시)']);
+  assert.equal(sb.regionSearchPaintMtns(['mtn:제주', 'mtn:강원'], false), 2);
+  assert.equal(made.length, 1, '제주 산은 없어서 만들고, 강원은 있는 산을 칠함');
+  assert.equal(sb.S.mtns[0].col, '#123456'); assert.equal(sb.S.mtns[1].col, '#123456'); assert.equal(sb.S.mtns[1].anchor.inset, 'jeju');
+  sb.regionSearchPaintMtns(['mtn:제주'], true);
+  assert.equal(sb.S.mtns[1].col, '#FFFFFF');
+  const paint = source.slice(source.indexOf('function regionSearchPaint('), source.indexOf('function wireRegionSearch('));
+  assert.equal((paint.match(/pushUndo\(/g) || []).length, 1);
+  assert.match(paint, /if \(!nodes\.length && !mtnKeys\.length\) return;/);
+});
 test('Seoul offers district-wide selection first, without conflating dong IDs', () => {
   const results = ctx.regionSearchMatches(ctx.regionSearchEntries(zones.slice(0,3), true), '종로구');
   assert.equal(results[0].name, '서울 종로구 전체');
