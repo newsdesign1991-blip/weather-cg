@@ -54,7 +54,9 @@ test('배선 — main.js(잠금 전 setPath)·업데이트·설치 프로그램�
   const main = read('desktop/main.js');
   assert.match(main, /require\('\.\/app-paths'\)\.resolveLayout\(/);
   assert.ok(main.indexOf("app.setPath('userData', LAYOUT.userData)") > 0 && main.indexOf("app.setPath('userData', LAYOUT.userData)") < main.indexOf('requestSingleInstanceLock'), '단일 실행 잠금보다 먼저');
-  assert.match(main, /appendSwitch\('disk-cache-dir', path\.join\(LAYOUT\.cache, 'chromium'\)\)/);
+  assert.match(main, /app\.setPath\('logs', LAYOUT\.logs\)/);
+  assert.match(main, /legacyUserData: path\.join\(app\.getPath\('appData'\), app\.getName\(\)\)/, "예전 자료 폴더를 만들지 않게(getPath('userData')는 폴더를 만든다)");
+  assert.doesNotMatch(main, /getPath\('userData'\)[^\n]*resolveLayout|legacyUserData: app\.getPath\('userData'\)/);
   assert.match(main, /tempRoot: LAYOUT\.kind === 'ndt' \? LAYOUT\.cache : app\.getPath\('temp'\), logDir: LAYOUT\.kind === 'ndt' \? LAYOUT\.logs : undefined/);
   const nsh = read('tools/installer/installer.nsh');
   assert.match(nsh, /StrCpy \$INSTDIR "\$LOCALAPPDATA\\NDT\\apps\\\$\{WCG_NDT_ID\}"/);

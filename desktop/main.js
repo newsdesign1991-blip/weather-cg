@@ -35,14 +35,17 @@ const LAD = process.env.LOCALAPPDATA || app.getPath('temp');
 // 자료·캐시·기록 자리(10-26 — NDT 런처 통합, desktop/app-paths.js): %LOCALAPPDATA%\NDT\apps\weather-cg 에 깔린 설치판만 NDT 자리
 // (자료 NDT\data·캐시 NDT\cache·기록 NDT\logs), 그 밖(예전 자리 설치·개발판)은 지금까지 그대로 — 아무것도 옮기지 않는다. 점검 모드는 위 임시 사용자 폴더.
 const LAYOUT = TEST_MODE ? { kind: 'test', cache: null } : require('./app-paths').resolveLayout({
-  packaged: app.isPackaged, exePath: process.execPath, lad: process.env.LOCALAPPDATA || '', legacyUserData: app.getPath('userData'),
+  // 예전 자료 자리는 이름으로만 셈(app.getPath('userData')는 그 폴더를 만들어 버린다 — NDT 설치에 빈 %APPDATA%\<이름>이 생겼음, 10-26 시험)
+  packaged: app.isPackaged, exePath: process.execPath, lad: process.env.LOCALAPPDATA || '', legacyUserData: path.join(app.getPath('appData'), app.getName()),
   variant: INSTALL_TEST ? 'installtest' : '',
   hasEntries: (d) => { try { return fs.readdirSync(d).length > 0; } catch (e) { return false; } },
 });
 if (LAYOUT.kind === 'ndt') {
-  app.setPath('userData', LAYOUT.userData);                                    // 작업·배치·설정(localStorage 등) — 단일 실행 잠금보다 먼저
+  // 작업·배치·설정(localStorage 등) — 단일 실행 잠금보다 먼저. 크로미움 자체 캐시(Cache·Code Cache·GPUCache 등)는 이 프로필 안에 함께 생긴다
+  // (localStorage 와 같은 세션 폴더라 따로 못 뺌 — disk-cache-dir 스위치는 Electron 44 에서 안 먹었다, 10-26 시험). 우리 캐시(지도 타일·영상 프레임·업데이트 사본)만 NDT\cache.
+  app.setPath('userData', LAYOUT.userData);
   app.setPath('crashDumps', path.join(LAYOUT.logs, 'crashes'));
-  app.commandLine.appendSwitch('disk-cache-dir', path.join(LAYOUT.cache, 'chromium'));   // 크로미움 디스크 캐시(다시 받으면 됨)
+  app.setPath('logs', LAYOUT.logs);
 }
 const LAD_APP = LAYOUT.cache || path.join(LAD, INSTALL_TEST ? 'WeatherCG-installtest' : 'WeatherCG');   // 영상 프레임·타일 캐시 자리
 const exists = (p) => { try { return !!p && fs.existsSync(p); } catch (e) { return false; } };

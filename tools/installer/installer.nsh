@@ -23,11 +23,21 @@
 !else
   !define WCG_NDT_ID "weather-cg"
 !endif
+; /D= 자리는 NSIS 가 .onInit 전에 명령줄 끝까지(공백 포함) $INSTDIR 에 넣는데, 템플릿(multiUser.nsh setInstallModePerUser)이 그 값을
+; StdUtils.GetParameter 로 다시 읽으며 첫 공백에서 잘랐다('…\예전 자리\날씨 앱' → '…\예전' — 10-26 시험에서 찾음. 사용자 이름에 공백이 있으면
+; 우리 설치 창의 /D= 도 잘렸다). preInit 에서 NSIS 가 넣은 온전한 값을 잡아 두었다가 /D= 가 있으면 그 값으로 되돌린다.
+Var wcgCmdDir
+!macro preInit
+  StrCpy $wcgCmdDir $INSTDIR
+!macroend
 !macro wcgNdtDefaultDir
   ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
   ReadRegStr $1 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
   ${StdUtils.GetParameter} $2 "D" ""
-  ${if} $0 == ""
+  ${if} $2 != ""
+  ${andIf} $wcgCmdDir != ""
+    StrCpy $INSTDIR $wcgCmdDir
+  ${elseIf} $0 == ""
   ${andIf} $1 == ""
   ${andIf} $2 == ""
   ${andIf} $installMode == "CurrentUser"
