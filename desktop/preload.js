@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('wcgDesktop', {
     sub: Array.isArray(h && h.sub) ? h.sub.slice(0, 8).map(String) : [], download: !!(h && h.download), waitMs: Math.floor(+(h && h.waitMs)) || 0,
   }),
   revealPath: (p) => ipcRenderer.invoke('wcg:reveal-path', String(p || '')),
+  // 작업창 화면 찍기(js/map-drop.js — 불러와 칠할 때 물결 덮개). capture({ x, y, width, height }: 창 안 CSS 픽셀) → { w, h, data(BGRA) } 또는 null
+  capture: (r) => ipcRenderer.invoke('wcg:capture', { x: +(r && r.x) || 0, y: +(r && r.y) || 0, width: +(r && r.width) || 0, height: +(r && r.height) || 0 }),
   // 창 닫기 전 묻기 — cb(번호)는 곧바로 closeReply(번호, 'close'|'wait')로, 팝업에서 고르면 closeReply(번호, 'close'|'stay')로 답한다(한 번만 건다)
   onCloseAsk: (cb) => { closeAskCb = typeof cb === 'function' ? cb : null; },
   closeReply: (id, act) => closeReply(id, act),

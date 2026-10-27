@@ -250,7 +250,7 @@ function wire() {
   foldWire($('#typManual'), 'wcg_typ_manual_open');
   // (태풍 '이름·발표 시각 수정' 접기는 뺐다 — 칸은 숨김, 고르기는 '태풍 불러오기 · 선택' 창)
   foldWire($('#tycManual'), 'wcg_tyc_manual_open');
-  $('#wrnApply').onclick = () => applyWrn($('#wrnPaste').value, null, 'paste');
+  $('#wrnApply').onclick = () => mapDrop(() => applyWrn($('#wrnPaste').value, null, 'paste'), '#wrnApply');   // 칠하면 NameDrop 물결(js/map-drop.js)
   wireWrnWhen();   // 날짜별 발표 목록 → 고른 시각의 발효현황 재조회
   setupWrnColPop();   // '특보 종류별 색' 버튼 → 2분할 팝업(js/warnings-load.js) — 옛 사이드바 색 격자 자리
   wireWrnOverlap();
@@ -298,12 +298,12 @@ function wire() {
     window.open(apiUrl(FCT_KINDS[fctKind].api, { TM1: day + '0000', TM2: day + '2359' }), '_blank', 'noopener');
     status('새 창에서 Ctrl+A → Ctrl+C 하고 아래에 붙여넣으세요');
   };
-  $('#fctApply').onclick = () => applyFct($('#fctPaste').value);
-  $('#bulApply').onclick = () => applyBulletin($('#bulPaste').value);
+  $('#fctApply').onclick = () => mapDrop(() => applyFct($('#fctPaste').value), '#fctApply');
+  $('#bulApply').onclick = () => mapDrop(() => applyBulletin($('#bulPaste').value), '#bulApply');
   foldWire($('#bulManual'), 'wcg_bul_manual_open');
   // 통보문 불러오기·묶음 선택 후 바로 칠하기·통째 붙여넣기·데스크톱 날씨누리 창 읽기
   $('#bulLoad').onclick = () => fetchBulletin();
-  $('#bulPaintPick').onclick = bulPaintPick;
+  $('#bulPaintPick').onclick = () => mapDrop(bulPaintPick, '#bulPaintPick');
   $('#bulPaste').onpaste = bulOnPaste;
   if (bulHasWnd()) {   // 데스크톱(새 판): '단기예보 열기'를 앱 안 창으로 — 뜰 때마다 통보문을 읽어 온다
     const a = $('#bulOpen');

@@ -374,7 +374,7 @@ test('화면 배선 — 불러오기 버튼·날짜 고르기·결과 카드·�
   assert.match(html, /<a class="btn linkBtn" id="bulOpen" href="https:\/\/www\.weather\.go\.kr\/w\/forecast\/overall\/short-term\.do"/);
   const wire = sliceBetween('function wire() {', '\n}\n');
   assert.match(wire, /\$\('#bulLoad'\)\.onclick = \(\) => fetchBulletin\(\);/);
-  assert.match(wire, /\$\('#bulPaintPick'\)\.onclick = bulPaintPick;/);
+  assert.match(wire, /\$\('#bulPaintPick'\)\.onclick = \(\) => mapDrop\(bulPaintPick, '#bulPaintPick'\);/);   // 칠하면 NameDrop 물결(js/map-drop.js)
   assert.match(wire, /\$\('#bulPaste'\)\.onpaste = bulOnPaste;/);
   assert.match(wire, /window\.wcgDesktop\.onWnuri\(bulFromWnuri\)/);
   // 불러오기 주소: weather.go.kr 먼저, 허용 목록 밖(400)이면 kma.go.kr(302 경유)

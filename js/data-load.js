@@ -220,6 +220,8 @@ async function fetchLife(only) {
     if (only) for (const id of (dataInfo(st).miss || [])) if (!only.includes(id) && !vals[id]) miss.push(id);
     if (!Object.keys(vals).length) return fail(errs[0] || { kind: 'nodata' });
     // 3) 들어오는 구분 그대로 — 그새 다른 지도로 바뀌었으면 칠하지 않는다
+    const shot = await mapDropShot('#lifeFetch');   // 칠하기 직전 작업창 그림 — 칠한 뒤 NameDrop 물결로 걷는다(js/map-drop.js)
+    if (stale()) return null;
     if (S.style !== st) { showDataResult(st, { kind: 'moved' }); status('지도 종류가 바뀌어 생활기상을 칠하지 않았어요', true, 'warn'); return false; }
     const prev = dataInfo(st);
     const slots = lifeSlots(base, Object.values(vals));
@@ -231,6 +233,7 @@ async function fetchLife(only) {
     dataLegendFirst(st);
     const cnt = lifeApply(info);
     dataAfterPaint(st);
+    mapDropGo(shot);
     ok = true;
     showDataResult(st, lifeResultOk(info, cnt, areas.length, errs));
     return true;
@@ -437,6 +440,8 @@ async function fetchDust(only) {
     const areas = dataAreas().filter((a) => got.includes(a.sido));
     const m = dustMatch(items, areas, part ? { at: prev0.latestNo } : null);
     if (!part && !Object.keys(m.vals).length && !Object.keys(m.avg).length) return fail({ kind: 'format', detail: '시군구 이름을 하나도 맞추지 못했어요' });
+    const shot = await mapDropShot('#dustFetch');   // 칠하기 직전 작업창 그림 — 칠한 뒤 NameDrop 물결로 걷는다(js/map-drop.js)
+    if (stale()) return null;
     if (S.style !== st) { showDataResult(st, { kind: 'moved' }); status('지도 종류가 바뀌어 미세먼지 농도를 칠하지 않았어요', true, 'warn'); return false; }
     const prev = dataInfo(st);
     let info;
@@ -463,6 +468,7 @@ async function fetchDust(only) {
     dataLegendFirst(st);
     const cnt = dustApply(info);
     dataAfterPaint(st);
+    mapDropGo(shot);
     ok = true;
     showDataResult(st, dustResultOk(info, cnt));
     return true;
@@ -673,6 +679,8 @@ async function fetchDustFcst() {
       lines: [code === 'O3' ? '오류가 아니에요. 오존 예보는 철(대개 4~10월)에만 나와요.' : '오류가 아니에요. 그날 발표가 아직 없거나 지난 날짜라 자료가 없어요.'] }); return false; }
     const p = dfcParse(mine);
     if (!p.issues.length) return fail({ kind: 'format', detail: '예보 등급(informGrade)을 읽지 못했어요' });
+    const shot = await mapDropShot('#dfcFetch');   // 칠하기 직전 작업창 그림 — 칠한 뒤 NameDrop 물결로 걷는다(js/map-drop.js)
+    if (stale()) return null;
     if (S.style !== st) { showDataResult(st, { kind: 'moved' }); status('지도 종류가 바뀌어 미세먼지 예보를 칠하지 않았어요', true, 'warn'); return false; }
     const prev = dataInfo(st);
     // 새 발표가 일부 날짜만 갱신해도 다른 예보일이 사라지지 않게 날짜별 최신을 기본으로. 실제 발표 시각도 각 날짜에 보존한다.
@@ -683,6 +691,7 @@ async function fetchDustFcst() {
     dataLegendFirst(st);
     const plan = dfcApply(info);
     dataAfterPaint(st);
+    mapDropGo(shot);
     ok = true;
     showDataResult(st, dfcResultOk(info, plan));
     return true;

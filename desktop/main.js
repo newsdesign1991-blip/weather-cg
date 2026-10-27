@@ -198,7 +198,7 @@ function createWindow() {
       backgroundThrottling: false,   // 영상 추출 중 창이 가려져도 느려지지 않게
     },
   });
-  win.once('ready-to-show', () => { if (TEST_MODE) return; win.show(); });   // 넓은 일반 창으로 시작. 점검 모드는 화면에 안 띄움
+  win.once('ready-to-show', () => { if (TEST_MODE) { if (process.env.WCG_TEST_SHOW === '1') win.showInactive(); return; } win.show(); });   // 넓은 일반 창으로 시작. 점검 모드는 화면에 안 띄움(WCG_TEST_SHOW=1 = 보이게 — 숨김 창은 화면 찍기·rAF 가 멈춰 움직임 점검용)
   win.on('page-title-updated', (e) => e.preventDefault());   // 작업표시줄·Alt+Tab 창 이름은 늘 '날씨 CG' (웹 <title>로 안 바뀌게)
   win.on('closed', () => { if (wnuri && !wnuri.isDestroyed()) wnuri.destroy(); });   // 날씨누리 창이 남아 앱이 안 꺼지는 일 없게
   wireCloseGuard(win);   // 닫기 전 '저장하지 않은 변경' 묻기(아래)
@@ -405,6 +405,24 @@ ipcMain.handle('wcg:reveal-path', (e, p) => {
   if (TEST_MODE) { console.log('[reveal-test] ' + JSON.stringify(fp)); return { ok: true, path: fp, test: true }; }
   shell.showItemInFolder(fp);
   return { ok: true, path: fp };
+});
+
+// ---------- 작업창 화면 찍기(2026-10-27 — 불러와 칠할 때 NameDrop 물결, js/map-drop.js) ----------
+// 웹앱이 칠하기 직전 작업창 자리(창 안 CSS 픽셀 사각형)를 찍어 덮개로 깔고, 칠한 뒤 고리가 지나간 안쪽을 뚫어 새 지도를 보인다(Graph CG electron/fx.js 와 같은 길).
+// 돌려주는 것: { w, h, data(BGRA 바이트, 실제 픽셀) } 또는 null. 너무 크면(4MP 넘음) 줄여서 — 덮개는 1초 남짓만 보인다
+ipcMain.handle('wcg:capture', async (e, r) => {
+  if (!jtwcCallerOk(e) || win.isMinimized()) return null;
+  const n = (v) => Math.max(0, Math.round(+v || 0));
+  const rect = { x: n(r && r.x), y: n(r && r.y), width: n(r && r.width), height: n(r && r.height) };
+  if (rect.width < 8 || rect.height < 8) return null;
+  try {
+    let img = await win.webContents.capturePage(rect);
+    if (img.isEmpty()) return null;
+    let s = img.getSize(), b = img.toBitmap(), k = Math.sqrt(b.length / 4 / Math.max(1, s.width * s.height));
+    const px = s.width * k * s.height * k, MAX = 4e6;
+    if (px > MAX) { const f = Math.sqrt(MAX / px); img = img.resize({ width: Math.round(s.width * k * f), quality: 'good' }); s = img.getSize(); b = img.toBitmap(); k = Math.sqrt(b.length / 4 / Math.max(1, s.width * s.height)); }
+    return { w: Math.round(s.width * k), h: Math.round(s.height * k), data: b };
+  } catch (err) { return null; }
 });
 
 // ---------- 닫기 전 묻기(저장하지 않은 변경·렌더 중) ----------

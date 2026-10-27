@@ -33,7 +33,7 @@ test('main window shows without maximizing/fullscreen; explicit test sizes stay 
       once(event,fn){if(event==='ready-to-show')ready=fn;} on(){} loadURL(){}
       maximize(){throw new Error('must not maximize');} show(){shown=true;}
     }
-    const c={BrowserWindow:FakeWindow,initialWindowBounds,screen:{getCursorScreenPoint:()=>({x:100,y:100}),getDisplayNearestPoint:()=>({workArea:{x:0,y:0,width:1920,height:1040}})},TEST_SIZE:testSize,TEST_MODE:!!testSize,path,APP_DIR:'.',TITLEBAR_H:48,TITLEBAR_DARK:{},APP_ORIGIN:'app://weathercg',wireCloseGuard(){},win:null};
+    const c={BrowserWindow:FakeWindow,initialWindowBounds,screen:{getCursorScreenPoint:()=>({x:100,y:100}),getDisplayNearestPoint:()=>({workArea:{x:0,y:0,width:1920,height:1040}})},TEST_SIZE:testSize,TEST_MODE:!!testSize,path,APP_DIR:'.',TITLEBAR_H:48,TITLEBAR_DARK:{},APP_ORIGIN:'app://weathercg',wireCloseGuard(){},win:null,process:{env:{}}};
     c.__dirname=path.join(__dirname,'..');
     vm.createContext(c);vm.runInContext(source.slice(a,b)+'\ncreateWindow();',c);ready();
     assert.equal(options.fullscreen,false);assert.equal(options.show,false);

@@ -105,9 +105,12 @@ async function fetchWrn(keepSel, retry, opts) {
     $('#wrnPaste').value = t.slice(0, 200000);
     const read = wrnReadText(t);
     if (read.kind !== 'rows') return fail(read);   // 기상청 오류 문구·빈 응답·형식 이상(표 형식 바뀜 포함) — 지도는 그대로
+    const shot = await mapDropShot('#wrnFetch');   // 칠하기 직전 작업창 그림 — 칠한 뒤 NameDrop 물결로 걷는다(js/map-drop.js)
+    if (stale()) return (ok = null);
     const prevWhen = wrnWhen;
     wrnWhen = targetWhen;
     ok = applyWrn(t, keepSel, 'fetch', extra);
+    mapDropGo(shot);
     if (ok) reflectWhenToPicker(); else wrnWhen = prevWhen;
     return ok;
   } finally {
